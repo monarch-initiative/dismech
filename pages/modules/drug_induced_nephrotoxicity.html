@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,9 +1637,9 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">drug_induced_nephrotoxicity</span>
-                <span class="badge badge-count">1 disorder</span>
+                <span class="badge badge-count">4 disorders</span>
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
             </div>
             
@@ -1846,14 +1898,91 @@ This mechanism module involves decreased renal system process (GO:0003014). GO:0
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Balkan_Endemic_Nephropathy.html">Balkan Endemic Nephropathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake → Nephrotoxic Drug Exposure and Tubular Uptake
+                        
+                        
+                        , 
+                        
+                        Proximal Tubular Epithelial Cell Death
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cisplatin_Toxicity.html">Cisplatin Toxicity</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cisplatin Uptake by Transporter-Expressing Cells → Nephrotoxic Drug Exposure and Tubular Uptake
+                        
+                        
+                        , 
+                        
+                        Oxidative Stress and Mitochondrial Injury → Tubular Oxidative Stress and Mitochondrial Injury
+                        
+                        
+                        , 
+                        
+                        Proximal Tubular Epithelial Cell Death
+                        
+                        
+                        , 
+                        
+                        Cisplatin-Induced Acute Kidney Injury → Acute Kidney Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Ethylene_Glycol_Poisoning.html">Ethylene Glycol Poisoning</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation → Nephrotoxic Drug Exposure and Tubular Uptake
+                        
+                        
+                        , 
+                        
+                        Proximal Tubular Epithelial Cell Death
+                        
+                        
+                        , 
+                        
+                        Acute Kidney Injury
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Hospital-Acquired_Acute_Kidney_Injury.html">Hospital-Acquired Acute Kidney Injury</a>
@@ -1892,7 +2021,7 @@ This mechanism module involves decreased renal system process (GO:0003014). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Kidney Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated tubular cell loss and inflammation reduce the glomerular filtration rate, producing acute kidney injury \\u2014 the defining clinical consequence and frequently a dose-limiting toxicity that necessitates dose reduction or drug withdrawal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"renal system process\"], \"role\": \"consequence\"}}, {\"id\": \"Nephrotoxic Drug Exposure and Tubular Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conserved initiating lesion is renal handling of the drug: the proximal tubule is exposed to filtered and secreted compounds and takes them up via apical endocytosis or basolateral organic anion/cation transporters, leading to intracellular accumulation. This renal handling, combined with the drug\u0027s inherent toxicity, concentrates the insult in tubular epithelial cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"xenobiotic transport\"], \"role\": \"trigger\"}}, {\"id\": \"Proximal Tubular Epithelial Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial injury precipitate proximal tubular epithelial cell death by apoptosis and acute tubular necrosis (ATN). This is the central effector lesion and the key conformance target; conforming disorder nodes substitute the drug-specific upstream driver but converge here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"cell death\", \"apoptotic process\"], \"role\": \"central_effector\"}}, {\"id\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular drug accumulation generates reactive oxygen species and damages mitochondria in the metabolically active proximal tubule, the major amplifying event linking drug uptake to tubular cell death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"amplifier\"}}, {\"id\": \"Tubulointerstitial Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tubular cell death releases damage-associated signals that drive tubulointerstitial inflammation, which amplifies and extends the tubular injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"amplifier\"}}], \"edges\": [{\"source\": \"Nephrotoxic Drug Exposure and Tubular Uptake\", \"target\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated drug provokes oxidative and mitochondrial stress in tubular cells.\"}, {\"source\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"target\": \"Proximal Tubular Epithelial Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial injury precipitate tubular epithelial cell death.\"}, {\"source\": \"Proximal Tubular Epithelial Cell Death\", \"target\": \"Tubulointerstitial Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dying tubular cells release signals that recruit inflammatory cells.\"}, {\"source\": \"Proximal Tubular Epithelial Cell Death\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional tubular epithelium reduces kidney function.\"}, {\"source\": \"Tubulointerstitial Inflammation\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammatory injury extends nephron loss toward clinical AKI.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Kidney Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated tubular cell loss and inflammation reduce the glomerular filtration rate, producing acute kidney injury \\u2014 the defining clinical consequence and frequently a dose-limiting toxicity that necessitates dose reduction or drug withdrawal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"renal system process\"], \"role\": \"consequence\"}}, {\"id\": \"Exposure to a Nephrotoxic Drug\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The conserved initiating exposure across this module\u0027s culprit agents (cisplatin and other platinums, aminoglycosides, vancomycin, tenofovir, amphotericin B, iodinated contrast, NSAIDs) is systemic or renal exposure to a drug with intrinsic nephrotoxic potential. The kidney\u0027s role in concentrating, transporting, and excreting these compounds is what converts a systemic exposure into a renal insult.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nephrotoxic Drug Exposure and Tubular Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conserved initiating lesion is renal handling of the drug: the proximal tubule is exposed to filtered and secreted compounds and takes them up via apical endocytosis or basolateral organic anion/cation transporters, leading to intracellular accumulation. This renal handling, combined with the drug\u0027s inherent toxicity, concentrates the insult in tubular epithelial cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"xenobiotic transport\"], \"role\": \"trigger\"}}, {\"id\": \"Proximal Tubular Epithelial Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial injury precipitate proximal tubular epithelial cell death by apoptosis and acute tubular necrosis (ATN). This is the central effector lesion and the key conformance target; conforming disorder nodes substitute the drug-specific upstream driver but converge here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"cell death\", \"apoptotic process\"], \"role\": \"central_effector\"}}, {\"id\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular drug accumulation generates reactive oxygen species and damages mitochondria in the metabolically active proximal tubule, the major amplifying event linking drug uptake to tubular cell death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"amplifier\"}}, {\"id\": \"Tubulointerstitial Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tubular cell death releases damage-associated signals that drive tubulointerstitial inflammation, which amplifies and extends the tubular injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"amplifier\"}}], \"edges\": [{\"source\": \"Nephrotoxic Drug Exposure and Tubular Uptake\", \"target\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated drug provokes oxidative and mitochondrial stress in tubular cells.\"}, {\"source\": \"Tubular Oxidative Stress and Mitochondrial Injury\", \"target\": \"Proximal Tubular Epithelial Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial injury precipitate tubular epithelial cell death.\"}, {\"source\": \"Proximal Tubular Epithelial Cell Death\", \"target\": \"Tubulointerstitial Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dying tubular cells release signals that recruit inflammatory cells.\"}, {\"source\": \"Proximal Tubular Epithelial Cell Death\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional tubular epithelium reduces kidney function.\"}, {\"source\": \"Tubulointerstitial Inflammation\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammatory injury extends nephron loss toward clinical AKI.\"}, {\"source\": \"Exposure to a Nephrotoxic Drug\", \"target\": \"Nephrotoxic Drug Exposure and Tubular Uptake\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Renal handling of a nephrotoxic drug (apical contact and uptake, or basolateral transporter-mediated secretion) is the conserved route by which systemic drug exposure becomes proximal tubular injury.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1909,11 +2038,13 @@ This mechanism module involves decreased renal system process (GO:0003014). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-nephrotoxic-drug-exposure-and-tubular-uptake" data-dismech-node="Nephrotoxic Drug Exposure and Tubular Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrotoxic Drug Exposure and Tubular Uptake</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion is renal handling of the drug: the proximal tubule is exposed to filtered and secreted compounds and takes them up via apical endocytosis or basolateral organic anion/cation transporters, leading to intracellular accumulation. This renal handling, combined with the drug&#39;s inherent toxicity, concentrates the insult in tubular epithelial cells.</div>
                 
@@ -1987,6 +2118,34 @@ This pathophysiological event involves increased xenobiotic transport (GO:004290
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Balkan_Endemic_Nephropathy.html">Balkan Endemic Nephropathy</a>
+                            
+                            <span class="crosslink-desc">as Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cisplatin_Toxicity.html">Cisplatin Toxicity</a>
+                            
+                            <span class="crosslink-desc">as Cisplatin Uptake by Transporter-Expressing Cells</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Ethylene_Glycol_Poisoning.html">Ethylene Glycol Poisoning</a>
+                            
+                            <span class="crosslink-desc">as Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2007,11 +2166,13 @@ This pathophysiological event involves increased xenobiotic transport (GO:004290
             
             <div class="item-box anchor-target" id="module-pathophysiology-tubular-oxidative-stress-and-mitochondrial-injury" data-dismech-node="Tubular Oxidative Stress and Mitochondrial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubular Oxidative Stress and Mitochondrial Injury</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Intracellular drug accumulation generates reactive oxygen species and damages mitochondria in the metabolically active proximal tubule, the major amplifying event linking drug uptake to tubular cell death.</div>
                 
@@ -2106,6 +2267,20 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cisplatin_Toxicity.html">Cisplatin Toxicity</a>
+                            
+                            <span class="crosslink-desc">as Oxidative Stress and Mitochondrial Injury</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2126,11 +2301,13 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             
             <div class="item-box anchor-target" id="module-pathophysiology-proximal-tubular-epithelial-cell-death" data-dismech-node="Proximal Tubular Epithelial Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Tubular Epithelial Cell Death</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Oxidative and mitochondrial injury precipitate proximal tubular epithelial cell death by apoptosis and acute tubular necrosis (ATN). This is the central effector lesion and the key conformance target; conforming disorder nodes substitute the drug-specific upstream driver but converge here.</div>
                 
@@ -2237,6 +2414,21 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Balkan_Endemic_Nephropathy.html">Balkan Endemic Nephropathy</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cisplatin_Toxicity.html">Cisplatin Toxicity</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Ethylene_Glycol_Poisoning.html">Ethylene Glycol Poisoning</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hospital-Acquired_Acute_Kidney_Injury.html">Hospital-Acquired Acute Kidney Injury</a>
                             
                             <span class="crosslink-desc">as Nephrotoxic Injury</span>
@@ -2273,11 +2465,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-tubulointerstitial-inflammation" data-dismech-node="Tubulointerstitial Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubulointerstitial Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Tubular cell death releases damage-associated signals that drive tubulointerstitial inflammation, which amplifies and extends the tubular injury.</div>
                 
@@ -2371,11 +2565,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-acute-kidney-injury" data-dismech-node="Acute Kidney Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Kidney Injury</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Accumulated tubular cell loss and inflammation reduce the glomerular filtration rate, producing acute kidney injury — the defining clinical consequence and frequently a dose-limiting toxicity that necessitates dose reduction or drug withdrawal.</div>
                 
@@ -2449,11 +2645,33 @@ This pathophysiological event involves decreased renal system process (GO:000301
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cisplatin_Toxicity.html">Cisplatin Toxicity</a>
+                            
+                            <span class="crosslink-desc">as Cisplatin-Induced Acute Kidney Injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Ethylene_Glycol_Poisoning.html">Ethylene Glycol Poisoning</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

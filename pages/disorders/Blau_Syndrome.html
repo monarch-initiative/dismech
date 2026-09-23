@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4185,6 +4262,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related Conditions&#34;, the NOD2 row. IUIS keeps Blau syndrome out of the inflammasome section because the lesion is in a cytosolic NOD-like receptor that signals to NF-kappaB rather than one that nucleates an inflammasome; the table&#39;s functional-defect cell still uses the older CARD15 name for NOD2.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4319,6 +4413,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4340,6 +4435,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4405,6 +4501,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4426,6 +4523,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4529,6 +4627,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4550,6 +4649,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4648,6 +4748,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4669,6 +4770,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4746,6 +4848,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4767,6 +4870,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4804,6 +4908,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-nod2-nacht-domain-variants" data-dismech-node="Pathogenic NOD2 NACHT-Domain Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic NOD2 NACHT-Domain Variants</div>
+
 
                 <div class="item-desc">Heterozygous pathogenic NOD2 variants, often clustered in the central nucleotide-binding/NACHT domain, are the primary molecular lesion. Their clinical classification as gain-of-function alleles does not by itself resolve the context-dependent signaling behavior observed in different experimental systems.</div>
 
@@ -4906,6 +5011,7 @@ This pathophysiological event involves NOD2 (hgnc:5331). hgnc:5331 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4927,6 +5033,7 @@ This pathophysiological event involves NOD2 (hgnc:5331). hgnc:5331 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4952,6 +5059,7 @@ This pathophysiological event involves NOD2 (hgnc:5331). hgnc:5331 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ifn-primed-mutant-nod2-inflammatory-signaling" data-dismech-node="IFN-γ-Primed Mutant NOD2 Inflammatory Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">IFN-γ-Primed Mutant NOD2 Inflammatory Signaling</div>
+
 
                 <div class="item-desc">In isogenic iPSC-derived and patient-derived macrophages, IFN-gamma upregulates mutant NOD2 and enables ligand-independent NF-kappaB activation and proinflammatory cytokine production.</div>
 
@@ -5152,6 +5260,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5173,6 +5282,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5198,6 +5308,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-nod2-ripk2-irf4-cross-regulation" data-dismech-node="Defective NOD2-RIPK2-IRF4 Cross-Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective NOD2-RIPK2-IRF4 Cross-Regulation</div>
+
 
                 <div class="item-desc">Blau-associated NOD2 variants can reduce MDP-responsive RIPK2 signaling and IRF4 induction, weakening NOD2-mediated suppression of concurrent TLR responses. This model differs from simple constitutive activation.</div>
 
@@ -5330,6 +5441,7 @@ This pathophysiological event involves decreased NOD2 signaling pathway, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5352,6 +5464,7 @@ This pathophysiological event involves decreased NOD2 signaling pathway, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-innate-cytokine-response" data-dismech-node="Dysregulated Innate Cytokine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Innate Cytokine Response</div>
+
 
                 <div class="item-desc">Context-dependent mutant-NOD2 signaling and defective innate cross-regulation converge on abnormal macrophage cytokine production. The precise cytokine hierarchy in human lesions remains incompletely defined.</div>
 
@@ -5477,6 +5590,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5499,6 +5613,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulomatous-inflammation" data-dismech-node="Granulomatous Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulomatous Inflammation</div>
+
 
                 <div class="item-desc">Noncaseating epithelioid granulomas are the pathologic hallmark and occur in skin, synovium, and other involved tissues. How the competing mutant-NOD2 signaling models generate and maintain granulomas remains incompletely resolved.</div>
 
@@ -5686,6 +5801,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5708,6 +5824,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulomatous-synovitis-and-tenosynovitis" data-dismech-node="Granulomatous Synovitis and Tenosynovitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulomatous Synovitis and Tenosynovitis</div>
+
 
                 <div class="item-desc">Chronic granulomatous synovial and tendon-sheath inflammation produces boggy polyarthritis, contractures, and impaired function. The characteristic arthropathy can be severe but is often radiographically nonerosive.</div>
 
@@ -5811,6 +5928,7 @@ This pathophysiological event involves Synovial cell (CL:0000214). CL:0000214 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5833,6 +5951,7 @@ This pathophysiological event involves Synovial cell (CL:0000214). CL:0000214 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-inflammation" data-dismech-node="Ocular Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular Inflammation</div>
+
 
                 <div class="item-desc">Granulomatous uveitis, typically panuveitis, is the most sight-threatening manifestation. Can progress to cataracts, glaucoma, band keratopathy, and blindness if untreated.
 </div>
@@ -5949,6 +6068,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5970,6 +6090,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5995,6 +6116,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-granulomatosis" data-dismech-node="Cutaneous Granulomatosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Granulomatosis</div>
+
 
                 <div class="item-desc">Skin involvement manifests as a symmetrical, tan-colored, papular or lichenoid rash, often the earliest clinical sign. Biopsy reveals non-caseating granulomas in the dermis.
 </div>
@@ -6049,6 +6171,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6071,6 +6194,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-visceral-and-vascular-involvement" data-dismech-node="Visceral and Vascular Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Visceral and Vascular Involvement</div>
+
 
                 <div class="item-desc">Beyond the classic triad, Blau syndrome can involve visceral organs (liver, kidney, lung) and vasculature. Interstitial lung disease and vasculitis represent expanded manifestations that may be life-threatening.
 </div>
@@ -6133,6 +6257,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6154,6 +6279,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6216,6 +6342,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6237,6 +6364,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6309,11 +6437,9 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6356,6 +6482,9 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6370,6 +6499,7 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6437,6 +6567,9 @@ This clinical feature is Panuveitis (HP:0012121). HP:0012121 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6451,6 +6584,7 @@ This clinical feature is Panuveitis (HP:0012121). HP:0012121 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6475,6 +6609,7 @@ This clinical feature is Panuveitis (HP:0012121). HP:0012121 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6531,6 +6666,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6545,6 +6683,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6740,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6615,6 +6757,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6671,6 +6814,9 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6685,6 +6831,7 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,6 +6899,9 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6766,6 +6916,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6790,6 +6941,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6857,6 +7009,9 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6871,6 +7026,7 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6895,6 +7051,7 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6927,8 +7084,134 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-granulomatous-arthritis" data-dismech-node="Granulomatous Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Granulomatous Arthritis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Polyarticular arthritis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005764</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25416713" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25416713" target="_blank">PMID:25416713</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arthritis, documented in all but one patient, was oligoarticular in 7, polyarticular in 23"</div>
+
+
+                <div class="evidence-explanation">Multicentre study shows arthritis in 30/31 patients, polyarticular in the majority.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40350497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40350497" target="_blank">PMID:40350497</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At baseline, incidence of fever, arthritis, rash, dermatitis and uveitis were 34%, 93.6%, 72.3% and 31.9%"</div>
+
+
+                <div class="evidence-explanation">Chinese cohort confirms arthritis in 93.6% of patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17009307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17009307" target="_blank">PMID:17009307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arthritis was polyarticular in 96% of patients"</div>
+
+
+                <div class="evidence-explanation">International registry confirms polyarticular pattern in the vast majority.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-camptodactyly" data-dismech-node="Camptodactyly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6944,15 +7227,18 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6972,6 +7258,7 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7016,15 +7303,18 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002652</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002652</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7044,6 +7334,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7097,15 +7388,18 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0006530</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006530</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interstitial lung disease, annotated with Abnormal pulmonary interstitial morphology (HP:0006530). HP:0006530 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7128,6 +7422,7 @@ This clinical feature is Interstitial lung disease, annotated with Abnormal pulm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7136,135 +7431,6 @@ This clinical feature is Interstitial lung disease, annotated with Abnormal pulm
 
 
                 <div class="evidence-explanation">Chinese cohort shows interstitial lung disease in 17% of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-granulomatous-arthritis" data-dismech-node="Granulomatous Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Granulomatous Arthritis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Polyarticular arthritis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005764</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25416713" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25416713" target="_blank">PMID:25416713</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arthritis, documented in all but one patient, was oligoarticular in 7, polyarticular in 23"</div>
-
-
-                <div class="evidence-explanation">Multicentre study shows arthritis in 30/31 patients, polyarticular in the majority.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40350497" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40350497" target="_blank">PMID:40350497</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"At baseline, incidence of fever, arthritis, rash, dermatitis and uveitis were 34%, 93.6%, 72.3% and 31.9%"</div>
-
-
-                <div class="evidence-explanation">Chinese cohort confirms arthritis in 93.6% of patients.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17009307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17009307" target="_blank">PMID:17009307</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arthritis was polyarticular in 96% of patients"</div>
-
-
-                <div class="evidence-explanation">International registry confirms polyarticular pattern in the vast majority.</div>
 
 
 
@@ -7352,6 +7518,9 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7374,6 +7543,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,6 +7571,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7422,6 +7593,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7458,6 +7630,12 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent pathogenic missense variant c.1000C&gt;T in the NOD/NACHT domain. It was the most frequent single variant in the international prospective cohort.</div>
 
 
@@ -7482,6 +7660,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7516,6 +7695,12 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent pathogenic missense variant c.1001G&gt;A affecting the same NACHT-domain residue as p.Arg334Trp.</div>
 
 
@@ -7540,6 +7725,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,6 +7814,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7704,6 +7891,20 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Repeated slit-lamp and posterior-segment examinations are essential because ocular inflammation can become chronic panuveitis and systemic inflammatory markers may not reflect intraocular activity.</div>
 
 
@@ -7725,6 +7926,7 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7813,6 +8015,20 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic glucocorticoids can suppress acute inflammatory activity while a steroid-sparing regimen is established. Long-term monotherapy is generally inadequate and exposes children to cumulative toxicity.</div>
 
 
@@ -7837,6 +8053,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7858,6 +8075,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7946,6 +8164,20 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Methotrexate is commonly used for articular or ocular disease as a steroid-sparing conventional DMARD. Evidence is observational, and pooled uveitis data do not establish it as a preferred agent.</div>
 
 
@@ -8009,6 +8241,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8030,6 +8263,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8135,6 +8369,20 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Monoclonal TNF inhibitors such as adalimumab or infliximab are used for persistent uveitis or arthritis. Cohorts show frequent initial responses, but relapse and secondary loss of efficacy are common, and comparative evidence remains insufficient.</div>
 
 
@@ -8163,6 +8411,7 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8248,6 +8497,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8269,6 +8519,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8357,6 +8608,20 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anakinra has produced improvement in an individual refractory case, but evidence is too limited to establish general efficacy or a preferred place in therapy.</div>
 
 
@@ -8385,6 +8650,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8428,6 +8694,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8516,6 +8783,20 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tofacitinib suppresses IFN-gamma-induced NOD2 expression in cell models and has retrospective clinical evidence in refractory Blau syndrome. It remains an emerging option under prospective evaluation rather than an established standard.</div>
 
 
@@ -8544,6 +8825,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8629,6 +8911,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8650,6 +8933,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8758,6 +9042,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8779,6 +9064,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8869,6 +9155,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8890,6 +9177,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8980,6 +9268,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9067,6 +9356,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9132,6 +9422,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9182,6 +9473,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9229,6 +9521,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9296,6 +9589,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9396,6 +9690,7 @@ This treatment targets Panuveitis (HP:0012121). HP:0012121 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9520,6 +9815,7 @@ This dataset samples macrophage (CL:0000235). CL:0000235 is a sample type from t
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9624,6 +9920,7 @@ This clinical trial targets Panuveitis (HP:0012121). HP:0012121 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9716,6 +10013,7 @@ This clinical trial targets Panuveitis (HP:0012121). HP:0012121 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9737,6 +10035,7 @@ This clinical trial targets Panuveitis (HP:0012121). HP:0012121 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9824,6 +10123,7 @@ This clinical trial targets Panuveitis (HP:0012121). HP:0012121 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9877,6 +10177,25 @@ classifications:
       evidence_source: OTHER
       snippet: &#34;Blau syndrome (BlauS) is a rare pediatric autoinflammatory disorder due to NOD2 gain-of-function pathogenic variants characterized by a triad of granulomatous dermatitis, arthritis, and uveitis, which can progress to systemic complications if untreated.&#34;
       explanation: The review classifies Blau syndrome as a systemic pediatric autoinflammatory disorder.
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related
+      Conditions&#34;, the NOD2 row. IUIS keeps Blau syndrome out of the inflammasome
+      section because the lesion is in a cytosolic NOD-like receptor that signals
+      to NF-kappaB rather than one that nucleates an inflammasome; the table&#39;s
+      functional-defect cell still uses the older CARD15 name for NOD2.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Blau syndrome NOD2 AD 186580 Monocytes&#34;
+      explanation: &gt;-
+        The IUIS Table 7 non-inflammasome-section row places Blau syndrome, with
+        its NOD2 genetic defect, autosomal dominant inheritance, OMIM 186580 and
+        monocyte affected cells, among the autoinflammatory disorders.
 mappings:
   mondo_mappings:
   - term:
@@ -11834,6 +12153,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12296,7 +12617,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Blau Syndrome", "mondoId": "MONDO:0008523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Blau_Syndrome", "yamlRevision": "8758e1571e1f"};
+        const OS_CONFIG = {"diseaseName": "Blau Syndrome", "mondoId": "MONDO:0008523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Blau_Syndrome", "yamlRevision": "987d3e9a943a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

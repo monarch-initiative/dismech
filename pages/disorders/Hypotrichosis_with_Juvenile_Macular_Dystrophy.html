@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypotrichosis%20with%20Juvenile%20Macular%20Dystrophy"
@@ -3971,7 +4048,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4099,6 +4176,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4120,6 +4198,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4189,6 +4268,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CDH3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1762</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CDH3 (hgnc:1762). hgnc:1762 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Classic presentation with congenital hypotrichosis and progressive juvenile-onset macular dystrophy without limb malformations. The most commonly reported CDH3-related phenotype.
@@ -4212,6 +4310,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4254,6 +4353,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CDH3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1762</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CDH3 (hgnc:1762). hgnc:1762 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">CDH3-related phenotype additionally featuring limb malformations (ectrodactyly) alongside hypotrichosis and macular dystrophy. Now considered part of the same continuous phenotypic spectrum as HJMD rather than a separate genetic disorder.
@@ -4277,6 +4395,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4325,6 +4444,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-p-cadherin-mediated-cell-cell-adhesion" data-dismech-node="Loss of P-Cadherin-Mediated Cell-Cell Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of P-Cadherin-Mediated Cell-Cell Adhesion</div>
 
+
                 <div class="item-desc">CDH3 encodes P-cadherin, a classical cadherin that mediates calcium-dependent homophilic cell-cell adhesion at adherens junctions. Biallelic loss-of-function mutations (deletions, nonsense, missense, splice-site) abolish or severely impair P-cadherin function, disrupting intercellular adhesion in tissues where it is selectively expressed: the retinal pigment epithelium and hair follicles.
 </div>
 
@@ -4340,11 +4460,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4370,11 +4490,11 @@ This pathophysiological event involves Retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002559</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002559</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hair follicle cell (CL:0002559). CL:0002559 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4396,6 +4516,122 @@ This pathophysiological event involves Hair follicle cell (CL:0002559). CL:00025
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CDH3
+
+
+    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:1762</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDH3 (hgnc:1762). hgnc:1762 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CDH3
+
+
+    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1762</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns CDH3 (hgnc:1762). hgnc:1762 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Biallelic germline loss-of-function CDH3 variants. Most reported families are consanguineous with a homozygous variant; compound heterozygosity is also documented.
+</div>
+
 
 
 
@@ -4411,11 +4647,11 @@ This pathophysiological event involves Hair follicle cell (CL:0002559). CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016339" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0016339</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016339" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016339</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Calcium-dependent cell-cell adhesion (GO:0016339). GO:0016339 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4445,11 +4681,11 @@ This pathophysiological event involves decreased Calcium-dependent cell-cell adh
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0044331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0044331</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Cell-cell adhesion mediated by cadherin (GO:0044331). GO:0044331 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4524,6 +4760,7 @@ This pathophysiological event involves decreased Cell-cell adhesion mediated by 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4545,6 +4782,7 @@ This pathophysiological event involves decreased Cell-cell adhesion mediated by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4571,6 +4809,7 @@ This pathophysiological event involves decreased Cell-cell adhesion mediated by 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-pigment-epithelium-degeneration" data-dismech-node="Retinal Pigment Epithelium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Pigment Epithelium Degeneration</div>
 
+
                 <div class="item-desc">Loss of P-cadherin disrupts adherens and tight-junction integrity between RPE cells, including the outer blood-retinal barrier adhesion context. Secondary photoreceptor loss occurs as the RPE monolayer fails to support photoreceptor maintenance. This manifests as chorioretinal atrophy confined to the posterior pole, with preservation of the peripheral retina. The macular dysfunction is progressive, with deteriorating visual acuity over time.
 </div>
 
@@ -4586,11 +4825,11 @@ This pathophysiological event involves decreased Cell-cell adhesion mediated by 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4627,11 +4866,11 @@ This pathophysiological event involves Retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003406" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0003406</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003406" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0003406</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Retinal pigment epithelium development (GO:0003406). GO:0003406 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4661,11 +4900,11 @@ This pathophysiological event involves dysregulated Retinal pigment epithelium d
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034332" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0034332</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034332" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034332</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Adherens junction organization (GO:0034332). GO:0034332 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4731,6 +4970,7 @@ This pathophysiological event involves decreased Adherens junction organization 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4752,6 +4992,7 @@ This pathophysiological event involves decreased Adherens junction organization 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4779,6 +5020,7 @@ This pathophysiological event involves decreased Adherens junction organization 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4802,6 +5044,7 @@ This pathophysiological event involves decreased Adherens junction organization 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-photoreceptor-degeneration" data-dismech-node="Secondary Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Photoreceptor Degeneration</div>
 
+
                 <div class="item-desc">Loss of RPE integrity and function leads to secondary degeneration of photoreceptors in the posterior pole. P-cadherin is expressed in the RPE but not in photoreceptors; therefore, photoreceptor loss is a downstream consequence of RPE dysfunction rather than a primary cell-autonomous defect. This manifests as progressive central visual loss with preserved peripheral retinal function.
 </div>
 
@@ -4817,11 +5060,11 @@ This pathophysiological event involves decreased Adherens junction organization 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000210</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4858,11 +5101,11 @@ This pathophysiological event involves Photoreceptor cell (CL:0000210). CL:00002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0045494</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4955,6 +5198,7 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4978,6 +5222,7 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-follicle-dysfunction" data-dismech-node="Hair Follicle Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair Follicle Dysfunction</div>
 
+
                 <div class="item-desc">P-cadherin is expressed in hair follicle placodes during development and in the hair matrix. Loss of P-cadherin disrupts normal hair follicle cycling and anchoring of the hair shaft, resulting in sparse, short, slow-growing scalp hair from birth. Body hair, eyebrows, and eyelashes are typically spared or less severely affected.
 </div>
 
@@ -4993,11 +5238,11 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002559</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002559</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hair follicle cell (CL:0002559). CL:0002559 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5023,11 +5268,11 @@ This pathophysiological event involves Hair follicle cell (CL:0002559). CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:2000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:2000092</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hair follicular keratinocyte (CL:2000092). CL:2000092 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5064,11 +5309,11 @@ This pathophysiological event involves Hair follicular keratinocyte (CL:2000092)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001942" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001942" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0001942</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Hair follicle development (GO:0001942). GO:0001942 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5143,6 +5388,7 @@ This pathophysiological event involves dysregulated Hair follicle development (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5164,6 +5410,7 @@ This pathophysiological event involves dysregulated Hair follicle development (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5212,7 +5459,7 @@ This pathophysiological event involves dysregulated Hair follicle development (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular dysfunction on electrophysiology with relatively preserved generalized retinal function. Full-field ERG may be normal or show mild generalized dysfunction, while multifocal ERG demonstrates markedly reduced central responses. Some patients may develop more widespread cone-rod dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Secondary Photoreceptor Degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Electroretinographic macular dysfunction reflects secondary photoreceptor degeneration downstream of RPE loss.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Central Scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field defect corresponding to the area of macular atrophy. Peripheral visual fields are preserved, consistent with the restricted distribution of chorioretinal atrophy to the posterior pole.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Central Visual Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bilateral central visual loss beginning in the first or second decade of life. Visual acuity deteriorates over time, often leading to legal blindness by the third decade. Peripheral visual fields are typically preserved.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000572\"}}, {\"id\": \"Chorioretinal Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral chorioretinal atrophy confined to the posterior pole, contiguous with the optic disc. On fundus autofluorescence, there is marked loss of autofluorescence in affected areas. OCT demonstrates atrophy of the outer retina, RPE, and choroid, with outer retinal tubulations frequently observed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000533\"}}, {\"id\": \"Congenital Sparse Scalp Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, short, and slow-growing scalp hair present from birth. Hair is thin, fragile, and easily lost. This is typically the earliest and most conspicuous clinical feature, often the presenting sign that leads to diagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002209\"}}, {\"id\": \"Hair Follicle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P-cadherin is expressed in hair follicle placodes during development and in the hair matrix. Loss of P-cadherin disrupts normal hair follicle cycling and anchoring of the hair shaft, resulting in sparse, short, slow-growing scalp hair from birth. Body hair, eyebrows, and eyelashes are typically spared or less severely affected.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hair follicle cell\", \"Hair follicular keratinocyte\"], \"biological_processes\": [\"Hair follicle development\"]}}, {\"id\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDH3 encodes P-cadherin, a classical cadherin that mediates calcium-dependent homophilic cell-cell adhesion at adherens junctions. Biallelic loss-of-function mutations (deletions, nonsense, missense, splice-site) abolish or severely impair P-cadherin function, disrupting intercellular adhesion in tissues where it is selectively expressed: the retinal pigment epithelium and hair follicles.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal pigment epithelial cell\", \"Hair follicle cell\"], \"biological_processes\": [\"Calcium-dependent cell-cell adhesion\", \"Cell-cell adhesion mediated by cadherin\"]}}, {\"id\": \"Progressive Hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse thinning and progressive loss of scalp hair. While hypotrichosis is present from birth, it may worsen over time with continued difficulty in hair growth.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002296\"}}, {\"id\": \"Progressive Macular Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bilateral macular degeneration beginning in childhood or adolescence. Fundus examination reveals chorioretinal atrophy of the posterior pole contiguous with the optic disc, with loss of autofluorescence on fundus autofluorescence imaging. OCT shows variable atrophy of the outer retina, RPE, and choroid. Peripheral retina is typically preserved.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007754\"}}, {\"id\": \"Retinal Pigment Epithelium Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin disrupts adherens and tight-junction integrity between RPE cells, including the outer blood-retinal barrier adhesion context. Secondary photoreceptor loss occurs as the RPE monolayer fails to support photoreceptor maintenance. This manifests as chorioretinal atrophy confined to the posterior pole, with preservation of the peripheral retina. The macular dysfunction is progressive, with deteriorating visual acuity over time.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Retinal pigment epithelium development\", \"Adherens junction organization\"]}}, {\"id\": \"Secondary Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of RPE integrity and function leads to secondary degeneration of photoreceptors in the posterior pole. P-cadherin is expressed in the RPE but not in photoreceptors; therefore, photoreceptor loss is a downstream consequence of RPE dysfunction rather than a primary cell-autonomous defect. This manifests as progressive central visual loss with preserved peripheral retinal function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Photoreceptor cell\"], \"biological_processes\": [\"Photoreceptor cell maintenance\"]}}], \"edges\": [{\"source\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"target\": \"Retinal Pigment Epithelium Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin-mediated adhesion affects the retinal pigment epithelium, where P-cadherin is normally expressed.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"target\": \"Hair Follicle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin-mediated adhesion affects hair follicles, where P-cadherin is normally expressed.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Pigment Epithelium Degeneration\", \"target\": \"Secondary Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction leads to secondary photoreceptor loss rather than a primary photoreceptor-autonomous defect.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of RPE support for photoreceptor maintenance\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Progressive Macular Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary photoreceptor degeneration in the posterior pole manifests as progressive macular dystrophy.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"posterior-pole photoreceptor loss\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Central Visual Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive macular degeneration produces central visual loss and can progress to blindness.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive macular degeneration\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Chorioretinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CDH3-related retinal lesion is characterized by progressive chorioretinal atrophy in the posterior pole.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Central Scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular photoreceptor loss produces central field defects.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Follicle Dysfunction\", \"target\": \"Congenital Sparse Scalp Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-follicle dysfunction manifests from birth as sparse, short scalp hair.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Follicle Dysfunction\", \"target\": \"Progressive Hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital hair-follicle phenotype can persist as diffuse thinning and progressive hypotrichosis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Abnormal Electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Electroretinographic macular dysfunction reflects secondary photoreceptor degeneration downstream of RPE loss.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular dysfunction on electrophysiology with relatively preserved generalized retinal function. Full-field ERG may be normal or show mild generalized dysfunction, while multifocal ERG demonstrates markedly reduced central responses. Some patients may develop more widespread cone-rod dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Secondary Photoreceptor Degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Electroretinographic macular dysfunction reflects secondary photoreceptor degeneration downstream of RPE loss.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"CDH3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CDH3\"], \"gene_terms\": [{\"label\": \"CDH3\", \"id\": \"hgnc:1762\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Central Scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field defect corresponding to the area of macular atrophy. Peripheral visual fields are preserved, consistent with the restricted distribution of chorioretinal atrophy to the posterior pole.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Central Visual Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bilateral central visual loss beginning in the first or second decade of life. Visual acuity deteriorates over time, often leading to legal blindness by the third decade. Peripheral visual fields are typically preserved.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000572\"}}, {\"id\": \"Chorioretinal Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral chorioretinal atrophy confined to the posterior pole, contiguous with the optic disc. On fundus autofluorescence, there is marked loss of autofluorescence in affected areas. OCT demonstrates atrophy of the outer retina, RPE, and choroid, with outer retinal tubulations frequently observed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000533\"}}, {\"id\": \"Congenital Sparse Scalp Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, short, and slow-growing scalp hair present from birth. Hair is thin, fragile, and easily lost. This is typically the earliest and most conspicuous clinical feature, often the presenting sign that leads to diagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002209\"}}, {\"id\": \"Hair Follicle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P-cadherin is expressed in hair follicle placodes during development and in the hair matrix. Loss of P-cadherin disrupts normal hair follicle cycling and anchoring of the hair shaft, resulting in sparse, short, slow-growing scalp hair from birth. Body hair, eyebrows, and eyelashes are typically spared or less severely affected.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hair follicle cell\", \"Hair follicular keratinocyte\"], \"biological_processes\": [\"Hair follicle development\"]}}, {\"id\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDH3 encodes P-cadherin, a classical cadherin that mediates calcium-dependent homophilic cell-cell adhesion at adherens junctions. Biallelic loss-of-function mutations (deletions, nonsense, missense, splice-site) abolish or severely impair P-cadherin function, disrupting intercellular adhesion in tissues where it is selectively expressed: the retinal pigment epithelium and hair follicles.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal pigment epithelial cell\", \"Hair follicle cell\"], \"biological_processes\": [\"Calcium-dependent cell-cell adhesion\", \"Cell-cell adhesion mediated by cadherin\"], \"genes\": [\"CDH3\"], \"gene_terms\": [{\"label\": \"CDH3\", \"id\": \"hgnc:1762\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline loss-of-function CDH3 variants. Most reported families are consanguineous with a homozygous variant; compound heterozygosity is also documented.\\n\", \"gene_terms\": [{\"label\": \"CDH3\", \"id\": \"hgnc:1762\"}]}}}, {\"id\": \"Progressive Hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse thinning and progressive loss of scalp hair. While hypotrichosis is present from birth, it may worsen over time with continued difficulty in hair growth.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002296\"}}, {\"id\": \"Progressive Macular Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bilateral macular degeneration beginning in childhood or adolescence. Fundus examination reveals chorioretinal atrophy of the posterior pole contiguous with the optic disc, with loss of autofluorescence on fundus autofluorescence imaging. OCT shows variable atrophy of the outer retina, RPE, and choroid. Peripheral retina is typically preserved.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007754\"}}, {\"id\": \"Retinal Pigment Epithelium Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin disrupts adherens and tight-junction integrity between RPE cells, including the outer blood-retinal barrier adhesion context. Secondary photoreceptor loss occurs as the RPE monolayer fails to support photoreceptor maintenance. This manifests as chorioretinal atrophy confined to the posterior pole, with preservation of the peripheral retina. The macular dysfunction is progressive, with deteriorating visual acuity over time.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Retinal pigment epithelium development\", \"Adherens junction organization\"]}}, {\"id\": \"Secondary Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of RPE integrity and function leads to secondary degeneration of photoreceptors in the posterior pole. P-cadherin is expressed in the RPE but not in photoreceptors; therefore, photoreceptor loss is a downstream consequence of RPE dysfunction rather than a primary cell-autonomous defect. This manifests as progressive central visual loss with preserved peripheral retinal function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Photoreceptor cell\"], \"biological_processes\": [\"Photoreceptor cell maintenance\"]}}], \"edges\": [{\"source\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"target\": \"Retinal Pigment Epithelium Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin-mediated adhesion affects the retinal pigment epithelium, where P-cadherin is normally expressed.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"target\": \"Hair Follicle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of P-cadherin-mediated adhesion affects hair follicles, where P-cadherin is normally expressed.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Pigment Epithelium Degeneration\", \"target\": \"Secondary Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction leads to secondary photoreceptor loss rather than a primary photoreceptor-autonomous defect.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of RPE support for photoreceptor maintenance\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Progressive Macular Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary photoreceptor degeneration in the posterior pole manifests as progressive macular dystrophy.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"posterior-pole photoreceptor loss\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Central Visual Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive macular degeneration produces central visual loss and can progress to blindness.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive macular degeneration\"]}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Chorioretinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CDH3-related retinal lesion is characterized by progressive chorioretinal atrophy in the posterior pole.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Central Scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular photoreceptor loss produces central field defects.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Follicle Dysfunction\", \"target\": \"Congenital Sparse Scalp Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-follicle dysfunction manifests from birth as sparse, short scalp hair.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Follicle Dysfunction\", \"target\": \"Progressive Hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital hair-follicle phenotype can persist as diffuse thinning and progressive hypotrichosis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Photoreceptor Degeneration\", \"target\": \"Abnormal Electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Electroretinographic macular dysfunction reflects secondary photoreceptor degeneration downstream of RPE loss.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CDH3\", \"target\": \"Loss of P-Cadherin-Mediated Cell-Cell Adhesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5231,15 +5478,13 @@ This pathophysiological event involves dysregulated Hair follicle development (G
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5249,7 +5494,7 @@ This pathophysiological event involves dysregulated Hair follicle development (G
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-macular-dystrophy" data-dismech-node="Progressive Macular Dystrophy" data-dismech-type="phenotype">
@@ -5268,15 +5513,18 @@ This pathophysiological event involves dysregulated Hair follicle development (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0007754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007754</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5296,6 +5544,7 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5323,6 +5572,7 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5344,6 +5594,7 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5386,15 +5637,18 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000572</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000572</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5414,6 +5668,7 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5441,6 +5696,7 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5449,6 +5705,80 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
                 <div class="evidence-explanation">Confirms that progressive central retinal degeneration typically leads to legal blindness by age 30.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chorioretinal Atrophy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000533</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27386845" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27386845" target="_blank">PMID:27386845</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fundus examination revealed chorioretinal atrophy of the posterior pole contiguous with the disc in all but 1 patient that was associated with marked loss of autofluorescence on fundus autofluorescence imaging."</div>
+
+
+                <div class="evidence-explanation">Chorioretinal atrophy of the posterior pole was present in 9 of 10 patients in the largest HJMD case series.</div>
 
 
 
@@ -5480,15 +5810,18 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000603</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000603</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5508,6 +5841,7 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5550,15 +5884,18 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007703</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007703</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5578,6 +5915,7 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5620,15 +5958,18 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000512</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5648,6 +5989,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5672,6 +6014,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5723,15 +6066,18 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002209</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002209</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5751,6 +6097,7 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5778,6 +6125,7 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5799,6 +6147,7 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5831,8 +6180,82 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-hypotrichosis" data-dismech-node="Progressive Hypotrichosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Hypotrichosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002296" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002296</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive hypotrichosis (HP:0002296). HP:0002296 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33837674" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33837674" target="_blank">PMID:33837674</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dermatological examination revealed diffuse thinning of the scalp hair, which was sparse and fragile."</div>
+
+
+                <div class="evidence-explanation">Documents diffuse thinning of sparse and fragile scalp hair in Japanese HJMD patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nail-dystrophy" data-dismech-node="Nail Dystrophy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5850,15 +6273,18 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5878,6 +6304,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5931,15 +6358,18 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ectrodactyly (HP:0100257). HP:0100257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Limb anomalies are the distinguishing feature between HJMD and EEM syndrome. The same CDH3 mutation can cause HJMD in one family and EEM in another, suggesting modifier gene involvement.
@@ -5962,6 +6392,7 @@ This clinical feature is Ectrodactyly (HP:0100257). HP:0100257 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6420,7 @@ This clinical feature is Ectrodactyly (HP:0100257). HP:0100257 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5997,155 +6429,6 @@ This clinical feature is Ectrodactyly (HP:0100257). HP:0100257 is a phenotype fr
 
 
                 <div class="evidence-explanation">Supports the concept that HJMD and EEM with ectrodactyly are part of a continuous CDH3-related phenotypic spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chorioretinal Atrophy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000533</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27386845" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27386845" target="_blank">PMID:27386845</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fundus examination revealed chorioretinal atrophy of the posterior pole contiguous with the disc in all but 1 patient that was associated with marked loss of autofluorescence on fundus autofluorescence imaging."</div>
-
-
-                <div class="evidence-explanation">Chorioretinal atrophy of the posterior pole was present in 9 of 10 patients in the largest HJMD case series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-hypotrichosis" data-dismech-node="Progressive Hypotrichosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Hypotrichosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002296" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002296</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive hypotrichosis (HP:0002296). HP:0002296 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33837674" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33837674" target="_blank">PMID:33837674</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dermatological examination revealed diffuse thinning of the scalp hair, which was sparse and fragile."</div>
-
-
-                <div class="evidence-explanation">Documents diffuse thinning of sparse and fragile scalp hair in Japanese HJMD patients.</div>
 
 
 
@@ -6218,14 +6501,16 @@ This clinical feature is Progressive hypotrichosis (HP:0002296). HP:0002296 is a
                         Gene: CDH3
 
 
-    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:1762</a>
+    <a href="https://bioregistry.io/hgnc:1762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:1762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
                 </div>
@@ -6233,9 +6518,12 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -6247,6 +6535,7 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6274,6 +6563,7 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6298,6 +6588,7 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6311,6 +6602,8 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6345,7 +6638,7 @@ This disease-associated gene is CDH3 (hgnc:1762). hgnc:1762 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6377,6 +6670,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families and carriers, particularly important given the high prevalence in consanguineous populations.
 </div>
 
@@ -6399,6 +6706,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,7 +6738,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">ophthalmologist evaluation<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">ophthalmologist evaluation<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is ophthalmologist evaluation, annotated with Eye Examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6463,6 +6771,20 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular ophthalmological monitoring for all patients with congenital hypotrichosis, as macular changes may precede visual symptoms. Serial retinal imaging (OCT, fundus autofluorescence) is important to track disease progression.
 </div>
 
@@ -6485,6 +6807,7 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6516,7 +6839,7 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6549,6 +6872,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive management of progressive central visual loss with low vision aids and rehabilitation. No curative or disease-modifying therapy currently exists for the retinal dystrophy.
 </div>
 
@@ -6568,7 +6905,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6601,6 +6938,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Retinal cadherinopathies including HJMD are considered potentially treatable with molecular therapeutic approaches, but this entry does not model any approved therapy, active clinical trial, or CDH3-specific preclinical efficacy study. Gene replacement or gene editing strategies targeting CDH3 in the RPE remain future directions inferred from the broader retinal cadherinopathy review literature.
 </div>
 
@@ -6623,6 +6985,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6687,11 +7050,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6734,6 +7097,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6758,6 +7122,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6779,6 +7144,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6825,11 +7191,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         ophthalmologist evaluation
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C38060</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C38060</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6872,6 +7238,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6896,6 +7263,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6917,6 +7285,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,11 +7334,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7012,6 +7381,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7036,6 +7406,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7057,6 +7428,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7103,11 +7475,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         ophthalmologist evaluation
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C38060</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C38060</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7147,6 +7519,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7233,6 +7606,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7284,6 +7658,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7305,6 +7680,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7359,6 +7735,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7380,6 +7757,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7451,6 +7829,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7475,6 +7854,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7496,6 +7876,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7602,6 +7983,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7674,6 +8056,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7844,6 +8227,11 @@ has_subtypes:
     Classic presentation with congenital hypotrichosis and progressive juvenile-onset
     macular dystrophy without limb malformations. The most commonly reported CDH3-related
     phenotype.
+  genes:
+  - preferred_term: CDH3
+    term:
+      id: hgnc:1762
+      label: CDH3
   evidence:
   - reference: PMID:11544476
     reference_title: Hypotrichosis with juvenile macular dystrophy is caused by a mutation in CDH3, encoding P-cadherin.
@@ -7862,6 +8250,11 @@ has_subtypes:
     CDH3-related phenotype additionally featuring limb malformations (ectrodactyly)
     alongside hypotrichosis and macular dystrophy. Now considered part of the same
     continuous phenotypic spectrum as HJMD rather than a separate genetic disorder.
+  genes:
+  - preferred_term: CDH3
+    term:
+      id: hgnc:1762
+      label: CDH3
   evidence:
   - reference: PMID:35038959
     reference_title: &#39;The first reported case of CDH3-related hypotrichosis with juvenile macular dystrophy from Jordan: a case report.&#39;
@@ -7930,6 +8323,24 @@ pathophysiology:
     mutations (deletions, nonsense, missense, splice-site) abolish or severely impair
     P-cadherin function, disrupting intercellular adhesion in tissues where it is
     selectively expressed: the retinal pigment epithelium and hair follicles.
+  genes:
+  - preferred_term: CDH3
+    term:
+      id: hgnc:1762
+      label: CDH3
+  genetic_context:
+    genes:
+    - preferred_term: CDH3
+      term:
+        id: hgnc:1762
+        label: CDH3
+    variant_origin: GERMLINE
+    zygosity: HOMOZYGOUS
+    functional_impact_category: LOSS_OF_FUNCTION
+    description: &gt;
+      Biallelic germline loss-of-function CDH3 variants. Most reported families are
+      consanguineous with a homozygous variant; compound heterozygosity is also
+      documented.
   cell_types:
   - preferred_term: Retinal pigment epithelial cell
     term:
@@ -8471,9 +8882,13 @@ genetic:
       id: hgnc:1762
       label: CDH3
   association: Causative
+  relationship_type: CAUSATIVE
   notes: &gt;
     HJMD is caused by biallelic loss-of-function mutations in CDH3 (16q22.1),
-    which encodes P-cadherin. Over 35 pathogenic variants have been reported,
+    which encodes P-cadherin. CDH3 is the sole gene known to cause both
+    phenotypes in this entry&#39;s spectrum: the classic HJMD subtype and the EEM
+    subtype, which adds ectrodactyly. Thirty-five CDH3 pathogenic variants were
+    recorded in HGMD Professional as of January 2020,
     including frameshift deletions, nonsense mutations, splice-site mutations,
     missense mutations, and gross deletions. Most reported families are
     consanguineous with homozygous mutations, but compound heterozygosity
@@ -8499,6 +8914,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In HJMD patients, no phenotype-genotype correlation has been established for hair and retinal changes between the type of mutation and its location along the CDH3 gene.&#34;
     explanation: Documents the lack of genotype-phenotype correlation, noting that the same mutation can cause different clinical manifestations.
+  - reference: PMID:33837674
+    reference_title: The first Japanese family of CDH3-related hypotrichosis with juvenile macular dystrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;To date, 35 pathogenic variants of CDH3 have been reported in the Human Gene Mutation Database&#34;
+    explanation: Source for the count of reported CDH3 pathogenic variants given in the notes above.
 
 diagnosis:
 - name: CDH3 Molecular Genetic Testing
@@ -8860,6 +9281,60 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Hypotrichosis with Juvenile Macular Dystrophy (Changes required)</strong> · 2026-05-30T05:03:29Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypotrichosis_with_Juvenile_Macular_Dystrophy/2026-05-30T050329Z-github-review-3466.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3466
+Issue state: OPEN
+Issue created: 2026-05-30T05:03:29Z
+Issue updated: 2026-05-30T05:10:16Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Hypotrichosis with Juvenile Macular Dystrophy**
+- Entry: `kb/disorders/Hypotrichosis_with_Juvenile_Macular_Dystrophy.yaml`
+- Selection basis: #74 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Diagnosis should be added.** The entry has no diagnosis section. Add CDH3 molecular testing, ophthalmologic exam/OCT/ERG, fundus findings, visual-field assessment, hair phenotype assessment, and differential diagnosis with EEM syndrome and other macular dystrophies.
+2. **Subtype/lumping with EEM needs clarity.** The YAML includes HJMD and EEM subtypes under CDH3. That is appropriate allelic spectrum curation, but limb/nail findings should be attached to EEM rather than generic HJMD.
+3. **Gene therapy entry needs evidence-status precision.** `Gene Therapy (Investigational)` is listed. It should include specific preclinical or trial evidence and not imply active approved therapy.
+4. **Progression should be represented.** Juvenile-onset progressive macular dystrophy/central visual loss is central; the entry should model progression and low-vision planning.
+5. **Pathophysiology is good but should mention retinal pigment epithelium/photoreceptor adhesion context.** P-cadherin-mediated adhesion, RPE degeneration, photoreceptor degeneration, and hair follicle dysfunction are present; connect them to CDH3 tissue expression/evidence.
+
+## Research-artifact cross-check
+
+Matching artifacts: `research/Hypotrichosis_with_Juvenile_Macular_Dystrophy-deep-research-asta.md` and `.citations.md`. Asta should be treated as leads; primary CDH3/HJMD/EEM reports should anchor updates.
+
+## Content-completeness summary
+
+- **Phenotypes:** good; map HJMD versus EEM-specific limb/nail features.
+- **Subtype/lumping:** clarify CDH3 allelic spectrum.
+- **Pathophysiology:** good; add tissue-specific adhesion detail.
+- **Management/diagnosis:** diagnosis missing; treatment/trial status needs precision.
+
+## Sources used
+
+- CDH3 HJMD/EEM review, PMID:28055614: https://pubmed.ncbi.nlm.nih.gov/28055614/
+- HJMD clinical report: https://pmc.ncbi.nlm.nih.gov/articles/PMC4749818/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9235,7 +9710,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypotrichosis with Juvenile Macular Dystrophy", "mondoId": "MONDO:0011107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypotrichosis_with_Juvenile_Macular_Dystrophy", "yamlRevision": "62c6eeb67d36"};
+        const OS_CONFIG = {"diseaseName": "Hypotrichosis with Juvenile Macular Dystrophy", "mondoId": "MONDO:0011107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypotrichosis_with_Juvenile_Macular_Dystrophy", "yamlRevision": "f52322e5b552"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

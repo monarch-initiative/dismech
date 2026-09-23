@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4117,6 +4194,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4300,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4243,6 +4322,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4348,6 +4428,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4435,6 +4516,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4497,6 +4579,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4661,6 +4744,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-eprs1-variants" data-dismech-node="Biallelic EPRS1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic EPRS1 Variants</div>
 
+
                 <div class="item-desc">Biallelic variants in EPRS1. The variants are not equivalent: they act through different proximate routes, which is why this node branches rather than asserting a single consequence. No blanket functional_impact_category is set here — PMID:33805425 explicitly leaves open whether R339X acts by loss of function or by toxic gain of function, so the category is recorded per variant on the nodes below.</div>
 
 
@@ -4736,7 +4820,12 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
 
+
+
     </div>
+
+
+
 
 
 
@@ -4814,6 +4903,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4835,6 +4925,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4860,6 +4951,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-m6a-dependent-eprs1-mrna-export-and-translation" data-dismech-node="Impaired m6A-Dependent EPRS1 mRNA Export and Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired m6A-Dependent EPRS1 mRNA Export and Translation</div>
+
 
                 <div class="item-desc">The p.Pro1482Thr variant reduces METTL3-mediated m6A writing and reading by YTHDC1 and YTHDF1/3, producing dual defects in nuclear export and cytoplasmic translation of the EPRS1 transcript. This is a rescuable lesion: antisense morpholinos exposing the m6A sites, or targeted RNA methylation with METTL3-dCas13b, restored expression in patient cells.</div>
 
@@ -4962,6 +5054,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4983,6 +5076,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5008,6 +5102,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-eprs1-protein" data-dismech-node="Reduced EPRS1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced EPRS1 Protein</div>
+
 
                 <div class="item-desc">Reduced amount and reduced specific activity of the EPRS1 enzyme, measured in patient fibroblasts, lymphoblasts and recombinant protein. This is the convergence point of the loss-of-protein routes; the aggregation branch reaches myelination without passing through it.</div>
 
@@ -5077,9 +5172,14 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5138,6 +5238,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5159,6 +5260,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5184,6 +5286,7 @@ This genetic context concerns EPRS1 (hgnc:3418). hgnc:3418 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutant-eprs1-aggregation-in-rab7-vesicles" data-dismech-node="Mutant EPRS1 Aggregation in Rab7 Vesicles" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutant EPRS1 Aggregation in Rab7 Vesicles</div>
+
 
                 <div class="item-desc">R339X mutant EPRS1 forms polymeric aggregates in Rab7-positive late endosomal vesicles and upregulates Rab7 regulatory signalling, blocking the morphological differentiation that oligodendroglial cells require to form myelin sheets.</div>
 
@@ -5288,6 +5391,7 @@ This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5310,6 +5414,7 @@ This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-translation-capacity-in-developing-brain" data-dismech-node="Reduced Translation Capacity in Developing Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Translation Capacity in Developing Brain</div>
+
 
                 <div class="item-desc">Lowered aminoacylation capacity is proposed to limit the high protein synthesis demand of active myelination. This node is the hypothesized convergence point of the aaRS leukodystrophies and has not been measured directly in HLD15 brain tissue.</div>
 
@@ -5409,6 +5514,7 @@ This pathophysiological event involves decreased Translation (GO:0006412). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5537,7 @@ This pathophysiological event involves decreased Translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-cns-myelination" data-dismech-node="Insufficient CNS Myelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient CNS Myelination</div>
+
 
                 <div class="item-desc">The defining tissue-level lesion: hypomyelination of central white matter with a thin corpus callosum on MRI.</div>
 
@@ -5489,6 +5596,7 @@ This pathophysiological event involves decreased Translation (GO:0006412). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5560,15 +5668,13 @@ This pathophysiological event involves decreased Translation (GO:0006412). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(6)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5609,6 +5715,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5623,6 +5732,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5688,6 +5798,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5702,6 +5815,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,7 +5848,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic Atrophy" data-dismech-type="phenotype">
@@ -5765,6 +5879,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5779,6 +5896,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5833,6 +5951,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5847,6 +5968,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5903,6 +6025,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5920,6 +6045,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5928,6 +6054,78 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                 <div class="evidence-explanation">Lists significant visual loss among the HLD15 features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-amblyopia" data-dismech-node="Amblyopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Amblyopia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000646</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
+
+
+                <div class="evidence-explanation">Lists variable amblyopia among the HLD15 features.</div>
 
 
 
@@ -5966,15 +6164,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5994,6 +6195,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6220,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6050,7 +6253,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
@@ -6067,15 +6270,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6095,6 +6301,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6121,18 +6328,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Ataxia
+                        Axial Hypotonia
 
 
 
@@ -6144,83 +6342,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
-
-
-                <div class="evidence-explanation">Lists ataxia among the HLD15 features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dystonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0008936</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6229,142 +6362,6 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
-
-
-                <div class="evidence-explanation">Lists dystonia among the HLD15 features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001272</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypomyelination; supratentorial atrophy; cerebellar atrophy; corpus callosum thinning"</div>
-
-
-                <div class="evidence-explanation">A Table 1 imaging row naming cerebellar atrophy directly. This replaces an earlier quote about cerebral white matter atrophy, which described a different structure and so could not support this claim at any grade.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6376,6 +6373,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6386,191 +6384,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                 <div class="evidence-snippet">"The Proband, Sibling 1, is an 18-year-old male with severe global developmental delays and intellectual disability, ataxia, microcephaly, rotatory nystagmus, axial hypotonia, and progressive bilateral lower limb spasticity on serial neurological examinations."</div>
 
 
-                <div class="evidence-explanation">Primary clinical observation, in the same sentence already cited for the developmental delay. Intellectual disability is named as a finding distinct from the delay rather than as a restatement of it.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a 40-year-old woman with mild intellectual disability, ataxia, dystonia"</div>
-
-
-                <div class="evidence-explanation">The 2026 adult-onset case, where mild intellectual disability is the presenting feature rather than an accompaniment to severe delay.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ProRS-domain variants often show the typical HLD15 imaging pattern, whereas GluRS-domain variants may be associated with seizures, deafness, and less obvious hypomyelination, though the number of reported cases is limited."</div>
-
-
-                <div class="evidence-explanation">Graded PARTIAL and OTHER: the source hedges (&#34;may be associated&#34;, &#34;the number of reported cases is limited&#34;) and is summarizing the published series rather than reporting its own seizure observation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global Developmental Delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38769304" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38769304" target="_blank">PMID:38769304</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Exome sequencing of two siblings with severe cognitive and motor impairment and progressive hypomyelination characteristic of HLD revealed homozygosity for a missense single-nucleotide variant (SNV) in EPRS1 (c.4444 C &gt; A; p.Pro1482Thr), encoding glutamyl-prolyl-tRNA synthetase, consistent with HLD15."</div>
-
-
-                <div class="evidence-explanation">Documents severe cognitive and motor impairment in the two reported siblings.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We describe a 40-year-old woman with mild intellectual disability, ataxia, dystonia, and MRI showing hypomyelination."</div>
-
-
-                <div class="evidence-explanation">A counterpoint rather than a confirmation: this patient&#39;s cognitive impairment was mild and adult-presenting. Graded PARTIAL because it supports developmental impairment as a feature while contradicting &#34;severe&#34; as a universal descriptor.</div>
+                <div class="evidence-explanation">Primary clinical observation, in the same sentence that records the spasticity.</div>
 
 
 
@@ -6588,11 +6402,11 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Nervous System
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="phenotype">
@@ -6609,15 +6423,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003429</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003429</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6637,6 +6454,7 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6677,15 +6495,18 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0033725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0033725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6708,6 +6529,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6716,6 +6538,150 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                 <div class="evidence-explanation">States the thin corpus callosum as part of the HLD15 imaging signature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
+
+
+                <div class="evidence-explanation">Lists ataxia among the HLD15 features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dystonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
+
+
+                <div class="evidence-explanation">Lists dystonia among the HLD15 features.</div>
 
 
 
@@ -6745,15 +6711,115 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral white matter atrophy (HP:0012762). HP:0012762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI revealed extensive cerebral white matter atrophy accompanied by hyperintensity on T2-weighted images, with thinning of the corpus callosum"</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own patient, imaged directly.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypomyelination; supratentorial atrophy; corpus callosum thinning"</div>
+
+
+                <div class="evidence-explanation">Table 1 row for patients 1 and 2, showing the finding recurs beyond the index case. Patient-level imaging findings for two human patients, so HUMAN_CLINICAL, whoever first published them. Note the scope: this row evidences the finding&#39;s recurrence, not the 6-of-8 tally, which is a curator aggregation stated in the description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar Atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001272</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6776,14 +6842,15 @@ This clinical feature is Cerebral white matter atrophy (HP:0012762). HP:0012762 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Brain MRI revealed extensive cerebral white matter atrophy accompanied by hyperintensity on T2-weighted images, with thinning of the corpus callosum"</div>
+                <div class="evidence-snippet">"hypomyelination; cerebellar atrophy; corpus callosum thinning"</div>
 
 
-                <div class="evidence-explanation">The authors&#39; own patient, imaged directly.</div>
+                <div class="evidence-explanation">Patient 8&#39;s own Table 1 MRI row (marked &#34;*The present case&#34; — the authors&#39; own patient, imaged directly). The earlier quote for this row was a string shared with patients 3, 4, 6 and 7, so it did not identify the patient the claim is about; this row is unique to patient 8. The change is one of snippet specificity, not of evidence grade — both quotes are human patient-level imaging findings.</div>
 
 
 
@@ -6799,9 +6866,9 @@ This clinical feature is Cerebral white matter atrophy (HP:0012762). HP:0012762 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial Hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Axial Hypotonia
+                        Intellectual Disability
 
 
 
@@ -6813,12 +6880,12 @@ This clinical feature is Cerebral white matter atrophy (HP:0012762). HP:0012762 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6827,9 +6894,12 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6844,6 +6914,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6851,7 +6922,32 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                 <div class="evidence-snippet">"The Proband, Sibling 1, is an 18-year-old male with severe global developmental delays and intellectual disability, ataxia, microcephaly, rotatory nystagmus, axial hypotonia, and progressive bilateral lower limb spasticity on serial neurological examinations."</div>
 
 
-                <div class="evidence-explanation">Primary clinical observation, in the same sentence that records the spasticity.</div>
+                <div class="evidence-explanation">Primary clinical observation, in the same sentence already cited for the developmental delay. Intellectual disability is named as a finding distinct from the delay rather than as a restatement of it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a 40-year-old woman with mild intellectual disability, ataxia, dystonia"</div>
+
+
+                <div class="evidence-explanation">The 2026 adult-onset case, where mild intellectual disability is the presenting feature rather than an accompaniment to severe delay.</div>
 
 
 
@@ -6867,9 +6963,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-amblyopia" data-dismech-node="Amblyopia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Amblyopia
+                        Seizures
 
 
 
@@ -6881,15 +6977,18 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000646</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6901,10 +7000,10 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33805425" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33805425" target="_blank">PMID:33805425</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
                     </span>
 
 
@@ -6912,14 +7011,112 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The features of HLD15 include significant visual loss with variable amblyopia and dysphagia as well as dystonia, ataxia, and spasticity, although the severity of the disorder is variable."</div>
+                <div class="evidence-snippet">"ProRS-domain variants often show the typical HLD15 imaging pattern, whereas GluRS-domain variants may be associated with seizures, deafness, and less obvious hypomyelination, though the number of reported cases is limited."</div>
 
 
-                <div class="evidence-explanation">Lists variable amblyopia among the HLD15 features.</div>
+                <div class="evidence-explanation">Graded PARTIAL and OTHER: the source hedges (&#34;may be associated&#34;, &#34;the number of reported cases is limited&#34;) and is summarizing the published series rather than reporting its own seizure observation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38769304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38769304" target="_blank">PMID:38769304</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exome sequencing of two siblings with severe cognitive and motor impairment and progressive hypomyelination characteristic of HLD revealed homozygosity for a missense single-nucleotide variant (SNV) in EPRS1 (c.4444 C &gt; A; p.Pro1482Thr), encoding glutamyl-prolyl-tRNA synthetase, consistent with HLD15."</div>
+
+
+                <div class="evidence-explanation">Documents severe cognitive and motor impairment in the two reported siblings.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41721156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41721156" target="_blank">PMID:41721156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe a 40-year-old woman with mild intellectual disability, ataxia, dystonia, and MRI showing hypomyelination."</div>
+
+
+                <div class="evidence-explanation">A counterpoint rather than a confirmation: this patient&#39;s cognitive impairment was mild and adult-presenting. Graded PARTIAL because it supports developmental impairment as a feature while contradicting &#34;severe&#34; as a universal descriptor.</div>
 
 
 
@@ -7007,6 +7204,9 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7021,6 +7221,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7048,6 +7249,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7069,6 +7271,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7114,6 +7317,12 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Shared by two of the four originally reported individuals. Reduces EPRS1 protein amount without disturbing assembly of the multi-tRNA synthetase complex, so this variant separates &#34;less enzyme&#34; from &#34;broken complex&#34;.</div>
 
 
@@ -7138,6 +7347,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7172,6 +7382,12 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous in two siblings. Acts at the RNA level, masking accessibility of variant-distal m6A sites and impairing nuclear export and translation of the EPRS1 transcript. The only HLD15 variant with a demonstrated rescue. Falls in the ProRS half of the bifunctional enzyme, the side the published series associates with the typical hypomyelinating imaging pattern. PMID:41721156 labels it a &#34;Zn2+-binding-domain&#34; variant, which is not a third category: the zinc-binding domain is a ProRS sub-domain, as the primary report&#39;s own domain figure shows.</div>
 
 
@@ -7199,6 +7415,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7220,6 +7437,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7254,6 +7472,12 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A nonsense variant whose residual product forms polymeric aggregates in Rab7-positive vesicles and blocks oligodendroglial differentiation. Its source explicitly leaves open whether this is loss of function or toxic gain of function, which is why no blanket functional_impact_category is asserted for HLD15 as a whole.</div>
 
 
@@ -7278,6 +7502,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7312,6 +7537,12 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A ProRS-domain missense variant carried in trans with the exon-15 deletion in the 2026 adult-onset case. Because the deletion allele is silenced by nonsense-mediated decay, this allele alone determines residual EPRS1 function, making it the cleanest ProRS-domain exemplar available for the domain_dependent_phenotype hypothesis group: mild, adult-onset, with the typical hypomyelinating imaging pattern.</div>
 
 
@@ -7339,14 +7570,15 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Whole-exome sequencing identified a heterozygous missense variant in the prolyl-tRNA synthetase domain of EPRS1 (c.3430 C &gt; G; p.Leu1144Val, NM_004446.3), without second variant."</div>
+                <div class="evidence-snippet">"Whole-exome sequencing identified a heterozygous missense variant in the prolyl-tRNA synthetase domain of EPRS1 (c.3430 C &gt; G; p.Leu1144Val, NM_004446.3)"</div>
 
 
-                <div class="evidence-explanation">Assigns the variant to the prolyl-tRNA synthetase domain, which is what makes it an exemplar for the domain-dependent hypothesis.</div>
+                <div class="evidence-explanation">Assigns the variant to the prolyl-tRNA synthetase domain, which is what makes it an exemplar for the domain-dependent hypothesis. &#34;Heterozygous&#34; describes the whole-exome-sequencing result alone, not the final genotype: the second allele, the 220-bp exon-15 deletion, was found later by whole-genome sequencing (see the EPRS1 c.1743-30_1932del node below), making this variant one half of a compound-heterozygous genotype rather than a monoallelic finding.</div>
 
 
 
@@ -7360,6 +7592,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7394,6 +7627,12 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A 220-bp deletion spanning exon 15, in trans with p.Leu1144Val. The first exonic deletion reported in EPRS1; the transcript is cleared by nonsense-mediated decay, leaving the missense allele to determine the phenotype.</div>
 
 
@@ -7418,6 +7657,7 @@ This disease-associated gene is EPRS1 (hgnc:3418). hgnc:3418 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7545,6 +7785,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is symptomatic — for example anticonvulsant medication for patients with spasticity — alongside serial imaging and supportive care.</div>
 
 
@@ -7566,6 +7820,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7641,6 +7896,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7662,6 +7918,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7921,6 +8178,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7960,6 +8218,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8111,6 +8370,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8192,6 +8452,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8732,10 +8993,17 @@ phenotypes:
 - category: Neurological
   name: Cerebral White Matter Atrophy
   description: &gt;-
-    Supratentorial white matter atrophy, listed for 6 of the 8 published
-    biallelic-EPRS1 patients in Table 1, with cortical atrophy — a distinct
-    finding — in a seventh. Distinct from the hypomyelination: tissue is lost,
-    not merely under-myelinated.
+    Supratentorial white matter atrophy, a curator tally read off the Table 1
+    imaging column for 6 of the 8 published biallelic-EPRS1 patients (patients
+    1, 2, 3, 4, 6 and 7), with cortical atrophy — a distinct finding — in a
+    seventh (patient 5). No single quotable sentence carries that count;
+    it is aggregated across the eight rows rather than asserted by the source.
+    Distinct from the hypomyelination: tissue is lost, not merely
+    under-myelinated. The narrative below reports &#34;extensive cerebral white
+    matter atrophy&#34; in patient 8 (the present case), but that patient&#39;s own
+    Table 1 row lists only cerebellar atrophy, not supratentorial atrophy — the
+    two are not interchangeable, and the Cerebellar Atrophy phenotype in this
+    entry relies on the table row rather than this narrative sentence.
   phenotype_term:
     preferred_term: Cerebral white matter atrophy
     term:
@@ -8749,6 +9017,17 @@ phenotypes:
     snippet: &#34;Brain MRI revealed extensive cerebral white matter atrophy accompanied by hyperintensity on T2-weighted images, with thinning of the corpus callosum&#34;
     explanation: &gt;-
       The authors&#39; own patient, imaged directly.
+  - reference: PMID:41721156
+    reference_title: Compound heterozygosity of a novel missense variant and exonic deletion in hypomyelinating leukodystrophy 15.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;hypomyelination; supratentorial atrophy; corpus callosum thinning&#34;
+    explanation: &gt;-
+      Table 1 row for patients 1 and 2, showing the finding recurs beyond the
+      index case. Patient-level imaging findings for two human patients, so
+      HUMAN_CLINICAL, whoever first published them. Note the scope: this row
+      evidences the finding&#39;s recurrence, not the 6-of-8 tally, which is a
+      curator aggregation stated in the description.
 - category: Neurological
   name: Cerebellar Atrophy
   description: &gt;-
@@ -8763,11 +9042,14 @@ phenotypes:
     reference_title: Compound heterozygosity of a novel missense variant and exonic deletion in hypomyelinating leukodystrophy 15.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;hypomyelination; supratentorial atrophy; cerebellar atrophy; corpus callosum thinning&#34;
+    snippet: &#34;hypomyelination; cerebellar atrophy; corpus callosum thinning&#34;
     explanation: &gt;-
-      A Table 1 imaging row naming cerebellar atrophy directly. This replaces an
-      earlier quote about cerebral white matter atrophy, which described a
-      different structure and so could not support this claim at any grade.
+      Patient 8&#39;s own Table 1 MRI row (marked &#34;*The present case&#34; — the authors&#39;
+      own patient, imaged directly). The earlier quote for this row was a string
+      shared with patients 3, 4, 6 and 7, so it did not identify the patient the
+      claim is about; this row is unique to patient 8. The change is one of
+      snippet specificity, not of evidence grade — both quotes are human
+      patient-level imaging findings.
 - category: Neurological
   name: Microcephaly
   description: &gt;-
@@ -9192,10 +9474,15 @@ variants:
     reference_title: Compound heterozygosity of a novel missense variant and exonic deletion in hypomyelinating leukodystrophy 15.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Whole-exome sequencing identified a heterozygous missense variant in the prolyl-tRNA synthetase domain of EPRS1 (c.3430 C &gt; G; p.Leu1144Val, NM_004446.3), without second variant.&#34;
+    snippet: &#34;Whole-exome sequencing identified a heterozygous missense variant in the prolyl-tRNA synthetase domain of EPRS1 (c.3430 C &gt; G; p.Leu1144Val, NM_004446.3)&#34;
     explanation: &gt;-
       Assigns the variant to the prolyl-tRNA synthetase domain, which is what
-      makes it an exemplar for the domain-dependent hypothesis.
+      makes it an exemplar for the domain-dependent hypothesis. &#34;Heterozygous&#34;
+      describes the whole-exome-sequencing result alone, not the final
+      genotype: the second allele, the 220-bp exon-15 deletion, was found
+      later by whole-genome sequencing (see the EPRS1 c.1743-30_1932del node
+      below), making this variant one half of a compound-heterozygous genotype
+      rather than a monoallelic finding.
   - reference: PMID:41721156
     reference_title: Compound heterozygosity of a novel missense variant and exonic deletion in hypomyelinating leukodystrophy 15.
     supports: SUPPORT
@@ -9516,7 +9803,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypomyelinating Leukodystrophy 15", "mondoId": "MONDO:0054782", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypomyelinating_Leukodystrophy_15", "yamlRevision": "7ba38ac17e4a"};
+        const OS_CONFIG = {"diseaseName": "Hypomyelinating Leukodystrophy 15", "mondoId": "MONDO:0054782", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypomyelinating_Leukodystrophy_15", "yamlRevision": "e8046d561082"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

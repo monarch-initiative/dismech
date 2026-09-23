@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">cerebellar_purkinje_degeneration</span>
-                <span class="badge badge-count">18 disorders</span>
+                <span class="badge badge-count">26 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1786,29 +1838,16 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">18</span>
+                <span class="card-count">26</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Adult-Onset_Ataxia_and_Polyneuropathy.html">Adult-Onset Ataxia and Polyneuropathy</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Adult-Onset Ataxia with Axonal Polyneuropathy → Cerebellar Ataxia
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Ataxia_With_Oculomotor_Apraxia_Type_1.html">Ataxia With Oculomotor Apraxia Type 1</a>
@@ -1831,24 +1870,19 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
                 </div>
                 
                 <div class="crosslink-item">
-                    <a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia.html">Autosomal Dominant Cerebellar Ataxia</a>
+                    <a href="../disorders/Ataxia_With_Oculomotor_Apraxia_Type_2.html">Ataxia With Oculomotor Apraxia Type 2</a>
                     
                     <span class="crosslink-desc">
                         via
                         
                         
                         
-                        Dominantly Inherited Cerebellar Neuron Insult → Cerebellar Neuron Insult
+                        Chronic Genomic and Proteostatic Stress in Post-Mitotic Neurons → Cerebellar Neuron Insult
                         
                         
                         , 
                         
-                        Purkinje Neuron Degeneration and Loss of Cerebellar Output → Purkinje Neuron Degeneration
-                        
-                        
-                        , 
-                        
-                        Progressive Ataxic Syndrome → Cerebellar Ataxia
+                        Purkinje Cell Degeneration in the Cerebellar Cortex → Purkinje Neuron Degeneration
                         
                         
                     </span>
@@ -1951,6 +1985,36 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Charcot-Marie-Tooth_Disease_Type_2B2.html">Charcot-Marie-Tooth Disease Type 2B2</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cerebellar Neuronal Injury → Cerebellar Neuron Insult
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/MEPAN_Syndrome.html">MEPAN Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cerebellar Purkinje Cell Degeneration → Purkinje Neuron Degeneration
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -1964,6 +2028,31 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
                         , 
                         
                         Progressive Cerebellar Ataxia → Cerebellar Ataxia
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.html">Neurodegeneration Childhood-onset With Cerebellar Atrophy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        CCP1 Deglutamylase Deficiency → Cerebellar Neuron Insult
+                        
+                        
+                        , 
+                        
+                        Purkinje Neuron Degeneration
+                        
+                        
+                        , 
+                        
+                        Cerebellar Ataxia and Movement Disorder → Cerebellar Ataxia
                         
                         
                     </span>
@@ -2036,6 +2125,56 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Spinocerebellar_Ataxia_48.html">Spinocerebellar Ataxia 48</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cerebellar Purkinje Cell Degeneration → Purkinje Neuron Degeneration
+                        
+                        
+                        , 
+                        
+                        Disruption of Cerebello-Cerebral Motor and Cognitive Circuits → Loss of Cerebellar Cortical Output
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spinocerebellar_Ataxia_Type_1.html">Spinocerebellar Ataxia Type 1</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Purkinje Cell Dysfunction and Dendritic Atrophy → Purkinje Cell Calcium and Proteostasis Dysregulation
+                        
+                        
+                        , 
+                        
+                        Purkinje Neuron Degeneration
+                        
+                        
+                        , 
+                        
+                        Loss of Cerebellar Cortical Output
+                        
+                        
+                        , 
+                        
+                        Progressive Cerebellar and Bulbar Syndrome → Cerebellar Ataxia
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Spinocerebellar_ataxia_type_17.html">Spinocerebellar ataxia type 17</a>
                     
                     <span class="crosslink-desc">
@@ -2089,6 +2228,86 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
                         , 
                         
                         Progressive Cerebellar Ataxia → Cerebellar Ataxia
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spinocerebellar_Ataxia_Type_31.html">Spinocerebellar Ataxia Type 31</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        BEAN1/TK2 Intronic (TGGAA)n Pentanucleotide Repeat Insertion → Cerebellar Neuron Insult
+                        
+                        
+                        , 
+                        
+                        Purkinje Cell Degeneration → Purkinje Neuron Degeneration
+                        
+                        
+                        , 
+                        
+                        Progressive Cerebellar Ataxia → Cerebellar Ataxia
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spinocerebellar_Ataxia_Type_36.html">Spinocerebellar Ataxia Type 36</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Intronic GGCCTG Repeat Expansion in NOP56 → Cerebellar Neuron Insult
+                        
+                        
+                        , 
+                        
+                        Purkinje Cell Degeneration → Purkinje Neuron Degeneration
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spinocerebellar_Ataxia_Type_6.html">Spinocerebellar Ataxia Type 6</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Purkinje Cell Degeneration → Purkinje Neuron Degeneration
+                        
+                        
+                        , 
+                        
+                        Cerebellar Cortical Atrophy → Loss of Cerebellar Cortical Output
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/SQSTM1-Related_Childhood-Onset_Neurodegeneration.html">SQSTM1-Related Childhood-Onset Neurodegeneration</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cerebellar and Brainstem Neuron Proteostatic Stress → Cerebellar Neuron Insult
                         
                         
                     </span>
@@ -2164,11 +2383,13 @@ This mechanism module involves abnormal nervous system process (GO:0050877). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-cerebellar-neuron-insult" data-dismech-node="Cerebellar Neuron Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Neuron Insult</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A genetic, metabolic, mitochondrial/DNA-repair, or toxic insult perturbs cerebellar neurons, with the cerebellar Purkinje cell being especially vulnerable. The molecular lesion is heterogeneous across disorders (repeat-expansion proteotoxicity, ion-channel or calcium-handling defects, impaired protein quality control), but the diverse insults converge on a shared program of Purkinje cell stress that initiates the degenerative cascade.</div>
                 
@@ -2254,9 +2475,9 @@ This pathophysiological event involves increased cellular response to stress (GO
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia.html">Autosomal Dominant Cerebellar Ataxia</a>
+                            <a href="../disorders/Ataxia_With_Oculomotor_Apraxia_Type_2.html">Ataxia With Oculomotor Apraxia Type 2</a>
                             
-                            <span class="crosslink-desc">as Dominantly Inherited Cerebellar Neuron Insult</span>
+                            <span class="crosslink-desc">as Chronic Genomic and Proteostatic Stress in Post-Mitotic Neurons</span>
                             
                         </div>
                         
@@ -2264,6 +2485,20 @@ This pathophysiological event involves increased cellular response to stress (GO
                             <a href="../disorders/Autosomal_Recessive_Ataxia_Beauce_Type.html">Autosomal Recessive Ataxia Beauce Type</a>
                             
                             <span class="crosslink-desc">as Disrupted Nuclear-Cytoskeletal LINC Coupling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Charcot-Marie-Tooth_Disease_Type_2B2.html">Charcot-Marie-Tooth Disease Type 2B2</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar Neuronal Injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.html">Neurodegeneration Childhood-onset With Cerebellar Atrophy</a>
+                            
+                            <span class="crosslink-desc">as CCP1 Deglutamylase Deficiency</span>
                             
                         </div>
                         
@@ -2288,6 +2523,27 @@ This pathophysiological event involves increased cellular response to stress (GO
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_31.html">Spinocerebellar Ataxia Type 31</a>
+                            
+                            <span class="crosslink-desc">as BEAN1/TK2 Intronic (TGGAA)n Pentanucleotide Repeat Insertion</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_36.html">Spinocerebellar Ataxia Type 36</a>
+                            
+                            <span class="crosslink-desc">as Intronic GGCCTG Repeat Expansion in NOP56</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/SQSTM1-Related_Childhood-Onset_Neurodegeneration.html">SQSTM1-Related Childhood-Onset Neurodegeneration</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar and Brainstem Neuron Proteostatic Stress</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2309,11 +2565,13 @@ This pathophysiological event involves increased cellular response to stress (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-purkinje-cell-calcium-and-proteostasis-dysregulation" data-dismech-node="Purkinje Cell Calcium and Proteostasis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Calcium and Proteostasis Dysregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating insult disrupts intracellular calcium homeostasis and protein quality control in cerebellar Purkinje cells. Purkinje cells depend on a finely tuned complement of calcium channels, calcium-dependent kinases and phosphatases, and calcium-binding proteins; perturbation of this balance (and, in proteotoxic disorders, accumulation of aggregation-prone proteins) activates toxic cascades that constitute the amplifying step linking the primary lesion to overt neurodegeneration.</div>
                 
@@ -2392,6 +2650,13 @@ This pathophysiological event involves dysregulated calcium ion homeostasis (GO:
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_1.html">Spinocerebellar Ataxia Type 1</a>
+                            
+                            <span class="crosslink-desc">as Purkinje Cell Dysfunction and Dendritic Atrophy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Spinocerebellar_ataxia_type_17.html">Spinocerebellar ataxia type 17</a>
                             
                             <span class="crosslink-desc">as Cerebellar INPP5A loss drives Purkinje cell vulnerability</span>
@@ -2426,11 +2691,13 @@ This pathophysiological event involves dysregulated calcium ion homeostasis (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-purkinje-neuron-degeneration" data-dismech-node="Purkinje Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Neuron Degeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained calcium and proteostatic stress activate toxic intracellular cascades that drive Purkinje neuron dysfunction and apoptotic cell death. Loss of these neurons, accompanied by cerebellar atrophy and gliosis, is the central effector event shared across the spinocerebellar ataxias and other cerebellar degenerations, and it precedes degeneration of other cerebellar neuronal populations in many SCAs.</div>
                 
@@ -2509,9 +2776,9 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia.html">Autosomal Dominant Cerebellar Ataxia</a>
+                            <a href="../disorders/Ataxia_With_Oculomotor_Apraxia_Type_2.html">Ataxia With Oculomotor Apraxia Type 2</a>
                             
-                            <span class="crosslink-desc">as Purkinje Neuron Degeneration and Loss of Cerebellar Output</span>
+                            <span class="crosslink-desc">as Purkinje Cell Degeneration in the Cerebellar Cortex</span>
                             
                         </div>
                         
@@ -2558,6 +2825,18 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/MEPAN_Syndrome.html">MEPAN Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar Purkinje Cell Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.html">Neurodegeneration Childhood-onset With Cerebellar Atrophy</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Spinocerebellar_ataxia_27B.html">Spinocerebellar ataxia 27B</a>
                             
                             <span class="crosslink-desc">as Purkinje Neuron Degeneration and Cerebellar Atrophy</span>
@@ -2572,6 +2851,18 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_48.html">Spinocerebellar Ataxia 48</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar Purkinje Cell Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_1.html">Spinocerebellar Ataxia Type 1</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Spinocerebellar_ataxia_type_17.html">Spinocerebellar ataxia type 17</a>
                             
                             <span class="crosslink-desc">as Cerebellar Purkinje cell degeneration</span>
@@ -2582,6 +2873,27 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                             <a href="../disorders/Spinocerebellar_Ataxia_Type_23.html">Spinocerebellar Ataxia Type 23</a>
                             
                             <span class="crosslink-desc">as Purkinje Cell Degeneration and Climbing Fibre Retraction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_31.html">Spinocerebellar Ataxia Type 31</a>
+                            
+                            <span class="crosslink-desc">as Purkinje Cell Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_36.html">Spinocerebellar Ataxia Type 36</a>
+                            
+                            <span class="crosslink-desc">as Purkinje Cell Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_6.html">Spinocerebellar Ataxia Type 6</a>
+                            
+                            <span class="crosslink-desc">as Purkinje Cell Degeneration</span>
                             
                         </div>
                         
@@ -2620,11 +2932,13 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-cerebellar-cortical-output" data-dismech-node="Loss of Cerebellar Cortical Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Cortical Output</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Purkinje cells provide the sole inhibitory output of the cerebellar cortex to the deep cerebellar nuclei (DCN). Their dysfunction and degeneration remove this inhibitory control, disinhibiting the DCN and corrupting the motor-coordination signals relayed to downstream motor areas. This disruption of cerebellar circuitry is the effector step that translates Purkinje cell loss into a movement-control deficit.</div>
                 
@@ -2714,6 +3028,25 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_48.html">Spinocerebellar Ataxia 48</a>
+                            
+                            <span class="crosslink-desc">as Disruption of Cerebello-Cerebral Motor and Cognitive Circuits</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_1.html">Spinocerebellar Ataxia Type 1</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_6.html">Spinocerebellar Ataxia Type 6</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar Cortical Atrophy</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2735,11 +3068,13 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
             
             <div class="item-box anchor-target" id="module-pathophysiology-cerebellar-ataxia" data-dismech-node="Cerebellar Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Ataxia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The combined loss of cerebellar Purkinje cells and corruption of cerebellar cortical output produce progressive incoordination of gait, limbs, and speech, with additional features such as dysarthria and nystagmus. This is the convergent clinical consequence of the module and corresponds to cerebellar ataxia (HP:0001251 Ataxia; MONDO:0000437 cerebellar ataxia).</div>
                 
@@ -2756,13 +3091,6 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Adult-Onset_Ataxia_and_Polyneuropathy.html">Adult-Onset Ataxia and Polyneuropathy</a>
-                            
-                            <span class="crosslink-desc">as Adult-Onset Ataxia with Axonal Polyneuropathy</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Ataxia_With_Oculomotor_Apraxia_Type_1.html">Ataxia With Oculomotor Apraxia Type 1</a>
                             
                             <span class="crosslink-desc">as Progressive Cerebellar Ataxia and Oculomotor Apraxia</span>
@@ -2770,16 +3098,16 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia.html">Autosomal Dominant Cerebellar Ataxia</a>
+                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
                             
-                            <span class="crosslink-desc">as Progressive Ataxic Syndrome</span>
+                            <span class="crosslink-desc">as Progressive Cerebellar Ataxia</span>
                             
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                            <a href="../disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.html">Neurodegeneration Childhood-onset With Cerebellar Atrophy</a>
                             
-                            <span class="crosslink-desc">as Progressive Cerebellar Ataxia</span>
+                            <span class="crosslink-desc">as Cerebellar Ataxia and Movement Disorder</span>
                             
                         </div>
                         
@@ -2798,7 +3126,21 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_1.html">Spinocerebellar Ataxia Type 1</a>
+                            
+                            <span class="crosslink-desc">as Progressive Cerebellar and Bulbar Syndrome</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Spinocerebellar_Ataxia_Type_23.html">Spinocerebellar Ataxia Type 23</a>
+                            
+                            <span class="crosslink-desc">as Progressive Cerebellar Ataxia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spinocerebellar_Ataxia_Type_31.html">Spinocerebellar Ataxia Type 31</a>
                             
                             <span class="crosslink-desc">as Progressive Cerebellar Ataxia</span>
                             
@@ -2812,6 +3154,9 @@ This pathophysiological event involves abnormal nervous system process (GO:00508
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

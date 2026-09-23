@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4199,6 +4276,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4223,6 +4301,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4244,6 +4323,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4327,6 +4407,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4436,6 +4517,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4457,6 +4539,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4568,6 +4651,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4592,6 +4676,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4613,6 +4698,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5243,6 +5329,7 @@ This experiment is of type gene-environment interaction animal model experiment.
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5267,6 +5354,7 @@ This experiment is of type gene-environment interaction animal model experiment.
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5288,6 +5376,7 @@ This experiment is of type gene-environment interaction animal model experiment.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5712,6 +5801,7 @@ This experiment is of type multi-laboratory enzyme kinetics replication study.</
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5736,6 +5826,7 @@ This experiment is of type multi-laboratory enzyme kinetics replication study.</
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5757,6 +5848,7 @@ This experiment is of type multi-laboratory enzyme kinetics replication study.</
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6069,6 +6161,7 @@ This experiment is of type seed amplification assay biomarker study.</span>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6093,6 +6186,7 @@ This experiment is of type seed amplification assay biomarker study.</span>
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6129,6 +6223,7 @@ This experiment is of type seed amplification assay biomarker study.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-park7-loss-of-function" data-dismech-node="Biallelic PARK7 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PARK7 Loss of Function</div>
+
 
                 <div class="item-desc">The initiating lesion is complete or near-complete loss of functional DJ-1 protein from biallelic PARK7 variants. Two mechanistic classes were identified in the founding families and remain representative: large genomic deletions removing the 5&#39; portion of the gene (a 14,082 bp deletion segregating in a Dutch kindred), which abolish transcript production outright; and destabilising missense substitutions, prototyped by the homozygous L166P change in an Italian family. L166P sits in a C-terminal helix-kink-helix motif; helix-breaking substitutions there dramatically lower steady-state DJ-1 levels through accelerated degradation involving in part the proteasome, and abolish DJ-1 homodimerisation. Because DJ-1 is obligately dimeric for function, both classes converge on functional nullity.</div>
 
@@ -6305,6 +6400,7 @@ This pathophysiological event involves decreased DJ-1 protein homodimerization, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6326,6 +6422,7 @@ This pathophysiological event involves decreased DJ-1 protein homodimerization, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6353,6 +6450,7 @@ This pathophysiological event involves decreased DJ-1 protein homodimerization, 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6377,6 +6475,7 @@ This pathophysiological event involves decreased DJ-1 protein homodimerization, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dj-1-cys106-redox-sensing-and-cytoprotection" data-dismech-node="Loss of DJ-1 Cys106 Redox Sensing and Cytoprotection" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of DJ-1 Cys106 Redox Sensing and Cytoprotection</div>
+
 
                 <div class="item-desc">In wild-type cells the conserved Cys106 of DJ-1 is the preferential target of oxidative modification, stepping through sulfenic (Cys-SOH), sulfinic (Cys-SO2H) and sulfonic (Cys-SO3H) states. Formation of cysteine-sulfinic acid at Cys106 is the switch that drives DJ-1 to the outer mitochondrial membrane and confers protection against the complex I inhibitor MPP+; an artificial C106A substitution abolishes both the pI shift and the protection, and behaves as a partial dominant negative. DJ-1 also functions as a redox-sensitive molecular chaperone activated in an oxidising cytoplasmic environment, with chaperone activity extending to alpha-synuclein. Loss of DJ-1 therefore removes an oxidant-triggered, self-amplifying cytoprotective response precisely when the cell most needs it. This node substitutes the module&#39;s generic toxic insult with a cell-intrinsic genetic one: the same dopaminergic vulnerability is reached by removing endogenous defence rather than by adding a poison.</div>
 
@@ -6544,6 +6643,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6565,6 +6665,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6592,6 +6693,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6616,6 +6718,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dj-1-dicarbonyl-detoxification-capacity" data-dismech-node="Loss of DJ-1 Dicarbonyl Detoxification Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of DJ-1 Dicarbonyl Detoxification Capacity</div>
+
 
                 <div class="item-desc">DJ-1 carries a glutathione-independent catalytic activity toward the reactive dicarbonyls methylglyoxal and glyoxal, byproducts of glycolysis that non-enzymatically glycate cysteine, arginine and lysine residues. The nature of that activity is genuinely disputed: one account has DJ-1 scavenging free dicarbonyl (glyoxalase III activity, converting methylglyoxal to lactate), while the other has it repairing already-formed glycation adducts on proteins (protein deglycase activity). Kinetic work favours the glyoxalase account and explains the deglycase observations as an artifact of the fast equilibrium between free methylglyoxal and hemithioacetals; in vivo Drosophila data question whether either activity matters for dicarbonyl handling at all. This node is therefore modelled as a hypothesis-scoped amplifier rather than an established step: it is included because the biochemistry is real and disease-relevant, and it is tagged to its competing hypothesis groups so downstream tooling does not read it as settled.</div>
 
@@ -6849,6 +6952,7 @@ This pathophysiological event involves decreased protein deglycase activity (con
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6870,6 +6974,7 @@ This pathophysiological event involves decreased protein deglycase activity (con
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6895,6 +7000,7 @@ This pathophysiological event involves decreased protein deglycase activity (con
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nrf2-antioxidant-transcriptional-response" data-dismech-node="Impaired NRF2 Antioxidant Transcriptional Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NRF2 Antioxidant Transcriptional Response</div>
+
 
                 <div class="item-desc">DJ-1 stabilises NFE2L2 (NRF2), the master transcriptional regulator of the cellular antioxidant response, by preventing its association with the inhibitor KEAP1 and its subsequent ubiquitination. In the absence of intact DJ-1, NRF2 protein is unstable and antioxidant transcriptional responses fall both basally and after induction, with measurable deficits in the detoxification enzyme NQO1 and, in the wider DJ-1/NRF2 literature, in glutathione peroxidase, superoxide dismutase and heme oxygenase-1. This converts an acute, recoverable oxidant insult into a chronic inability to mount an antioxidant defence.</div>
 
@@ -7054,6 +7160,7 @@ This pathophysiological event involves dysregulated reactive oxygen species meta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7075,6 +7182,7 @@ This pathophysiological event involves dysregulated reactive oxygen species meta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7102,6 +7210,7 @@ This pathophysiological event involves dysregulated reactive oxygen species meta
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7124,6 +7233,7 @@ This pathophysiological event involves dysregulated reactive oxygen species meta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-mitochondrial-dysfunction-in-nigral-dopaminergic-neurons" data-dismech-node="Oxidative Stress and Mitochondrial Dysfunction in Nigral Dopaminergic Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress and Mitochondrial Dysfunction in Nigral Dopaminergic Neurons</div>
+
 
                 <div class="item-desc">The convergent cellular lesion is unbuffered oxidative stress with mitochondrial dysfunction in substantia nigra pars compacta dopaminergic neurons. This is the same convergence node the shared parkinsonism_dopaminergic_degeneration module places downstream of environmental complex I toxins (MPTP, rotenone, paraquat) - PARK7 loss reaches it from the opposite direction, by removing endogenous antioxidant defence rather than by adding an exogenous poison. Substantia nigra dopaminergic neurons are selectively vulnerable because of their high bioenergetic demand and high basal reactive oxygen species load; DJ-1 is normally most highly expressed exactly in such high-energy-demand, high-ROS cells. Consistent with the human relevance of this node, oxidised DJ-1 accumulates in the substantia nigra of ageing and idiopathic Parkinson disease brains.</div>
 
@@ -7304,6 +7414,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7325,6 +7436,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,6 +7464,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7374,6 +7487,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-dopaminergic-neurodegeneration" data-dismech-node="Nigrostriatal Dopaminergic Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopaminergic Neurodegeneration</div>
+
 
                 <div class="item-desc">Progressive loss of substantia nigra pars compacta dopaminergic neurons and their nigrostriatal projection - the shared effector lesion of all dopaminergic parkinsonisms. In PARK-DJ1 this is inferred clinically and from dopaminergic imaging rather than from neuropathology: only a single brain from a patient with a DJ-1 mutation (L172Q) has ever been analysed, and it showed Lewy body pathology, so whether PARK-DJ1 is routinely a synucleinopathy is unknown. Rodent models are explicitly discordant here: DJ-1 knockout mice, and even parkin/DJ-1/PINK1 triple knockout mice up to 24 months, retain normal numbers of nigral dopaminergic neurons while showing dopaminergic functional deficits - a human/model mismatch curated as a discussion below.</div>
 
@@ -7520,6 +7634,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7541,6 +7656,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7566,6 +7682,7 @@ This pathophysiological event occurs in substantia nigra pars compacta, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-dopamine-deficiency-and-basal-ganglia-circuit-dysfunction" data-dismech-node="Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction</div>
+
 
                 <div class="item-desc">Depletion of striatal dopamine unbalances the basal ganglia thalamocortical motor circuit and produces the cardinal parkinsonian signs - bradykinesia, rigidity, and tremor - with prominent dystonia in this early-onset recessive form. Because the deficit is a dopamine deficiency in an otherwise responsive circuit, PARK-DJ1 parkinsonism is characteristically and durably levodopa-responsive, which is also the mechanistic rationale for dopamine replacement therapy. The same circuit deficit, chronically over-stimulated by pulsatile levodopa, underlies the relatively early motor complications (dyskinesia) reported in this and the other recessive early-onset forms. Scale note: tagged TISSUE because the node&#39;s substrate is the striatum and the basal ganglia thalamocortical circuit; the organism-level motor syndrome it produces is captured in `phenotypes` rather than bundled into this node.</div>
 
@@ -7697,6 +7814,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7718,6 +7836,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7785,17 +7904,102 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(9)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomimia" data-dismech-node="Hypomimia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypomimia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypomimic face</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000338" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000338</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypomimic face (HP:0000338). HP:0000338 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30928208" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30928208" target="_blank">PMID:30928208</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parkinsonism associated with high-pitched voice and hypomimia"</div>
+
+
+                <div class="evidence-explanation">Documents hypomimia in genetically confirmed PARK7 patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -7816,15 +8020,18 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002063</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7844,6 +8051,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7872,11 +8080,11 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
@@ -7893,10 +8101,10 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300), qualified as course progressive; young adult onset, mean 30.0y. HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7938,6 +8146,9 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7952,6 +8163,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7979,6 +8191,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8003,6 +8216,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8011,6 +8225,105 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                 <div class="evidence-explanation">Quantifies the onset age recorded in the structured `onset` descriptor. Scope note: pooled across the three recessive PD genes, which include DJ1.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-levodopa-responsive-parkinsonism" data-dismech-node="Levodopa-Responsive Parkinsonism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Levodopa-Responsive Parkinsonism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Parkinsonism with favorable response to dopaminergic medication</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002548</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism with favorable response to dopaminergic medication (HP:0002548). HP:0002548 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31484320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31484320" target="_blank">PMID:31484320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"generally respond well to L-DOPA treatment"</div>
+
+
+                <div class="evidence-explanation">Review statement on levodopa responsiveness in DJ-1 mutation carriers.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30928208" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30928208" target="_blank">PMID:30928208</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"displayed typical levodopa responsive slowly-progressive Parkinsonism"</div>
+
+
+                <div class="evidence-explanation">Longitudinal (6- and 15-year) confirmation of durable levodopa response in confirmed PARK7 patients.</div>
 
 
 
@@ -8040,15 +8353,18 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002067</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8068,6 +8384,7 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8092,6 +8409,7 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8134,15 +8452,18 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8162,6 +8483,7 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8186,6 +8508,7 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8226,15 +8549,18 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8254,6 +8580,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8278,6 +8605,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8318,15 +8646,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100660</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100660</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8346,6 +8677,7 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8370,6 +8702,7 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8410,15 +8743,18 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8438,6 +8774,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8480,15 +8817,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000709</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8508,6 +8848,7 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8550,15 +8891,18 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Recorded here as an unresolved tension between a DJ-1-focused review and the pooled MDSGene data; a PARK7-only frequency band was deliberately not assigned.</div>
@@ -8583,6 +8927,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8604,6 +8949,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8632,176 +8978,12 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-levodopa-responsive-parkinsonism" data-dismech-node="Levodopa-Responsive Parkinsonism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Levodopa-Responsive Parkinsonism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Parkinsonism with favorable response to dopaminergic medication</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002548</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Parkinsonism with favorable response to dopaminergic medication (HP:0002548). HP:0002548 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31484320" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31484320" target="_blank">PMID:31484320</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"generally respond well to L-DOPA treatment"</div>
-
-
-                <div class="evidence-explanation">Review statement on levodopa responsiveness in DJ-1 mutation carriers.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30928208" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30928208" target="_blank">PMID:30928208</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"displayed typical levodopa responsive slowly-progressive Parkinsonism"</div>
-
-
-                <div class="evidence-explanation">Longitudinal (6- and 15-year) confirmation of durable levodopa response in confirmed PARK7 patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomimia" data-dismech-node="Hypomimia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypomimia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypomimic face</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000338" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000338</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypomimic face (HP:0000338). HP:0000338 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30928208" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30928208" target="_blank">PMID:30928208</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Parkinsonism associated with high-pitched voice and hypomimia"</div>
-
-
-                <div class="evidence-explanation">Documents hypomimia in genetically confirmed PARK7 patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-high-non-motor-symptom-burden" data-dismech-node="High Non-Motor Symptom Burden" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8811,6 +8993,9 @@ This clinical feature is Hypomimic face (HP:0000338). HP:0000338 is a phenotype 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The frequency band is supported by the explicit 57% figure in the quoted sentence, per the frequency-evidence guidelines. No `term:` is bound deliberately: &#34;non-motor symptoms&#34; as an aggregate has no specific HPO class, and the only available ancestor (HP:0000707, Abnormality of the nervous system) is one step from the phenotypic-abnormality root and would convey nothing while polluting HPO-based exports. Prefer no term over a too-general one. The constituent features (anxiety, psychosis, cognitive impairment) are curated individually above with specific terms.</div>
@@ -8832,6 +9017,7 @@ This clinical feature is Hypomimic face (HP:0000338). HP:0000338 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8934,6 +9120,9 @@ This disease-associated gene is PARK7 (hgnc:16369). hgnc:16369 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -8948,6 +9137,7 @@ This disease-associated gene is PARK7 (hgnc:16369). hgnc:16369 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8975,6 +9165,7 @@ This disease-associated gene is PARK7 (hgnc:16369). hgnc:16369 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8996,6 +9187,7 @@ This disease-associated gene is PARK7 (hgnc:16369). hgnc:16369 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9119,6 +9311,31 @@ This treatment uses carbidopa (CHEBI:3395). CHEBI:3395 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dopamine replacement with levodopa combined with the peripheral decarboxylase inhibitor carbidopa is the mainstay of treatment and works by restoring striatal dopaminergic transmission downstream of the lost nigrostriatal projection. PARK-DJ1 parkinsonism is characteristically and durably levodopa-responsive, documented over follow-up periods of six and fifteen years in a genetically confirmed family. Because onset is early and the disease course long, levodopa-induced dyskinesia is a common management problem in this population and argues for careful dose titration.</div>
 
 
@@ -9183,6 +9400,7 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9204,6 +9422,7 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9289,6 +9508,31 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Non-ergot dopamine agonists such as pramipexole act directly on postsynaptic striatal dopamine receptors and are commonly used in early-onset Parkinson disease, often as initial therapy or as a levodopa-sparing adjunct intended to delay motor complications in patients facing decades of treatment. The mechanistic rationale is identical to levodopa&#39;s - replacing dopaminergic tone at the striatal node - but without requiring presynaptic conversion.</div>
 
 
@@ -9328,6 +9572,7 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9392,6 +9637,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling for an autosomal recessive condition: recurrence risk for siblings of an affected proband is 25%, both parents are obligate carriers, and consanguinity is a common context. Counselling also covers the implications of the small and incompletely characterised PARK7 patient corpus for prognostic advice, and carrier testing for at-risk relatives. The molecular testing strategy that establishes the diagnosis is curated separately under `diagnosis:`.</div>
 
 
@@ -9413,6 +9683,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9488,6 +9759,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9539,6 +9811,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9598,6 +9871,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9619,6 +9893,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9693,6 +9968,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

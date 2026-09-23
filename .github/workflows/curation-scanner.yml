@@ -1,5 +1,11 @@
 name: 00 · Curation Scanner
 
+# Model selection: docs/agent-config.md#the-curation-scanner-matrix
+# Each run launches all rows in workflows.curation-scanner.matrix in
+# .github/agent-config.yaml. Each row's model is passed directly to --model;
+# default_model is not used and manual dispatch has no model override.
+# Family aliases follow new releases through the latest CLI installed below.
+
 on:
   schedule:
     - cron: "0 */12 * * 1-5"  # weekday: every 4h
@@ -100,6 +106,10 @@ jobs:
         run: |
           uv tool install rust-just
 
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        uses: ./.github/actions/setup-claude-code
+
       - name: Run Curation Scanner
         id: curation-scanner
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
@@ -116,6 +126,7 @@ jobs:
           EDISON_API_KEY: ${{ secrets.EDISON_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
           # conditional keeps exactly one non-empty, so the action never has to

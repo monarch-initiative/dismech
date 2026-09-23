@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">meiotic_prophase_failure</span>
-                <span class="badge badge-count">8 disorders</span>
+                <span class="badge badge-count">9 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -1974,11 +2026,13 @@ This mechanism module involves decreased male gamete generation (GO:0048232). GO
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
             
             <div class="crosslink-list">
@@ -2193,6 +2247,31 @@ This mechanism module involves decreased male gamete generation (GO:0048232). GO
                     
                 </div>
                 
+                <div class="crosslink-item">
+                    <a href="../disorders/TEX11-related_spermatogenic_failure.html">TEX11-related spermatogenic failure</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Chromosomal Asynapsis and Reduced Crossover Formation → Synaptonemal Complex Assembly
+                        
+                        
+                        , 
+                        
+                        Pachytene Checkpoint Elimination of Spermatocytes → Pachytene Checkpoint Arrest and Germ Cell Apoptosis
+                        
+                        
+                        , 
+                        
+                        Spermatogenic Arrest at Meiosis I → Spermatogenic Arrest and Non-Obstructive Azoospermia
+                        
+                        
+                    </span>
+                    
+                </div>
+                
             </div>
             
         </div>
@@ -2232,11 +2311,13 @@ This mechanism module involves decreased male gamete generation (GO:0048232). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-meiotic-prophase-i-entry-and-homolog-pairing" data-dismech-node="Meiotic Prophase I Entry and Homolog Pairing" data-dismech-type="pathophysiology">
                 <div class="item-name">Meiotic Prophase I Entry and Homolog Pairing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Germ cells enter the meiotic cell cycle and initiate prophase I chromosome pairing. This node captures the shared upstream context for module genes: the gonad is present, germ cells enter meiosis, and homologous chromosomes must pair before synapsis and recombination can be completed.</div>
                 
@@ -2357,11 +2438,13 @@ This pathophysiological event involves homologous chromosome pairing at meiosis 
             
             <div class="item-box anchor-target" id="module-pathophysiology-synaptonemal-complex-assembly" data-dismech-node="Synaptonemal Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptonemal Complex Assembly</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Synaptonemal complex components assemble between paired homologous chromosomes during meiotic prophase I. Disruption of central or lateral element proteins such as SYCE1 or SYCP3 produces asynapsis or unstable synapsis, preventing normal progression through pachytene.</div>
                 
@@ -2467,6 +2550,13 @@ This pathophysiological event involves decreased synaptonemal complex assembly (
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/TEX11-related_spermatogenic_failure.html">TEX11-related spermatogenic failure</a>
+                            
+                            <span class="crosslink-desc">as Chromosomal Asynapsis and Reduced Crossover Formation</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2488,11 +2578,13 @@ This pathophysiological event involves decreased synaptonemal complex assembly (
             
             <div class="item-box anchor-target" id="module-pathophysiology-homologous-recombination-repair-of-meiotic-dna-breaks" data-dismech-node="Homologous Recombination Repair of Meiotic DNA Breaks" data-dismech-type="pathophysiology">
                 <div class="item-name">Homologous Recombination Repair of Meiotic DNA Breaks</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Programmed and repair-associated DNA breaks in meiotic prophase require homologous-recombination machinery to complete chromosome pairing, crossover formation, and genome integrity surveillance. Disruption of repair factors such as MCM8, MCM9, DMC1, HFM1, MSH4, or MSH5 leaves meiotic DNA damage unresolved and blocks normal pachytene progression.</div>
                 
@@ -2652,11 +2744,13 @@ This pathophysiological event involves decreased DNA double-strand break process
             
             <div class="item-box anchor-target" id="module-pathophysiology-pachytene-checkpoint-arrest-and-germ-cell-apoptosis" data-dismech-node="Pachytene Checkpoint Arrest and Germ Cell Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Pachytene Checkpoint Arrest and Germ Cell Apoptosis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Failed synapsis or unresolved meiotic recombination activates pachytene checkpoint signaling. Instead of completing meiotic prophase and producing functional gametes, affected germ cells arrest and are eliminated by apoptosis.</div>
                 
@@ -2804,6 +2898,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/TEX11-related_spermatogenic_failure.html">TEX11-related spermatogenic failure</a>
+                            
+                            <span class="crosslink-desc">as Pachytene Checkpoint Elimination of Spermatocytes</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2830,11 +2931,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-ovarian-follicle-depletion-and-primary-ovarian-insufficiency" data-dismech-node="Ovarian Follicle Depletion and Primary Ovarian Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian Follicle Depletion and Primary Ovarian Insufficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In 46,XX individuals, loss of oocytes during fetal or early postnatal meiotic progression depletes the ovarian follicle pool. The clinical manifestation is primary ovarian insufficiency, ovarian dysgenesis, primary amenorrhea, or hypergonadotropic hypogonadism depending on ascertainment and residual ovarian reserve.</div>
                 
@@ -2949,11 +3052,13 @@ This pathophysiological event involves decreased female gamete generation (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-spermatogenic-arrest-and-non-obstructive-azoospermia" data-dismech-node="Spermatogenic Arrest and Non-Obstructive Azoospermia" data-dismech-type="pathophysiology">
                 <div class="item-name">Spermatogenic Arrest and Non-Obstructive Azoospermia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In 46,XY individuals, meiotic prophase failure in spermatocytes produces spermatogenic arrest, often observed clinically as non-obstructive azoospermia, maturation arrest, or Sertoli-cell-only syndrome after germ cell depletion.</div>
                 
@@ -3073,6 +3178,13 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/TEX11-related_spermatogenic_failure.html">TEX11-related spermatogenic failure</a>
+                            
+                            <span class="crosslink-desc">as Spermatogenic Arrest at Meiosis I</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -3082,11 +3194,13 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
             
             <div class="item-box anchor-target" id="module-pathophysiology-somatic-dna-repair-deficiency-and-cancer-predisposition" data-dismech-node="Somatic DNA Repair Deficiency and Cancer Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic DNA Repair Deficiency and Cancer Predisposition</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">gene specific consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A gene-specific branch for module genes that also function in mitotic or somatic DNA repair. MCM8 and MCM9 are the main current examples: biallelic variants may combine meiotic prophase failure with germ-cell tumors or gastrointestinal polyposis and early-onset malignancy. This branch should be used only when gene-specific evidence supports a somatic cancer phenotype.</div>
                 
@@ -3156,6 +3270,9 @@ This pathophysiological event involves decreased double-strand break repair via 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1888,6 +1940,8 @@ Not an Xogenesis module - a timing relationship fails, nothing pathological is f
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2046,11 +2100,13 @@ Not an Xogenesis module - a timing relationship fails, nothing pathological is f
             
             <div class="item-box anchor-target" id="module-pathophysiology-intrinsic-core-clock-period-or-phase-lesion" data-dismech-node="Intrinsic Core Clock Period or Phase Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Core Clock Period or Phase Lesion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">First of two entry arms. The circadian pacemaker is a cell-autonomous transcription-translation negative feedback loop: CLOCK-BMAL1 drives expression of PER and CRY, whose protein products feed back to inhibit their own activators, with the loop&#39;s period set largely by the rate at which PER is phosphorylated and degraded. A variant that changes either the phosphorylation substrate (PER2 S662G, which is hypophosphorylated by casein kinase I), the kinase (CSNK1D T44A), or the repressor&#39;s affinity for its activators (a gain-of-function CRY1 variant) alters the endogenous period and therefore the phase at which the oscillator stabilises under a 24-hour light-dark cycle. A shortened period advances phase; a lengthened period delays it. Conforming disorder nodes substitute the disorder-specific clock gene and the direction of the period change.</div>
                 
@@ -2135,11 +2191,13 @@ This pathophysiological event involves abnormal circadian regulation of gene exp
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-or-mistiming-of-photic-entrainment-input" data-dismech-node="Loss or Mistiming of Photic Entrainment Input" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss or Mistiming of Photic Entrainment Input</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Second, mechanistically distinct entry arm, in which the oscillator is intact but the signal that should set it is absent or arriving at the wrong phase. Photoentrainment does not use the image-forming visual pathway: melanopsin-expressing intrinsically photosensitive retinal ganglion cells project directly to the suprachiasmatic nucleus, and rods and cones are not required. This anatomy explains a clinically important dissociation - a person with no conscious light perception but a surviving ipRGC pathway can still entrain, while total loss of the eyes or of the retinohypothalamic projection removes entrainment entirely and the pacemaker free-runs at its own period. Conforming disorder nodes substitute the disorder-specific input lesion: absent light input (total blindness), abruptly shifted input (transmeridian travel), or chronically inverted input (night shift work).</div>
                 
@@ -2268,11 +2326,13 @@ This pathophysiological event involves decreased entrainment of the circadian cl
             
             <div class="item-box anchor-target" id="module-pathophysiology-shifted-or-free-running-endogenous-circadian-phase" data-dismech-node="Shifted or Free-Running Endogenous Circadian Phase" data-dismech-type="pathophysiology">
                 <div class="item-name">Shifted or Free-Running Endogenous Circadian Phase</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Both arms converge here. The suprachiasmatic pacemaker holds a phase - as read out by the dim-light melatonin onset, the core body temperature minimum, and the timing of the endogenous sleep propensity window - that is abnormally advanced, abnormally delayed, or not stably locked to 24 hours at all. The distinction between a shifted and a free-running phase matters for prognosis and for treatment timing: a shifted phase is stable and can be treated at a fixed clock hour, whereas a free-running phase drifts through all clock times and produces cyclically recurring symptoms.</div>
                 
@@ -2364,11 +2424,13 @@ This pathophysiological event involves abnormal circadian rhythm (GO:0007623). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-misalignment-between-endogenous-circadian-phase-and-the-imposed-sleep-wake-schedule" data-dismech-node="Misalignment Between Endogenous Circadian Phase and the Imposed Sleep-Wake Schedule" data-dismech-type="pathophysiology">
                 <div class="item-name">Misalignment Between Endogenous Circadian Phase and the Imposed Sleep-Wake Schedule</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target. Misalignment is a relation, not a state of the clock alone: it requires both an endogenous phase and an externally imposed schedule that disagree. This is what makes the circadian disorders unusual - the same pacemaker phase is pathological or benign depending only on what the person is required to do, which is why an extreme evening chronotype with a permissive schedule is not a patient and the same physiology with a 07:00 start is. A conforming disorder node should name both halves of the relation.</div>
                 
@@ -2495,11 +2557,13 @@ This pathophysiological event involves abnormal regulation of the circadian slee
             
             <div class="item-box anchor-target" id="module-pathophysiology-sleep-attempted-at-an-adverse-circadian-phase" data-dismech-node="Sleep Attempted at an Adverse Circadian Phase" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep Attempted at an Adverse Circadian Phase</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The physiological expression of misalignment. Sleep initiated during the circadian wake-maintenance zone is delayed in onset and shortened; wake required near the core body temperature minimum is accompanied by maximal sleepiness and impaired performance. The resulting sleep is curtailed rather than structurally abnormal, which is the diagnostic hallmark distinguishing this module from primary insomnia: released from the schedule, the same person sleeps normally at their own phase.</div>
                 
@@ -2563,11 +2627,13 @@ This pathophysiological event involves abnormal circadian sleep/wake cycle, slee
             
             <div class="item-box anchor-target" id="module-pathophysiology-circadian-sleep-wake-disorder-syndrome" data-dismech-node="Circadian Sleep-Wake Disorder Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Sleep-Wake Disorder Syndrome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint: insomnia at the scheduled bed time, excessive sleepiness at the scheduled wake time, and impaired daytime function, with the specific complaint determined by the direction of the misalignment. Advanced phase presents as early-morning awakening and evening sleepiness; delayed phase as sleep-onset insomnia and severe morning sleep inertia; a free-running phase as symptoms that cycle in and out over weeks as the endogenous phase drifts through the imposed schedule. Conforming entries should preserve that the pattern of symptoms, not their severity, identifies the underlying misalignment.</div>
                 
@@ -2594,6 +2660,131 @@ This pathophysiological event involves abnormal circadian sleep/wake cycle, slee
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Melatonin Receptor Agonist (Tasimelteon)" data-dismech-type="treatment">
+                <div class="item-name">Melatonin Receptor Agonist (Tasimelteon)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        tasimelteon
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_79042" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:79042</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tasimelteon (CHEBI:79042). CHEBI:79042 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Tasimelteon is a dual MT1/MT2 melatonin receptor agonist given at a fixed clock time. It acts on the suprachiasmatic pacemaker to supply the phase-setting signal that light normally provides, and is this module&#39;s drug-target pattern for the phase node. The demonstration in totally blind patients with non-24-hour sleep-wake rhythm disorder is unusually clean because the competing photic input is absent: a timed receptor signal alone entrains the free-running pacemaker. It is a substitution therapy, not a correction of the underlying lesion - withdrawal loses entrainment again - and conforming disorders do not inherit it as a treatment recommendation, since the correct timing and even the correct direction of a melatonin dose differ between an advanced and a delayed phase.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">ACTIVATES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-shifted-or-free-running-endogenous-circadian-phase"><strong>Shifted or Free-Running Endogenous Circadian Phase</strong></a>
+                        
+                        <span> — Timed MT1/MT2 agonism at the suprachiasmatic nucleus resets and holds the endogenous phase, entraining a free-running pacemaker to 24 hours.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 2</span>
+                </div>
+                
                 
             </div>
             

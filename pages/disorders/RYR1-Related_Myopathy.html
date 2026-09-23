@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4271,6 +4348,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4341,6 +4419,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4362,6 +4441,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4497,6 +4577,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4588,6 +4669,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4609,6 +4691,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4697,6 +4780,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4718,6 +4802,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4806,6 +4891,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4827,6 +4913,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4915,6 +5002,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4936,6 +5024,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4983,6 +5072,7 @@ This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shared-ryr1-calcium-release-dysfunction" data-dismech-node="Shared RyR1 Calcium-Release Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Shared RyR1 Calcium-Release Dysfunction</div>
+
 
                 <div class="item-desc">All RYR1-related myopathy mechanisms converge on dysfunction of the RyR1 homotetrameric calcium-release channel, the principal sarcoplasmic reticulum calcium-release channel that mediates excitation-contraction coupling in skeletal muscle. Depending on the variant, this dysfunction can present as increased or decreased channel activity, or as reduced channel abundance.</div>
 
@@ -5159,6 +5249,7 @@ This pathophysiological event involves abnormal Ryanodine-sensitive calcium-rele
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5181,6 +5272,7 @@ This pathophysiological event involves abnormal Ryanodine-sensitive calcium-rele
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-ryr1-gain-of-function-leaky-channel-variants" data-dismech-node="Dominant RYR1 Gain-of-Function (Leaky Channel) Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant RYR1 Gain-of-Function (Leaky Channel) Variants</div>
+
 
                 <div class="item-desc">Dominant RYR1-related myopathy is usually caused by heterozygous missense variants, historically clustered in three mutational hotspot regions, that render the RyR1 channel hypersensitive to activation and prone to inappropriate (&#34;leaky&#34;) calcium release rather than simply reducing its abundance. This is the dominant gain-of-function mechanism requested for explicit modeling, and it is the same mechanism underlying malignant hyperthermia susceptibility.</div>
 
@@ -5276,6 +5368,8 @@ This pathophysiological event involves RYR1 (hgnc:10483). hgnc:10483 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5286,6 +5380,9 @@ This pathophysiological event involves RYR1 (hgnc:10483). hgnc:10483 is a gene f
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous, typically de novo or dominantly inherited missense variants concentrated in RYR1 hotspot domains that decouple channel gating from its normal physiological triggers.</div>
 
@@ -5373,6 +5470,7 @@ This pathophysiological event involves Ryanodine-sensitive calcium-release chann
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5395,6 +5493,7 @@ This pathophysiological event involves Ryanodine-sensitive calcium-release chann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sr-calcium-leak-and-ryr1-channel-hypersensitivity" data-dismech-node="SR Calcium Leak and RyR1 Channel Hypersensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">SR Calcium Leak and RyR1 Channel Hypersensitivity</div>
+
 
                 <div class="item-desc">The cellular consequence of dominant gain-of-function RYR1 variants: hyperactive channels show elevated resting calcium leak and lowered threshold for triggered release, raising resting cytosolic calcium concentration in skeletal muscle fibers even without an anesthetic or exertional trigger.</div>
 
@@ -5600,6 +5699,7 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5622,6 +5722,7 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-and-nitrosative-stress" data-dismech-node="Oxidative and Nitrosative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative and Nitrosative Stress</div>
+
 
                 <div class="item-desc">Chronic disturbance of calcium homeostasis from either the dominant leaky-channel or recessive uncoupling mechanism drives excessive mitochondrial calcium uptake and reactive oxygen species production in skeletal muscle fibers, producing a secondary oxidative/nitrosative stress state that can further damage RyR1 and muscle fibers. This is the mechanism directly targeted by antioxidant (N-acetylcysteine) therapy, tested in the NCT02362425 clinical trial.</div>
 
@@ -5802,6 +5903,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5823,6 +5925,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5850,6 +5953,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5872,6 +5976,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recessive-ryr1-hypomorphic-reduced-expression-variants" data-dismech-node="Recessive RYR1 Hypomorphic (Reduced-Expression) Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Recessive RYR1 Hypomorphic (Reduced-Expression) Variants</div>
+
 
                 <div class="item-desc">Recessive RYR1-related myopathy arises from biallelic variants distributed throughout the gene, including nonsense and splice variants, that reduce RyR1 protein abundance rather than altering channel gating per se. This is the recessive hypomorphic mechanism requested for explicit modeling, mechanistically distinct from the dominant gain-of-function/leaky-channel class above.</div>
 
@@ -5971,6 +6076,8 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5981,6 +6088,9 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic (homozygous or compound heterozygous) nonsense, frameshift, splice-site, or missense variants distributed throughout the RYR1 coding sequence, expected to reduce RyR1 protein abundance rather than abolish it completely (a complete RYR1 null is not compatible with the surviving recessive phenotype).</div>
 
@@ -6030,6 +6140,7 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6052,6 +6163,7 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ryr1-deficiency-and-excitation-contraction-uncoupling" data-dismech-node="RyR1 Deficiency and Excitation-Contraction Uncoupling" data-dismech-type="pathophysiology">
                 <div class="item-name">RyR1 Deficiency and Excitation-Contraction Uncoupling</div>
+
 
                 <div class="item-desc">The cellular consequence of recessive hypomorphic RYR1 variants: a reduced functional channel pool at the triad lowers RyR1-mediated calcium permeation and Cav1.1-dependent SR calcium release, uncoupling membrane depolarization from calcium-triggered contraction. This contrasts with the dominant leaky-channel mechanism and explains the generally greater clinical severity of recessive disease.</div>
 
@@ -6219,6 +6331,7 @@ This pathophysiological event involves decreased Regulation of SR calcium releas
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6241,6 +6354,7 @@ This pathophysiological event involves decreased Regulation of SR calcium releas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anesthetic-stress-triggered-malignant-hyperthermia-reaction" data-dismech-node="Anesthetic/Stress-Triggered Malignant Hyperthermia Reaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Anesthetic/Stress-Triggered Malignant Hyperthermia Reaction</div>
+
 
                 <div class="item-desc">In individuals carrying dominant leaky-channel RYR1 variants (and, rarely, some recessive genotypes), exposure to volatile anesthetics or succinylcholine triggers uncontrolled sarcoplasmic-reticulum calcium release, driving sustained muscle contraction, hypermetabolism, hyperthermia, and rhabdomyolysis. Fully modeled in Malignant_Hyperthermia_of_Anesthesia.yaml; represented here at a summary level to connect it explicitly to the shared dominant leaky-channel node. Exercise and hot environments are recognized non-anesthetic triggers of the same reaction in susceptible individuals.</div>
 
@@ -6279,6 +6393,7 @@ This pathophysiological event involves decreased Regulation of SR calcium releas
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6300,6 +6415,7 @@ This pathophysiological event involves decreased Regulation of SR calcium releas
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6325,6 +6441,7 @@ This pathophysiological event involves decreased Regulation of SR calcium releas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-structural-remodeling-and-weakness" data-dismech-node="Skeletal Muscle Structural Remodeling and Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Structural Remodeling and Weakness</div>
+
 
                 <div class="item-desc">Chronic calcium-handling disturbance from either mechanism converges on shared downstream tissue-level consequences: focal or diffuse structural and histopathologic change in skeletal muscle fibers (central cores, minicores, central nuclei, or fiber-type disproportion, depending on variant class and biopsy timing) and clinically apparent weakness, hypotonia, and orthopedic complications. Recessive disease is generally more severe and more often adds extraocular, bulbar, and respiratory involvement.</div>
 
@@ -6480,6 +6597,7 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6554,15 +6672,15 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Constitutional<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6603,6 +6721,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6617,6 +6738,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6680,6 +6802,9 @@ This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6694,6 +6819,7 @@ This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6757,6 +6883,9 @@ This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6771,6 +6900,7 @@ This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6834,6 +6964,9 @@ This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6848,6 +6981,7 @@ This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6911,6 +7045,9 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6925,6 +7062,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6957,7 +7095,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal Muscle Weakness" data-dismech-type="phenotype">
@@ -6990,6 +7128,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7004,6 +7145,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7058,6 +7200,9 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7072,6 +7217,7 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7126,6 +7272,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7140,6 +7289,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7194,6 +7344,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7208,6 +7361,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,6 +7416,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7276,6 +7433,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7302,9 +7460,164 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sternal-deformity" data-dismech-node="Sternal Deformity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sternal Deformity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal sternum morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000766</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus carinatum or excavatum, annotated with Abnormal sternum morphology (HP:0000766). HP:0000766 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30406384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30406384" target="_blank">PMID:30406384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ki ng Denborough syndrome (pectus carinatum or excavatum, short stature, joint contractures, facial and skeletal deformities)"</div>
+
+
+                <div class="evidence-explanation">Explicitly enumerates pectus carinatum or excavatum among the King-Denborough syndrome dysmorphic features (snippet preserves a source PDF-extraction spacing artifact splitting &#34;King&#34; into &#34;Ki ng&#34; to remain an exact substring of the cached text). Bound to the general &#34;Abnormal sternum morphology&#34; term rather than pectus carinatum specifically, because the source names either carinatum or excavatum without specifying which one is present.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-walk" data-dismech-node="Delayed Ability to Walk" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Ability to Walk
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0031936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33190635" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33190635" target="_blank">PMID:33190635</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical features suggestive of RYR1-RM are extensive, with mild to severe symptoms ranging from delayed motor milestones, proximal muscle weakness"</div>
+
+
+                <div class="evidence-explanation">Documents delayed motor milestones across the RYR1-RM spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -7325,15 +7638,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7353,6 +7669,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7381,11 +7698,11 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -7404,15 +7721,18 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7432,6 +7752,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,160 +7764,6 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                 <div class="evidence-explanation">Directly names fatigue as one of the mild-to-severe clinical features spanning the RYR1-RM spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41753076" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41753076" target="_blank">PMID:41753076</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All exhibited dysmorphic features, short stature, skeletal abnormalities, and myopathy."</div>
-
-
-                <div class="evidence-explanation">This multi-center cohort&#39;s three King-Denborough syndrome cases explicitly document short stature as a presenting feature, not merely an inferred component of a general &#34;dysmorphic features&#34; phrase.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-walk" data-dismech-node="Delayed Ability to Walk" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed Ability to Walk
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0031936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33190635" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33190635" target="_blank">PMID:33190635</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical features suggestive of RYR1-RM are extensive, with mild to severe symptoms ranging from delayed motor milestones, proximal muscle weakness"</div>
-
-
-                <div class="evidence-explanation">Documents delayed motor milestones across the RYR1-RM spectrum.</div>
 
 
 
@@ -7640,6 +7807,9 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7654,6 +7824,7 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7681,6 +7852,7 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7704,9 +7876,18 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sternal-deformity" data-dismech-node="Sternal Deformity" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Sternal Deformity
+                        Short Stature
 
 
 
@@ -7715,20 +7896,21 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Abnormal sternum morphology</span>
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000766</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0004322</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pectus carinatum or excavatum, annotated with Abnormal sternum morphology (HP:0000766). HP:0000766 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7740,10 +7922,10 @@ This clinical feature is Pectus carinatum or excavatum, annotated with Abnormal 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30406384" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:41753076" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30406384" target="_blank">PMID:30406384</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41753076" target="_blank">PMID:41753076</a>
                     </span>
 
 
@@ -7751,14 +7933,15 @@ This clinical feature is Pectus carinatum or excavatum, annotated with Abnormal 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Ki ng Denborough syndrome (pectus carinatum or excavatum, short stature, joint contractures, facial and skeletal deformities)"</div>
+                <div class="evidence-snippet">"All exhibited dysmorphic features, short stature, skeletal abnormalities, and myopathy."</div>
 
 
-                <div class="evidence-explanation">Explicitly enumerates pectus carinatum or excavatum among the King-Denborough syndrome dysmorphic features (snippet preserves a source PDF-extraction spacing artifact splitting &#34;King&#34; into &#34;Ki ng&#34; to remain an exact substring of the cached text). Bound to the general &#34;Abnormal sternum morphology&#34; term rather than pectus carinatum specifically, because the source names either carinatum or excavatum without specifying which one is present.</div>
+                <div class="evidence-explanation">This multi-center cohort&#39;s three King-Denborough syndrome cases explicitly document short stature as a presenting feature, not merely an inferred component of a general &#34;dysmorphic features&#34; phrase.</div>
 
 
 
@@ -7846,6 +8029,9 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7860,6 +8046,7 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7884,6 +8071,7 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7967,6 +8155,20 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Strict avoidance of volatile anesthetic agents and depolarizing neuromuscular blocking agents (succinylcholine); total intravenous anesthesia is preferred whenever a patient with any RYR1-related myopathy diagnosis requires general anesthesia, because dominant, recessive, and untested individuals are all managed as potentially MH susceptible.</div>
 
 
@@ -7991,6 +8193,7 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8012,6 +8215,7 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8097,6 +8301,20 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dantrolene is the specific emergency pharmacotherapy for an acute malignant hyperthermia reaction and should be immediately available whenever a patient with RYR1-related myopathy undergoes general anesthesia. Off-label chronic/periodic use for baseline myopathic symptoms has been reported anecdotally but is not well established.</div>
 
 
@@ -8127,6 +8345,7 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8195,6 +8414,7 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8216,6 +8436,7 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8301,6 +8522,20 @@ This treatment uses albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An off-label beta-agonist reported to improve muscle strength and motor function in some RYR1-related myopathy patients, proposed to act by increasing SERCA expression and facilitating reuptake of cytosolic calcium into the sarcoplasmic reticulum, thereby partially compensating for either the leaky-channel or the excitation-contraction uncoupling mechanism.</div>
 
 
@@ -8322,6 +8557,7 @@ This treatment uses albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8407,6 +8643,20 @@ This treatment uses N-acetylcysteine, annotated with N-acetyl-L-cysteine (CHEBI:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An antioxidant tested in a completed NIH clinical trial (NCT02362425) directly targeting the mitochondrial oxidative/nitrosative stress mechanism, based on preclinical rescue of oxidative stress and improved survival/muscle function in zebrafish and patient-derived myotube models. The subsequent clinical trial did not confirm a benefit on its primary outcomes.</div>
 
 
@@ -8437,6 +8687,7 @@ This treatment uses N-acetylcysteine, annotated with N-acetyl-L-cysteine (CHEBI:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8480,6 +8731,7 @@ This treatment uses N-acetylcysteine, annotated with N-acetyl-L-cysteine (CHEBI:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8557,6 +8809,20 @@ This treatment uses Rycal S48168 (ARM210).</span>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An investigational RyR-stabilizing &#34;Rycal&#34; small molecule tested in a completed phase 1, open-label, dose-escalation trial (NCT04141670) in ambulatory adults with genetically confirmed RYR1-related myopathy whose RyR1 channels were shown ex vivo to be leaky and Rycal-responsive. It was well tolerated, with most participants on the higher dose reporting reduced fatigue and improved proximal muscle strength on exam.</div>
 
 
@@ -8587,6 +8853,7 @@ This treatment uses Rycal S48168 (ARM210).</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8655,6 +8922,7 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8715,6 +8983,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anecdotal reports describe improved fatigue and energy level with the acetylcholinesterase inhibitor pyridostigmine in a subset of RYR1-related myopathy patients with a fatigable weakness phenotype.</div>
 
 
@@ -8761,6 +9043,7 @@ This treatment targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8782,6 +9065,7 @@ This treatment targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8846,6 +9130,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No approved disease-modifying treatment exists for RYR1-related myopathy. Management is primarily supportive: physical/occupational therapy, orthopedic evaluation and bracing/surgery for scoliosis and contractures, respiratory support as needed, and periodic monitoring of motor function.</div>
 
 
@@ -8867,6 +9165,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8931,6 +9230,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the dominant versus recessive inheritance pattern, recurrence risk, and the implications of RYR1 genotype for malignant hyperthermia susceptibility in the proband and at-risk family members.</div>
 
 
@@ -8952,6 +9265,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9018,6 +9332,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9120,6 +9435,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9204,6 +9520,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9294,6 +9611,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9318,6 +9636,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9339,6 +9658,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9429,6 +9749,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9508,6 +9829,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9563,6 +9885,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9671,6 +9994,7 @@ This clinical trial targets Proximal muscle weakness (HP:0003701). HP:0003701 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9692,6 +10016,7 @@ This clinical trial targets Proximal muscle weakness (HP:0003701). HP:0003701 is
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9770,6 +10095,7 @@ This clinical trial targets Proximal muscle weakness (HP:0003701). HP:0003701 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9791,6 +10117,7 @@ This clinical trial targets Proximal muscle weakness (HP:0003701). HP:0003701 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11681,6 +12008,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: RYR1-Related Myopathy</strong> · 2026-08-26T23:59:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/RYR1-Related_Myopathy/2026-08-26T235955Z-claude-code-c59c88.yaml">View source</a></p>
+                        <p class="research-review-text">Created the RYR1-Related Myopathy root/umbrella entry MONDO:0100150 per issue #9546, curated as CURATE_ROOT_WITH_SUBTYPES cross-referencing the existing Central_Core_Myopathy, Multiminicore_Disease, Centronuclear_Myopathy, and Malignant_Hyperthermia_of_Anesthesia entries rather than duplicating their content. Modeled both requested mechanisms distinctly on separate pathophysiology nodes: dominant gain-of-function/leaky-channel using genetic_context.functional_impact_category GAIN_OF_FUNCTION, molecular_functions modifier GAIN_OF_FUNCTION on GO:0005219 ryanodine-sensitive calcium-release channel activity, downstream biological_processes modifier INCREASED on SR calcium release regulation; and recessive hypomorphic/reduced-expression using functional_impact_category PARTIAL_LOSS_OF_FUNCTION, modifier DECREASED throughout. has_subtypes covers Dominant RYR1-Related Myopathy and Recessive RYR1-Related Myopathy using the children slot to nest MHS1, KDS, and CFTD-RYR1, plus Malignant Hyperthermia Susceptibility Type 1 the allelic axis, King-Denborough Syndrome, and Congenital Fiber-Type Disproportion RYR1-Related. Deep research: ran just research-disorder falcon RYR1-Related_Myopathy, report at research/RYR1-Related_Myopathy-deep-research-falcon.md; just preflight-dr returned PASS, RYR1=49 mentions vs next-highest AR=2; the report&#39;s own reference_validation block showed 6/6 references resolved, 0 confabulation, 0 off-topic with 4 of 6 undecided due to missing abstracts -- clean signal, but the entry&#39;s evidence was built independently from primary literature not lifted from the DR report, then cross-checked against it after initial drafting. Primary sources: Lawal et al 2020 unified-nomenclature review PMID:33190635 full text, Todd et al 2018 diagnostic/therapeutic review PMID:30406384 full text, Dowling et al 2011 King-Denborough series PMID:21514828, the large RYR1 cohort study and MH/CCD review already cited in Central_Core_Myopathy.yaml PMID:22473935 and PMID:16917943, the retired CFTD GeneReviews chapter PMID:20301436 for the RYR1 share of CFTD cases, and Todd et al 2024 published phase 1 ARM210/Rycal trial results PMID:38318125 found via the falcon report and independently fetched and verified, added as a target_mechanisms-linked treatment and clinical_trials entry. No dedicated RYR1-Related Myopathies GeneReviews chapter was found in PubMed via esearch; used the two reviews above as the GeneReviews-baseline substitute. Validation: just validate schema plus terms plus references all pass, 53/53 snippets verified; just count-verified-snippets 53/53; just check-duplicate-keys no duplicates; just validate-disorders batched pre-PR sweep run before opening PR.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

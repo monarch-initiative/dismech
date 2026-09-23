@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1992,6 +2044,8 @@ This mechanism module involves increased Inflammatory response (SASP) (GO:000695
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2100,11 +2154,13 @@ This mechanism module involves increased Inflammatory response (SASP) (GO:000695
             
             <div class="item-box anchor-target" id="module-pathophysiology-age-associated-il-11-upregulation" data-dismech-node="Age-Associated IL-11 Upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Associated IL-11 Upregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">With ageing, the IL-6-family pro-inflammatory cytokine IL-11 is progressively upregulated across diverse cell types and tissues (liver, visceral white adipose tissue and skeletal muscle) - an alarmin-type response to accumulating age-related pathogenic factors. This rising IL-11 tone is the initiating step of the module. Conforming disorder nodes substitute the disease-specific IL-11-expressing parenchymal cell type and tissue.</div>
                 
@@ -2274,11 +2330,13 @@ This pathophysiological event involves increased Cytokine Production (GO:0001816
             
             <div class="item-box anchor-target" id="module-pathophysiology-il-11-receptor-signalling-activation" data-dismech-node="IL-11 Receptor Signalling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-11 Receptor Signalling Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Upregulated IL-11 engages its receptor (IL11RA1 with the shared gp130 signal-transducing subunit) to activate two arms: canonical JAK-STAT3 and non-canonical MEK-ERK-p90RSK signalling. Receptor engagement is the amplifier that converts rising IL-11 abundance into the downstream kinase-axis dysregulation, and is the node neutralized by anti-IL-11 (X203) or anti-IL11RA (X209) antibodies.</div>
                 
@@ -2375,11 +2433,13 @@ This pathophysiological event involves increased Interleukin-11-mediated signali
             
             <div class="item-box anchor-target" id="module-pathophysiology-erk-ampk-mtorc1-axis-dysregulation" data-dismech-node="ERK-AMPK-mTORC1 Axis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">ERK-AMPK-mTORC1 Axis Dysregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The integrating, rate-limiting node of the module. IL-11 receptor signalling drives coupled activation of ERK-p90RSK, p90RSK/ERK-mediated inactivation of the LKB1-AMPK energy sensor (increased inhibitory p-LKB1, reduced active p-AMPK), and consequent de-repression and activation of mTORC1 (increased p-mTOR, p-p70S6K and p-S6RP). Because ERK, AMPK and mTORC1 are the conserved lifespan-regulating pathways, this single coupled axis is where disorder-specific IL-11 signalling converges and is the key conformance target for conforming disorder entries.</div>
                 
@@ -2469,11 +2529,13 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-cellular-senescence-and-metabolic-decline" data-dismech-node="Cellular Senescence and Metabolic Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Senescence and Metabolic Decline</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained ERK-AMPK-mTORC1 dysregulation drives the cellular effectors of the module: mTORC1/ERK-dependent cellular senescence with induction of p16 and p21 and a senescence-associated secretory phenotype (SASP), together with metabolic decline - loss of AMPK-dependent metabolic flexibility, age-repressed white-adipose-tissue beiging, hepatic lipid accumulation and sarcopenia - and tissue fibrosis. Conforming disorder nodes specialize this to the affected organ.</div>
                 
@@ -2563,11 +2625,13 @@ This pathophysiological event involves increased Inflammatory response (SASP), a
             
             <div class="item-box anchor-target" id="module-pathophysiology-frailty-multimorbidity-and-reduced-lifespan" data-dismech-node="Frailty, Multimorbidity and Reduced Lifespan" data-dismech-type="pathophysiology">
                 <div class="item-name">Frailty, Multimorbidity and Reduced Lifespan</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The organismal consequence of the module: age-associated IL-11 signalling manifests as frailty, sarcopenia, metabolic multimorbidity, increased age-related cancer burden and shortened lifespan. Genetic or pharmacological inhibition of IL-11 protects against these outcomes and extends both healthspan and lifespan. This is the conserved endpoint; the specific age-related phenotype is supplied by the conforming disorder.</div>
                 
@@ -2580,6 +2644,129 @@ This pathophysiological event involves increased Inflammatory response (SASP), a
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Anti-IL-11 Therapy (Neutralizing Antibody)" data-dismech-type="treatment">
+                <div class="item-name">Anti-IL-11 Therapy (Neutralizing Antibody)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        anti-IL-11 monoclonal antibody
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C20401</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anti-IL-11 monoclonal antibody, annotated with Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Neutralizing anti-IL-11 monoclonal antibody therapy (clone X203 in mouse studies; anti-IL11RA clone X209 in vitro) sequesters IL-11 and blocks receptor engagement, switching off the downstream ERK-AMPK-mTORC1 axis. Administered to 75-week-old mice until death, it improves metabolism and muscle function, reduces frailty and ageing biomarkers, and extends median lifespan by more than 20% in both sexes. Anti-IL-11 is in early-stage clinical trials for fibroinflammatory disease, making this the translational drug-target design pattern for conforming disorders. Represents the IL-11 inhibition drug-target pattern.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-il-11-receptor-signalling-activation"><strong>IL-11 Receptor Signalling Activation</strong></a>
+                        
+                        <span> — Neutralizing anti-IL-11 (X203) sequesters the IL-11 ligand and prevents IL11RA1-gp130 receptor engagement, shutting down the non-canonical ERK-p90RSK and canonical STAT3 arms and the downstream ERK-AMPK-mTORC1 axis dysregulation.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 3</span>
+                </div>
+                
                 
             </div>
             

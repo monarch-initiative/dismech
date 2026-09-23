@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2045,6 +2097,8 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2148,11 +2202,13 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-phagocyte-nadph-oxidase-assembly-or-activation-failure" data-dismech-node="Phagocyte NADPH Oxidase Assembly or Activation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Phagocyte NADPH Oxidase Assembly or Activation Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The phagocyte NADPH oxidase cannot deliver electrons from cytosolic NADPH to molecular oxygen. This is the lesion-class node, and it is where conforming disorders differ from one another: the complex may be unbuildable because a structural subunit is absent, mis-matured because a subunit is hypoglycosylated, or unactivatable because its small-GTPase activator is missing while every catalytic component is present and quantitatively normal. The node asserts loss of oxidase activity, not a particular lesion; the specific defect is substituted by the conforming entry.</div>
                 
@@ -2313,11 +2369,13 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-failed-respiratory-burst-and-phagosomal-ros-deficiency" data-dismech-node="Failed Respiratory Burst and Phagosomal ROS Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Respiratory Burst and Phagosomal ROS Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting node and the key conformance target. On stimulation the phagocyte fails to mount a respiratory burst, so superoxide and the reactive oxygen species derived from it do not accumulate in the phagosome. This step is disorder-agnostic: every conforming entry funnels through it regardless of which upstream lesion it carries, and it is the step clinical diagnostics actually measure. Operationally it is read out by dihydrorhodamine oxidation or ferricytochrome c reduction in stimulated neutrophils, which is why a conformer can be checked against this node rather than argued about.</div>
                 
@@ -2523,11 +2581,13 @@ This pathophysiological event involves phagocytic vesicle (GO:0045335). GO:00453
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-oxidant-dependent-microbial-killing" data-dismech-node="Impaired Oxidant-Dependent Microbial Killing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oxidant-Dependent Microbial Killing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Ingested bacteria and fungi are not killed. Phagocytosis and ingestion may be intact or only partly reduced; what fails is the oxidative killing step that follows. The organisms that survive are characteristically those a phagocyte would otherwise need the oxidative burst to clear.</div>
                 
@@ -2703,11 +2763,13 @@ This pathophysiological event involves decreased neutrophil mediated immunity (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-recurrent-bacterial-and-fungal-infection" data-dismech-node="Recurrent Bacterial and Fungal Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Bacterial and Fungal Infection</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Recurrent, deep-seated bacterial and fungal infection at the organism level, with a pathogen spectrum characteristic of oxidative killing failure rather than of immunodeficiency in general. The specific organisms and the organ distribution are disorder- and cohort-specific and should be evidenced locally rather than inherited from this node.</div>
                 
@@ -2725,11 +2787,13 @@ This pathophysiological event involves decreased neutrophil mediated immunity (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-ros-dependent-immunoregulation" data-dismech-node="Loss of ROS-Dependent Immunoregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ROS-Dependent Immunoregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A conditional branch, not part of the obligate chain. Beyond killing microbes, phagocyte-derived reactive oxygen species act as signals that restrain and terminate inflammatory responses. Losing that signal permits dysregulated, often sterile inflammation - granulomatous obstruction of the gastrointestinal and genitourinary tracts, colitis, and other inflammatory disease occurring independently of active infection. Conformers vary: this arm is prominent in chronic granulomatous disease and absent in RAC2 dominant-negative neutrophil immunodeficiency syndrome, so a conforming entry must opt into it with its own evidence rather than inherit it. Where the branch does proceed to organised granuloma assembly, that structure-formation process is handed off to the granuloma_formation module and is not duplicated here.</div>
                 
@@ -2832,6 +2896,108 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Autologous Lentiviral Gene Therapy Restoring Phagocyte Oxidase Activity" data-dismech-type="treatment">
+                <div class="item-name">Autologous Lentiviral Gene Therapy Restoring Phagocyte Oxidase Activity</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        gene therapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C15238</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Gene therapy</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">A mechanistic target pattern rather than an inherited recommendation. Restoring a functional oxidase subunit in haematopoietic stem and progenitor cells regenerates oxidase-positive phagocytes and reverses the burst defect at the trigger node. The pattern generalises to allogeneic haematopoietic stem cell transplantation, which replaces the defective haematopoietic compartment outright. Which lesion class is correctable this way, the vector or conditioning regimen, and the risk-benefit balance are disease-specific and must be evidenced locally; the trial evidence cited here is specific to CYBB-related X-linked chronic granulomatous disease.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">RESTORES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-phagocyte-nadph-oxidase-assembly-or-activation-failure"><strong>Phagocyte NADPH Oxidase Assembly or Activation Failure</strong></a>
+                        
+                        <span> — Transducing haematopoietic stem and progenitor cells with a functional gp91phox transgene yields circulating neutrophils that assemble a working oxidase, restoring the activity this node reports as lost.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

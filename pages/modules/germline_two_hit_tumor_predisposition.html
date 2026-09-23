@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1864,6 +1916,8 @@ This mechanism module involves increased cell population proliferation (GO:00082
             </div>
             
         </div>
+        
+
         
 
         
@@ -2468,11 +2522,13 @@ This mechanism module involves increased cell population proliferation (GO:00082
             
             <div class="item-box anchor-target" id="module-pathophysiology-constitutional-first-hit-tumor-suppressor-inactivation" data-dismech-node="Constitutional First-Hit Tumor Suppressor Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutional First-Hit Tumor Suppressor Inactivation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A heterozygous loss-of-function alteration in a tumor-suppressor gene is present in the germline and therefore in every somatic cell of the carrier. The alteration itself is recessive at the cellular level — one functional allele generally suffices for normal tissue function — which is why the trait segregates as an autosomal dominant *predisposition* while the cellular lesion behaves recessively. Its effect is to convert a two-mutation requirement into a one-mutation requirement in every cell of the at-risk tissue simultaneously.</div>
                 
@@ -2669,11 +2725,13 @@ This pathophysiological event involves decreased negative regulation of cell pop
             
             <div class="item-box anchor-target" id="module-pathophysiology-somatic-second-hit-inactivation-of-the-wild-type-allele" data-dismech-node="Somatic Second-Hit Inactivation of the Wild-Type Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Second-Hit Inactivation of the Wild-Type Allele</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A somatic event inactivates the remaining wild-type allele in a single cell of the at-risk tissue. The dominant route is loss of heterozygosity, which Cavenee and colleagues showed arises by chromosome-level mechanisms — mitotic nondisjunction losing the homologous wild-type chromosome, or mitotic recombination replacing the wild-type region with a copy of the mutant one. Interstitial deletion, an independent intragenic point mutation, and promoter hypermethylation (an epigenetic second hit) are the other recognized routes. This node is where the disorder-specific tumor tissue first diverges from the carrier&#39;s constitutional genotype.</div>
                 
@@ -2828,11 +2886,13 @@ This pathophysiological event involves increased mitotic recombination (GO:00063
             
             <div class="item-box anchor-target" id="module-pathophysiology-biallelic-tumor-suppressor-inactivation-in-a-susceptible-cell" data-dismech-node="Biallelic Tumor Suppressor Inactivation in a Susceptible Cell" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Tumor Suppressor Inactivation in a Susceptible Cell</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic state this module exists to name: a single cell within a competent tissue now carries no functional copy of the tumor suppressor, having combined the inherited and the acquired lesion. Pan-cancer germline-plus-tumor sequencing confirms this is the general rule and not a retinoblastoma peculiarity — germline tumor-suppressor variant carriers show frequent loss of heterozygosity or biallelic two-hit events in their tumors, together with reduced expression of the affected gene. This is the node conforming disorder entries should attach to when they have demonstrated biallelic loss in their own tumor tissue.</div>
                 
@@ -2994,11 +3054,13 @@ This pathophysiological event involves negative regulation of cell population pr
             
             <div class="item-box anchor-target" id="module-pathophysiology-clonal-expansion-and-tumor-initiation" data-dismech-node="Clonal Expansion and Tumor Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion and Tumor Initiation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The cell that has lost both alleles escapes the antiproliferative or genome-protective program the gene enforced, gains a selective advantage over surrounding wild-type tissue, and expands clonally to initiate a neoplasm. Only a small number of events acting on cell birth and death processes are needed to reach this point, which is why hereditary tumors can arise so early. What the escape consists of is gene-specific and is modeled by the downstream hallmark modules rather than re-derived here.</div>
                 
@@ -3125,11 +3187,13 @@ This pathophysiological event involves increased cell population proliferation (
             
             <div class="item-box anchor-target" id="module-pathophysiology-early-onset-multifocal-and-bilateral-tumor-spectrum" data-dismech-node="Early-Onset, Multifocal, and Bilateral Tumor Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset, Multifocal, and Bilateral Tumor Spectrum</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical signature of the module and the basis on which hereditary predisposition is recognized before any gene is sequenced: tumors arise earlier than their sporadic counterparts, at multiple independent foci, and bilaterally in paired organs, because independent second hits occur independently across a whole tissue of already-primed cells. Knudson derived the same Poisson structure that explains bilateral and multifocal disease also explains incomplete penetrance — the carrier who develops no tumor is the tail of the same distribution, not a separate phenomenon. The tumor spectrum is nevertheless gene-specific and far narrower than the constitutional genotype alone would predict, which is recorded as an open knowledge gap below.</div>
                 
@@ -3226,6 +3290,131 @@ This pathophysiological event involves increased cell population proliferation (
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Aspirin Chemoprevention in Lynch Syndrome Carriers" data-dismech-type="treatment">
+                <div class="item-name">Aspirin Chemoprevention in Lynch Syndrome Carriers</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-9">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        aspirin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-10">CHEBI:15365</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The module&#39;s drug-target design pattern: rather than correcting the inherited allele, chemoprevention acts on the clonal-expansion step, raising the barrier between a cell that has completed its second hit and a clinically apparent tumor. Long-term aspirin in Lynch syndrome carriers is the pattern&#39;s best randomized evidence. CRITICAL scope caveat — this is evidenced in mismatch-repair carriers and is NOT a treatment recommendation inherited by disorders conforming to this module; a conforming entry must carry its own evidence before curating chemoprevention.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-clonal-expansion-and-tumor-initiation"><strong>Clonal Expansion and Tumor Initiation</strong></a>
+                        
+                        <span> — Aspirin does not prevent the second hit; it suppresses the progression of already-initiated clones to clinically apparent cancer, which is why the effect is on incidence over years rather than on carrier genotype.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             
