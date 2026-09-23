@@ -402,6 +402,19 @@ Rules:
   `docs/reports/` for analysis reports, `docs/research/` for research provenance,
   `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
   should also be surfaced in the `mkdocs.yml` nav.
+- **Everything under `docs/` is written for a human reader, never for another
+  agent or a future session of yourself.** This holds even in
+  `docs/superpowers/`, whose *subject* is agent investigations — the audience
+  is still a person deciding whether to act on one, not the agent that wrote
+  it. Denser, technical language than a PR body is fine (see the
+  `github-communication` skill's scope note), but density is not license for a
+  diary entry: a title built as a metaphor, a sentence reminding your future
+  self of a rule you already broke once, or a section narrating your own
+  review-round count is process narration, not documentation, and does not
+  belong here even when every fact in it is correct. If a draft report turns
+  out to be mostly that, close the PR rather than merge it, and move anything
+  genuinely reusable into this file or a tracked issue instead. See #12535 and
+  #8908.
 - **Exception — deterministic script outputs may live in `research/`.** A handful
   of scripts write generated data here by design (e.g.
   `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
@@ -1772,6 +1785,20 @@ Rules:
 For structured curation, review, and audit provenance, add append-only history
 records under `history/`, not inside the KB YAML and not beside KB files as
 `kb/**/*.history.yaml`.
+
+**"Not inside the KB YAML" means `notes:` is not a session log.** A recurring
+drift is writing the *curation session's own narrative* into an entry's
+`notes:` field instead: "Review round 1. The screening-yield rate is deleted,
+as above", "`just preflight-dr` returned SKIP", "Correction, review round 1.
+The first version of this entry said…". That content presumes a reader who
+already has the review thread open, describes what an agent did rather than a
+fact about the disease, and duplicates the `history/` record's job in a
+denser, more elliptical register — see #8908 and the discussion on #12535.
+`notes:` should read as a caveat or fact the entry's own claims need,
+checkable independent of who wrote it or when: why a term is bound this way,
+why a source is thin, what a search returned. If a sentence stops making
+sense once the review thread or PR it refers to is gone, it belongs in the
+`details` field of a `history/` record below — not in `notes:`.
 
 Path pattern:
 
