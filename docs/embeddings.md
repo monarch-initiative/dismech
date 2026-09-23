@@ -1,323 +1,57 @@
-# Disorder Embeddings System
+# Concept Explorer and embeddings
 
-> **Freshness audit (2026-09-20):** the published disease embedding payload still
-> contains 720 diseases and matches the file last committed on April 16. The
-> mechanism payload was last committed on February 4. These are manually generated
-> snapshots; the page workflows do not regenerate them. See the
-> [concept-space browser proposal](explanation/concept-space-browser.md) for the
-> refresh blockers and a plan to combine embeddings with ontology navigation.
+The disease and mechanism embedding browsers now live in the
+[DisMech Concept Explorer](https://monarch-initiative.github.io/dismech-ont-scores/),
+alongside ontology associations. Their old URLs redirect there and preserve
+`?focus=<disease name>&space=<representation>` selections.
 
-The DisMech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
+Choose an ontology term, inspect its associated diseases, and follow **Explore
+similarities and mechanisms** into the map. Disease details link to individual
+mechanisms; mechanism details link to curated annotations, downstream nodes,
+module conformance, and the original DisMech entry. **Clear term selection**
+returns to the whole similarity space.
 
-- Finding disorders with similar pathophysiology, phenotypes, treatments, or cell types
-- Visualizing disease relationships in 2D space
-- Semantic search ("find disorders involving inflammation")
+## Freshness and methods
 
-## Architecture Overview
+The downstream repository builds daily from a fresh DisMech main checkout and
+publishes a validated Pages artifact. Its source SHA, data-build timestamp,
+coverage, model, and build-status link are visible. A release manifest records
+input hashes, ontology versions and output checksums. Generation failures retain
+the last successful snapshot rather than publishing incomplete data.
 
-### Embedding Spaces
+The new local model2vec representations replace the old OpenAI ada snapshots;
+cosine values and plot positions are not numerically comparable across those
+models. Neighbors use full-vector cosine similarity; the map uses a separate PCA
+projection. Similarity is a curation lead, not evidence of shared causation.
 
-Disorders are embedded in four separate semantic spaces, each capturing a different aspect:
+The ontology score implementation is also explicitly versioned as
+`context-v2-max-product`: the original exporter was not recoverable. Read the
+[method contract](https://github.com/monarch-initiative/dismech-ont-scores/blob/main/METHODS.md)
+for the formula, propagation predicates, exclusions and limitations. The
+[original audit and architecture](explanation/concept-space-browser.md) records
+why the browsers were combined.
 
-| Space | Template | Content Embedded |
-|-------|----------|------------------|
-| `pathophysiology` | `embed_patho.j2` | Disease mechanisms, cell types, biological processes, downstream effects |
-| `phenotypes` | `embed_pheno.j2` | Clinical symptoms, HPO terms, frequency, diagnostic markers |
-| `treatments` | `embed_treat.j2` | Therapies, NCIT terms, mechanisms, effectiveness |
-| `celltypes` | `embed_cells.j2` | Cell types (CL), tissues (UBERON), histopathology |
+## Development
 
-### Data Flow
-
-```mermaid
-flowchart TD
-    A["<b>kb/disorders/*.yaml</b>"]
-    B["<b>load_disorders()</b><br/>Load YAML, serialize datetimes,<br/>add _group field for visualization"]
-    C["<b>Jinja2 Templates</b> (embed_*.j2)<br/>Extract relevant text for each space<br/>e.g. 'Disease: Asthma; Cell Types: Mast Cell…'"]
-    D["<b>OpenAI Embeddings API</b> (text-embedding-ada-002)<br/>Via linkml-store LLMIndexer<br/>1536-dimensional vectors"]
-    E["<b>DuckDB Cache</b> (cache/embeddings/*.db)<br/>Embeddings cached by text hash<br/>Avoids re-calling API for unchanged content"]
-    F["<b>Dimensionality Reduction</b><br/>UMAP or t-SNE<br/>1536D → 2D coordinates"]
-    G["<b>app/embeddings/data.js</b><br/>Pre-computed coordinates + metadata<br/>for interactive browser visualization"]
-    H["<b>app/embeddings/index.html</b><br/>Interactive Plotly scatter plot<br/>Hover, filter, color by group"]
-    A --> B --> C --> D --> E --> F --> G --> H
-```
-
-### Key Files
-
-| File | Purpose |
-|------|---------|
-| `src/dismech/embed.py` | Main module with `DisorderEmbedder` class and CLI |
-| `src/dismech/templates/embed_*.j2` | Jinja2 templates for text extraction |
-| `cache/embeddings/disorders.duckdb` | Main DuckDB with disorder collections |
-| `cache/embeddings/*_cache.db` | Embedding cache per space |
-| `app/embeddings/index.html` | Interactive browser UI |
-| `app/embeddings/data.js` | Pre-computed visualization data |
-
-## Commands Reference
-
-### Indexing (requires OPENAI_API_KEY)
+The UI, source extraction, score export and publication pipeline are maintained in
+[dismech-ont-scores](https://github.com/monarch-initiative/dismech-ont-scores).
+Curated assertions remain here in `kb/`. To rebuild the browser, run in its repo:
 
 ```bash
-# Index all disorders with default settings
-just embed-index
-
-# Index with recreate (clears cache, re-embeds everything)
-just embed-index recreate=1
-
-# Index with parent-based grouping (recommended for visualization)
-just embed-index-grouped
-
-# Index with custom grouping
-just embed-index-custom category "Cancer,Genetic,Infectious"
+uv sync --locked
+uv run python scripts/build_site.py --source /path/to/dismech
+uv run python scripts/build_site.py --validate
+uv run python -m http.server 8000 --directory dist
 ```
 
-### Search and Similarity
-
-```bash
-# Semantic search across disorders
-just embed-search "inflammatory airway disease"
-just embed-search "autoimmune" phenotypes
-just embed-search "steroids" treatments
-just embed-search "epithelial" celltypes
-
-# Find disorders similar to a specific one
-just embed-similar "Asthma"
-just embed-similar "Type 2 Diabetes" phenotypes
-just embed-similar "Asthma" celltypes
-```
-
-### Visualization
-
-```bash
-# Generate browser data and open explorer
-just embed-app-data
-just embed-app
-
-# Generate interactive Plotly HTML
-just embed-plotly
-just embed-plotly-pheno
-
-# Full rebuild (reindex + generate app data)
-just embed-all
-```
-
-### Export
-
-```bash
-# Export similarity matrices
-just embed-export           # pathophysiology
-just embed-export-pheno     # phenotypes
-
-# Compare spaces (correlation analysis)
-just embed-compare
-```
-
-## Jinja2 Templates
-
-Each template extracts specific content from disorder YAML files. The template output becomes the text that gets embedded.
-
-### Pathophysiology Template (`embed_patho.j2`)
-
-```jinja
-Disease: {{ name }}
-Category: {{ category | default('Unknown') }}
-
-Pathophysiology:
-{% for p in pathophysiology %}
-- {{ p.name }}: {{ p.description }}
-  Cell types: {{ p.cell_types | map(attribute='preferred_term') | join(', ') }}
-  Biological processes: {{ p.biological_processes | map(attribute='preferred_term') | join(', ') }}
-{% endfor %}
-```
-
-### Cell Types Template (`embed_cells.j2`)
-
-```jinja
-Disease: {{ name }}
-Category: {{ category | default('Unknown') }}
-
-Cell Types and Anatomy:
-{% for p in pathophysiology %}
-{% if p.cell_types %}
-{{ p.name }}:
-{% for ct in p.cell_types %}
-  - {{ ct.preferred_term }} ({{ ct.term.id }})
-{% endfor %}
-{% endif %}
-{% endfor %}
-```
-
-## Grouping for Visualization
-
-The `_group` field controls point coloring in the visualization. Set during indexing:
-
-```bash
-# Group by parent disease categories
-just embed-index-grouped
-
-# This runs:
-# --group-by parents
-# --groups "Autoimmune Disease,Cardiovascular Disease,..."
-```
-
-Disorders matching a group get that label; others become "Other".
-
-## Troubleshooting
-
-### Empty names in visualization
-
-**Symptom**: Clusters of unnamed points in the explorer.
-
-**Cause**: History files (`*.history.yaml`) or other non-disorder YAML files were indexed.
-
-**Fix**: The `load_disorders()` function now skips `.history.yaml` files. Reindex:
-
-```bash
-just embed-index-grouped
-just embed-app-data
-```
-
-### Stale cache data
-
-**Symptom**: Old embeddings appear after modifying disorder files.
-
-**Cause**: The embedding cache persists across runs to avoid re-calling the API.
-
-**Fix**: Use `recreate=1` to clear caches:
-
-```bash
-just embed-index recreate=1
-```
-
-### All groups show as "Other"
-
-**Symptom**: No color differentiation in visualization.
-
-**Cause**: Indexed without grouping options.
-
-**Fix**: Use `embed-index-grouped` instead of plain `embed-index`:
-
-```bash
-just embed-index-grouped
-just embed-app-data
-```
-
-### Missing OPENAI_API_KEY
-
-**Symptom**: `Error: OPENAI_API_KEY environment variable not set`
-
-**Fix**: Set the API key:
-
-```bash
-export OPENAI_API_KEY=sk-...
-just embed-index-grouped
-```
-
-### Datetime serialization error
-
-**Symptom**: `TypeError: Object of type datetime is not JSON serializable`
-
-**Cause**: Some disorder files have datetime objects (e.g., in `edit_history`).
-
-**Fix**: Already handled by `_serialize_datetimes()` in `load_disorders()`.
-
-## Adding a New Embedding Space
-
-1. Create a new Jinja2 template in `src/dismech/templates/embed_<name>.j2`
-
-2. Add template path constant in `embed.py`:
-   ```python
-   NEW_TEMPLATE = TEMPLATES_DIR / "embed_<name>.j2"
-   ```
-
-3. Add index method:
-   ```python
-   def index_<name>(self, disorders: list[dict], recreate: bool = False) -> None:
-       if recreate:
-           self._clear_cache("<name>_cache.db")
-       coll = self.db.create_collection("<name>", recreate_if_exists=recreate)
-       # ... (follow existing pattern)
-   ```
-
-4. Update `index_all()` to call the new method
-
-5. Add cache mapping in `get_embeddings()`:
-   ```python
-   cache_files = {
-       ...
-       "<name>": "<name>_cache.db",
-   }
-   ```
-
-6. Add to CLI choices and `export_app_data()` default spaces
-
-7. Add dropdown option in `app/embeddings/index.html`
-
-## Mechanism Comparison Browser
-
-In addition to disease-level embeddings, there's a mechanism-level embedding system that embeds individual pathophysiology entries. This enables comparing the mechanistic overlap between diseases.
-
-### Concept
-
-- **Disease-level**: One embedding per disease (what the main explorer uses)
-- **Mechanism-level**: One embedding per pathophysiology entry
-
-For example, "Asthma" has mechanisms like "Airway Inflammation", "Bronchoconstriction", "Mucus Overproduction". Each gets its own embedding, allowing you to see where mechanisms from different diseases cluster together.
-
-### Commands
-
-```bash
-# Index individual mechanisms
-just embed-index-mechanisms
-
-# Export browser data
-just embed-mechanisms-data
-
-# Or do both:
-just embed-mechanisms-all
-```
-
-### Browser Usage
-
-Open `app/embeddings/mechanisms.html`:
-
-1. Search and add diseases to compare (up to 10)
-2. Each disease gets a unique color
-3. View mechanism clusters - overlapping regions suggest shared pathophysiology
-4. Toggle "Show unselected as gray" for context
-5. Hover over points to see mechanism names
-
-### Data Structure
-
-The mechanism embedding uses `embed_mechanism.j2` template:
-
-```
-Disease: {{ disease_name }}
-Mechanism: {{ mechanism.name }}
-Description: {{ mechanism.description }}
-Cell types: [list]
-Biological processes: [list]
-```
-
-### Files
-
-| File | Purpose |
-|------|---------|
-| `src/dismech/templates/embed_mechanism.j2` | Mechanism text template |
-| `cache/embeddings/mechanisms_cache.db` | Embedding cache |
-| `app/embeddings/mechanisms.html` | Interactive comparison browser |
-| `app/embeddings/mechanisms_data.js` | Pre-computed coordinates |
-
-## Dependencies
-
-Install embedding dependencies:
-
-```bash
-uv sync --group embeddings
-```
-
-Required packages:
-- `linkml-store[llm]` - Embedding generation and storage
-- `umap-learn` - UMAP dimensionality reduction
-- `scikit-learn` - t-SNE implementation
-- `plotly` - Interactive visualization
-- `numpy` - Numerical operations
+No paid API key is needed. The first run downloads the pinned local model and
+ontology snapshots. Vectors are reused by model/revision/text hash, while the
+current entity inventory is rebuilt independently, so edits, renames, and
+removals cannot leave stale entities in the published map.
+
+`src/dismech/embed.py`, the `just embed-*` recipes, and committed embedding JS
+remain available as legacy research tools/artifacts; they no longer supply the
+public browser. In particular, legacy ordinary indexing does not refresh an
+existing nonempty collection, and its export enumerates the vector cache; do not
+use it as a fresh current-KB export. The independent `dismech.node_embeddings`
+evaluation/suggestion CLI remains available for research.

@@ -1,7 +1,19 @@
 # A shared concept-space browser
 
-Status: proposal, with a freshness audit on 2026-09-20. No repository migration,
-scoring change, or deployment has been enacted.
+Status: implementation prepared on 2026-09-22 following maintainer approval.
+The historical audit below is dated 2026-09-20. The implementation lives in
+[dismech-ont-scores](https://github.com/monarch-initiative/dismech-ont-scores), with
+legacy-browser redirects in this repository. Deploy the downstream workflow
+before merging those redirects.
+
+The missing exporter could not be recovered. The replacement explicitly uses
+`context-v2-max-product`, without the undocumented causal-depth weighting.
+Local model2vec embeddings and PCA replace the legacy ada/UMAP representations.
+The [method contract](https://github.com/monarch-initiative/dismech-ont-scores/blob/feat/concept-explorer/METHODS.md)
+documents both numerical breaks. Extraction and scientific methods are initially
+owned by the downstream build, which needs only upstream KB YAML; this differs
+from the original proposal to keep a working exporter in DisMech because that
+exporter was absent. Curated assertions and ontology bindings stay in DisMech.
 
 ## Recommendation
 
