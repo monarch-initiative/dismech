@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_72d6c6cc-1332-45c0-ba33-fd6e2c17e7fb-2025-06-18T160000.000Z
+extractor_version: 1
 title: curation results for Gene-Disease Validity
 content_type: url
 ---
@@ -485,7 +486,7 @@ content_type: url
 </div>
 </div>
 <div>
-<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however,
+<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however, 
 			ClinGen will save your requests pending confirmationo of your email address. </p>
 <form>
 <input/> <div>
@@ -1282,10 +1283,10 @@ content_type: url
 <div>
 <ul>
 <li><a><i></i>Case Level Variants
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Segregation
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Family Segregation w/o a Scored Proband</a></li>
 <li><a><i></i>Case-Control
@@ -1303,7 +1304,7 @@ content_type: url
 <div>
 <h4>SCORED GENETIC EVIDENCE <span>Total Proband Counted Points:  9.20</span></h4>
         Case Level Variants
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1343,9 +1344,9 @@ content_type: url
                             Čopíková case IV-6
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1402,9 +1403,9 @@ content_type: url
                             Hao case 19
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1461,9 +1462,9 @@ content_type: url
                             Rad family 1 case III:3
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1519,9 +1520,9 @@ content_type: url
                             Ali case 8
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1577,9 +1578,9 @@ content_type: url
                             Booth proband
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1629,12 +1630,12 @@ content_type: url
 </tr>
 <tr>
 <td>
-                            Rad family 2 case III:3
+                            Rad family 2 case III:3 
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1690,9 +1691,9 @@ content_type: url
                             Hao case 12
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1749,9 +1750,9 @@ content_type: url
                             Ciorba case IV:2
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -2007,7 +2008,7 @@ content_type: url
 <div>
 <h4>GENETIC EVIDENCE <span>Total Points:  N/A</span></h4>
         Case Control
-
+        
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -2080,7 +2081,7 @@ content_type: url
 <div>
 <h4>EXPERIMENTAL EVIDENCE <span>Total Points:  0.50</span></h4>
          
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -2161,7 +2162,7 @@ content_type: url
 </a>
 <br/>
                                             Ma J,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Genetic screening of a Chinese cohort of children with hearing loss using a next-generation sequencing panel. <strong>2023</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>3 heterozygous missense variants identified through NGS panel in 3 probands with AD hearing loss. No specific individual-level phenotypic information reported.</p>
@@ -2174,7 +2175,7 @@ content_type: url
 </a>
 <br/>
                                             Szymko-Bennett YM,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Auditory function associated with Col11a1 haploinsufficiency in chondrodysplasia (cho) mice. <strong>2003</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>Determined if COL11A1 haploinsufficiency causes hearing loss in cho/+ mice. Saw no significant difference in ABR thresholds for click and tone burst stimuli between cho/+ and +/+ mice at all ages. Results indicate that COL11A1 haploinsufficiency does not cause significant hearing loss in these mice.</p>
