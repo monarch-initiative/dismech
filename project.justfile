@@ -134,7 +134,8 @@ validate file:
 #    Term validation is offline only for terms already in the cache. An
 #    uncached CURIE is looked up over the network (OLS for most prefixes), and
 #    when that lookup times out the term has not been checked at all. That case
-#    warns instead of blocking (dismech#12634); see the comment in the recipe.
+#    warns instead of blocking (dismech#12634), after rechecking the terms the
+#    cache does hold (dismech#12658); see the comment in the recipe.
 [group('QC')]
 validate-pre-edit file:
     #!/usr/bin/env bash
@@ -149,10 +150,23 @@ validate-pre-edit file:
     # (dismech#12634). Warn and continue; a wrong CURIE, label or enum member
     # still exits 1 and still blocks. `just validate` and `validate-disorders`
     # are not relaxed, so CI still checks the terms before merge.
+    #
+    # The online run gives up on the whole file at the first lookup that times
+    # out, so on exit 75 nothing was checked, cached terms included. Rerun with
+    # --offline, which checks everything the local cache can answer for, and
+    # block only on real errors there, such as a wrong label on a cached CURIE.
+    # Terms the cache cannot answer for are listed as "not checked"
+    # (dismech#12658; see scripts/classify_offline_term_results.py).
     term_rc=0
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}} || term_rc=$?
     if [ "$term_rc" -eq 75 ]; then
-        echo "⚠ TERMS NOT CHECKED: ontology service unavailable. Edit allowed; run \`just validate-terms\` on the edited file once the service answers." >&2
+        echo "⚠ TERMS NOT CHECKED: ontology service unavailable. Rechecking against the local cache only..." >&2
+        offline_rc=0
+        offline_out=$({{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}} --offline 2>&1) || offline_rc=$?
+        if ! printf '%s\n' "$offline_out" | uv run python scripts/classify_offline_term_results.py --exit-code "$offline_rc"; then
+            exit 1
+        fi
+        echo "Edit allowed; run \`just validate-terms\` on the edited file once the service answers." >&2
     elif [ "$term_rc" -ne 0 ]; then
         exit "$term_rc"
     fi
