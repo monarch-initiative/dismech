@@ -1152,6 +1152,23 @@ count-verified-snippets *args:
 check-reference-cache-frontmatter:
     uv run python -m dismech.reference_cache_frontmatter references_cache
 
+# List reference caches fetched with no quotable text (`content_type:
+# unavailable` in the frontmatter), grouped by identifier prefix and split by
+# whether the full-text route was tried (`full_text_attempted: true`) or never
+# retried under it (a `--force` refetch may recover text). Also counts how many
+# are cited in kb/ and flags any cited by an evidence item with a snippet.
+# Read-only, offline, exit 0: a triage view, not a gate. An empty fetch is often
+# transient, so this is a refetch worklist, not a list of unquotable papers.
+# See issue #9825.
+#   just list-empty-reference-caches                 # summary (parses kb/, ~35s)
+#   just list-empty-reference-caches --format tsv    # one row per record
+#   just list-empty-reference-caches --no-kb         # skip the kb/ lookup (fast)
+#
+# Reference caches with no quotable text (content_type: unavailable), exit 0.
+[group('QC')]
+list-empty-reference-caches *args="":
+    uv run python -m dismech.reference_cache_frontmatter list-empty {{args}}
+
 # Catches the ad-hoc-seeding corruption in #7682: a row built by string
 # concatenation whose label contains a comma parses to >3 fields and is
 # silently truncated at that comma, and a later "repair" pass cements the

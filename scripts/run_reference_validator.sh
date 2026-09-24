@@ -16,6 +16,12 @@
 # appends a count of its own (issue #7252, fixed upstream in
 # linkml/linkml-reference-validator#72). For the fast offline count on its own,
 # without a validation run, use `just count-verified-snippets`.
+#
+# After `cache reference ID`, a WARNING is printed to stderr when the cache file
+# just written carries `content_type: unavailable` (issue #9825): the fetcher
+# reports "Successfully cached" for a record with no quotable text, and nothing
+# else says so. Advisory only; the exit code is unchanged. Set
+# DISMECH_SKIP_EMPTY_CACHE_WARNING=1 to suppress it.
 
 set -euo pipefail
 
@@ -52,6 +58,55 @@ app()
     return 0
 }
 
+# Warn when `cache reference ID...` wrote a record with no quotable text.
+# Silent for any other subcommand shape, and never fatal.
+run_empty_cache_warning() {
+    if [[ "${DISMECH_SKIP_EMPTY_CACHE_WARNING:-0}" == "1" ]]; then
+        return 0
+    fi
+    if [[ $lrv_exit -ne 0 ]]; then
+        return 0
+    fi
+    if [[ "${1:-}" != "cache" || "${2:-}" != "reference" ]]; then
+        return 0
+    fi
+    shift 2
+
+    local -a ids=()
+    local cache_dir="references_cache"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --cache-dir|-c)
+                cache_dir="${2:-$cache_dir}"
+                shift
+                shift || true
+                ;;
+            --cache-dir=*)
+                cache_dir="${1#*=}"
+                shift
+                ;;
+            --config)
+                shift
+                shift || true
+                ;;
+            -*)
+                shift
+                ;;
+            *)
+                ids+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    if [[ ${#ids[@]} -eq 0 ]]; then
+        return 0
+    fi
+    uv run python -m dismech.reference_cache_frontmatter fetch-warning \
+        --cache-dir "$cache_dir" "${ids[@]}" || true
+}
+
 run_lrv "$@"
+run_empty_cache_warning "$@"
 
 exit "$lrv_exit"
