@@ -7,9 +7,10 @@ legacy-browser redirects in this repository. Deploy the downstream workflow
 before merging those redirects.
 
 The missing exporter could not be recovered. The replacement explicitly uses
-`context-v2-max-product`, without the undocumented causal-depth weighting.
-Local model2vec embeddings and PCA replace the legacy ada/UMAP representations.
-The [method contract](https://github.com/monarch-initiative/dismech-ont-scores/blob/feat/concept-explorer/METHODS.md)
+`context-v2.1-max-product`, without the undocumented causal-depth weighting.
+Local model2vec embeddings replace the legacy ada vectors. The map preserves
+the legacy Plotly interaction model and offers new UMAP, t-SNE, and PCA projections.
+The [method contract](https://github.com/monarch-initiative/dismech-ont-scores/blob/main/METHODS.md)
 documents both numerical breaks. Extraction and scientific methods are initially
 owned by the downstream build, which needs only upstream KB YAML; this differs
 from the original proposal to keep a working exporter in DisMech because that

@@ -21,11 +21,13 @@ the last successful snapshot rather than publishing incomplete data.
 
 The new local model2vec representations replace the old OpenAI ada snapshots;
 cosine values and plot positions are not numerically comparable across those
-models. Neighbors use full-vector cosine similarity; the map uses a separate PCA
-projection. Similarity is a curation lead, not evidence of shared causation.
+models. Neighbors use full-vector cosine similarity; the map offers separate UMAP, t-SNE, and PCA
+projections. Drag a box to zoom, use the toolbar to pan/reset/export an image,
+or select points to filter the concept list and CSV export. The sidebar offers
+category/parent coloring, All/None filters, labels, and focused-neighborhood zoom. Similarity is a curation lead, not evidence of shared causation.
 
 The ontology score implementation is also explicitly versioned as
-`context-v2-max-product`: the original exporter was not recoverable. Read the
+`context-v2.1-max-product`: the original exporter was not recoverable. Read the
 [method contract](https://github.com/monarch-initiative/dismech-ont-scores/blob/main/METHODS.md)
 for the formula, propagation predicates, exclusions and limitations. The
 [original audit and architecture](explanation/concept-space-browser.md) records
