@@ -116,6 +116,10 @@ Use the actual identifier for other supported reference types. Read the fetched
 record and confirm its identity, topic, and quoted passage. A successful fetch
 does not prove that the source supports the claim.
 
+"Successfully cached" also does not mean the record has text to quote. If the
+fetch printed a `WARNING: ... cached with no quotable text`, read
+[Empty caches](#empty-caches-content_type-unavailable) before going further.
+
 ### 3. Run the fast edit loop
 
 After each disorder-file edit, run:
@@ -417,6 +421,54 @@ The list is a snapshot for orientation, not a closed set — a new structured
 source adds a prefix. Regenerate it with
 `ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
 trusting these counts.
+
+## Empty caches (`content_type: unavailable`)
+
+The fetcher writes `content_type: unavailable` into a cache file's frontmatter
+when it found the record but retrieved no text a snippet could quote: no
+abstract and no full text. The file still has a title, authors and journal, and
+the fetch still reports "Successfully cached". A real abstract is
+`abstract_only`; full texts are `full_text_xml`, `full_text_pdf` and similar.
+Go by that field, not by how short the body looks: structured caches (ORPHA,
+ClinGen) and records with no `## Content` heading, such as `PMID:31909928`, are
+short and fully quotable.
+
+**An empty cache describes one fetch, not the paper.** `PMID:33054089` came back
+`unavailable` and was refetched an hour later as `full_text_xml` from PMC. So
+the first step is a retry, especially for an open-access paper:
+
+```bash
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
+```
+
+`just fetch-reference` prints a warning to stderr when the file it leaves behind
+is `unavailable`. The warning is advisory: the file is kept and the exit code is
+unchanged. When you write a note about such a paper, say that no quotable text
+was retrieved on the fetches you made, not that the record cannot be quoted; the
+next curator's fetch may succeed.
+
+**If it stays empty, nothing in it can be a snippet.** A title is not a finding,
+and a sentence recalled from the paper is not a quote from the cache. Say in
+`notes` why it is not cited as evidence, and optionally also list it as a
+top-level `references:` entry with no snippet. The worked
+example is the "Not cited, and why." paragraph in the `notes` of
+`kb/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_9.yaml`: two papers on a
+further WARS1 family that cache with no abstract text are named there as leads
+for a curator with full-text access, and no evidence item cites them.
+
+To see the whole backlog:
+
+```bash
+just list-empty-reference-caches                # summary by identifier prefix
+just list-empty-reference-caches --format tsv   # one row per record
+just list-empty-reference-caches --no-kb        # skip the kb/ citation lookup
+```
+
+It splits records by `full_text_attempted: true` (the full-text route was tried
+and found nothing) versus no such marker (never retried under that route, so a
+`--force` refetch is the obvious first move), counts how many are cited anywhere
+in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
+count should be zero. The recipe is a read-only triage view and always exits 0.
 
 ## Reference-cache integrity
 
