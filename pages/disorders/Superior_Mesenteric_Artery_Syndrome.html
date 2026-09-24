@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Superior Mesenteric Artery Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Superior Mesenteric Artery Syndrome</h1>
             <div class="header-meta">
 
@@ -4235,7 +4378,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4347,6 +4493,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4388,6 +4540,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4417,6 +4575,12 @@
             <div class="experiment-decision">Enrichment of connective-tissue laxity in cases would implicate mesenteric connective-tissue properties as a susceptibility determinant.
 </div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4519,6 +4683,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4560,6 +4730,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4583,7 +4759,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4605,7 +4784,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38694377" target="_blank">PMID:38694377</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4628,7 +4810,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT03937193" target="_blank">clinicaltrials:NCT03937193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4668,6 +4853,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-precipitating-catabolic-weight-loss-or-anatomic-alteration" data-dismech-node="Precipitating Catabolic Weight Loss or Anatomic Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Precipitating Catabolic Weight Loss or Anatomic Alteration</div>
+
 
                 <div class="item-desc">The upstream trigger. Two mechanistically distinct routes converge on the same aortomesenteric geometry. (1) A catabolic/undernutrition state producing rapid or substantial weight loss - anorexia nervosa and other restrictive eating, malignancy and cachexia, major burns, trauma, malabsorption, chronic infection, prolonged immobilisation, or severe systemic illness. (2) A change in the spatial relationship among the spine, aorta, SMA, and duodenum without primary fat loss - corrective spinal surgery for scoliosis (the classic paediatric setting), body casting (the origin of the name &#34;cast syndrome&#34;), rapid linear growth, or abdominal/retroperitoneal operations that alter intestinal fixation and tension. A third, less common route is constitutional: a congenital anatomic variant of the SMA origin (an abnormally low, caudally angled take-off) or of duodenal fixation (a short, high-inserting ligament of Treitz suspending the duodenum within the aortomesenteric window) can narrow the window from birth, so that a much smaller degree of fat loss is sufficient to precipitate obstruction.
 </div>
@@ -4724,7 +4910,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4747,7 +4936,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4773,6 +4965,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesenteric-fat-pad-depletion" data-dismech-node="Mesenteric Fat Pad Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesenteric Fat Pad Depletion</div>
+
 
                 <div class="item-desc">Loss of the retroperitoneal and mesenteric adipose cushion that surrounds the origin of the superior mesenteric artery. In health this fat pad splays the SMA away from the aorta and provides the space through which the third part of the duodenum passes. Its depletion by lipolysis during negative energy balance is the proximate anatomic lesion of the weight-loss arm of the disease, and its reconstitution is the therapeutic goal of conservative management.
 </div>
@@ -4952,7 +5145,10 @@ This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4978,6 +5174,7 @@ This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortomesenteric-angle-and-distance-narrowing" data-dismech-node="Aortomesenteric Angle and Distance Narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortomesenteric Angle and Distance Narrowing</div>
+
 
                 <div class="item-desc">Reduction of the angle at which the SMA leaves the abdominal aorta, and of the aorta-to-SMA distance at the level of the duodenum. Normative values vary by population; one cross-sectional series reported a mean angle of 54.07 +/- 8.53 degrees and a mean distance of 16.25 +/- 3.44 mm. The operational diagnostic thresholds used in the largest prospective surgical series are an aortomesenteric angle of 22 degrees or less and/or a distance of 8 mm or less. This is a geometric, not a biochemical, lesion: no vascular occlusion, thrombosis, dissection, or ischaemia is involved, and the SMA itself is structurally normal.
 </div>
@@ -5085,7 +5282,10 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5108,7 +5308,10 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38694377" target="_blank">PMID:38694377</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5134,6 +5337,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrinsic-compression-of-the-third-part-of-the-duodenum" data-dismech-node="Extrinsic Compression of the Third Part of the Duodenum" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrinsic Compression of the Third Part of the Duodenum</div>
+
 
                 <div class="item-desc">The primary lesion. The horizontal (third) portion of the duodenum, which crosses the midline in the aortomesenteric window, is squeezed between the SMA anteriorly and the aorta and vertebral column posteriorly. The compression is extrinsic - the duodenal wall and lumen are intrinsically normal - which is why endoscopy alone cannot establish the diagnosis and why bypassing or decompressing the segment relieves it.
 </div>
@@ -5224,7 +5428,10 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5247,7 +5454,10 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5273,6 +5483,7 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-duodenal-obstruction-and-gastroduodenal-stasis" data-dismech-node="Proximal Duodenal Obstruction and Gastroduodenal Stasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Duodenal Obstruction and Gastroduodenal Stasis</div>
+
 
                 <div class="item-desc">Partial or complete high intestinal obstruction at the third part of the duodenum. Chyme cannot pass the compressed segment, so the proximal duodenum and stomach dilate and empty slowly. Obstruction may be intermittent and posture-dependent - supine positioning worsens it and left lateral decubitus, prone, or knee-chest positions can transiently relieve it - which explains both the fluctuating symptoms and the positional manoeuvres used in conservative management.
 </div>
@@ -5418,7 +5629,10 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5444,6 +5658,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meal-provoked-symptoms-and-reduced-oral-intake" data-dismech-node="Meal-Provoked Symptoms and Reduced Oral Intake" data-dismech-type="pathophysiology">
                 <div class="item-name">Meal-Provoked Symptoms and Reduced Oral Intake</div>
+
 
                 <div class="item-desc">Eating loads the obstructed segment, producing postprandial epigastric pain, nausea, early satiety, bloating, and vomiting that begins within roughly 15-20 minutes of a meal and is characteristically relieved by emesis. Patients learn to avoid solids, then to avoid eating, so the obstruction is converted into a behavioural restriction of intake. This is the node at which a mechanical lesion becomes a nutritional one, and it is the hinge of the vicious cycle.
 </div>
@@ -5519,7 +5734,10 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5545,6 +5763,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-weight-loss-and-malnutrition" data-dismech-node="Progressive Weight Loss and Malnutrition" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Weight Loss and Malnutrition</div>
+
 
                 <div class="item-desc">Sustained negative energy balance with falling BMI, dehydration, and electrolyte and acid-base disturbance (classically hypochloraemic metabolic alkalosis from recurrent vomiting). In the largest prospective series the median BMI at presentation was 17.8 kg/m2, and surgical relief of the obstruction raised it significantly - consistent with the undernutrition being substantially driven by the obstruction rather than merely preceding it, though that series was single-arm and uncontrolled with concurrent nutritional care.
 </div>
@@ -5617,7 +5836,10 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5643,6 +5865,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstructive-and-aspiration-complications" data-dismech-node="Obstructive and Aspiration Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive and Aspiration Complications</div>
+
 
                 <div class="item-desc">Uncommon but potentially fatal sequelae of unrelieved obstruction and recurrent vomiting: aspiration pneumonia, respiratory depression from metabolic alkalosis, acute gastric dilatation progressing to necrosis and perforation, peptic ulceration, and obstructive acute pancreatitis. These complications are the reason delayed diagnosis carries meaningful mortality.
 </div>
@@ -5677,7 +5900,10 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5745,13 +5971,15 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5761,7 +5989,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nausea" data-dismech-node="Nausea" data-dismech-type="phenotype">
@@ -5792,6 +6020,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5804,7 +6035,10 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5858,6 +6092,9 @@ This clinical feature is Postprandial bilious vomiting, annotated with Vomiting 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5870,7 +6107,10 @@ This clinical feature is Postprandial bilious vomiting, annotated with Vomiting 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23959808" target="_blank">PMID:23959808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5925,6 +6165,9 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5937,7 +6180,10 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5991,6 +6237,9 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6003,7 +6252,10 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6014,318 +6266,6 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
 
 
                 <div class="evidence-explanation">Anorexia is listed among the characterising symptoms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-malnutrition" data-dismech-node="Malnutrition" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Malnutrition
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004395</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31998513" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Superior mesenteric artery (SMA) syndrome is a rare complication of severe malnutrition that leads to intestinal obstruction"</div>
-
-
-                <div class="evidence-explanation">Links severe malnutrition directly to the obstruction, supporting malnutrition as an integral clinical feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aspiration-pneumonia" data-dismech-node="Aspiration Pneumonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aspiration Pneumonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011951</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Because recurrent vomiting leads to aspiration pneumonia or respiratory depression via metabolic alkalosis, early diagnosis is required."</div>
-
-
-                <div class="evidence-explanation">Directly identifies aspiration pneumonia as a consequence of the recurrent vomiting caused by the obstruction.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Weight Loss
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001824</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17476104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Superior mesenteric artery syndrome is uncommon and characterized by postprandial epigastric pain, nausea, vomiting, anorexia and weight loss."</div>
-
-
-                <div class="evidence-explanation">Weight loss is listed among the characterising features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postprandial-epigastric-pain" data-dismech-node="Postprandial Epigastric Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postprandial Epigastric Pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0410019</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Postprandial epigastric pain, annotated with Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17476104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Superior mesenteric artery syndrome is uncommon and characterized by postprandial epigastric pain, nausea, vomiting, anorexia and weight loss."</div>
-
-
-                <div class="evidence-explanation">Names postprandial epigastric pain as a defining feature of the syndrome.
-</div>
 
 
 
@@ -6355,15 +6295,18 @@ This clinical feature is Postprandial epigastric pain, annotated with Epigastric
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6381,7 +6324,10 @@ This clinical feature is Duodenal (high intestinal) obstruction, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6408,78 +6354,9 @@ This clinical feature is Duodenal (high intestinal) obstruction, annotated with 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-low-body-mass-index" data-dismech-node="Low Body Mass Index" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malnutrition" data-dismech-node="Malnutrition" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Low Body Mass Index
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased body mass index</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045082" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0045082</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30291587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SMAS is a rare condition that should be suspected in cases of chronic, refractory upper digestive symptoms, particularly in females with low BMIs."</div>
-
-
-                <div class="evidence-explanation">Identifies low BMI as a characteristic feature of the affected population.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypochloremic-metabolic-alkalosis" data-dismech-node="Hypochloremic Metabolic Alkalosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypochloremic Metabolic Alkalosis
+                        Malnutrition
 
 
 
@@ -6491,15 +6368,18 @@ This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005977" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004395</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005977 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6511,23 +6391,26 @@ This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31998513" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Because recurrent vomiting leads to aspiration pneumonia or respiratory depression via metabolic alkalosis, early diagnosis is required."</div>
+                <div class="evidence-snippet">"Superior mesenteric artery (SMA) syndrome is a rare complication of severe malnutrition that leads to intestinal obstruction"</div>
 
 
-                <div class="evidence-explanation">Identifies vomiting-induced metabolic alkalosis, and the respiratory depression it causes, as a recognised consequence of the obstruction.
+                <div class="evidence-explanation">Links severe malnutrition directly to the obstruction, supporting malnutrition as an integral clinical feature.
 </div>
 
 
@@ -6558,15 +6441,18 @@ This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:6000383</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:6000383</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6578,13 +6464,16 @@ This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a pheno
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31998513" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31998513" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6625,10 +6514,10 @@ This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6636,11 +6525,434 @@ This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in the SMA syndrome complication literature and surfaced by the Edison deep-research report, but no PMID with a quotable abstract sentence linking acute pancreatitis to SMA syndrome was located, so no evidence item is asserted. Retained as a described but unevidenced complication rather than dropped.
 </div>
 
 
 
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aspiration-pneumonia" data-dismech-node="Aspiration Pneumonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aspiration Pneumonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011951</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because recurrent vomiting leads to aspiration pneumonia or respiratory depression via metabolic alkalosis, early diagnosis is required."</div>
+
+
+                <div class="evidence-explanation">Directly identifies aspiration pneumonia as a consequence of the recurrent vomiting caused by the obstruction.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypochloremic-metabolic-alkalosis" data-dismech-node="Hypochloremic Metabolic Alkalosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypochloremic Metabolic Alkalosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005977" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005977</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005977 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because recurrent vomiting leads to aspiration pneumonia or respiratory depression via metabolic alkalosis, early diagnosis is required."</div>
+
+
+                <div class="evidence-explanation">Identifies vomiting-induced metabolic alkalosis, and the respiratory depression it causes, as a recognised consequence of the obstruction.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postprandial-epigastric-pain" data-dismech-node="Postprandial Epigastric Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Postprandial Epigastric Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0410019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postprandial epigastric pain, annotated with Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17476104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Superior mesenteric artery syndrome is uncommon and characterized by postprandial epigastric pain, nausea, vomiting, anorexia and weight loss."</div>
+
+
+                <div class="evidence-explanation">Names postprandial epigastric pain as a defining feature of the syndrome.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Weight Loss
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17476104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Superior mesenteric artery syndrome is uncommon and characterized by postprandial epigastric pain, nausea, vomiting, anorexia and weight loss."</div>
+
+
+                <div class="evidence-explanation">Weight loss is listed among the characterising features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-body-mass-index" data-dismech-node="Low Body Mass Index" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Low Body Mass Index
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased body mass index</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045082" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0045082</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30291587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SMAS is a rare condition that should be suspected in cases of chronic, refractory upper digestive symptoms, particularly in females with low BMIs."</div>
+
+
+                <div class="evidence-explanation">Identifies low BMI as a characteristic feature of the affected population.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6682,6 +6994,9 @@ This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenot
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6734,6 +7049,31 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line and mechanistically definitive therapy. The goal is to restore the aortomesenteric fat pad, which widens the angle and relieves the compression - not merely to suppress nausea. Delivered as small, frequent, energy-dense liquid or soft feeds when oral intake is tolerated, with careful electrolyte monitoring for refeeding syndrome. Conservative management succeeds in roughly 70-80% of cases.
 </div>
 
@@ -6764,7 +7104,10 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6787,7 +7130,10 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6829,7 +7175,10 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6894,6 +7243,31 @@ This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Enteral nutrition delivered by a tube whose tip lies distal to the compressed third part of the duodenum. This bypasses the obstruction so that calories can be delivered despite it, allowing weight gain and fat-pad reconstitution - an intervention that exploits the fact that the bowel distal to the compression is entirely normal.
 </div>
 
@@ -6933,7 +7307,10 @@ This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6998,6 +7375,31 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used when enteral feeding distal to the obstruction is impossible or insufficient, or when the obstruction is complete. Provides calories for weight restoration entirely independently of the gut.
 </div>
 
@@ -7018,7 +7420,10 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7083,6 +7488,31 @@ This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Gastroduodenal decompression relieves acute distension, reduces vomiting and aspiration risk, and allows correction of fluid and electrolyte deficits during the acute presentation. Symptomatic rather than mechanism-reversing.
 </div>
 
@@ -7103,7 +7533,10 @@ This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356803" target="_blank">PMID:28356803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7168,6 +7601,31 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The best-supported definitive operation when conservative management fails. A side-to-side anastomosis between the duodenum proximal to the compression and the jejunum bypasses the aortomesenteric window entirely, so the obstruction is circumvented rather than the angle corrected. Reported success rates are 80-100%; in a prospective 39-patient cohort symptom scores fell and BMI rose significantly at a median 47 months of follow-up.
 </div>
 
@@ -7207,7 +7665,10 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7230,7 +7691,10 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39191411" target="_blank">PMID:39191411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7253,7 +7717,10 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7318,6 +7785,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Division of the ligament of Treitz with mobilisation of the duodenum allows the duodenum to drop caudally out of the narrowed aortomesenteric window. Unlike duodenojejunostomy this addresses the position of the duodenum relative to the compressing structures rather than bypassing the segment; it is anatomically distinct from duodenojejunostomy and less consistently effective.
 </div>
 
@@ -7357,7 +7849,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7419,7 +7914,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7469,7 +7967,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7545,7 +8046,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39118170" target="_blank">PMID:39118170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7568,7 +8072,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39118170" target="_blank">PMID:39118170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7591,7 +8098,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33905850" target="_blank">PMID:33905850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7641,7 +8151,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7694,7 +8207,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7744,7 +8260,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7777,6 +8296,634 @@ This environmental factor is surgical procedure exposure, annotated with exposur
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-radiological-concordance">
+                <div class="item-name">
+                    Clinical-Radiological Concordance
+
+                </div>
+
+                <div class="item-desc">Diagnosis requires BOTH a compatible obstructive clinical picture AND imaging evidence of duodenal compression with narrowed aortomesenteric geometry. A narrow angle or distance in isolation occurs in asymptomatic individuals and is not diagnostic; conversely, endoscopy cannot establish an extrinsic compression. In practice barium swallow, contrast-enhanced CT or CT/MR angiography, and endoscopy are combined.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30291587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis was achieved through barium swallow, CT/MR angiography (aortomesenteric angle ≤ 22°, distance ≤ 8 mm), endoscopy."</div>
+
+
+                <div class="evidence-explanation">Describes the multimodal diagnostic pathway and the imaging thresholds applied.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23959808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23959808" target="_blank">PMID:23959808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CT angiography is currently favored in the literature for diagnosis as it can not only show the narrowed aorto-mesenteric angle and distance, but also the extent of duodenal obstruction."</div>
+
+
+                <div class="evidence-explanation">Explains why CT angiography is preferred - it captures both the geometry and the obstruction, i.e. both halves of the concordance requirement.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-reduced-aortomesenteric-angle-on-ct-angiography">
+                <div class="item-name">
+                    Reduced Aortomesenteric Angle on CT Angiography
+
+                </div>
+
+                <div class="item-desc">Sagittal reconstruction of contrast-enhanced abdominal CT (or CT/MR angiography) measures the angle at which the SMA leaves the aorta. Values of 22 degrees or less, together with an aortomesenteric distance of 8 mm or less, are the operational diagnostic criteria used in the largest prospective series, in which the median measured angle was 11 degrees and the median distance 5 mm. A narrowed angle in the absence of demonstrated duodenal obstruction is not diagnostic.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Ct</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        Superior mesenteric artery
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001182" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0001182</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30291587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median aortomesenteric angle was 11° and distance was 5 mm."</div>
+
+
+                <div class="evidence-explanation">Reports the measured aortomesenteric geometry in a prospectively enrolled SMA syndrome cohort, quantifying the imaging finding.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31127323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31127323" target="_blank">PMID:31127323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinicians and radiologists with a high index of suspicion based on symptomatology may pursue radiologic investigation in the form of upper gastrointestinal (GI) series and contrast-enhanced abdominal computed tomography (CT). Magnetic resonance imaging (MRI) and ultrasound (US) are less..."</div>
+
+
+                <div class="evidence-explanation">Restores CT and alternative-modality context and the requirement to correlate imaging with clinical symptoms. This source fragment does not supply the numerical thresholds or cohort medians in the description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-gastroduodenal-distention-with-abrupt-caliber-change-at-the-sma-crossing">
+                <div class="item-name">
+                    Gastroduodenal Distention with Abrupt Caliber Change at the SMA Crossing
+
+                </div>
+
+                <div class="item-desc">On an upper gastrointestinal barium series the stomach and proximal duodenum are dilated with abrupt hold-up of contrast at the level where the SMA crosses the third part of the duodenum, and gastroduodenal emptying is delayed. Obstruction may be positional, improving in the prone or left lateral decubitus position under real-time fluoroscopy.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Other</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        Duodenum
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0002114</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">Modality is recorded as OTHER because a barium/upper-GI series is fluoroscopic rather than plain-film projectional radiography, and ImagingModalityEnum has no FLUOROSCOPY value.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30291587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Barium swallow showed a gastroduodenal dilation in 57% of patients, and a delayed gastroduodenal emptying in 38%."</div>
+
+
+                <div class="evidence-explanation">Quantifies gastroduodenal dilation and delayed emptying on barium swallow in a prospective cohort.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-intermittent-postprandial-symptoms">
+                <div class="item-name">Intermittent postprandial symptoms</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Early phase. Compression is partial and posture-dependent; symptoms occur after larger or solid meals and remit between them. Weight is often still preserved.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-established-obstruction-with-reduced-intake-and-weight-loss">
+                <div class="item-name">Established obstruction with reduced intake and weight loss</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The vicious cycle is engaged. Solids are avoided, then meals generally; weight and the aortomesenteric fat pad fall together, progressively narrowing the angle.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-nutritional-and-metabolic-compromise-or-complications">
+                <div class="item-name">Severe nutritional and metabolic compromise or complications</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Marked undernutrition, dehydration, and hypochloraemic metabolic alkalosis, with risk of aspiration pneumonia, acute gastric dilatation and perforation, and obstructive pancreatitis. This is the phase that carries mortality.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-recovery-after-fat-pad-restoration-or-surgical-bypass">
+                <div class="item-name">Recovery after fat-pad restoration or surgical bypass</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Conservative management succeeds in roughly 70-80% of cases; laparoscopic duodenojejunostomy achieves 80-100% success when it fails. The course may remit with weight restoration, recur if weight is lost again, or remain chronic if obstruction and nutritional depletion continue to perpetuate one another.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The initial treatment is usually conservative, including postural change, gastroduodenal decompression, and nutrient management (success rates: 70%-80%). If conservative therapy fails, surgical treatment (i.e., laparoscopic duodenojejunostomy) is recommended (success rates: 80%-100%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies recovery rates for the conservative and surgical routes out of the obstructed state.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">Estimated at 0.013%-3% of the general population from historical barium studies; the wide range reflects radiographic ascertainment in selected populations rather than a population registry, so no precise numeric rate is asserted here.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31998513" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall prevalence of SMA syndrome is unknown; however, it is estimated to be 0.013%"</div>
+
+
+                <div class="evidence-explanation">Source states the prevalence is unknown and gives only a wide barium-study-derived estimate, supporting a qualitative RARE class rather than a numeric rate.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-demographics">
+                <div class="item-name">Demographics</div>
+
+                <div class="item-desc">Median age at presentation around 23 years (reported range 0-91 years), with a female predominance of roughly 3:2 and a peak in adolescents and young adults. In the scoliosis-surgery subgroup the mean age is about 15 years and over 80% of reported cases are girls.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37383896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median age of patients is 23 years old (range 0-91 years old) and predominant in females over males with a ratio of 3:2."</div>
+
+
+                <div class="evidence-explanation">Gives the age distribution and sex ratio.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33905850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33905850" target="_blank">PMID:33905850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mean age of patients with SMA syndrome following scoliosis surgery was 14.7 ± 2.9 years and the majority (n = 42, 80.8%) were girls."</div>
+
+
+                <div class="evidence-explanation">Supplies the age and sex distribution of the scoliosis-surgery subgroup quoted in this epidemiology entry.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7791,7 +8938,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nutcracker-syndrome-left-renal-vein-entrapment">
                 <div class="item-name">
 
                     Nutcracker Syndrome (Left Renal Vein Entrapment)
@@ -7833,7 +8980,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7859,7 +9009,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-anorexia-nervosa">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Anorexia_Nervosa.html">Anorexia Nervosa</a>
@@ -7901,7 +9051,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7927,7 +9080,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-functional-dyspepsia-and-gastroparesis">
                 <div class="item-name">
 
                     Functional Dyspepsia and Gastroparesis
@@ -7969,7 +9122,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7992,7 +9148,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8031,7 +9190,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03416647">
                 <div class="item-name">
                     NCT03416647
 
@@ -8055,11 +9214,11 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8080,7 +9239,10 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
                         <a href="https://clinicaltrials.gov/study/NCT03416647" target="_blank">clinicaltrials:NCT03416647</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8102,7 +9264,7 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06970093">
                 <div class="item-name">
                     NCT06970093
 
@@ -8126,11 +9288,11 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002013</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Postprandial bilious vomiting, annotated with Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8143,11 +9305,11 @@ This clinical trial targets Postprandial bilious vomiting, annotated with Vomiti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001824</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8168,7 +9330,10 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT06970093" target="_blank">clinicaltrials:NCT06970093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8190,7 +9355,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03937193">
                 <div class="item-name">
                     NCT03937193
 
@@ -8217,7 +9382,10 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT03937193" target="_blank">clinicaltrials:NCT03937193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8239,7 +9407,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04515251">
                 <div class="item-name">
                     NCT04515251
 
@@ -8266,7 +9434,10 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT04515251" target="_blank">clinicaltrials:NCT04515251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8288,7 +9459,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07115472">
                 <div class="item-name">
                     NCT07115472
 
@@ -8315,7 +9486,10 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT07115472" target="_blank">clinicaltrials:NCT07115472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -9023,7 +10197,7 @@ phenotypes:
   evidence:
   - reference: PMID:31998513
     reference_title: &#34;Superior mesenteric artery syndrome in severe anorexia nervosa: A case series.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;they can show complications of this syndrome, such as acute gastric dilatation.&#34;
     explanation: &gt;
@@ -9078,11 +10252,21 @@ imaging_findings:
     reference_title: &#34;Superior mesenteric artery syndrome: a radiographic review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Imaging can assist in diagnosis by demonstrating characteristic findings of reduced aortomesenteric angle, reduced aortomesenteric distance, gastroduodenal distention, bowel caliber narrowing at the takeoff of the superior mesenteric artery from the aorta, as well as delayed gastric emptying or positional obstruction observed with real time with fluoroscopy.&#34;
-    explanation: &gt;
-      Enumerates the characteristic imaging findings, including the reduced angle
-      and distance and the caliber change at the SMA takeoff.
-
+    snippet: &gt;-
+      Clinicians and radiologists with a high index of suspicion based on symptomatology may pursue
+      radiologic investigation in the form of upper gastrointestinal (GI) series and
+      contrast-enhanced abdominal computed tomography (CT). Magnetic resonance imaging (MRI) and
+      ultrasound (US) are less commonly utilized modalities in the work-up of SMA syndrome, but
+      provide imaging alternatives without the use of ionizing radiation. ... Imaging can assist in
+      diagnosis by demonstrating characteristic findings of reduced aortomesenteric angle, reduced
+      aortomesenteric distance, gastroduodenal distention, bowel caliber narrowing at the takeoff of
+      the superior mesenteric artery from the aorta, as well as delayed gastric emptying or
+      positional obstruction observed with real time with fluoroscopy. ... The diagnosis of SMA
+      syndrome must be based on clinical symptomatology correlated with radiographic information.
+    explanation: &gt;-
+      Restores CT and alternative-modality context and the requirement to correlate imaging with
+      clinical symptoms. This source fragment does not supply the numerical thresholds or cohort
+      medians in the description.
 - name: Gastroduodenal Distention with Abrupt Caliber Change at the SMA Crossing
   modality: OTHER
   description: &gt;
@@ -9241,7 +10425,7 @@ prevalence:
   evidence:
   - reference: PMID:31998513
     reference_title: &#34;Superior mesenteric artery syndrome in severe anorexia nervosa: A case series.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The overall prevalence of SMA syndrome is unknown; however, it is estimated to be 0.013%&#34;
     explanation: &gt;
@@ -9575,6 +10759,7 @@ clinical_trials:
       label: High intestinal obstruction
   evidence:
   - reference: clinicaltrials:NCT03416647
+    reference_title: &#34;Superior Mesenteric Artery Syndrome: a Prospective Study in a Single Institution&#34;
     supports: SUPPORT
     snippet: &#34;Between 2008 and 2016, 39 consecutive patients with chronic gastrointestinal symptoms and a diagnosis of SMAS were prospectively included in the study, in order to describe their demographic, clinical and outcome features. All patients underwent duodenojejunostomy.&#34;
     explanation: &gt;
@@ -9599,6 +10784,7 @@ clinical_trials:
       label: Weight loss
   evidence:
   - reference: clinicaltrials:NCT06970093
+    reference_title: &#34;One Anastomosis Gastric Bypass (OAGB) vs Duodeno-jejunostomy For Treatment of Superior Mesenteric Artery Syndrome: A Prospective Randomized Control Trial&#34;
     supports: SUPPORT
     snippet: &#34;This condition causes the duodenum to be squeezed between two arteries, leading to severe nausea, vomiting, and weight loss.&#34;
     explanation: &gt;
@@ -9615,6 +10801,7 @@ clinical_trials:
     of the fat-pad mechanism.
   evidence:
   - reference: clinicaltrials:NCT03937193
+    reference_title: &#34;Normal Range of Superior Mesenteric Artery on Computerized Tomography in Young Chinese Population and Its Correlation With Retroperitoneal Adipose Tissue&#34;
     supports: SUPPORT
     snippet: &#34;In literature, superior mesenteric artery (SMA) angle, also named as aortomesenteric angle (AMA), varies greatly in both adult and children; while the aortomesenteric distance also ranges widely. Both AMA and AMD are influenced by retroperitoneal fat.&#34;
     explanation: &gt;
@@ -9630,6 +10817,7 @@ clinical_trials:
     standards remain under development.
   evidence:
   - reference: clinicaltrials:NCT04515251
+    reference_title: &#34;A Prospective, Observational, Multicenter Study on Ultrasound Evaluation of Superior Mesenteric Artery Measurements in a Healthy Pediatric Population&#34;
     supports: SUPPORT
     snippet: &#34;Multicenter, prospective, observational research project on children aged from 10 to 15 years old undergoing abdominal ultrasound examinations during routine clinical practice.&#34;
     explanation: &gt;
@@ -9649,6 +10837,7 @@ clinical_trials:
     cycle.
   evidence:
   - reference: clinicaltrials:NCT07115472
+    reference_title: &#34;Fluoxetine as a Non-Surgical Intervention for Refractory Superior Mesenteric Artery Syndrome With Comorbid Somatic Symptom Disorder: A Prospective Case Series Study&#34;
     supports: SUPPORT
     snippet: &#34;Can psychiatric intervention targeting SSD reduce the likelihood of requiring duodenojejunostomy in refractory SMAS?&#34;
     explanation: &gt;
@@ -9740,6 +10929,7 @@ discussions:
       Argues explicitly that population-specific normative aortomesenteric values are
       needed rather than a single universal threshold.
   - reference: clinicaltrials:NCT03937193
+    reference_title: &#34;Normal Range of Superior Mesenteric Artery on Computerized Tomography in Young Chinese Population and Its Correlation With Retroperitoneal Adipose Tissue&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In literature, superior mesenteric artery (SMA) angle, also named as aortomesenteric angle (AMA), varies greatly in both adult and children; while the aortomesenteric distance also ranges widely. Both AMA and AMD are influenced by retroperitoneal fat.&#34;
@@ -9748,6 +10938,7 @@ discussions:
       aortomesenteric geometry and its confounding by retroperitoneal fat - the two
       halves of this knowledge gap.
   - reference: clinicaltrials:NCT04515251
+    reference_title: &#34;A Prospective, Observational, Multicenter Study on Ultrasound Evaluation of Superior Mesenteric Artery Measurements in a Healthy Pediatric Population&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Multicenter, prospective, observational research project on children aged from 10 to 15 years old undergoing abdominal ultrasound examinations during routine clinical practice.&#34;
@@ -10092,6 +11283,74 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address environmental-edge and sourcing review feedback</strong> · 2026-08-08T23:59:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Superior_Mesenteric_Artery_Syndrome/2026-08-08T235930Z-codex-f60541.yaml">View source</a></p>
+                        <p class="research-review-text">Connected all three environmental precipitants to the initiating
+pathophysiology node with independently evidenced TRIGGERS edges. Replaced
+uncached deep-research numeric ranges with values and operational thresholds
+supported by cached PMID evidence.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Superior Mesenteric Artery Syndrome</strong> · 2026-08-01T17:55:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Superior_Mesenteric_Artery_Syndrome/2026-08-01T175527Z-claude-code-77b322.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of superior mesenteric artery syndrome [MONDO:0002687], a deliberately
+non-Mendelian, mechanical/anatomic dismech target.
+
+Preflights. NEC preflight run against the MONDO record - no causal gene, synonyms Wilkie
+syndrome / Cast syndrome / Arteriomesenteric duodenal compression syndrome - and passed;
+the Edison deep-research report was confirmed semantically to be about duodenal
+compression and explicitly not mesenteric ischaemia or SMA dissection. Duplicate preflight
+across origin/main kb/, all PRs, and all issues including synonyms found no existing
+coverage.
+
+Deep research. just research-disorder falcon Superior_Mesenteric_Artery_Syndrome
+- 7m20s, 12 citations, 1 artifact. The report was PMID-poor, leaning on ClinicalTrials.gov
+records, so its verifiable leads - PMID:30291587 plus NCT03416647 and NCT06970093 - were
+fetched and verified, and the remainder of the evidence base was built from a targeted
+PubMed E-utilities sweep. Every snippet was verified against a cache file created by
+just fetch-reference; no cache file was hand-written.
+
+Content. An eight-node CYCLIC pathograph: precipitating catabolic weight loss or anatomic
+alteration, mesenteric fat pad depletion, aortomesenteric angle and distance narrowing,
+extrinsic compression of the third part of the duodenum, proximal duodenal obstruction
+and gastroduodenal stasis, meal-provoked symptoms and reduced oral intake, progressive
+weight loss and malnutrition, and an edge closing back to fat pad depletion. Every edge in
+the loop carries the hypothesis group fat_pad_depletion_vicious_cycle, declared as a
+CANONICAL mechanistic_hypotheses entry. A second, non-adipose trigger arm - post-scoliosis
+-surgery geometric distortion - is modelled as an INDIRECT_KNOWN_INTERMEDIATES edge that
+bypasses the adipose node. Also curated: 10 phenotypes, 2 imaging findings, 3 environmental
+precipitants, prevalence, epidemiology, 6 treatments with target_mechanisms - nutritional
+rehabilitation RESTORES the fat pad node, nasojejunal feeding and duodenojejunostomy
+BYPASS, Strong procedure INHIBITS the compression - a diagnosis entry requiring
+clinical-radiological concordance, 3 differential diagnoses including nutcracker syndrome
+modelled as sharing the aortomesenteric substrate while remaining a distinct disease,
+2 clinical trials, and 2 KNOWLEDGE_GAP discussions with structured proposed_experiments.
+
+Deliberate omissions. Genetics, variants, inheritance, molecular pathways, biomarkers,
+omics, and animal-model sections are intentionally empty rather than speculatively filled.
+GeneReviews confirmed absent by PubMed search, as expected for a non-Mendelian entity.
+The historical 33 percent untreated-mortality figure was not carried in as a structured
+claim - selected historical series, no verifiable quotable source.
+
+Validation. just validate, just validate-references with 51/51 snippets verified against
+cached references, and just validate-terms all pass. Compliance 83.4 percent.
+
+Data-quality flag. references_cache/PMID_37383896.md was generated by just fetch-reference
+but its OpenAlex full-text resolution appended the full text of a DIFFERENT paper
+(PMC6982477 = PMID:31998513, Watters et al.) below the correct abstract. All snippets cited
+here against PMID:37383896 were taken only from its genuine abstract; the contaminated
+region was not quoted. Flagged for follow-up rather than hand-edited, per the cache guardrail.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10498,7 +11757,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Superior Mesenteric Artery Syndrome", "mondoId": "MONDO:0002687", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Superior_Mesenteric_Artery_Syndrome", "yamlRevision": "5573e2f51c7c"};
+        const OS_CONFIG = {"diseaseName": "Superior Mesenteric Artery Syndrome", "mondoId": "MONDO:0002687", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Superior_Mesenteric_Artery_Syndrome", "yamlRevision": "8ead0f3382d0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

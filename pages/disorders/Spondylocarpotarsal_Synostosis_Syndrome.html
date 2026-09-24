@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Spondylocarpotarsal Synostosis Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Spondylocarpotarsal Synostosis Syndrome</h1>
             <div class="header-meta">
 
@@ -4069,7 +4212,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -4115,7 +4258,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33407338" target="_blank">PMID:33407338</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4137,7 +4283,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17635842" target="_blank">PMID:17635842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4186,6 +4335,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flnb-loss-of-function-with-filamin-b-deficiency" data-dismech-node="FLNB Loss-of-Function with Filamin B Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">FLNB Loss-of-Function with Filamin B Deficiency</div>
+
 
                 <div class="item-desc">Biallelic FLNB loss-of-function variants lead to absent or markedly reduced functional filamin B, disrupting skeletal developmental programs.
 </div>
@@ -4376,7 +4526,10 @@ This pathophysiological event involves cartilage development (GO:0051216). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17635842" target="_blank">PMID:17635842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4398,7 +4551,10 @@ This pathophysiological event involves cartilage development (GO:0051216). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4423,6 +4579,7 @@ This pathophysiological event involves cartilage development (GO:0051216). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepressed-tgf-beta-bmp-disc-ossification" data-dismech-node="Derepressed TGF-beta/BMP Disc Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepressed TGF-beta/BMP Disc Ossification</div>
+
 
                 <div class="item-desc">In FLNB deficiency, annulus fibrosus cells undergo abnormal fate conversion toward hypertrophic chondrocyte-like cells with increased TGF-beta Smad2/3 and BMP-p38 signaling, producing disc degeneration and endochondral-like ossification that drives progressive vertebral fusions.
 </div>
@@ -4643,7 +4800,10 @@ This pathophysiological event involves increased endochondral-like ossification 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27019229" target="_blank">PMID:27019229</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4665,7 +4825,10 @@ This pathophysiological event involves increased endochondral-like ossification 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27019229" target="_blank">PMID:27019229</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4690,6 +4853,7 @@ This pathophysiological event involves increased endochondral-like ossification 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-flnb-dimerization-and-protein-stability" data-dismech-node="Impaired FLNB Dimerization and Protein Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired FLNB Dimerization and Protein Stability</div>
+
 
                 <div class="item-desc">Certain truncating FLNB variants impair dimer formation and reduce protein stability, reinforcing a loss-of-function molecular mechanism.
 </div>
@@ -4792,7 +4956,10 @@ This pathophysiological event involves skeletal system morphogenesis (GO:0048705
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28145000" target="_blank">PMID:28145000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4814,7 +4981,10 @@ This pathophysiological event involves skeletal system morphogenesis (GO:0048705
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28145000" target="_blank">PMID:28145000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4839,6 +5009,7 @@ This pathophysiological event involves skeletal system morphogenesis (GO:0048705
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-vertebral-and-carpal-joint-fusion" data-dismech-node="Progressive Vertebral and Carpal Joint Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Vertebral and Carpal Joint Fusion</div>
+
 
                 <div class="item-desc">FLNB deficiency drives progressive vertebral and carpal joint fusion, consistent with failure of joint maintenance processes and antenatal-onset fusion biology.
 </div>
@@ -5032,7 +5203,10 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17635842" target="_blank">PMID:17635842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5054,7 +5228,10 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17635842" target="_blank">PMID:17635842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5123,15 +5300,13 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5172,6 +5347,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5184,7 +5362,10 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5206,7 +5387,10 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18257094" target="_blank">PMID:18257094</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5238,7 +5422,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-neck" data-dismech-node="Short Neck" data-dismech-type="phenotype">
@@ -5269,6 +5453,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5281,7 +5468,10 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37781000" target="_blank">PMID:37781000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5335,6 +5525,9 @@ This clinical feature is Dental enamel hypoplasia, annotated with Enamel hypopla
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5347,7 +5540,10 @@ This clinical feature is Dental enamel hypoplasia, annotated with Enamel hypopla
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5369,7 +5565,10 @@ This clinical feature is Dental enamel hypoplasia, annotated with Enamel hypopla
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37781000" target="_blank">PMID:37781000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5423,6 +5622,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5435,7 +5637,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5457,7 +5662,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37781000" target="_blank">PMID:37781000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5468,6 +5676,78 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                 <div class="evidence-explanation">This independently supports cleft palate in the reported phenotype spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round Face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Round Face
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39086440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The seven cases share previously described facial characteristics: round facies, large eyes, and wide based nose; all of them had variable height deficit, in one case noted early in life."</div>
+
+
+                <div class="evidence-explanation">This supports round face as a recurring mild facial feature in a pediatric SCTSS cohort.</div>
 
 
 
@@ -5506,15 +5786,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0009702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0009702</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5532,7 +5815,10 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5572,15 +5858,18 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001216</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001216</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed ossification of carpal bones (HP:0001216). HP:0001216 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5598,7 +5887,10 @@ This clinical feature is Delayed ossification of carpal bones (HP:0001216). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5620,7 +5912,10 @@ This clinical feature is Delayed ossification of carpal bones (HP:0001216). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18257094" target="_blank">PMID:18257094</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5660,15 +5955,18 @@ This clinical feature is Delayed ossification of carpal bones (HP:0001216). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0008368</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008368</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5686,7 +5984,10 @@ This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5726,15 +6027,18 @@ This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030084</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030084</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5752,7 +6056,10 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5774,7 +6081,10 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5814,15 +6124,18 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5840,7 +6153,10 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18257094" target="_blank">PMID:18257094</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5872,7 +6188,7 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-vertebral-fusion" data-dismech-node="Vertebral Fusion" data-dismech-type="phenotype">
@@ -5889,15 +6205,18 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002948</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002948</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5915,7 +6234,10 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,6 +6248,78 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
 
 
                 <div class="evidence-explanation">This review directly supports vertebral fusion as a defining human phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-block-vertebrae" data-dismech-node="Block Vertebrae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Block Vertebrae
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003305</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Block vertebrae (HP:0003305). HP:0003305 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10766994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10766994" target="_blank">PMID:10766994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spondylocarpotarsal synostosis syndrome is a recently delineated autosomal recessive condition comprising short stature with short trunk, failure of normal spine segmentation resulting in block vertebrae and fusion of posterior elements, carpal and/or tarsal coalition, scoliosis, lordosis, pes..."</div>
+
+
+                <div class="evidence-explanation">This directly supports block vertebrae as part of the characteristic spinal phenotype.</div>
 
 
 
@@ -5955,15 +6349,18 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5981,7 +6378,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28145000" target="_blank">PMID:28145000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6021,15 +6421,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003307</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003307</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6047,7 +6450,10 @@ This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28145000" target="_blank">PMID:28145000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6087,15 +6493,18 @@ This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6113,7 +6522,10 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37781000" target="_blank">PMID:37781000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6135,7 +6547,10 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6184,15 +6599,18 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6210,7 +6628,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6221,147 +6642,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">This directly supports disproportionate short stature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-block-vertebrae" data-dismech-node="Block Vertebrae" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Block Vertebrae
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003305</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Block vertebrae (HP:0003305). HP:0003305 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10766994" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10766994" target="_blank">PMID:10766994</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Spondylocarpotarsal synostosis syndrome is a recently delineated autosomal recessive condition comprising short stature with short trunk, failure of normal spine segmentation resulting in block vertebrae and fusion of posterior elements, carpal and/or tarsal coalition, scoliosis, lordosis, pes..."</div>
-
-
-                <div class="evidence-explanation">This directly supports block vertebrae as part of the characteristic spinal phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round Face" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Round Face
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000311</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39086440" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The seven cases share previously described facial characteristics: round facies, large eyes, and wide based nose; all of them had variable height deficit, in one case noted early in life."</div>
-
-
-                <div class="evidence-explanation">This supports round face as a recurring mild facial feature in a pediatric SCTSS cohort.</div>
 
 
 
@@ -6449,6 +6729,9 @@ This disease-associated gene is FLNB (hgnc:3755). hgnc:3755 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6461,7 +6744,10 @@ This disease-associated gene is FLNB (hgnc:3755). hgnc:3755 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17635842" target="_blank">PMID:17635842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6483,7 +6769,10 @@ This disease-associated gene is FLNB (hgnc:3755). hgnc:3755 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6505,7 +6794,10 @@ This disease-associated gene is FLNB (hgnc:3755). hgnc:3755 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39086440" target="_blank">PMID:39086440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6535,6 +6827,9 @@ This disease-associated gene is FLNB (hgnc:3755). hgnc:3755 is a gene from the H
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6613,6 +6908,31 @@ This treatment is delivered to vertebral column (UBERON:0001130). UBERON:0001130
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cervical spine instability and cord-compression risk should be actively assessed, especially before anesthesia or major procedures. Asymptomatic infants with instability may require posterior arthrodesis, and myelopathic signs warrant urgent spine/neurosurgical evaluation for decompression and circumferential stabilization.
 </div>
 
@@ -6672,7 +6992,10 @@ This treatment targets Vertebral fusion (HP:0002948). HP:0002948 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10766994" target="_blank">PMID:10766994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6694,7 +7017,10 @@ This treatment targets Vertebral fusion (HP:0002948). HP:0002948 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6716,7 +7042,10 @@ This treatment targets Vertebral fusion (HP:0002948). HP:0002948 is a phenotype 
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK2534/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK2534/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6775,6 +7104,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6856,7 +7199,10 @@ This treatment targets Pes planus (HP:0001763). HP:0001763 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6878,7 +7224,10 @@ This treatment targets Pes planus (HP:0001763). HP:0001763 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6937,6 +7286,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7001,7 +7375,10 @@ This treatment targets Pes planus (HP:0001763). HP:0001763 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10766994" target="_blank">PMID:10766994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7060,6 +7437,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7141,7 +7532,10 @@ This treatment targets Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7163,7 +7557,10 @@ This treatment targets Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7226,6 +7623,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should cover autosomal recessive FLNB-SCT recurrence risk, parental carrier testing, heterozygote testing for at-risk relatives, and prenatal or preimplantation testing once familial variants are known. Counseling should also explain the distinction from autosomal dominant FLNB gain-of-function disorders and MYH3-related SCT-like disease.
 </div>
 
@@ -7246,7 +7657,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7268,7 +7682,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7298,6 +7715,240 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-radiographic-pattern-with-flnb-exome-confirmation">
+                <div class="item-name">
+                    Clinical-Radiographic Pattern with FLNB Exome Confirmation
+
+                </div>
+
+                <div class="item-desc">Diagnosis is established using characteristic clinical-radiographic findings including disproportionate short trunk/short stature, vertebral fusion or segmentation-like defects across cervical, thoracic, or lumbar spine, scoliosis progression, and carpal/tarsal coalition. Molecular testing should confirm biallelic FLNB loss-of-function variants, include copy-number-sensitive methods for intragenic deletions, and distinguish classic FLNB-SCT from MYH3/RFLNA-related SCT-like disorders and dominant FLNB gain-of-function disorders.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29566257" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our report validates key clinical (fused thoracic vertebrae and carpal and tarsal coalition) and molecular (truncating variants in FLNB) characteristics of this condition."</div>
+
+
+                <div class="evidence-explanation">This supports the combined radiographic and molecular diagnostic framework.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33407338" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33407338" target="_blank">PMID:33407338</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exome sequencing revealed a novel homozygous frameshift variant c.2911dupG p.(Ala971GlyfsTer122) in FLNB, segregating with the phenotype in the family."</div>
+
+
+                <div class="evidence-explanation">This supports exome-based molecular confirmation and segregation testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301736" target="_blank">PMID:20301736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of FLNB-SCT is established in a proband by identification of biallelic loss-of-function pathogenic variants in FLNB by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline: spondylocarpotarsal synostosis (FLNB-SCT) is confirmed by biallelic loss-of-function FLNB variants.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-published-literature-cohorts-worldwide">
+                <div class="item-name">Published literature cohorts worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">approximately 25 historically reported patients</span>
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence studies were identified in PubMed abstracts. The best available epidemiology remains literature-based case counting: a 2008 review summarized 25 reported patients, and a 2018 molecular series noted nine previously reported FLNB-positive families before adding 10 more affected individuals from seven new families.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18470895" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18470895" target="_blank">PMID:18470895</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spondylocarpotarsal synostosis syndrome (SCT) (OMIM 272460), originally thought to be a failure of normal spine segmentation, is characterized by progressive fusion of vertebras and associates unsegmented bars, scoliosis, short stature, carpal and tarsal synostosis. Cleft palate, sensorineural..."</div>
+
+
+                <div class="evidence-explanation">This review gives a clear historical case-count benchmark for the extreme rarity of spondylocarpotarsal synostosis syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29566257" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566257" target="_blank">PMID:29566257</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic loss-of-function variants in FLNB are known to cause spondylocarpotarsal synostosis syndrome and 9 families and 9 pathogenic variants have been reported so far. We report clinical features of 10 additional patients from 7 families with spondylocarpotarsal synostosis syndrome due to 7..."</div>
+
+
+                <div class="evidence-explanation">This later molecular series confirms that published epidemiology remained limited to a very small number of families and case reports.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7393,6 +8044,7 @@ prevalence:
     affected individuals from seven new families.
   evidence:
   - reference: PMID:18470895
+    reference_title: &#34;Autosomal dominant spondylocarpotarsal synostosis syndrome: phenotypic homogeneity and genetic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7401,6 +8053,7 @@ prevalence:
       This review gives a clear historical case-count benchmark for the extreme
       rarity of spondylocarpotarsal synostosis syndrome.
   - reference: PMID:29566257
+    reference_title: &#34;Seven additional families with spondylocarpotarsal synostosis syndrome with novel biallelic deleterious variants in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8308,6 +8961,65 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Spondylocarpotarsal Synostosis Syndrome (Changes required)</strong> · 2026-05-30T03:00:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spondylocarpotarsal_Synostosis_Syndrome/2026-05-30T030025Z-github-review-3433.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3433
+Issue state: OPEN
+Issue created: 2026-05-30T03:00:25Z
+Issue updated: 2026-05-30T03:04:22Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Spondylocarpotarsal Synostosis Syndrome**
+- Entry: `kb/disorders/Spondylocarpotarsal_Synostosis_Syndrome.yaml`
+- Selection basis: #46 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **FLNB GeneReviews should be used.** FLNB-related disorders GeneReviews covers biallelic FLNB loss-of-function spondylocarpotarsal synostosis syndrome and distinguishes it from dominant FLNB Larsen/AO/metatropic-like disorders. Source: https://www.ncbi.nlm.nih.gov/books/NBK2534/
+2. **Management is missing.** The YAML has no treatments/supportive management. SCT needs orthopedic/spine monitoring, scoliosis care, mobility/physical therapy, hearing evaluation, dental/craniofacial care where present, and genetic counseling.
+3. **Diagnosis is present but should be expanded.** Clinical-radiographic pattern with FLNB exome confirmation is present; add vertebral segmentation/fusion, carpal/tarsal coalition imaging, scoliosis progression, and biallelic FLNB testing.
+4. **Pathophysiology should connect FLNB loss-of-function to joint fusion and TGF-beta/bone-development biology.** The YAML has loss-of-function, dimerization/stability, and progressive synostosis. GeneReviews also notes biallelic LoF effect and distinguishes it from monoallelic gain-of-function FLNB disorders.
+5. **Phenotype coverage is broad but needs surveillance priorities.** Vertebral/carpal/tarsal fusion and scoliosis should drive monitoring and orthopedic management.
+
+## Research-artifact cross-check
+
+Checked `research/Spondylocarpotarsal_Synostosis_Syndrome-deep-research-manual.md` and `.citations.md`. The YAML has good core pathophysiology but under-consumes GeneReviews and management.
+
+## Content-completeness summary
+
+- **Phenotypes:** strong core list; connect to management.
+- **Subtype/lumping:** clarify biallelic FLNB-SCT versus dominant FLNB disorders.
+- **Pathophysiology:** adequate but could integrate GeneReviews mechanism.
+- **Management/diagnosis:** management missing.
+- **References:** add/tag FLNB GeneReviews if updating YAML.
+
+## Suggested remediation
+
+Add FLNB GeneReviews, management/supportive care, and expanded radiographic/molecular diagnosis.
+
+## Sources used
+
+- GeneReviews, FLNB-Related Disorders: https://www.ncbi.nlm.nih.gov/books/NBK2534/
+- MedlinePlus SCT: https://medlineplus.gov/genetics/condition/spondylocarpotarsal-synostosis-syndrome
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8412,7 +9124,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spondylocarpotarsal Synostosis Syndrome", "mondoId": "MONDO:0010094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondylocarpotarsal_Synostosis_Syndrome", "yamlRevision": "f91dccffb601"};
+        const OS_CONFIG = {"diseaseName": "Spondylocarpotarsal Synostosis Syndrome", "mondoId": "MONDO:0010094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondylocarpotarsal_Synostosis_Syndrome", "yamlRevision": "e2d69c8271f0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

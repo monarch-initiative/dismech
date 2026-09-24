@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Epidermolysis Bullosa</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Epidermolysis Bullosa</h1>
             <div class="header-meta">
 
@@ -4234,7 +4377,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4259,7 +4402,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4282,7 +4428,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4307,7 +4453,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4368,7 +4517,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-epidermolysis-bullosa-simplex">
 
                     <div class="item-name">
                         Epidermolysis Bullosa Simplex
@@ -4403,7 +4552,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301543" target="_blank">PMID:20301543</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4429,7 +4581,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-junctional-epidermolysis-bullosa">
 
                     <div class="item-name">
                         Junctional Epidermolysis Bullosa
@@ -4464,7 +4616,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4490,7 +4645,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dystrophic-epidermolysis-bullosa">
 
                     <div class="item-name">
                         Dystrophic Epidermolysis Bullosa
@@ -4525,7 +4680,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301481" target="_blank">PMID:20301481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4551,7 +4709,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-kindler-epidermolysis-bullosa">
 
                     <div class="item-name">
                         Kindler Epidermolysis Bullosa
@@ -4586,7 +4744,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4633,6 +4794,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basement-membrane-zone-structural-disruption" data-dismech-node="Basement Membrane Zone Structural Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Basement Membrane Zone Structural Disruption</div>
+
 
                 <div class="item-desc">The core defect in all forms of EB is disruption of structural proteins within or adjacent to the basement membrane zone (BMZ) of the skin. Pathogenetic mutations in at least 16 distinct genes encoding proteins that influence cellular integrity and adhesion have been implicated. The specific protein affected determines the ultrastructural level of cleavage and the clinical subtype.
 </div>
@@ -5213,10 +5375,13 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5235,7 +5400,10 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32017015" target="_blank">PMID:32017015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5260,6 +5428,7 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-fragility-and-blister-formation" data-dismech-node="Mechanical Fragility and Blister Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Fragility and Blister Formation</div>
+
 
                 <div class="item-desc">Disruption of the structural proteins that anchor the epidermis to the dermis results in tissue separation and blister formation in response to minimal mechanical trauma or friction. The level of cleavage within the skin determines the EB type and influences the severity of blistering and the propensity for scarring.
 </div>
@@ -5391,10 +5560,13 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5413,7 +5585,10 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5438,6 +5613,7 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wound-healing-impairment-and-chronic-wounds" data-dismech-node="Wound Healing Impairment and Chronic Wounds" data-dismech-type="pathophysiology">
                 <div class="item-name">Wound Healing Impairment and Chronic Wounds</div>
+
 
                 <div class="item-desc">Chronic and recurrent blister formation leads to impaired wound healing, particularly in the more severe forms of EB. In dystrophic EB, deficiency of type VII collagen impairs anchoring fibril formation, leading to chronic non-healing wounds and progressive scarring. Chronic wounds are associated with pain, infection risk, and in severe cases, development of squamous cell carcinoma.
 </div>
@@ -5560,10 +5736,13 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5582,7 +5761,10 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25279494" target="_blank">PMID:25279494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5607,6 +5789,7 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-complications" data-dismech-node="Secondary Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Complications</div>
+
 
                 <div class="item-desc">Chronic skin barrier disruption in EB leads to a range of secondary complications including bacterial infection of wounds, progressive scarring (especially in dystrophic EB), nutritional deficiency due to oral and esophageal involvement, anemia of chronic disease, and growth retardation. Severe forms carry risk of squamous cell carcinoma as the leading cause of mortality.
 </div>
@@ -5747,10 +5930,13 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5769,7 +5955,10 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5817,7 +6006,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basement Membrane Zone Structural Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core defect in all forms of EB is disruption of structural proteins within or adjacent to the basement membrane zone (BMZ) of the skin. Pathogenetic mutations in at least 16 distinct genes encoding proteins that influence cellular integrity and adhesion have been implicated. The specific protein affected determines the ultrastructural level of cleavage and the clinical subtype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\", \"epidermal cell\"], \"biological_processes\": [\"cell-substrate adhesion\", \"epidermis development\"], \"genes\": [\"KRT5\", \"KRT14\", \"COL7A1\", \"LAMB3\", \"LAMA3\", \"LAMC2\", \"COL17A1\", \"ITGA6\", \"ITGB4\", \"FERMT1\"], \"gene_terms\": [{\"label\": \"KRT5\", \"id\": \"hgnc:6442\"}, {\"label\": \"KRT14\", \"id\": \"hgnc:6416\"}, {\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}, {\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}, {\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}, {\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}, {\"label\": \"FERMT1\", \"id\": \"hgnc:15889\"}]}}, {\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"COL7A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"FERMT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"KRT14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"KRT5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Mechanical Fragility and Blister Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the structural proteins that anchor the epidermis to the dermis results in tissue separation and blister formation in response to minimal mechanical trauma or friction. The level of cleavage within the skin determines the EB type and influences the severity of blistering and the propensity for scarring.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell adhesion\"]}}, {\"id\": \"Secondary Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic skin barrier disruption in EB leads to a range of secondary complications including bacterial infection of wounds, progressive scarring (especially in dystrophic EB), nutritional deficiency due to oral and esophageal involvement, anemia of chronic disease, and growth retardation. Severe forms carry risk of squamous cell carcinoma as the leading cause of mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"inflammatory response\", \"collagen fibril organization\"]}}, {\"id\": \"Wound Healing Impairment and Chronic Wounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic and recurrent blister formation leads to impaired wound healing, particularly in the more severe forms of EB. In dystrophic EB, deficiency of type VII collagen impairs anchoring fibril formation, leading to chronic non-healing wounds and progressive scarring. Chronic wounds are associated with pain, infection risk, and in severe cases, development of squamous cell carcinoma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}], \"edges\": [{\"source\": \"Basement Membrane Zone Structural Disruption\", \"target\": \"Mechanical Fragility and Blister Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of structural integrity at the dermal-epidermal junction leads to tissue separation and blister formation upon minimal mechanical stress.\\n\"}, {\"source\": \"Mechanical Fragility and Blister Formation\", \"target\": \"Wound Healing Impairment and Chronic Wounds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated blister formation and epithelial loss leads to chronic wounds and impaired wound healing.\\n\"}, {\"source\": \"Mechanical Fragility and Blister Formation\", \"target\": \"Secondary Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic skin barrier disruption leads to infection, scarring, nutritional deficiency, and pain.\\n\"}, {\"source\": \"Wound Healing Impairment and Chronic Wounds\", \"target\": \"Secondary Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds predispose to infection, scarring, and malignant transformation in severe EB subtypes.\\n\"}, {\"source\": \"KRT5\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT14\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMB3\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FERMT1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basement Membrane Zone Structural Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core defect in all forms of EB is disruption of structural proteins within or adjacent to the basement membrane zone (BMZ) of the skin. Pathogenetic mutations in at least 16 distinct genes encoding proteins that influence cellular integrity and adhesion have been implicated. The specific protein affected determines the ultrastructural level of cleavage and the clinical subtype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\", \"epidermal cell\"], \"biological_processes\": [\"cell-substrate adhesion\", \"epidermis development\"], \"genes\": [\"KRT5\", \"KRT14\", \"COL7A1\", \"LAMB3\", \"LAMA3\", \"LAMC2\", \"COL17A1\", \"ITGA6\", \"ITGB4\", \"FERMT1\"], \"gene_terms\": [{\"label\": \"KRT5\", \"id\": \"hgnc:6442\"}, {\"label\": \"KRT14\", \"id\": \"hgnc:6416\"}, {\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}, {\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}, {\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}, {\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}, {\"label\": \"FERMT1\", \"id\": \"hgnc:15889\"}]}}, {\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}], \"association\": \"Causative\"}}, {\"id\": \"COL7A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"association\": \"Causative\"}}, {\"id\": \"FERMT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FERMT1\"], \"gene_terms\": [{\"label\": \"FERMT1\", \"id\": \"hgnc:15889\"}], \"association\": \"Causative\"}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGA6\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}], \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}], \"association\": \"Causative\"}}, {\"id\": \"KRT14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KRT14\"], \"gene_terms\": [{\"label\": \"KRT14\", \"id\": \"hgnc:6416\"}], \"association\": \"Causative\"}}, {\"id\": \"KRT5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KRT5\"], \"gene_terms\": [{\"label\": \"KRT5\", \"id\": \"hgnc:6442\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA3\"], \"gene_terms\": [{\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMB3\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}], \"association\": \"Causative\"}}, {\"id\": \"Mechanical Fragility and Blister Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the structural proteins that anchor the epidermis to the dermis results in tissue separation and blister formation in response to minimal mechanical trauma or friction. The level of cleavage within the skin determines the EB type and influences the severity of blistering and the propensity for scarring.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell adhesion\"]}}, {\"id\": \"Secondary Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic skin barrier disruption in EB leads to a range of secondary complications including bacterial infection of wounds, progressive scarring (especially in dystrophic EB), nutritional deficiency due to oral and esophageal involvement, anemia of chronic disease, and growth retardation. Severe forms carry risk of squamous cell carcinoma as the leading cause of mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"inflammatory response\", \"collagen fibril organization\"]}}, {\"id\": \"Wound Healing Impairment and Chronic Wounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic and recurrent blister formation leads to impaired wound healing, particularly in the more severe forms of EB. In dystrophic EB, deficiency of type VII collagen impairs anchoring fibril formation, leading to chronic non-healing wounds and progressive scarring. Chronic wounds are associated with pain, infection risk, and in severe cases, development of squamous cell carcinoma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}], \"edges\": [{\"source\": \"Basement Membrane Zone Structural Disruption\", \"target\": \"Mechanical Fragility and Blister Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of structural integrity at the dermal-epidermal junction leads to tissue separation and blister formation upon minimal mechanical stress.\\n\"}, {\"source\": \"Mechanical Fragility and Blister Formation\", \"target\": \"Wound Healing Impairment and Chronic Wounds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated blister formation and epithelial loss leads to chronic wounds and impaired wound healing.\\n\"}, {\"source\": \"Mechanical Fragility and Blister Formation\", \"target\": \"Secondary Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic skin barrier disruption leads to infection, scarring, nutritional deficiency, and pain.\\n\"}, {\"source\": \"Wound Healing Impairment and Chronic Wounds\", \"target\": \"Secondary Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds predispose to infection, scarring, and malignant transformation in severe EB subtypes.\\n\"}, {\"source\": \"KRT5\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT14\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMB3\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FERMT1\", \"target\": \"Basement Membrane Zone Structural Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5893,6 +6082,9 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5905,7 +6097,10 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301481" target="_blank">PMID:20301481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5970,6 +6165,9 @@ This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5982,7 +6180,10 @@ This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40393138" target="_blank">PMID:40393138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6004,7 +6205,10 @@ This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40393138" target="_blank">PMID:40393138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6068,6 +6272,9 @@ This clinical feature is oral mucosal blistering, annotated with Abnormal oral m
                     </div>
 
 
+
+
+
                     <div class="item-desc">Oral, esophageal, and ocular mucous membranes may all be affected.</div>
 
 
@@ -6085,7 +6292,10 @@ This clinical feature is oral mucosal blistering, annotated with Abnormal oral m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6107,7 +6317,10 @@ This clinical feature is oral mucosal blistering, annotated with Abnormal oral m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6174,6 +6387,9 @@ This clinical feature is skin fragility with blistering, annotated with Abnormal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6186,10 +6402,13 @@ This clinical feature is skin fragility with blistering, annotated with Abnormal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6208,7 +6427,10 @@ This clinical feature is skin fragility with blistering, annotated with Abnormal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6264,6 +6486,9 @@ This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6276,7 +6501,10 @@ This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6332,6 +6560,9 @@ This clinical feature is milia (HP:0001056). HP:0001056 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6344,7 +6575,10 @@ This clinical feature is milia (HP:0001056). HP:0001056 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301481" target="_blank">PMID:20301481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6409,6 +6643,9 @@ This clinical feature is pseudosyndactyly (mitten deformity), annotated with Cut
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6421,7 +6658,10 @@ This clinical feature is pseudosyndactyly (mitten deformity), annotated with Cut
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36345025" target="_blank">PMID:36345025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6486,6 +6726,9 @@ This clinical feature is abnormal scarring, annotated with Scarring (HP:0100699)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6498,7 +6741,10 @@ This clinical feature is abnormal scarring, annotated with Scarring (HP:0100699)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301481" target="_blank">PMID:20301481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6563,6 +6809,9 @@ This clinical feature is pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6575,7 +6824,10 @@ This clinical feature is pain (HP:0012531). HP:0012531 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6597,7 +6849,10 @@ This clinical feature is pain (HP:0012531). HP:0012531 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25279494" target="_blank">PMID:25279494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6662,6 +6917,9 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6674,7 +6932,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6696,7 +6957,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6769,6 +7033,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRT5
+
+
+    <a href="https://bioregistry.io/hgnc:6442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6442</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRT5 (hgnc:6442). hgnc:6442 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -6790,10 +7079,13 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6822,6 +7114,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRT14
+
+
+    <a href="https://bioregistry.io/hgnc:6416" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:6416</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRT14 (hgnc:6416). hgnc:6416 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -6843,7 +7160,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301543" target="_blank">PMID:20301543</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6875,6 +7195,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: COL7A1
+
+
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:2214</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -6898,10 +7243,13 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6930,6 +7278,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMB3
+
+
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:6490</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -6951,7 +7324,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6983,6 +7359,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMA3
+
+
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:6483</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7004,7 +7405,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7036,6 +7440,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMC2
+
+
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:6493</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7057,7 +7486,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7089,6 +7521,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: COL17A1
+
+
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:2194</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7110,7 +7567,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7142,6 +7602,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITGA6
+
+
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:6142</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7163,10 +7648,13 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -7195,6 +7683,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITGB4
+
+
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:6158</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7216,7 +7729,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7248,6 +7764,31 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FERMT1
+
+
+    <a href="https://bioregistry.io/hgnc:15889" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:15889</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FERMT1 (hgnc:15889). hgnc:15889 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
                 <div class="item-meta">
 
@@ -7269,10 +7810,13 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -7299,6 +7843,9 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7316,7 +7863,7 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">wound care management<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">wound care management<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is wound care management, annotated with Supportive Care (NCIT:C15747), qualified as has participant skin of body. NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7349,6 +7896,20 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Specialized wound care is the cornerstone of EB management. Involves non-adherent dressings, gentle wound cleansing, blister lancing, and protection of fragile skin from mechanical trauma. Sophisticated wound care dressings are used to promote healing and minimize pain.
 </div>
 
@@ -7369,7 +7930,10 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7391,7 +7955,10 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7413,7 +7980,10 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25279494" target="_blank">PMID:25279494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7444,7 +8014,7 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">pain management<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">pain management<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7477,6 +8047,20 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multimodal pain management for chronic wound pain, procedural pain during dressing changes, and acute pain from new blisters. May include pharmacological and non-pharmacological approaches.
 </div>
 
@@ -7497,7 +8081,10 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7519,7 +8106,10 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25279494" target="_blank">PMID:25279494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7550,7 +8140,7 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7583,6 +8173,20 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Aggressive nutritional support to address growth failure, anemia, and increased metabolic demands from chronic wounds. May require supplemental feeding or gastrostomy in severe cases with oral and esophageal involvement.
 </div>
 
@@ -7603,7 +8207,10 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7625,7 +8232,10 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7656,7 +8266,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">infection management<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">infection management<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is infection management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7689,6 +8299,20 @@ This treatment is infection management, annotated with Supportive Care (NCIT:C15
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prevention and treatment of wound infections, which are common due to chronic skin barrier disruption. Includes topical antiseptics, appropriate use of antibiotics, and surveillance for wound colonization.
 </div>
 
@@ -7709,7 +8333,10 @@ This treatment is infection management, annotated with Supportive Care (NCIT:C15
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7731,7 +8358,10 @@ This treatment is infection management, annotated with Supportive Care (NCIT:C15
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25279494" target="_blank">PMID:25279494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7762,7 +8392,7 @@ This treatment is infection management, annotated with Supportive Care (NCIT:C15
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7794,6 +8424,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families to discuss inheritance patterns, recurrence risk, prenatal testing options, and implications for family planning. Essential given the variable inheritance patterns across EB types.
 </div>
 
@@ -7814,7 +8458,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7845,7 +8492,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">topical gene therapy (beremagene geperpavec)<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">topical gene therapy (beremagene geperpavec)<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is topical gene therapy (beremagene geperpavec), annotated with Gene Therapy (NCIT:C15238), qualified as route of administration topical route of administration; has participant COL7A1. NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7878,6 +8525,31 @@ This treatment is topical gene therapy (beremagene geperpavec), annotated with G
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">FDA-approved topical gene therapy for dystrophic epidermolysis bullosa (May 2023). Beremagene geperpavec-svdt (VYJUVEK) is a topically applied, redosable, replication-defective HSV-1 vector-based gene therapy that delivers functional COL7A1 to restore type VII collagen production. In the phase 3 GEM-3 trial, complete wound healing at 6 months occurred in 67% of B-VEC-treated wounds vs 22% of placebo wounds. Approved for wounds in patients aged 6 months and older with DEB carrying COL7A1 mutations.
 </div>
 
@@ -7898,7 +8570,10 @@ This treatment is topical gene therapy (beremagene geperpavec), annotated with G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36516090" target="_blank">PMID:36516090</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7920,7 +8595,10 @@ This treatment is topical gene therapy (beremagene geperpavec), annotated with G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37432558" target="_blank">PMID:37432558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7951,7 +8629,7 @@ This treatment is topical gene therapy (beremagene geperpavec), annotated with G
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">topical birch triterpenes wound therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">topical birch triterpenes wound therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is topical birch triterpenes wound therapy, annotated with Pharmacotherapy (NCIT:C15986), qualified as route of administration topical route of administration. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7984,6 +8662,20 @@ This treatment is topical birch triterpenes wound therapy, annotated with Pharma
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">FDA-approved topical gel for epidermolysis bullosa wound healing (December 2023). Filsuvez (Oleogel-S10) contains birch triterpenes and promotes wound healing by modulating inflammation and encouraging tissue formation. In the phase 3 EASE trial, 41.3% of patients treated with Oleogel-S10 achieved first complete target wound closure within 45 days vs 28.9% with control gel. Approved for partial-thickness wounds in patients aged 6 months and older with junctional or dystrophic EB.
 </div>
 
@@ -8004,7 +8696,10 @@ This treatment is topical birch triterpenes wound therapy, annotated with Pharma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36689495" target="_blank">PMID:36689495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8026,7 +8721,10 @@ This treatment is topical birch triterpenes wound therapy, annotated with Pharma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39748581" target="_blank">PMID:39748581</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8057,7 +8755,7 @@ This treatment is topical birch triterpenes wound therapy, annotated with Pharma
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">autologous gene-corrected cell therapy (prademagene zamikeracel)<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">autologous gene-corrected cell therapy (prademagene zamikeracel)<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is autologous gene-corrected cell therapy (prademagene zamikeracel), annotated with Cellular Therapy (NCIT:C70601), qualified as has participant keratinocyte; has participant COL7A1. NCIT:C70601 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8090,6 +8788,20 @@ This treatment is autologous gene-corrected cell therapy (prademagene zamikerace
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">FDA-approved autologous cell sheet-based gene therapy for recessive dystrophic epidermolysis bullosa (April 2025). Prademagene zamikeracel (ZEVASKYN) contains the patient&#39;s own keratinocytes genetically modified with functional copies of the COL7A1 gene, produced as transplantable epidermal sheets. In the phase 1/2a trial, wound healing of 50% or greater was present in 95% of treated wounds versus 0% of untreated controls at 6 months. It is the first and only cell-based gene therapy approved for RDEB.
 </div>
 
@@ -8110,7 +8822,10 @@ This treatment is autologous gene-corrected cell therapy (prademagene zamikerace
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40875177" target="_blank">PMID:40875177</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8132,7 +8847,10 @@ This treatment is autologous gene-corrected cell therapy (prademagene zamikerace
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31578311" target="_blank">PMID:31578311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8163,7 +8881,7 @@ This treatment is autologous gene-corrected cell therapy (prademagene zamikerace
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">esophageal dilation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">esophageal dilation<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8196,6 +8914,20 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of EB esophageal strictures centered on endoscopic (balloon) dilatation to restore swallowing, combined with nonpharmacological prevention (diet modification, oral care, therapeutic education) and pharmacological measures (topical corticosteroids) to delay and manage relapses. Recommended by the DEBRA International clinical practice guideline.
 </div>
 
@@ -8216,7 +8948,10 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40393138" target="_blank">PMID:40393138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8247,7 +8982,7 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">hand contracture release surgery<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">hand contracture release surgery<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hand contracture release surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8280,6 +9015,20 @@ This treatment is hand contracture release surgery, annotated with Surgical Proc
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical release of digital contractures and fused web spaces to correct pseudosyndactyly (mitten deformity), paired with ongoing hand therapy to maintain range of motion and delay recurrence. Subject of a dedicated DEBRA International hand surgery and hand therapy clinical practice guideline.
 </div>
 
@@ -8300,7 +9049,10 @@ This treatment is hand contracture release surgery, annotated with Surgical Proc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36345025" target="_blank">PMID:36345025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8331,7 +9083,7 @@ This treatment is hand contracture release surgery, annotated with Surgical Proc
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">palliative care<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">palliative care<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is palliative care, annotated with Palliative Therapy (NCIT:C15292). NCIT:C15292 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8364,6 +9116,20 @@ This treatment is palliative care, annotated with Palliative Therapy (NCIT:C1529
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A palliative-care approach integrated across the disease course for people living with EB, aimed at improving comfort and quality of life at all stages of illness rather than only at the end of life. Covered by consensus-based palliative and end-of-life care guidelines for EB.
 </div>
 
@@ -8384,7 +9150,10 @@ This treatment is palliative care, annotated with Palliative Therapy (NCIT:C1529
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37667330" target="_blank">PMID:37667330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8415,7 +9184,7 @@ This treatment is palliative care, annotated with Palliative Therapy (NCIT:C1529
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">podiatric foot care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">podiatric foot care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is podiatric foot care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8448,6 +9217,20 @@ This treatment is podiatric foot care, annotated with Supportive Care (NCIT:C157
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Specialist podiatric management of EB foot involvement, including blister and wound care, selection of appropriate footwear, and interventions to maintain mobility and address fusion of the toes (pseudosyndactyly). Subject of an evidence-based foot care guideline for EB.
 </div>
 
@@ -8468,7 +9251,10 @@ This treatment is podiatric foot care, annotated with Supportive Care (NCIT:C157
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397882" target="_blank">PMID:31397882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8499,7 +9285,7 @@ This treatment is podiatric foot care, annotated with Supportive Care (NCIT:C157
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">neonatal supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">neonatal supportive care<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is neonatal supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8532,6 +9318,20 @@ This treatment is neonatal supportive care, annotated with Supportive Care (NCIT
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Structured multidisciplinary supportive care for neonates with EB, spanning medical monitoring, wound care and pain, feeding and nutrition, and discharge planning with family EB education. Subject of a dedicated neonatal EB clinical practice guideline.
 </div>
 
@@ -8552,7 +9352,10 @@ This treatment is neonatal supportive care, annotated with Supportive Care (NCIT
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38175636" target="_blank">PMID:38175636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8583,7 +9386,7 @@ This treatment is neonatal supportive care, annotated with Supportive Care (NCIT
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">orthodontic treatment<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">orthodontic treatment<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8616,6 +9419,20 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthodontic and dentofacial orthopedic care adapted to the oral fragility of EB, addressing the elevated risk of oral-health problems and malocclusion in severe subtypes (junctional, Kindler, and recessive dystrophic EB). Subject of dedicated orthodontic clinical practice guidelines for EB.
 </div>
 
@@ -8636,7 +9453,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40899465" target="_blank">PMID:40899465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8700,7 +9520,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920360" target="_blank">PMID:31920360</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8749,7 +9572,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22512697" target="_blank">PMID:22512697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8798,7 +9624,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22277943" target="_blank">PMID:22277943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8824,6 +9653,588 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-assessment">
+                <div class="item-name">
+                    Clinical Assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(First-line)</span>
+
+                </div>
+
+                <div class="item-desc">Initial evaluation based on clinical features including blister morphology, distribution, mucosal involvement, and family history. Clinical assessment guides selection of further diagnostic investigations and provisional subtype classification.
+</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Clinical assessment is the first step in the diagnostic algorithm. Key features include age of onset, blister distribution, healing pattern (scarring vs non-scarring), and extracutaneous involvement. However, clinical features alone cannot reliably distinguish all EB subtypes.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32973163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A broad phenotypic spectrum has been described, with potentially severe extracutaneous manifestations, morbidity and mortality"</div>
+
+
+                <div class="evidence-explanation">Confirms the importance of clinical assessment given the broad phenotypic spectrum of EB subtypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-immunofluorescence-mapping-ifm">
+                <div class="item-name">
+                    Immunofluorescence Mapping (IFM)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Gold standard tissue-based test)</span>
+
+                </div>
+
+                <div class="item-desc">Skin biopsy technique using a panel of antibodies against basement membrane zone proteins to determine the level of cleavage and identify the deficient protein. IFM achieves 97% sensitivity and 100% specificity for EB subtype classification when compared to genetic testing as the reference standard. IFM has largely superseded transmission electron microscopy (TEM) for routine EB diagnosis due to superior diagnostic accuracy.
+</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">IFM subclassified EB into its three major forms in 29/30 cases (97%) compared to 24/30 (80%) for TEM. TEM sensitivities and specificities were only 71% and 81% respectively. IFM is now the preferred tissue-based diagnostic method in the current diagnostic algorithm.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17012912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012912" target="_blank">PMID:17012912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IFM sensitivities and specificities when compared with genetic results were 97% and 100%, respectively"</div>
+
+
+                <div class="evidence-explanation">Landmark comparative study demonstrating IFM superiority over TEM for EB diagnosis and subclassification, establishing IFM as the preferred tissue-based diagnostic method.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17012912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012912" target="_blank">PMID:17012912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TEM subclassified EB into its three major forms in 24/30 cases (80%) and IFM in 29/30 cases (97%)"</div>
+
+
+                <div class="evidence-explanation">Demonstrates that IFM has substantially higher subtype classification accuracy than TEM, supporting TEM being largely superseded by IFM for routine diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-next-generation-sequencing-gene-panels">
+                <div class="item-name">
+                    Next-Generation Sequencing Gene Panels
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Definitive molecular diagnosis)</span>
+
+                </div>
+
+                <div class="item-desc">Targeted NGS panels covering 18-26 EB-associated genes provide definitive molecular diagnosis, confirming the specific gene and mutation underlying the patient&#39;s EB subtype. Genetic testing has evolved from Sanger sequencing of single candidate genes to comprehensive multi-gene panels, enabling genotype-phenotype correlation and informed genetic counseling.
+</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Genetic testing is the definitive diagnostic step, confirming the molecular basis and enabling accurate genetic counseling. In the Dutch EB Registry, genetic diagnosis was achieved in 90.5% of patients. NGS panels have largely replaced sequential single-gene Sanger sequencing.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33095945" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33095945" target="_blank">PMID:33095945</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 90.5% of the EB-patients the diagnosis was genetically confirmed"</div>
+
+
+                <div class="evidence-explanation">Dutch EB Registry data confirms that genetic testing achieves definitive diagnosis in the vast majority of EB patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34036913" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34036913" target="_blank">PMID:34036913</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is suspected based on symptoms and confirmed by skin biopsy and definitive genetic testing"</div>
+
+
+                <div class="evidence-explanation">Confirms the sequential diagnostic approach from clinical suspicion through skin biopsy to definitive genetic testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.8 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">The overall incidence of inherited EB in the United States is approximately 19 per one million live births and prevalence approximately 11 per one million population, based on the National Epidermolysis Bullosa Registry.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20507631" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20507631" target="_blank">PMID:20507631</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the overall incidence and prevalence of the disease within the United States is approximately 19 per one million live births and 8 per one million population, respectively"</div>
+
+
+                <div class="evidence-explanation">Confirms the approximate incidence of ~19 per million live births in the US from the National EB Registry data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27463098" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27463098" target="_blank">PMID:27463098</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the overall incidence and prevalence of inherited EB were 19.60 and 8.22 per 1 million live births, respectively"</div>
+
+
+                <div class="evidence-explanation">Updated NEBR data confirms incidence of approximately 19.6 per million live births and prevalence of 8.2 per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">An estimated 500,000 people worldwide are affected by epidermolysis bullosa. Registry-based studies from multiple countries suggest the disease may be more common than previously assumed, with incidence and prevalence varying by region and completeness of case ascertainment.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28670357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28670357" target="_blank">PMID:28670357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is an orphan disease that affects about half a million people worldwide, but may not be familiar to all clinicians"</div>
+
+
+                <div class="evidence-explanation">Confirms the estimated global burden of approximately 500,000 affected individuals worldwide.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-germany">
+                <div class="item-name">Germany</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        5.4 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">German population-based cross-sectional study using data from academic hospitals, diagnostic laboratories, and patient organizations. Estimated prevalence of 54 per million for all EB types using log-linear models, with at least 2,000 patients in the German population.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36196047" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36196047" target="_blank">PMID:36196047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using log-linear models, we estimated a prevalence of 54 per million for all EB types, 2.44 for junctional EB, 12.16 for dystrophic EB and 28.44 per million for EB simplex"</div>
+
+
+                <div class="evidence-explanation">German EB registry data providing prevalence of 54 per million population overall, higher than some prior estimates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-england-and-wales">
+                <div class="item-name">England and Wales</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Data from the National EB Database (2002-2021) covering 2,594 registered individuals. Total incidence of 67.8 per million live births across all EB types, and prevalence of 34.8 per million population. One of the highest reported incidences globally, attributed to comprehensive NHS-based ascertainment.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34927719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34927719" target="_blank">PMID:34927719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The average incidence per million live births for EBS, DEB, JEB and Kindler EB was 32·5, 26·1, 8·9 and 0·9, respectively (total incidence for all types of EB was 67·8 per million)"</div>
+
+
+                <div class="evidence-explanation">England and Wales EB registry data shows incidence of 67.8 per million live births, significantly higher than US estimates, likely reflecting more complete case ascertainment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-netherlands">
+                <div class="item-name">Netherlands</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Dutch EB Registry data (1988-2018) from the single national expertise centre at UMCG. Incidence of 41.3 per million live births and point-prevalence of 22.4 per million population. High detection rate attributed to well-organized centralized care and near-complete ascertainment, suggesting EB may be more common than previously assumed.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33095945" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33095945" target="_blank">PMID:33095945</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence and point-prevalence of EB in the Netherlands were 41.3 per million live births and 22.4 per million population, respectively"</div>
+
+
+                <div class="evidence-explanation">Dutch EB Registry data with molecularly confirmed diagnoses in 90.5% of patients, indicating EB is more common than older estimates suggest.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8836,7 +10247,7 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-33095945">
                 <div class="item-name">
                     Novel insights into the epidemiology of epidermolysis bullosa (EB) from the Dutch EB Registry: EB more common than previously assumed?
 
@@ -8899,7 +10310,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33095945" target="_blank">PMID:33095945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8921,7 +10335,10 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33095945" target="_blank">PMID:33095945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8956,7 +10373,7 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04908215">
                 <div class="item-name">
                     NCT04908215
 
@@ -8981,11 +10398,11 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001058</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9006,7 +10423,10 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
                         <a href="https://clinicaltrials.gov/study/NCT04908215" target="_blank">clinicaltrials:NCT04908215</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9029,7 +10449,7 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02014376">
                 <div class="item-name">
                     NCT02014376
 
@@ -9054,11 +10474,11 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001058</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9079,7 +10499,10 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
                         <a href="https://clinicaltrials.gov/study/NCT02014376" target="_blank">clinicaltrials:NCT02014376</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9164,7 +10587,7 @@ classifications:
     - reference: PMID:32973163
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation&#34;
       explanation: Supports placing EB within skin disorders because it is explicitly described as a genetic dermatosis with mucocutaneous fragility.
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
@@ -9172,7 +10595,7 @@ classifications:
     - reference: PMID:32973163
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses&#34;
       explanation: Supports classification of EB as a hereditary disease because the core disorder group is explicitly inherited and genetic.
 parents:
@@ -9333,6 +10756,7 @@ inheritance:
     explanation: Confirms autosomal recessive inheritance in multiple EB types including junctional EB, recessive dystrophic EB, and Kindler EB.
 pathophysiology:
 - name: Basement Membrane Zone Structural Disruption
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
   description: &gt;
     The core defect in all forms of EB is disruption of structural proteins
     within or adjacent to the basement membrane zone (BMZ) of the skin.
@@ -9417,7 +10841,7 @@ pathophysiology:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Confirms that mutations in at least 16 genes encoding structural and adhesion proteins underlie all forms of EB.
   - reference: PMID:32017015
@@ -9427,6 +10851,7 @@ pathophysiology:
     snippet: &#34;we introduce the concept of genetic disorders with skin fragility, of which classical EB represents the prototype&#34;
     explanation: Confirms that EB is the prototypical genetic disorder with skin fragility resulting from structural protein defects.
 - name: Mechanical Fragility and Blister Formation
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Mechanically Induced Dermal-Epidermal Separation and Blistering&#34;
   description: &gt;
     Disruption of the structural proteins that anchor the epidermis to the
     dermis results in tissue separation and blister formation in response to
@@ -9471,7 +10896,7 @@ pathophysiology:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
     explanation: Confirms that the cardinal feature of EB is blister formation triggered by minimal trauma due to mucocutaneous fragility.
   - reference: PMID:34036913
@@ -9481,6 +10906,7 @@ pathophysiology:
     snippet: &#34;a group of rare congenital genetic conditions that result in painful blistering of the skin and mucous membranes, which occur with minor trauma or friction&#34;
     explanation: Confirms that blistering is triggered by minor trauma or friction in EB.
 - name: Wound Healing Impairment and Chronic Wounds
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Chronic Erosion, Impaired Healing and Dermal Scarring&#34;
   description: &gt;
     Chronic and recurrent blister formation leads to impaired wound healing,
     particularly in the more severe forms of EB. In dystrophic EB, deficiency
@@ -9508,14 +10934,14 @@ pathophysiology:
     - reference: PMID:32973163
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;specific complications, the most feared of which - and also the leading cause of mortality - is squamous cell carcinoma&#34;
       explanation: Supports that chronic wound burden in EB is linked to serious downstream complications, including malignant transformation.
   evidence:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of blister formation, wound care, symptom relief and specific complications, the most feared of which - and also the leading cause of mortality - is squamous cell carcinoma&#34;
     explanation: Confirms that chronic wound complications including squamous cell carcinoma are major concerns in EB management.
   - reference: PMID:25279494
@@ -9525,6 +10951,7 @@ pathophysiology:
     snippet: &#34;a specific attention to the fragile skin is required in order to reduce pain, risk of trauma, ulceration and infection&#34;
     explanation: Confirms that ulceration and impaired wound healing are significant complications requiring specialized management.
 - name: Secondary Complications
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Cutaneous and Extracutaneous Complications of Skin Fragility&#34;
   description: &gt;
     Chronic skin barrier disruption in EB leads to a range of secondary
     complications including bacterial infection of wounds, progressive scarring
@@ -9552,7 +10979,7 @@ pathophysiology:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;A broad phenotypic spectrum has been described, with potentially severe extracutaneous manifestations, morbidity and mortality&#34;
     explanation: Confirms that EB has severe extracutaneous complications contributing to morbidity and mortality.
   - reference: PMID:20507631
@@ -9579,7 +11006,7 @@ phenotypes:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
     explanation: Confirms skin fragility and blister formation as the defining feature of EB.
   - reference: PMID:20507631
@@ -10205,7 +11632,7 @@ diagnosis:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;A broad phenotypic spectrum has been described, with potentially severe extracutaneous manifestations, morbidity and mortality&#34;
     explanation: Confirms the importance of clinical assessment given the broad phenotypic spectrum of EB subtypes.
 - name: Immunofluorescence Mapping (IFM)
@@ -10276,6 +11703,7 @@ clinical_trials:
       label: Poor wound healing
   evidence:
   - reference: clinicaltrials:NCT04908215
+    reference_title: &#34;A Randomised, Double-Blind, Vehicle-Controlled Phase 2 Study of Topically Applied INM-755 (Cannabinol) Cream in Patients With Epidermolysis Bullosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study is to evaluate the safety of INM-755 (cannabinol) cream and obtain preliminary evidence of efficacy in treating symptoms and healing wounds over a 28-day period in patients with epidermolysis bullosa (EB).&#34;
@@ -10294,12 +11722,18 @@ clinical_trials:
       label: Poor wound healing
   evidence:
   - reference: clinicaltrials:NCT02014376
+    reference_title: &#34;A Phase 2b, Multi-Center, Randomized, Double-Blind, Vehicle-Controlled Study of the Effectiveness and Safety of SD-101 Cream in Subjects With Epidermolysis Bullosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study was to assess whether the topical use of SD-101 cream (3% or 6%) was effective in treating wounds in participants with Simplex, Recessive Dystrophic, or Junctional non-Herlitz Epidermolysis Bullosa (EB).&#34;
     explanation: This ClinicalTrials.gov record supports a completed wound-healing trial that enrolled multiple major EB subtypes under the umbrella diagnosis.
 genetic:
 - name: KRT5
+  gene_term:
+    preferred_term: KRT5
+    term:
+      id: hgnc:6442
+      label: KRT5
   association: Causative
   inheritance:
   - name: Autosomal dominant
@@ -10318,10 +11752,15 @@ genetic:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Confirms that genes encoding structural proteins including keratins are causative of EB.
 - name: KRT14
+  gene_term:
+    preferred_term: KRT14
+    term:
+      id: hgnc:6416
+      label: KRT14
   association: Causative
   inheritance:
   - name: Autosomal dominant
@@ -10344,6 +11783,11 @@ genetic:
     snippet: &#34;the identification of a heterozygous dominant-negative variant or biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
     explanation: Supports KRT14 as a causative EB simplex gene in the clinical diagnostic framework.
 - name: COL7A1
+  gene_term:
+    preferred_term: COL7A1
+    term:
+      id: hgnc:2214
+      label: COL7A1
   association: Causative
   inheritance:
   - name: Autosomal dominant
@@ -10371,10 +11815,15 @@ genetic:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Over 30 subtypes are recognized, grouped into four major categories, based predominantly on the plane of cleavage within the skin and reflecting the underlying molecular abnormality&#34;
     explanation: Confirms that specific molecular abnormalities including collagen VII defects determine EB subtypes.
 - name: LAMB3
+  gene_term:
+    preferred_term: LAMB3
+    term:
+      id: hgnc:6490
+      label: LAMB3
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10396,6 +11845,11 @@ genetic:
     snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports LAMB3 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: LAMA3
+  gene_term:
+    preferred_term: LAMA3
+    term:
+      id: hgnc:6483
+      label: LAMA3
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10418,6 +11872,11 @@ genetic:
     snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Supports LAMA3 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.
 - name: LAMC2
+  gene_term:
+    preferred_term: LAMC2
+    term:
+      id: hgnc:6493
+      label: LAMC2
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10439,6 +11898,11 @@ genetic:
     snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Supports LAMC2 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.
 - name: COL17A1
+  gene_term:
+    preferred_term: COL17A1
+    term:
+      id: hgnc:2194
+      label: COL17A1
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10460,6 +11924,11 @@ genetic:
     snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports COL17A1 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: ITGA6
+  gene_term:
+    preferred_term: ITGA6
+    term:
+      id: hgnc:6142
+      label: ITGA6
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10478,10 +11947,15 @@ genetic:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Supports ITGA6 as part of the adhesion-gene set underlying EB, consistent with its role in JEB with pyloric atresia.
 - name: ITGB4
+  gene_term:
+    preferred_term: ITGB4
+    term:
+      id: hgnc:6158
+      label: ITGB4
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10504,6 +11978,11 @@ genetic:
     snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports ITGB4 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: FERMT1
+  gene_term:
+    preferred_term: FERMT1
+    term:
+      id: hgnc:15889
+      label: FERMT1
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -10522,7 +12001,7 @@ genetic:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;EB simplex, junctional EB, dystrophic EB and Kindler EB&#34;
     explanation: Confirms Kindler EB as one of the four major EB categories in the consensus classification.
 notes: &gt;-
@@ -10726,20 +12205,30 @@ references:
       evidence_source: HUMAN_CLINICAL
       snippet: Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.
       explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
-- reference: DOI:10.1038/s41572-020-0210-0
-  title: Epidermolysis bullosa
+- reference: &#34;PMID:32973163&#34;
+  title: &#34;Epidermolysis bullosa.&#34;
   found_in:
   - Epidermolysis_Bullosa-deep-research-falcon.md
   findings:
-  - statement: Epidermolysis bullosa
-    supporting_text: Epidermolysis bullosa
+  - statement: &gt;-
+      Epidermolysis bullosa comprises inherited disorders with mucocutaneous fragility and
+      trauma-induced blistering.
+    supporting_text: &gt;-
+      Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses
+      characterized by mucocutaneous fragility and blister formation, inducible by often minimal
+      trauma.
     evidence:
-    - reference: DOI:10.1038/s41572-020-0210-0
-      reference_title: Epidermolysis bullosa
+    - reference: &#34;PMID:32973163&#34;
+      reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: Epidermolysis bullosa
-      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+      snippet: &gt;-
+        Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses
+        characterized by mucocutaneous fragility and blister formation, inducible by often minimal
+        trauma.
+      explanation: &gt;-
+        The review describes the inherited mucocutaneous fragility and trauma-induced blistering
+        that characterize epidermolysis bullosa.
 </pre>
             </div>
         </div>
@@ -10866,7 +12355,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s12326-024-00627-z" target="_blank">DOI:10.1007/s12326-024-00627-z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10972,7 +12464,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-023-02817-z" target="_blank">DOI:10.1186/s13023-023-02817-z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11041,7 +12536,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03190-1" target="_blank">DOI:10.1186/s13023-024-03190-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11110,7 +12608,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03328-1" target="_blank">DOI:10.1186/s13023-024-03328-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11179,7 +12680,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11248,7 +12752,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/bioengineering12060574" target="_blank">DOI:10.3390/bioengineering12060574</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11317,7 +12824,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11386,7 +12896,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms26146592" target="_blank">DOI:10.3390/ijms26146592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11455,7 +12968,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13133742" target="_blank">DOI:10.3390/jcm13133742</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11488,10 +13004,10 @@ references:
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                             </div>
 
-                            <div class="reference-title">Epidermolysis bullosa</div>
+                            <div class="reference-title">Epidermolysis bullosa.</div>
 
                         </div>
 
@@ -11505,10 +13021,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">Epidermolysis bullosa</div>
+            <div class="reference-finding-statement">Epidermolysis bullosa comprises inherited disorders with mucocutaneous fragility and trauma-induced blistering.</div>
 
 
-            <div class="reference-finding-supporting">"Epidermolysis bullosa"</div>
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma."</div>
 
 
 
@@ -11518,23 +13034,26 @@ references:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41572-020-0210-0" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:32973163" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Epidermolysis bullosa"</div>
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                <div class="evidence-explanation">The review describes the inherited mucocutaneous fragility and trauma-induced blistering that characterize epidermolysis bullosa.</div>
 
 
 
@@ -11561,6 +13080,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12082,7 +13603,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa", "mondoId": "MONDO:0006541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa", "yamlRevision": "9b400a134715"};
+        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa", "mondoId": "MONDO:0006541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa", "yamlRevision": "33ef099acded"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

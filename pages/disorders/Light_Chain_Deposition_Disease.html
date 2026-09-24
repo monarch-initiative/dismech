@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Light Chain Deposition Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Light Chain Deposition Disease</h1>
             <div class="header-meta">
 
@@ -4018,7 +4161,7 @@ Therapy follows the clone rather than the kidney. Nothing removes deposits direc
 
 
 
-    <span class="entity-ref-chip">treatments#Kidney Transplantation</span>
+    <a class="entity-ref-chip" href="#treatment-kidney-transplantation">treatments#Kidney Transplantation</a>
 
 
 
@@ -4064,6 +4207,12 @@ Therapy follows the clone rather than the kidney. Nothing removes deposits direc
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4081,13 +4230,16 @@ Therapy follows the clone rather than the kidney. Nothing removes deposits direc
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26915878" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26915878" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26915878" target="_blank">PMID:26915878</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4177,6 +4329,12 @@ Therapy follows the clone rather than the kidney. Nothing removes deposits direc
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4205,6 +4363,7 @@ Therapy follows the clone rather than the kidney. Nothing removes deposits direc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-plasma-cell-secretion-of-free-light-chain" data-dismech-node="Clonal Plasma Cell Secretion of Free Light Chain" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Plasma Cell Secretion of Free Light Chain</div>
+
 
                 <div class="item-desc">A plasma cell clone, typically small and often below the burden that would define myeloma, secretes free immunoglobulin light chain in excess. The clone size is characteristically modest relative to the damage it does, which is the defining feature of monoclonal gammopathy of renal significance: the lesion is not the tumour burden but the physical properties of the protein.</div>
 
@@ -4333,7 +4492,10 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4358,6 +4520,7 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-light-chain-variable-domain" data-dismech-node="Pathogenic Light Chain Variable Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic Light Chain Variable Domain</div>
+
 
                 <div class="item-desc">The variable domain carries hydrophobic substitutions in its complementarity determining regions, sometimes an N-glycan, and a high isoelectric point. The positive charge is thought to drive deposition by complementarity with polyanionic basement membrane. This node, and not the clone, is the actual etiologic agent of the disease: the variable domain alone is sufficient to confer pathogenicity.</div>
 
@@ -4414,7 +4577,10 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4439,6 +4605,7 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-cell-endoplasmic-reticulum-stress" data-dismech-node="Plasma Cell Endoplasmic Reticulum Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma Cell Endoplasmic Reticulum Stress</div>
+
 
                 <div class="item-desc">Producing a structurally awkward light chain at high output places the plasma cell clone under endoplasmic reticulum stress. This node exists because it is the therapeutic vulnerability of the disease rather than a step toward kidney injury: the clone has backed itself into a corner by making a protein its own folding machinery struggles with, and blocking the proteasome tips it over.</div>
 
@@ -4510,7 +4677,10 @@ This pathophysiological event involves increased response to endoplasmic reticul
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4535,6 +4705,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-fibrillar-basement-membrane-deposition" data-dismech-node="Non-Fibrillar Basement Membrane Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Fibrillar Basement Membrane Deposition</div>
+
 
                 <div class="item-desc">Linear and granular deposits of monoclonal light chain along glomerular and tubular basement membranes. They are Congo red negative and non-fibrillar, described as powdery on electron microscopy. This is the histological definition of the disease and the single most important thing distinguishing it from AL amyloidosis at the bench.</div>
 
@@ -4583,7 +4754,10 @@ This pathophysiological event involves increased response to endoplasmic reticul
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196376" target="_blank">PMID:39196376</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4608,6 +4782,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesangial-cell-surface-engagement-and-phenotype-transformation" data-dismech-node="Mesangial Cell Surface Engagement and Phenotype Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesangial Cell Surface Engagement and Phenotype Transformation</div>
+
 
                 <div class="item-desc">The decisive mechanistic node, and the point at which this disease and AL amyloidosis part company. Light chains from patients with light chain deposition disease are NOT endocytosed by mesangial cells; they act at the cell surface, and the interaction drives apoptosis, transformation of the mesangial cell toward a myofibroblast phenotype, and secretion of matrix components and metalloproteinases. Amyloidogenic light chains from the same cell type do the opposite: they are avidly taken up and delivered to the lysosome, where fibrils form. Same cell, same class of ligand, opposite itinerary.</div>
 
@@ -4728,7 +4903,10 @@ This pathophysiological event involves myofibroblast phenotype acquired by the m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33163710" target="_blank">PMID:33163710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4750,7 +4928,10 @@ This pathophysiological event involves myofibroblast phenotype acquired by the m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33163710" target="_blank">PMID:33163710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4772,7 +4953,10 @@ This pathophysiological event involves myofibroblast phenotype acquired by the m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33163710" target="_blank">PMID:33163710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4797,6 +4981,7 @@ This pathophysiological event involves myofibroblast phenotype acquired by the m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-driven-matrix-overproduction" data-dismech-node="TGF-beta Driven Matrix Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Driven Matrix Overproduction</div>
+
 
                 <div class="item-desc">Mesangial cells exposed to glomerulopathic light chains increase production of type IV collagen, laminin, and fibronectin, with TGF-beta production and activity rising in parallel. The causal role of TGF-beta is established rather than inferred, because blocking it with antibody abolishes the effect.</div>
 
@@ -4917,7 +5102,10 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7639331" target="_blank">PMID:7639331</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4939,7 +5127,10 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7639331" target="_blank">PMID:7639331</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4961,7 +5152,10 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7639331" target="_blank">PMID:7639331</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4986,6 +5180,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-matrix-degradation" data-dismech-node="Failure of Matrix Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Matrix Degradation</div>
+
 
                 <div class="item-desc">The other half of the imbalance, and the reason the glomerulus fills so quickly. Alongside increased matrix production, collagenase activity falls, so matrix that would normally be turned over accumulates. The mirror image in AL amyloidosis is exact: there, matrix production falls and collagenase activity rises, degrading matrix and facilitating amyloid deposition instead.</div>
 
@@ -5072,7 +5267,10 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10369104" target="_blank">PMID:10369104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5094,7 +5292,10 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10369104" target="_blank">PMID:10369104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5119,6 +5320,7 @@ This pathophysiological event involves decreased extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nodular-glomerulosclerosis" data-dismech-node="Nodular Glomerulosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Nodular Glomerulosclerosis</div>
+
 
                 <div class="item-desc">Nodular expansion of the mesangium, the characteristic light-microscopic lesion. It is a mesangial product rather than a pile of deposited light chain: the bulk of the nodule is matrix the mesangial cell was induced to make.</div>
 
@@ -5175,7 +5377,10 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5210,7 +5415,7 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-congo-red-negative-granular-basement-membrane-deposits">
                 <div class="item-name">
                     Congo red negative granular basement membrane deposits
 
@@ -5232,7 +5437,10 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196376" target="_blank">PMID:39196376</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5255,7 +5463,7 @@ This pathophysiological event involves decreased extracellular matrix disassembl
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-nodular-mesangial-sclerosis">
                 <div class="item-name">
                     Nodular mesangial sclerosis
 
@@ -5277,7 +5485,10 @@ This pathophysiological event involves decreased extracellular matrix disassembl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5343,9 +5554,9 @@ This pathophysiological event involves decreased extracellular matrix disassembl
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5386,6 +5597,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5398,7 +5612,10 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5429,6 +5646,91 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extrarenal-organ-involvement" data-dismech-node="Extrarenal organ involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Extrarenal organ involvement
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal liver or cardiac involvement by light chain deposition, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30578255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30578255" target="_blank">PMID:30578255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"35% of whom had symptomatic extrarenal (mostly hepatic and cardiac) involvement"</div>
+
+
+                <div class="evidence-explanation">Quantifies symptomatic extrarenal involvement at 35 per cent and names the organs most often affected. The FREQUENT band covers 30 to 79 per cent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">4</span>
                 </summary>
@@ -5447,15 +5749,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5473,7 +5778,10 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5495,7 +5803,10 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5535,15 +5846,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5561,7 +5875,10 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5601,15 +5918,18 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5627,7 +5947,10 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5667,15 +5990,18 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000790</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5693,7 +6019,10 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5704,85 +6033,6 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                 <div class="evidence-explanation">Names hematuria among the presenting features of the series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-extrarenal-organ-involvement" data-dismech-node="Extrarenal organ involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Extrarenal organ involvement
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the liver</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001392</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal liver or cardiac involvement by light chain deposition, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30578255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30578255" target="_blank">PMID:30578255</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"35% of whom had symptomatic extrarenal (mostly hepatic and cardiac) involvement"</div>
-
-
-                <div class="evidence-explanation">Quantifies symptomatic extrarenal involvement at 35 per cent and names the organs most often affected. The FREQUENT band covers 30 to 79 per cent.</div>
 
 
 
@@ -5854,6 +6104,9 @@ This clinical feature is Abnormal liver or cardiac involvement by light chain de
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5866,7 +6119,10 @@ This clinical feature is Abnormal liver or cardiac involvement by light chain de
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5888,7 +6144,10 @@ This clinical feature is Abnormal liver or cardiac involvement by light chain de
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11423577" target="_blank">PMID:11423577</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5916,6 +6175,9 @@ This clinical feature is Abnormal liver or cardiac involvement by light chain de
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6023,6 +6285,31 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The treatment backbone, usually bortezomib with dexamethasone and often cyclophosphamide. It works by eliminating the clone rather than by touching the kidney, and it has an unusually direct mechanistic rationale for a cytotoxic regimen: the pathogenic light chain already places its own plasma cell under endoplasmic reticulum stress, so a clone straining its quality-control machinery is disproportionately vulnerable to blocking the proteasome. Renal response follows haematologic response, and benefit is greatest when treatment starts early, before sclerosis is fixed.</div>
 
 
@@ -6051,7 +6338,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559766" target="_blank">PMID:32559766</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6092,7 +6382,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26176826" target="_blank">PMID:26176826</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6155,6 +6448,31 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose therapy with autologous stem cell rescue for eligible patients. Deeper haematologic responses are achieved than with non-transplant, non proteasome-inhibitor approaches, though transplantation and proteasome inhibition are reported together in that comparison rather than against each other.</div>
 
 
@@ -6183,7 +6501,10 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27501122" target="_blank">PMID:27501122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6218,13 +6539,16 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27501122" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27501122" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27501122" target="_blank">PMID:27501122</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6287,6 +6611,31 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Offered for end-stage renal disease, and genuinely contested. Series report recurrence in the graft in a majority of recipients, while another series reports no recurrence up to nearly ten years in patients whose clone was in sustained remission at the time of transplant. The two are reconcilable, and the discriminator appears to be haematologic remission status rather than transplantation itself; that reconciliation is curated as a discussion rather than resolved by picking a side.</div>
 
 
@@ -6306,7 +6655,10 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6322,13 +6674,16 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26392598" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26392598" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26392598" target="_blank">PMID:26392598</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6413,6 +6768,31 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-CD38 monoclonal antibody, used as consolidation after conventional therapy in patients who have not reached a complete haematologic response. The evidence that touches this disease is thin and indirect.</div>
 
 
@@ -6435,13 +6815,16 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34468250" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34468250" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34468250" target="_blank">PMID:34468250</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6476,13 +6859,16 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34468250" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34468250" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34468250" target="_blank">PMID:34468250</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6544,7 +6930,10 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6570,6 +6959,215 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-free-light-chain-measurement-with-renal-biopsy">
+                <div class="item-name">
+                    Serum free light chain measurement with renal biopsy
+
+                </div>
+
+                <div class="item-desc">The diagnostic spine. An abnormal free light chain ratio identifies the clone, and renal biopsy with immunofluorescence and electron microscopy identifies the lesion and distinguishes it from the alternatives. Neither alone is sufficient: a monoclonal gammopathy is common in older people and does not by itself explain renal impairment, while the biopsy appearance without demonstration of monotypic light chain does not distinguish this from diabetic nodular glomerulosclerosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22156754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22156754" target="_blank">PMID:22156754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum free light chain ratio was abnormal in all 51 patients tested"</div>
+
+
+                <div class="evidence-explanation">The sensitivity of the free light chain ratio in this series is what makes it the appropriate screening arm of the diagnostic pair.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-congo-red-staining-to-exclude-amyloidosis">
+                <div class="item-name">
+                    Congo red staining to exclude amyloidosis
+
+                </div>
+
+                <div class="item-desc">Not an optional refinement but the step that assigns the diagnosis. Congo red negativity in the presence of monotypic light chain deposits establishes this disease rather than AL amyloidosis, and the two have different natural histories, different organ risks, and different mesangial mechanisms despite arising from the same class of protein.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33163710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33163710" target="_blank">PMID:33163710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monoclonal light chains associated with AL-Am but not those producing LCDD are avidly endocytosed by mesangial cells and delivered to the mature lysosomal compartment where amyloid fibrils are formed."</div>
+
+
+                <div class="evidence-explanation">The mechanistic reason the distinction matters: the two diseases differ in whether the light chain enters the cell at all, so a stain that separates them is separating two different pathologies rather than two appearances.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence estimate exists. The disease is defined by renal biopsy in patients with a monoclonal gammopathy, so ascertainment depends heavily on biopsy practice and on whether small clones are investigated at all. The largest assembled series is a nationwide cohort of 255 patients with monoclonal immunoglobulin deposition disease, of whom 212 had this disease. Kappa light chains predominate over lambda, the reverse of AL amyloidosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30578255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30578255" target="_blank">PMID:30578255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We retrospectively studied a nationwide cohort of 255 patients, with biopsy-proven LCDD (n = 212)"</div>
+
+
+                <div class="evidence-explanation">Gives the size of the largest assembled series and the number with this specific disease, which is what this record cites it for. It is not a population rate and is not presented as one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6584,7 +7182,7 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-al-amyloidosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Systemic_AL_Amyloidosis.html">AL amyloidosis</a>
@@ -6612,7 +7210,10 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33163710" target="_blank">PMID:33163710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6637,7 +7238,7 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cast-nephropathy-and-light-chain-fanconi-syndrome">
                 <div class="item-name">
 
                     Cast nephropathy and light chain Fanconi syndrome
@@ -6658,7 +7259,7 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-diabetic-nodular-glomerulosclerosis">
                 <div class="item-name">
 
                     Diabetic nodular glomerulosclerosis
@@ -7418,7 +8019,7 @@ treatments:
   evidence:
   - reference: PMID:27501122
     reference_title: &#34;Outcomes of patients with renal monoclonal immunoglobulin deposition disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients receiving ASCT or PI-based therapies were more likely to achieve at least a hematologic CR/VGPR compared to those receiving other therapies&#34;
     explanation: &gt;-
@@ -7452,7 +8053,7 @@ treatments:
       were affected by recurrent disease.
   - reference: PMID:26392598
     reference_title: &#34;Natural history and outcome of light chain deposition disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;among those whose underlying clonal disorder was in sustained remission, there was no recurrence of LCDD up to 9.7 years later&#34;
     explanation: &gt;-
@@ -7485,7 +8086,7 @@ treatments:
     evidence:
     - reference: PMID:34468250
       reference_title: &#34;Consolidation with a short course of daratumumab in patients with AL amyloidosis or light chain deposition disease.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We used as a consolidation a short course of daratumumab in 25 patients with AL amyloidosis or light chain deposition disease (LCDD), who had not achieved a haematologic complete response (hemCR) after standard therapy with bortezomib, cyclophosphamide and dexamethasone (VCD)&#34;
       explanation: &gt;-
@@ -7495,7 +8096,7 @@ treatments:
   evidence:
   - reference: PMID:34468250
     reference_title: &#34;Consolidation with a short course of daratumumab in patients with AL amyloidosis or light chain deposition disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We used as a consolidation a short course of daratumumab in 25 patients with AL amyloidosis or light chain deposition disease (LCDD), who had not achieved a haematologic complete response (hemCR) after standard therapy with bortezomib, cyclophosphamide and dexamethasone (VCD)&#34;
     explanation: &gt;-
@@ -7537,7 +8138,7 @@ discussions:
   evidence:
   - reference: PMID:26915878
     reference_title: &#34;Light Chain Deposition Disease After Kidney Transplantation With Long Graft Survival: Case Report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;they have experienced a prolonged period of stable renal function with no clinically detectable disease&#34;
     explanation: &gt;-
@@ -7656,6 +8257,19 @@ prevalence:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Light Chain Deposition Disease (MONDO:0019730)</strong> · 2026-08-16T15:46:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Light_Chain_Deposition_Disease/2026-08-16T154636Z-claude-code-ca2f4c.yaml">View source</a></p>
+                        <p class="research-review-text">New entry from a claude_code deep-research report (24/24 references resolved, zero confabulations). Eight pathophysiology nodes. The central curation decision was to DECLINE conformance to the amyloidogenesis module, which this disease superficially resembles most: both involve a monoclonal light chain depositing in tissue, but the mechanisms are exact inverses at the decisive step. Light chains from this disease are NOT endocytosed by mesangial cells and signal at the cell surface, driving myofibroblast transformation and matrix overproduction; amyloidogenic light chains from the same cell type ARE endocytosed, reach the lysosome, form fibrils there, and stimulate matrix degradation instead. AL hollows the mesangium out, this disease makes it build. MONDO independently classifies the disease under non-amyloid monoclonal immunoglobulin deposition disease. Both halves of the mirror-image evidence are curated on the relevant nodes rather than left as prose, so a future curator meets the reason and not just the decision. fibrotic_response conformance also declined, because its chain runs through inflammatory recruitment and this mechanism runs from direct receptor-level signalling to mesangial transformation without an inflammatory intermediate. HP:0001917 Renal amyloidosis was explicitly avoided as the highest-risk mis-annotation. The plasma-cell ER-stress node exists as a therapeutic-vulnerability node rather than a step toward kidney injury, and carries the bortezomib INHIBITS edge: the clone makes a protein its own folding machinery struggles with, so blocking the proteasome is selectively lethal to it. A CONTROVERSY discussion records the kidney-transplant question with both opposing series curated (REFUTE for three-of-four graft recurrence, PARTIAL for no recurrence to 9.7 years in sustained clonal remission) plus the proposed reconciliation that remission status rather than transplantation is the discriminator. A KNOWLEDGE_GAP records the glomerulopathic-versus-tubulopathic light chain question, which is experimentally demonstrated rather than hypothetical. Daratumumab is recorded as used but not established, with the pooled AL+LCDD cohort caveat in notes and its response figures deliberately not curated as disease-specific. genetic uses SOMATIC_DRIVER with no gene descriptor bound, since the driver is a somatic rearrangement and the pathogenic property lies in the expressed variable domain. Process improvement applied this entry: every reference_title was written as PLACEHOLDER and filled programmatically from references_cache, after fabricating five titles by hand across the three earlier entries in this batch; 23 titles filled, 0 mismatches. Validated: just validate passed; count-verified-snippets 23/23; title audit 23 citations 0 mismatches; check_folded_hyphens OK; check-title-snippets OK.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8831,7 +9445,7 @@ target_mechanisms:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Light Chain Deposition Disease", "mondoId": "MONDO:0019730", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Light_Chain_Deposition_Disease", "yamlRevision": "623379a0ce54"};
+        const OS_CONFIG = {"diseaseName": "Light Chain Deposition Disease", "mondoId": "MONDO:0019730", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Light_Chain_Deposition_Disease", "yamlRevision": "817ecbbd4e26"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

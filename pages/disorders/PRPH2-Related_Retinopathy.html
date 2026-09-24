@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>PRPH2-Related Retinopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>PRPH2-Related Retinopathy</h1>
             <div class="header-meta">
 
@@ -3981,7 +4124,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4026,7 +4169,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32213850" target="_blank">PMID:32213850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4049,7 +4195,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-digenic-inheritance">
                 <div class="item-name">
                     Digenic inheritance
 
@@ -4094,7 +4240,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8202715" target="_blank">PMID:8202715</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4163,366 +4312,12 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-retinitis-pigmentosa-7">
 
                     <div class="item-name">
                         Retinitis pigmentosa 7
 
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011974" target="_blank">MONDO:0011974</a>
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Rod-predominant PRPH2 disease branch with earlier onset and generally more severe affectation than the macular-predominant branches.</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38474159" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with retinitis pigmentosa presented an earlier disease onset."</div>
-
-
-                <div class="evidence-explanation">Large multicenter PRPH2 cohort data support RP7 as a clinically distinct rod-predominant subtype with earlier onset.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38474159" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Phenotypes with a primary rod alteration presented more severe affectation."</div>
-
-
-                <div class="evidence-explanation">The same cohort supports rod-predominant PRPH2 disease as a more severe subtype branch.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Symptom onset was earlier in retinitis pigmentosa as compared with pseudo-Stargardt pattern dystrophy (34 vs 44 years; P = 0.004)."</div>
-
-
-                <div class="evidence-explanation">An independent 241-patient multicenter PRPH2 cohort corroborates earlier symptom onset in the rod-predominant retinitis pigmentosa branch.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        Vitelliform macular dystrophy 3
-
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024561" target="_blank">MONDO:0024561</a>
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Macular-predominant PRPH2 branch with vitelliform or butterfly-pattern lesions on multimodal imaging.</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"FAF phenotypes included normal (5%), butterfly pattern dystrophy, or vitelliform macular dystrophy (11%), central areolar choroidal dystrophy (28%), pseudo-Stargardt pattern dystrophy (41%), and retinitis pigmentosa (25%)."</div>
-
-
-                <div class="evidence-explanation">This 241-patient PRPH2 cohort identifies vitelliform macular dystrophy as one of the major PRPH2 phenotype branches.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        Patterned macular dystrophy 1
-
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008210" target="_blank">MONDO:0008210</a>
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Pattern-dystrophy branch within the PRPH2 spectrum, often overlapping vitelliform and pseudo-Stargardt appearances.</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30726412" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30726412" target="_blank">PMID:30726412</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Moreover, pathogenic variants in PRPH2 are associated with various diseases, such as pattern, butterfly-shaped pattern, central areolar, adult-onset vitelliform macular, and cone-rod dystrophies as well as retinitis pigmentosa, retinitis punctata albescens, Leber congenital amaurosis, fundus..."</div>
-
-
-                <div class="evidence-explanation">This report explicitly includes pattern dystrophy among the recognized PRPH2 disease branches.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        Choroidal dystrophy, central areolar 2
-
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013137" target="_blank">MONDO:0013137</a>
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Central areolar choroidal atrophy branch in which central macular and retinal pigment epithelium loss predominate.</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"FAF phenotypes included normal (5%), butterfly pattern dystrophy, or vitelliform macular dystrophy (11%), central areolar choroidal dystrophy (28%), pseudo-Stargardt pattern dystrophy (41%), and retinitis pigmentosa (25%)."</div>
-
-
-                <div class="evidence-explanation">The PRPH2 cohort supports central areolar choroidal dystrophy as a common phenotype-defined subtype branch.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        Leber congenital amaurosis 18
-
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_1060145" target="_blank">MONDO:1060145</a>
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Rare early severe PRPH2-associated presentation recognized within the broader PRPH2 retinal-dystrophy spectrum.</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30726412" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30726412" target="_blank">PMID:30726412</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Moreover, pathogenic variants in PRPH2 are associated with various diseases, such as pattern, butterfly-shaped pattern, central areolar, adult-onset vitelliform macular, and cone-rod dystrophies as well as retinitis pigmentosa, retinitis punctata albescens, Leber congenital amaurosis, fundus..."</div>
-
-
-                <div class="evidence-explanation">This case-based review explicitly places Leber congenital amaurosis within the recognized PRPH2 disease spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        Retinitis pigmentosa 7, digenic
-
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_1060144" target="_blank">MONDO:1060144</a>
 
 
 
@@ -4550,17 +4345,487 @@ This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene fr
 
 
 
+
+
+                    </div>
+
+                    <div class="item-desc">Rod-predominant PRPH2 disease branch with earlier onset and generally more severe affectation than the macular-predominant branches.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38474159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with retinitis pigmentosa presented an earlier disease onset."</div>
+
+
+                <div class="evidence-explanation">Large multicenter PRPH2 cohort data support RP7 as a clinically distinct rod-predominant subtype with earlier onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38474159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phenotypes with a primary rod alteration presented more severe affectation."</div>
+
+
+                <div class="evidence-explanation">The same cohort supports rod-predominant PRPH2 disease as a more severe subtype branch.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Symptom onset was earlier in retinitis pigmentosa as compared with pseudo-Stargardt pattern dystrophy (34 vs 44 years; P = 0.004)."</div>
+
+
+                <div class="evidence-explanation">An independent 241-patient multicenter PRPH2 cohort corroborates earlier symptom onset in the rod-predominant retinitis pigmentosa branch.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-vitelliform-macular-dystrophy-3">
+
+                    <div class="item-name">
+                        Vitelliform macular dystrophy 3
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024561" target="_blank">MONDO:0024561</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRPH2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9942</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Macular-predominant PRPH2 branch with vitelliform or butterfly-pattern lesions on multimodal imaging.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FAF phenotypes included normal (5%), butterfly pattern dystrophy, or vitelliform macular dystrophy (11%), central areolar choroidal dystrophy (28%), pseudo-Stargardt pattern dystrophy (41%), and retinitis pigmentosa (25%)."</div>
+
+
+                <div class="evidence-explanation">This 241-patient PRPH2 cohort identifies vitelliform macular dystrophy as one of the major PRPH2 phenotype branches.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-patterned-macular-dystrophy-1">
+
+                    <div class="item-name">
+                        Patterned macular dystrophy 1
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008210" target="_blank">MONDO:0008210</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRPH2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9942</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Pattern-dystrophy branch within the PRPH2 spectrum, often overlapping vitelliform and pseudo-Stargardt appearances.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30726412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30726412" target="_blank">PMID:30726412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, pathogenic variants in PRPH2 are associated with various diseases, such as pattern, butterfly-shaped pattern, central areolar, adult-onset vitelliform macular, and cone-rod dystrophies as well as retinitis pigmentosa, retinitis punctata albescens, Leber congenital amaurosis, fundus..."</div>
+
+
+                <div class="evidence-explanation">This report explicitly includes pattern dystrophy among the recognized PRPH2 disease branches.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-choroidal-dystrophy-central-areolar-2">
+
+                    <div class="item-name">
+                        Choroidal dystrophy, central areolar 2
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013137" target="_blank">MONDO:0013137</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRPH2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9942</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Central areolar choroidal atrophy branch in which central macular and retinal pigment epithelium loss predominate.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FAF phenotypes included normal (5%), butterfly pattern dystrophy, or vitelliform macular dystrophy (11%), central areolar choroidal dystrophy (28%), pseudo-Stargardt pattern dystrophy (41%), and retinitis pigmentosa (25%)."</div>
+
+
+                <div class="evidence-explanation">The PRPH2 cohort supports central areolar choroidal dystrophy as a common phenotype-defined subtype branch.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-leber-congenital-amaurosis-18">
+
+                    <div class="item-name">
+                        Leber congenital amaurosis 18
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_1060145" target="_blank">MONDO:1060145</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRPH2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9942</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Rare early severe PRPH2-associated presentation recognized within the broader PRPH2 retinal-dystrophy spectrum.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30726412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30726412" target="_blank">PMID:30726412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, pathogenic variants in PRPH2 are associated with various diseases, such as pattern, butterfly-shaped pattern, central areolar, adult-onset vitelliform macular, and cone-rod dystrophies as well as retinitis pigmentosa, retinitis punctata albescens, Leber congenital amaurosis, fundus..."</div>
+
+
+                <div class="evidence-explanation">This case-based review explicitly places Leber congenital amaurosis within the recognized PRPH2 disease spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-retinitis-pigmentosa-7-digenic">
+
+                    <div class="item-name">
+                        Retinitis pigmentosa 7, digenic
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_1060144" target="_blank">MONDO:1060144</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRPH2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9942</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
                             <span class="subtype-gene-tag">
                                 ROM1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10254" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10254</a>
+    <a href="https://bioregistry.io/hgnc:10254" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:10254</a>
 
 
 
-                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this subtype is caused by variation in this gene
 This subtype is caused by variation in ROM1 (hgnc:10254). hgnc:10254 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
@@ -4593,7 +4858,10 @@ This subtype is caused by variation in ROM1 (hgnc:10254). hgnc:10254 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8202715" target="_blank">PMID:8202715</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4641,6 +4909,7 @@ This subtype is caused by variation in ROM1 (hgnc:10254). hgnc:10254 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prph2-complex-assembly-defect" data-dismech-node="PRPH2 complex assembly defect" data-dismech-type="pathophysiology">
                 <div class="item-name">PRPH2 complex assembly defect</div>
 
+
                 <div class="item-desc">Pathogenic PRPH2 variants perturb peripherin-2 complex formation at photoreceptor outer-segment rims, especially through the D2 loop and PRPH2/ROM1 oligomer interface. As an outer-segment structural-protein gene defect expressed in rod and cone photoreceptors, this is the initiating lesion of the conserved photoreceptor-degeneration cascade.</div>
 
 
@@ -4655,11 +4924,11 @@ This subtype is caused by variation in ROM1 (hgnc:10254). hgnc:10254 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000604</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4685,11 +4954,11 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4725,11 +4994,11 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
         PRPH2
 
 
-    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9942</a>
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:9942</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4767,11 +5036,11 @@ This pathophysiological event involves PRPH2 (hgnc:9942). hgnc:9942 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0045494</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4831,7 +5100,10 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30819798" target="_blank">PMID:30819798</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4853,7 +5125,10 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32213850" target="_blank">PMID:32213850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4879,6 +5154,7 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-outer-segment-morphogenesis-and-maintenance-failure" data-dismech-node="Photoreceptor outer segment morphogenesis and maintenance failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor outer segment morphogenesis and maintenance failure</div>
 
+
                 <div class="item-desc">Failure to correctly build or stabilize outer-segment rims and discs drives rod and cone dysfunction, degeneration, and subtype-specific retinal patterning.</div>
 
 
@@ -4893,11 +5169,11 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000604</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4923,11 +5199,11 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4953,11 +5229,11 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5036,7 +5312,10 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32213850" target="_blank">PMID:32213850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5058,7 +5337,10 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32716032" target="_blank">PMID:32716032</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5084,6 +5366,7 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-cell-death" data-dismech-node="Photoreceptor cell death" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor cell death</div>
 
+
                 <div class="item-desc">Sustained outer-segment assembly and maintenance failure converges on programmed photoreceptor death, the conserved central effector of inherited retinal degeneration across the PRPH2 disease spectrum.</div>
 
 
@@ -5098,11 +5381,11 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000604</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5128,11 +5411,11 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5169,11 +5452,11 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0051402</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5218,7 +5501,10 @@ This pathophysiological event involves increased Neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30726412" target="_blank">PMID:30726412</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5266,7 +5552,7 @@ This pathophysiological event involves increased Neuron apoptotic process (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiology commonly shows rod-cone or cone-rod dysfunction, with structure-function discordance across subtype branches.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Structural outer-segment disruption produces measurable rod and cone functional abnormalities on ERG.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal fundus autofluorescence imaging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multimodal imaging frequently reveals subtype-defining autofluorescence patterns spanning vitelliform, pattern dystrophy, CACD-like, and RP-like presentations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030602\"}}, {\"id\": \"D2-loop-enriched missense variant burden\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Many disease alleles cluster in the large intradiscal D2 loop that mediates PRPH2/ROM1 interactions and higher-order complex formation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PRPH2 complex assembly defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PRPH2 variants perturb peripherin-2 complex formation at photoreceptor outer-segment rims, especially through the D2 loop and PRPH2/ROM1 oligomer interface. As an outer-segment structural-protein gene defect expressed in rod and cone photoreceptors, this is the initiating lesion of the conserved photoreceptor-degeneration cascade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"Photoreceptor cell maintenance\"], \"genes\": [\"PRPH2\"], \"gene_terms\": [{\"label\": \"PRPH2\", \"id\": \"hgnc:9942\"}]}}, {\"id\": \"PRPH2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRPH2\"], \"gene_terms\": [{\"label\": \"PRPH2\", \"id\": \"hgnc:9942\"}], \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"Photoreceptor cell death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained outer-segment assembly and maintenance failure converges on programmed photoreceptor death, the conserved central effector of inherited retinal degeneration across the PRPH2 disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"Neuron apoptotic process\"]}}, {\"id\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to correctly build or stabilize outer-segment rims and discs drives rod and cone dysfunction, degeneration, and subtype-specific retinal patterning.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\", \"retinal pigment epithelial cell\"]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal degeneration commonly reduces best-corrected visual acuity, with severity varying by macular versus rod-predominant subtype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007663\"}}], \"edges\": [{\"source\": \"PRPH2 complex assembly defect\", \"target\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted PRPH2 and PRPH2/ROM1 complex formation destabilizes outer segment disc morphogenesis and long-term maintenance.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive retinal degeneration leads to loss of central and/or generalized visual function.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Abnormal fundus autofluorescence imaging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-specific structural degeneration generates reproducible autofluorescence patterns across the PRPH2 spectrum.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Photoreceptor cell death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained failure of outer-segment assembly and maintenance culminates in programmed photoreceptor death, the final common degeneration endpoint.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Structural outer-segment disruption produces measurable rod and cone functional abnormalities on ERG.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPH2 pathogenic variants\", \"target\": \"PRPH2 complex assembly defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"D2-loop-enriched missense variant burden\", \"target\": \"PRPH2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiology commonly shows rod-cone or cone-rod dysfunction, with structure-function discordance across subtype branches.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Structural outer-segment disruption produces measurable rod and cone functional abnormalities on ERG.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal fundus autofluorescence imaging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multimodal imaging frequently reveals subtype-defining autofluorescence patterns spanning vitelliform, pattern dystrophy, CACD-like, and RP-like presentations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030602\"}}, {\"id\": \"D2-loop-enriched missense variant burden\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Many disease alleles cluster in the large intradiscal D2 loop that mediates PRPH2/ROM1 interactions and higher-order complex formation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PRPH2 complex assembly defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PRPH2 variants perturb peripherin-2 complex formation at photoreceptor outer-segment rims, especially through the D2 loop and PRPH2/ROM1 oligomer interface. As an outer-segment structural-protein gene defect expressed in rod and cone photoreceptors, this is the initiating lesion of the conserved photoreceptor-degeneration cascade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"Photoreceptor cell maintenance\"], \"genes\": [\"PRPH2\"], \"gene_terms\": [{\"label\": \"PRPH2\", \"id\": \"hgnc:9942\"}]}}, {\"id\": \"PRPH2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRPH2\"], \"gene_terms\": [{\"label\": \"PRPH2\", \"id\": \"hgnc:9942\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Photoreceptor cell death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained outer-segment assembly and maintenance failure converges on programmed photoreceptor death, the conserved central effector of inherited retinal degeneration across the PRPH2 disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"Neuron apoptotic process\"]}}, {\"id\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to correctly build or stabilize outer-segment rims and discs drives rod and cone dysfunction, degeneration, and subtype-specific retinal patterning.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\", \"retinal pigment epithelial cell\"]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal degeneration commonly reduces best-corrected visual acuity, with severity varying by macular versus rod-predominant subtype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007663\"}}], \"edges\": [{\"source\": \"PRPH2 complex assembly defect\", \"target\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted PRPH2 and PRPH2/ROM1 complex formation destabilizes outer segment disc morphogenesis and long-term maintenance.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive retinal degeneration leads to loss of central and/or generalized visual function.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Abnormal fundus autofluorescence imaging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-specific structural degeneration generates reproducible autofluorescence patterns across the PRPH2 spectrum.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Photoreceptor cell death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained failure of outer-segment assembly and maintenance culminates in programmed photoreceptor death, the final common degeneration endpoint.\"}, {\"source\": \"Photoreceptor outer segment morphogenesis and maintenance failure\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Structural outer-segment disruption produces measurable rod and cone functional abnormalities on ERG.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPH2 pathogenic variants\", \"target\": \"PRPH2 complex assembly defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"D2-loop-enriched missense variant burden\", \"target\": \"PRPH2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5300,15 +5586,18 @@ This pathophysiological event involves increased Neuron apoptotic process (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007663</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5326,7 +5615,10 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5368,15 +5660,18 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000512</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5394,7 +5689,10 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5436,15 +5734,18 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030602</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030602</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal fundus autofluorescence imaging (HP:0030602). HP:0030602 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5462,7 +5763,10 @@ This clinical feature is Abnormal fundus autofluorescence imaging (HP:0030602). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5519,17 +5823,22 @@ This clinical feature is Abnormal fundus autofluorescence imaging (HP:0030602). 
                         Gene: PRPH2
 
 
-    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9942</a>
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:9942</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5552,7 +5861,10 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5574,7 +5886,10 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_1f069086-b0fb-4aaa-9921-aec158b938b5-2024-02-01T170000.000Z" target="_blank">CGGV:assertion_1f069086-b0fb-4aaa-9921-aec158b938b5-2024-02-01T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5608,7 +5923,15 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Many disease alleles cluster in the large intradiscal D2 loop that mediates PRPH2/ROM1 interactions and higher-order complex formation.</div>
+
+
 
 
 
@@ -5628,7 +5951,10 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474159" target="_blank">PMID:38474159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5650,7 +5976,10 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37440045" target="_blank">PMID:37440045</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5697,17 +6026,22 @@ This disease-associated gene is PRPH2 (hgnc:9942). hgnc:9942 is a gene from the 
                         Gene: ROM1
 
 
-    <a href="https://bioregistry.io/hgnc:10254" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:10254</a>
+    <a href="https://bioregistry.io/hgnc:10254" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:10254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ROM1 (hgnc:10254). hgnc:10254 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: MODIFIER</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5724,7 +6058,10 @@ This disease-associated gene is ROM1 (hgnc:10254). hgnc:10254 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32716032" target="_blank">PMID:32716032</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5754,6 +6091,9 @@ This disease-associated gene is ROM1 (hgnc:10254). hgnc:10254 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
 
@@ -5761,6 +6101,364 @@ This disease-associated gene is ROM1 (hgnc:10254). hgnc:10254 is a gene from the
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation is important because PRPH2 disease overlaps phenotypically with Stargardt disease, age-related macular degeneration, and retinitis pigmentosa.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Confirms a pathogenic PRPH2 variant and helps anchor the phenotype within a rod-predominant, macular/pattern, or digenic branch.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39515456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39515456" target="_blank">PMID:39515456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This review emphasizes revising diagnostic criteria by incorporating more recent imaging techniques and confirming diagnosis with the use of genetic testing."</div>
+
+
+                <div class="evidence-explanation">The systematic review explicitly supports genetic testing as part of the diagnostic standard for PRPH2-associated disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multimodal-retinal-imaging-and-electrophysiology">
+                <div class="item-name">
+                    Multimodal retinal imaging and electrophysiology
+
+                </div>
+
+                <div class="item-desc">Fundus autofluorescence, OCT, fluorescein angiography, and ERG help resolve phenotype class and monitor structure-function discordance.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Imaging and ERG together distinguish macular/pattern dystrophy, CACD-like, and RP-like branches within the PRPH2 spectrum.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39515456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39515456" target="_blank">PMID:39515456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fundus autofluorescence, fluorescein angiography, optical coherence tomography, while in research adaptive optics reveal detailed phenotypic characteristics, notably in retinal pigment epithelium changes and photoreceptor disruption."</div>
+
+
+                <div class="evidence-explanation">The review supports multimodal imaging as central to phenotype definition in PRPH2 disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38743414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One FAF phenotype may have multiple ERG phenotypes, demonstrating a discordance between structure and function."</div>
+
+
+                <div class="evidence-explanation">Large-cohort data support pairing imaging with ERG to resolve the subtype structure-function relationship.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-foundation-fighting-blindness-consortium-inherited-retinal-disease-cohort">
+                <div class="item-name">Foundation Fighting Blindness Consortium inherited retinal disease cohort</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">5%</span>
+
+
+
+                </div>
+
+                <div class="item-notes">In a 33,834-patient inherited retinal disease dataset, PRPH2 was among the five most common solved genetic causes, indicating a substantial contribution to Mendelian retinopathy clinics even though population prevalence remains low.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39908130" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39908130" target="_blank">PMID:39908130</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common genetic etiologies were ABCA4 (17%), USH2A (9%), RPGR (6%), PRPH2 (5%), and RHO (4%)."</div>
+
+
+                <div class="evidence-explanation">This very large IRD cohort shows that PRPH2 accounts for 5% of solved inherited retinal disease cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-international-inherited-macular-dystrophy-cohort">
+                <div class="item-name">International inherited macular dystrophy cohort</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">6.7%</span>
+
+
+
+                </div>
+
+                <div class="item-notes">PRPH2 is relatively enriched among macular dystrophy presentations compared with pan-IRD cohorts.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38540785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38540785" target="_blank">PMID:38540785</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The top five most frequent causative genes were ABCA4 (37.2%), PRPH2 (6.7%), CDHR1 (6.1%), PROM1 (4.3%) and RP1L1 (3.1%)."</div>
+
+
+                <div class="evidence-explanation">This macular dystrophy sequencing study reports PRPH2 as the second most frequent gene, accounting for 6.7% of solved cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5833,6 +6531,11 @@ has_subtypes:
   description: &gt;-
     Rod-predominant PRPH2 disease branch with earlier onset and generally more
     severe affectation than the macular-predominant branches.
+  genes:
+  - preferred_term: PRPH2
+    term:
+      id: hgnc:9942
+      label: PRPH2
   evidence:
   - reference: PMID:38474159
     reference_title: &#34;PRPH2-Related Retinal Dystrophies: Mutational Spectrum in 103 Families from a Spanish Cohort.&#34;
@@ -5868,6 +6571,11 @@ has_subtypes:
   description: &gt;-
     Macular-predominant PRPH2 branch with vitelliform or butterfly-pattern
     lesions on multimodal imaging.
+  genes:
+  - preferred_term: PRPH2
+    term:
+      id: hgnc:9942
+      label: PRPH2
   evidence:
   - reference: PMID:38743414
     reference_title: &#34;Retinal Dystrophies Associated With Peripherin-2: Genetic Spectrum and Novel Clinical Observations in 241 Patients.&#34;
@@ -5887,6 +6595,11 @@ has_subtypes:
   description: &gt;-
     Pattern-dystrophy branch within the PRPH2 spectrum, often overlapping
     vitelliform and pseudo-Stargardt appearances.
+  genes:
+  - preferred_term: PRPH2
+    term:
+      id: hgnc:9942
+      label: PRPH2
   evidence:
   - reference: PMID:30726412
     reference_title: Retinal dystrophies and variants in PRPH2.
@@ -5906,6 +6619,11 @@ has_subtypes:
   description: &gt;-
     Central areolar choroidal atrophy branch in which central macular and
     retinal pigment epithelium loss predominate.
+  genes:
+  - preferred_term: PRPH2
+    term:
+      id: hgnc:9942
+      label: PRPH2
   evidence:
   - reference: PMID:38743414
     reference_title: &#34;Retinal Dystrophies Associated With Peripherin-2: Genetic Spectrum and Novel Clinical Observations in 241 Patients.&#34;
@@ -5925,6 +6643,11 @@ has_subtypes:
   description: &gt;-
     Rare early severe PRPH2-associated presentation recognized within the
     broader PRPH2 retinal-dystrophy spectrum.
+  genes:
+  - preferred_term: PRPH2
+    term:
+      id: hgnc:9942
+      label: PRPH2
   evidence:
   - reference: PMID:30726412
     reference_title: Retinal dystrophies and variants in PRPH2.
@@ -6286,6 +7009,7 @@ phenotypes:
       frequently abnormal phenotype axis in PRPH2 disease.
 genetic:
 - name: PRPH2 pathogenic variants
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: PRPH2
     term:
@@ -6345,6 +7069,7 @@ genetic:
     snippet: &#34;PRPH2 | HGNC:9942 | PRPH2-related retinopathy | MONDO:1040055 | SD | Definitive&#34;
     explanation: ClinGen classifies the PRPH2-PRPH2-related retinopathy gene-disease relationship as definitive with semidominant inheritance.
 - name: ROM1 modifier context
+  relationship_type: MODIFIER
   gene_term:
     preferred_term: ROM1
     term:
@@ -6353,7 +7078,10 @@ genetic:
   association: Modifier
   notes: &gt;-
     ROM1 variation can shift phenotype severity and retinal patterning and
-    underlies the digenic RP branch within the PRPH2 family.
+    underlies the digenic RP branch within the PRPH2 family. This record carries
+    the modifier claim only; the co-causal digenic role is modelled on the
+    has_subtypes row &#34;Retinitis pigmentosa 7, digenic&#34;, which binds both PRPH2
+    and ROM1 and cites the original double-heterozygote families.
   evidence:
   - reference: PMID:32716032
     reference_title: ROM1 contributes to phenotypic heterogeneity in PRPH2-associated retinal disease.
@@ -6672,7 +7400,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38743414" target="_blank">PMID:38743414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6743,6 +7474,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6890,7 +7623,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PRPH2-Related Retinopathy", "mondoId": "MONDO:1040055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRPH2-Related_Retinopathy", "yamlRevision": "1f7288010c7b"};
+        const OS_CONFIG = {"diseaseName": "PRPH2-Related Retinopathy", "mondoId": "MONDO:1040055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRPH2-Related_Retinopathy", "yamlRevision": "3ae5c456ecda"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

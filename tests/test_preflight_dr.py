@@ -237,6 +237,56 @@ def test_rival_at_or_above_ratio_triggers_a_warning():
     assert result.verdict == WARN
 
 
+# KDM1A-related adrenal hyperplasia (#9826): GIP is the disease's own effector
+# (KDM1A loss derepresses GIPR), yet at 21/48 = 0.44 it clears the ratio by
+# more than the Temtamy rival (0.40) the threshold was tuned on.
+REC_AIMAH3 = MondoRecord(
+    id="MONDO:0700299",
+    label="ACTH-independent macronodular adrenal hyperplasia 3",
+    genes=("KDM1A",),
+)
+
+
+def test_effector_gene_warning_does_not_tell_the_curator_to_exclude_sections():
+    counts = Counter({"KDM1A": 48, "GIP": 21, "GIPR": 21, "ARMC5": 10, "GNAS": 2})
+    result = assess(REC_AIMAH3, counts)
+
+    assert result.verdict == WARN
+    assert result.rival_genes[0] == ("GIP", 21)
+    reason = next(r for r in result.reasons if "GIP" in r)
+    assert "44% of KDM1A" in reason
+    assert "modifier gene" in reason
+    assert "exclude them only if they are about a different disease" in reason
+    assert "exclude those sections before curating" not in reason
+
+
+def test_bare_ontology_prefixes_in_prose_are_not_rival_genes():
+    """ "HP calls it ..." survives CURIE stripping but is the ontology, not haptoglobin."""
+    text = "ACO2 " * 46 + 'The report calls it "Physical"; HP calls it Optic atrophy. ' * 14
+    counts = extract_gene_mentions(text, FakeLexicon({"ACO2", "HP"}))
+    assert counts["HP"] == 14
+    record = MondoRecord(id="MONDO:0013802", label="ICRD", genes=("ACO2",))
+
+    result = assess(record, counts)
+
+    assert result.verdict == PASS
+    assert all(sym != "HP" for sym, _ in result.rival_genes)
+
+
+def test_an_ontology_prefix_alone_cannot_manufacture_a_fail():
+    record = MondoRecord(id="MONDO:0014572", label="LIKNS", genes=("SLC9A1",))
+    result = assess(record, Counter({"HP": 40}))
+    assert result.verdict != FAIL
+
+
+def test_a_prefix_symbol_that_is_the_expected_gene_is_still_counted():
+    """HP (haptoglobin) is excluded from the rival pool, never from the expected gene."""
+    record = MondoRecord(id="MONDO:0000001", label="hypohaptoglobinemia", genes=("HP",))
+    result = assess(record, Counter({"HP": 12}))
+    assert result.verdict == PASS
+    assert result.expected_mentions == {"HP": 12}
+
+
 def test_no_gene_mentions_at_all_warns_rather_than_fails():
     """An absent expected gene with no rival is unverifiable, not proven wrong."""
     result = assess(REC_LIKNS, Counter())

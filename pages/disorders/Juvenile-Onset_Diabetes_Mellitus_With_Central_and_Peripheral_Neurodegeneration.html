@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Juvenile-Onset Diabetes Mellitus With Central and Peripheral Neurodegeneration</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Juvenile-Onset Diabetes Mellitus With Central and Peripheral Neurodegeneration</h1>
             <div class="header-meta">
 
@@ -4102,7 +4245,7 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4151,7 +4294,10 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4173,7 +4319,10 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4291,6 +4440,12 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4307,6 +4462,12 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Systematically phenotype cerebellum, corticospinal tract, peripheral nerve and cochlea in aged Dnajc3 knockout mice, which have been studied for diabetes and retina but not for the full human neurological spectrum.</div>
+
+
+
+
+
+
 
 
 
@@ -4406,6 +4567,12 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4434,6 +4601,7 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dnajc3-loss-of-function-variants" data-dismech-node="Biallelic DNAJC3 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DNAJC3 Loss-of-Function Variants</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous nonsense, frameshift or whole-gene deletion variants in DNAJC3 abolish the protein. Reported alleles include a homozygous stop mutation and a homozygous whole-gene deletion in the two index families, and later nonsense (p.Arg393*), frameshift and missense (p.Arg415Pro) alleles. The absence of the protein - not a retained or aggregated mutant - is the primary lesion, which is why this entry models a chaperone-capacity failure rather than an ER storage disease.</div>
 
@@ -4530,6 +4698,8 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4542,6 +4712,9 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic null or severely hypomorphic alleles; heterozygotes are unaffected. Compound heterozygosity is also reported, so the HOMOZYGOUS value records the commonest reported state rather than an obligatory one.</div>
 
@@ -4586,7 +4759,10 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4608,7 +4784,10 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4630,7 +4809,10 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4655,6 +4837,7 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-p58ipk-co-chaperone-function-in-the-endoplasmic-reticulum" data-dismech-node="Loss of p58IPK Co-Chaperone Function in the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of p58IPK Co-Chaperone Function in the Endoplasmic Reticulum</div>
+
 
                 <div class="item-desc">p58IPK is an ER-lumenal DnaJ/Hsp40 co-chaperone of BiP and, in parallel, an inhibitor of the eIF2-alpha kinases PERK and PKR that acts as the negative feedback limb terminating the translational-attenuation phase of the unfolded protein response. Its loss therefore removes two things at once: productive BiP-assisted folding of nascent secretory clients, and the brake that returns the UPR to baseline. In pancreatic beta cells BiP has been shown to require p58IPK for productive proinsulin folding specifically.</div>
 
@@ -4787,7 +4970,10 @@ This pathophysiological event involves BiP (HSPA5) co-chaperone binding, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4809,7 +4995,10 @@ This pathophysiological event involves BiP (HSPA5) co-chaperone binding, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329545" target="_blank">PMID:25329545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4831,7 +5020,10 @@ This pathophysiological event involves BiP (HSPA5) co-chaperone binding, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42224595" target="_blank">PMID:42224595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4856,6 +5048,7 @@ This pathophysiological event involves BiP (HSPA5) co-chaperone binding, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-unfolded-protein-response-and-chronic-er-stress" data-dismech-node="Dysregulated Unfolded Protein Response and Chronic ER Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Unfolded Protein Response and Chronic ER Stress</div>
+
 
                 <div class="item-desc">In the absence of its feedback inhibitor, PERK-mediated UPR signalling runs unopposed and cells sit in a state of chronic, unresolved ER stress and are sensitised to any further folding load. DNAJC3 disease is grouped with the other monogenic diabetes syndromes that act through the PERK arm of the ER stress response.</div>
 
@@ -4984,7 +5177,10 @@ This pathophysiological event involves increased response to endoplasmic reticul
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5006,7 +5202,10 @@ This pathophysiological event involves increased response to endoplasmic reticul
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5031,6 +5230,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-sec61-translocon-gating-and-er-calcium-leak" data-dismech-node="Disrupted Sec61 Translocon Gating and ER Calcium Leak" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Sec61 Translocon Gating and ER Calcium Leak</div>
+
 
                 <div class="item-desc">The proposed explanation for the early hyperinsulinaemic phase of the syndrome. p58IPK, working with BiP, assists closure of the Sec61 polypeptide-conducting channel; without it, calcium leaks from the ER lumen into the cytosol of the beta cell and inappropriately drives insulin exocytosis. This is offered by its authors as the most likely mechanism rather than a demonstrated one, and is curated here as such.</div>
 
@@ -5151,7 +5351,10 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5176,6 +5379,7 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinsulinaemic-hypoglycaemia-of-infancy-and-childhood" data-dismech-node="Hyperinsulinaemic Hypoglycaemia of Infancy and Childhood" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperinsulinaemic Hypoglycaemia of Infancy and Childhood</div>
+
 
                 <div class="item-desc">The first, and easily missed, endocrine phase. Affected infants and young children can present with diazoxide-responsive hyperinsulinaemic hypoglycaemia, described around two years of age in one series and persisting into adolescence in another individual, before the beta-cell mass declines and the phenotype inverts to insulin deficiency.</div>
 
@@ -5244,7 +5448,10 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5266,7 +5473,10 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5291,6 +5501,7 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-apoptosis-via-bim-and-puma" data-dismech-node="Pancreatic Beta-Cell Apoptosis via BIM and PUMA" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Apoptosis via BIM and PUMA</div>
+
 
                 <div class="item-desc">The measured consequence of DNAJC3 loss in beta cells is death, not secretory failure. Silencing DNAJC3 in INS-1E cells, primary rat beta cells, human islets and iPSC-derived beta cells left insulin content and secretion intact but triggered apoptosis through the mitochondrial pathway, engaged by the BH3-only proteins BIM and PUMA. The Dnajc3-null mouse shows the corresponding in vivo phenotype: progressive islet-cell apoptosis with preserved function in the beta cells that remain.</div>
 
@@ -5448,7 +5659,10 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5470,7 +5684,10 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15793246" target="_blank">PMID:15793246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5492,7 +5709,10 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15793246" target="_blank">PMID:15793246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5517,6 +5737,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-deficiency-and-pancreatic-atrophy" data-dismech-node="Insulin Deficiency and Pancreatic Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Deficiency and Pancreatic Atrophy</div>
+
 
                 <div class="item-desc">Progressive beta-cell loss produces non-autoimmune, insulin-requiring diabetes mellitus, characteristically in the second decade. Pancreatic imaging in at least one reported family showed a small, atrophic pancreas, suggesting the structural counterpart of the cellular loss. No edge is drawn from this node to the neurodegeneration: the neurological arm frequently precedes the diabetes diagnosis and is not modelled here as a diabetic complication but as a parallel consequence of the same upstream chaperone-capacity failure.</div>
 
@@ -5550,7 +5771,10 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5572,7 +5796,10 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5597,6 +5824,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-lipid-homeostasis-and-mitochondrial-dysfunction" data-dismech-node="Disturbed Lipid Homeostasis and Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Lipid Homeostasis and Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Unbiased proteomics of DNAJC3-deficient patient fibroblasts identified perturbed lipid metabolism, mitochondrial bioenergetics, ER-Golgi function and amyloid precursor protein processing. This is the best current candidate bridge from an ER co-chaperone defect to neuronal vulnerability, but it rests on fibroblast data rather than on neural tissue, and the entry treats it as a proposed rather than an established link.</div>
 
@@ -5700,7 +5928,10 @@ This pathophysiological event involves increased response to endoplasmic reticul
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5725,6 +5956,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-central-and-peripheral-neurodegeneration" data-dismech-node="Progressive Central and Peripheral Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Central and Peripheral Neurodegeneration</div>
+
 
                 <div class="item-desc">A slowly progressive, generalised neurodegeneration affecting cerebellum, corticospinal tracts, peripheral nerve and the auditory system, with cerebral atrophy on MRI. Sensorineural hearing loss is frequently the earliest neurological sign, appearing around five to six years of age, well before the diabetes. Severity is highly variable between and within families.</div>
 
@@ -5850,7 +6082,10 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5872,7 +6107,10 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5939,25 +6177,108 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-atrophy" data-dismech-node="Pancreatic Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pancreatic Atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the pancreas</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001732</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small atrophic pancreas, annotated with Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with DNAJC3 mutations may possess a small atrophic pancreas."</div>
+
+
+                <div class="evidence-explanation">Reports pancreatic atrophy as a structural feature of the disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
@@ -5980,15 +6301,18 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6006,7 +6330,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6028,7 +6355,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,11 +6386,11 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-juvenile-onset-non-autoimmune-diabetes-mellitus" data-dismech-node="Juvenile-Onset Non-Autoimmune Diabetes Mellitus" data-dismech-type="phenotype">
@@ -6077,15 +6407,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000819</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000819</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6103,7 +6436,10 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6125,7 +6461,10 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,6 +6475,123 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                 <div class="evidence-explanation">Confirms early-onset diabetes as a core feature of the DNAJC3 phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinaemic-hypoglycaemia" data-dismech-node="Hyperinsulinaemic Hypoglycaemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperinsulinaemic Hypoglycaemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperinsulinemic hypoglycemia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000825" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000825</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperinsulinemic hypoglycemia (HP:0000825), qualified as temporality transient. HP:0000825 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: TRANSIENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This individual has a markedly different clinical course, with diazoxide-responsive hyperinsulinemic hypoglycemia persisting through adolescence as a dominant feature of the syndrome, marked short stature, and only subtle neurological abnormalities."</div>
+
+
+                <div class="evidence-explanation">Documents diazoxide responsiveness and persistence of the hyperinsulinaemic phase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34654017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A subsequent report of two unrelated individuals extended the phenotype to include early-onset hyperinsulinaemic hypoglycaemia."</div>
+
+
+                <div class="evidence-explanation">Records the addition of hyperinsulinaemic hypoglycaemia to the recognised phenotype.</div>
 
 
 
@@ -6165,15 +6621,18 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6191,7 +6650,10 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28940199" target="_blank">PMID:28940199</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6219,7 +6681,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -6240,15 +6702,18 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000556</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6266,7 +6731,10 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6288,7 +6756,10 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25655802" target="_blank">PMID:25655802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6316,7 +6787,7 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -6337,15 +6808,18 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6363,7 +6837,10 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6405,15 +6882,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6431,7 +6911,10 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6459,11 +6942,11 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-and-gait-ataxia" data-dismech-node="Cerebellar and Gait Ataxia" data-dismech-type="phenotype">
@@ -6480,10 +6963,10 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6512,6 +6995,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6524,7 +7010,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6546,7 +7035,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6586,15 +7078,18 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6612,7 +7107,10 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6654,15 +7152,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007108</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007108</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:0007108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6680,7 +7181,10 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6722,15 +7226,18 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6748,7 +7255,10 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6764,13 +7274,16 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6781,6 +7294,78 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                 <div class="evidence-explanation">Shows the milder end of the imaging spectrum - explicitly nonspecific lesions on an otherwise unremarkable scan.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-motor-neuron-dysfunction" data-dismech-node="Upper Motor Neuron Dysfunction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Upper Motor Neuron Dysfunction
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002493</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25466870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We investigated three siblings with juvenile-onset diabetes and central and peripheral neurodegeneration, including ataxia, upper-motor-neuron damage, peripheral neuropathy, hearing loss, and cerebral atrophy."</div>
+
+
+                <div class="evidence-explanation">Documents upper motor neuron damage as part of the core neurological phenotype.</div>
 
 
 
@@ -6810,15 +7395,18 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6836,7 +7424,10 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6852,13 +7443,16 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6898,15 +7492,18 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6924,7 +7521,10 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6952,7 +7552,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6973,15 +7573,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6999,7 +7602,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7010,257 +7616,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Documents severe growth failure attributed to growth hormone deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinaemic-hypoglycaemia" data-dismech-node="Hyperinsulinaemic Hypoglycaemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperinsulinaemic Hypoglycaemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hyperinsulinemic hypoglycemia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000825" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000825</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperinsulinemic hypoglycemia (HP:0000825), qualified as temporality transient. HP:0000825 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: TRANSIENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This individual has a markedly different clinical course, with diazoxide-responsive hyperinsulinemic hypoglycemia persisting through adolescence as a dominant feature of the syndrome, marked short stature, and only subtle neurological abnormalities."</div>
-
-
-                <div class="evidence-explanation">Documents diazoxide responsiveness and persistence of the hyperinsulinaemic phase.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34654017" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A subsequent report of two unrelated individuals extended the phenotype to include early-onset hyperinsulinaemic hypoglycaemia."</div>
-
-
-                <div class="evidence-explanation">Records the addition of hyperinsulinaemic hypoglycaemia to the recognised phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-motor-neuron-dysfunction" data-dismech-node="Upper Motor Neuron Dysfunction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Upper Motor Neuron Dysfunction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002493</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25466870" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We investigated three siblings with juvenile-onset diabetes and central and peripheral neurodegeneration, including ataxia, upper-motor-neuron damage, peripheral neuropathy, hearing loss, and cerebral atrophy."</div>
-
-
-                <div class="evidence-explanation">Documents upper motor neuron damage as part of the core neurological phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-atrophy" data-dismech-node="Pancreatic Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pancreatic Atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the pancreas</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001732</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Small atrophic pancreas, annotated with Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with DNAJC3 mutations may possess a small atrophic pancreas."</div>
-
-
-                <div class="evidence-explanation">Reports pancreatic atrophy as a structural feature of the disorder.</div>
 
 
 
@@ -7348,6 +7703,9 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7360,7 +7718,10 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7382,7 +7743,10 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7398,13 +7762,16 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29767246" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29767246" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29767246" target="_blank">PMID:29767246</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7439,6 +7806,7 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7458,6 +7826,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
@@ -7465,7 +7834,14 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">The commonest reported class. p.Arg194* was the founding allele in the index sibship and is the variant carried by one of the two patient fibroblast lines used for the proteomic work; p.Arg393* was reported in a Saudi adult. Both are predicted to truncate the protein before the C-terminal J domain, and the index alleles produce no detectable protein in patient fibroblasts.</div>
+
+
 
 
 
@@ -7485,7 +7861,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7507,7 +7886,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7542,6 +7924,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7561,6 +7944,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
@@ -7568,7 +7952,14 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">Two distinct frameshift alleles are reported: p.Trp186Glyfs*14, found in trans with a splice-acceptor variant, and a deletion in the final exon producing p.Lys456SerfsTer85, which elongates rather than truncates the protein and is predicted to abrogate the J domain. The latter is instructive because a last-exon frameshift escapes nonsense-mediated decay, so the mechanism is a non-functional J domain rather than absent message.</div>
+
+
 
 
 
@@ -7588,7 +7979,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7623,6 +8017,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7642,6 +8037,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice acceptor</span>
 
 
@@ -7649,7 +8045,14 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">A c.83-2A&gt;G acceptor-site variant reported in trans with a frameshift allele in an individual whose dominant feature was diazoxide-responsive hyperinsulinaemic hypoglycaemia. Both were classified pathogenic by ACMG criteria. This allele class matters for test selection because splice-site variants outside the coding sequence are missed by some targeted assays.</div>
+
+
 
 
 
@@ -7669,7 +8072,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7704,6 +8110,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7723,6 +8130,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number deletion</span>
 
 
@@ -7730,7 +8138,14 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">A homozygous deletion of about 72 kb removing DNAJC3 - and, in the family characterised in detail, the adjacent UGGT2 gene - was the second independent genotype found in the founding report. This is the allele class with the clearest practical consequence: a sequencing-only assay with no copy-number analysis will not detect it, so CNV analysis belongs in any diagnostic strategy for this disorder. The authors of the proteomic study note the UGGT2 involvement as a potential confounder but observe that all DNAJC3 patients present with very similar phenotypes.</div>
+
+
 
 
 
@@ -7750,7 +8165,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7772,7 +8190,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7807,6 +8228,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7826,6 +8248,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
@@ -7833,7 +8256,14 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">Rarer than the truncating classes. A homozygous p.Arg415Pro variant was reported in a girl presenting in diabetic ketoacidosis, and p.His238Asn is the separately proposed monoallelic dominant type 2 diabetes allele that this entry excludes from the recessive syndrome. Missense alleles are the class for which functional interpretation is least secure, since the established disease mechanism is absence of protein.</div>
+
+
 
 
 
@@ -7853,7 +8283,10 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7886,6 +8319,9 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7959,6 +8395,31 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Once the insulin-deficient phase is established, treatment is insulin. The diabetes is not autoimmune and is not insulin-resistant, but lifestyle measures and oral agents have proved insufficient in reported patients, who ultimately required insulin.</div>
 
 
@@ -7978,7 +8439,10 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8063,6 +8527,31 @@ This treatment uses diazoxide (CHEBI:4495). CHEBI:4495 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In the hyperinsulinaemic phase, hypoglycaemia has been reported to respond to diazoxide. This is phase-specific: the same patient will later need insulin, so the treatment target inverts over the course of the disease.</div>
 
 
@@ -8091,7 +8580,10 @@ This treatment uses diazoxide (CHEBI:4495). CHEBI:4495 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8132,7 +8624,10 @@ This treatment uses diazoxide (CHEBI:4495). CHEBI:4495 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8217,6 +8712,31 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reported in the early, mildly hyperglycaemic window before insulin becomes necessary. The published experience is that it buys time rather than controlling the disease: in one sibling, metformin plus lifestyle modification was started when diabetes appeared at 14 and insulin was required within a year as glycaemic control deteriorated. It should not be treated as an alternative to insulin in a disorder whose mechanism is progressive beta-cell loss.</div>
 
 
@@ -8230,13 +8750,16 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8322,6 +8845,31 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard thyroid hormone replacement for the associated hypothyroidism, started on the basis of routine biochemistry in reported children.</div>
 
 
@@ -8341,7 +8889,10 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8426,6 +8977,31 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Growth hormone has been given for the severe short stature, but the reported experience is not encouraging and carries a specific caution. In one child IGF-1 normalised on growth hormone with no growth response, and treatment was stopped after a year; in another, growth hormone had been deliberately postponed because of a strong family history of diabetes, and diabetes developed five years after it was started. Growth hormone is diabetogenic, so its use in a disorder that is already destined to produce insulin deficiency needs explicit glycaemic surveillance.</div>
 
 
@@ -8439,13 +9015,16 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8461,13 +9040,16 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8531,6 +9113,31 @@ This treatment is cochlear implantation and hearing rehabilitation, annotated wi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of the sensorineural hearing loss, which is often the earliest neurological manifestation and the one most amenable to intervention.</div>
 
 
@@ -8550,7 +9157,10 @@ This treatment is cochlear implantation and hearing rehabilitation, annotated wi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8572,7 +9182,10 @@ This treatment is cochlear implantation and hearing rehabilitation, annotated wi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8636,6 +9249,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance with a 25% sibling recurrence risk. Reported families are frequently consanguineous, and establishing the molecular diagnosis is what allows accurate counselling and reproductive decision-making after years of fragmented subspecialty care.</div>
 
 
@@ -8655,7 +9293,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8715,7 +9356,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8760,7 +9404,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8786,6 +9433,792 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-suspicion-and-diagnostic-gestalt">
+                <div class="item-name">
+                    Clinical Suspicion and Diagnostic Gestalt
+
+                </div>
+
+                <div class="item-desc">The trigger for testing is antibody-negative diabetes (or unexplained hyperinsulinaemic hypoglycaemia) accompanied by two or more of short stature, ataxia, peripheral neuropathy, sensorineural hearing loss, cognitive impairment, retinal dystrophy, hypothyroidism or pancreatic atrophy. Because the components present years apart and are managed by different subspecialties, the syndrome is usually assembled retrospectively; the reported route to diagnosis is repeatedly the same, with mitochondrial diabetes and Wolfram syndrome considered and excluded first.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42353846" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Wolfram syndrome was also considered, although the absence of optic atrophy and diabetes insipidus made this diagnosis less likely."</div>
+
+
+                <div class="evidence-explanation">Documents the actual diagnostic reasoning, including the features that argue against the closest mimic.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In individuals with diabetes whose clinical manifestations cannot be categorized as either T1D or T2D, other causes of diabetes should be considered."</div>
+
+
+                <div class="evidence-explanation">States the entry point into the monogenic-diabetes workup that this disorder sits behind.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-glycaemic-and-hypoglycaemia-evaluation">
+                <div class="item-name">
+                    Glycaemic and Hypoglycaemia Evaluation
+
+                </div>
+
+                <div class="item-desc">Two opposite evaluations are needed depending on the phase. In the hyperinsulinaemic phase, a controlled fast with paired glucose, insulin, C-peptide, free fatty acids and beta-hydroxybutyrate demonstrates inappropriate insulin secretion and a subnormal ketotic response at the time of hypoglycaemia. In the diabetic phase, HbA1c, insulin and C-peptide with negative islet autoantibodies establish non-autoimmune insulin deficiency.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"after 20 h of fasting, the blood glucose concentration dropped again to 47 mg/dL (2.6 mmol/L) with elevated insulin levels and a subnormal metabolic fasting reaction"</div>
+
+
+                <div class="evidence-explanation">The fasting-study result that establishes hyperinsulinaemic hypoglycaemia in a molecularly confirmed patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40534546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Her laboratory findings were HbA1c 15.1 %, serum insulin 7.83 m U/L, C-peptide 0.78 μg/L."</div>
+
+
+                <div class="evidence-explanation">The corresponding biochemistry at diabetes presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tests for markers of autoimmune diabetes were negative."</div>
+
+
+                <div class="evidence-explanation">Confirms that autoantibody testing is the step that separates this from type 1 diabetes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-endocrine-screening">
+                <div class="item-name">
+                    Endocrine Screening
+
+                </div>
+
+                <div class="item-desc">TSH and free thyroxine, with thyroid autoantibodies to show the hypothyroidism is not autoimmune; growth velocity and IGF-1, with growth hormone stimulation testing where indicated. Both abnormalities may be present years before the diabetes, so finding them in a short child with negative thyroid antibodies is often the first clue.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initial investigation of patient A revealed a thyroid-stimulating hormone (TSH) level of 27.8 mIU/L and free thyroxine (FT4) level of 6.7 pmol/L"</div>
+
+
+                <div class="evidence-explanation">The thyroid biochemistry that led to the diagnosis of hypothyroidism in a molecularly confirmed child.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IGF-1 level and body length remained persistently low"</div>
+
+
+                <div class="evidence-explanation">Records the growth-axis abnormality that prompts endocrine evaluation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neurological-and-sensory-evaluation">
+                <div class="item-name">
+                    Neurological and Sensory Evaluation
+
+                </div>
+
+                <div class="item-desc">Brain MRI, nerve conduction studies with electromyography, and formal audiology; ophthalmological assessment where retinal involvement is suspected. Nerve conduction studies in one molecularly confirmed patient were consistent with a mild sensorimotor demyelinating peripheral neuropathy, and imaging in another showed subcortical white matter and middle cerebellar peduncle changes with prolonged tibial and ulnar conduction on EMG. Note that normal imaging does not exclude the diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 9.6 years of age, nerve conduction studies were consistent with mild sensorimotor demyelinating peripheral neuropathy, both of which are known features of a DNAJC3 loss of function"</div>
+
+
+                <div class="evidence-explanation">Establishes nerve conduction studies as the test that characterises the neuropathy, and its demyelinating character in that patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain and spine MRI demonstrated bilateral subcortical white matter intensity with bilateral middle cerebellar peduncle involvement. Electromyography revealed prolongation over the tibial and ulnar nerves."</div>
+
+
+                <div class="evidence-explanation">Gives the imaging and electrophysiological findings that the neurological workup is looking for.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pancreatic-imaging">
+                <div class="item-name">
+                    Pancreatic Imaging
+
+                </div>
+
+                <div class="item-desc">Pancreatic MRI or ultrasound. A small, atrophic pancreas is a supportive structural finding that helps separate this disorder from other monogenic diabetes syndromes, and it can be present without exocrine insufficiency.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI revealed a small, atrophic pancreas."</div>
+
+
+                <div class="evidence-explanation">The imaging finding that pancreatic assessment is looking for.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-with-copy-number-analysis">
+                <div class="item-name">
+                    Molecular Genetic Testing With Copy-Number Analysis
+
+                </div>
+
+                <div class="item-desc">Definitive diagnosis is molecular. A syndromic monogenic-diabetes or hyperinsulinism panel including DNAJC3 is reasonable first-line, and exome or genome sequencing is appropriate for a broad or neurologically dominant phenotype - both routes are represented among the reported diagnoses.
+The one detail that changes practice is that **the assay must include copy-number analysis**. One of the two founding families carries a homozygous multi-exon deletion of roughly 72 kb spanning DNAJC3, which a sequencing-only panel cannot see; the 2025 diagnosis was likewise made by exome sequencing combined with explicit CNV analysis. A second practical caveat is panel coverage: DNAJC3 has been present only on diabetes panels, so a child worked up primarily for ataxia or neuropathy may never have the gene tested at all.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40534546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40534546" target="_blank">PMID:40534546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exome sequencing and CNV (Copy Number Variation) analysis revealed a novel homozygous c.1244G&gt;C (p.Arg415Pro) variant in DNAJC3 gene."</div>
+
+
+                <div class="evidence-explanation">A reported diagnosis made by exome sequencing paired with copy-number analysis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34692675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"one line having a large homozygous deletion of 72 kb spanning DNAJC3 (and the adjacent UGGT2 gene), and control fibroblasts from three healthy donors, age and sex matched"</div>
+
+
+                <div class="evidence-explanation">Documents the multi-exon deletion allele that makes copy-number analysis necessary rather than optional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34654017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently, PanelApp only includes this gene on diabetes mellitus panels. We propose DNAJC3 should be promoted from a red to a green gene on a wider number of panels to improve the diagnosis of this rare condition."</div>
+
+
+                <div class="evidence-explanation">States the panel-coverage gap that causes neurologically presenting patients to be missed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-infancy-and-early-childhood">
+                <div class="item-name">Infancy and early childhood</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: birth to about 5 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Hypothyroidism and severe growth failure are often the earliest recognised problems. Where present, hyperinsulinaemic hypoglycaemia appears in this window - described around two years of age in one series - and can be diazoxide-responsive.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32738013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DNAJC3 defect led to beta-cell dysfunction causing hyperinsulinemichypoglycemia around 2 years of age in both patients, which evolved into diabetes with insulin deficiency in the second decade of life, probably due to beta cell loss."</div>
+
+
+                <div class="evidence-explanation">Dates the hyperinsulinaemic phase to early childhood and records its evolution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-mid-childhood">
+                <div class="item-name">Mid childhood</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: about 5 to 10 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Sensorineural deafness is typically discovered around five to six years, and ataxia follows in the late first or early second decade. In one reported child ataxic gait began at nine years with MRI evidence of neurodegeneration.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32738013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological phenotype involved early onset sensorineural deafness discovered around 5 to 6 years, and neurodegeneration of central and peripheral nervous system in the first two decades of life."</div>
+
+
+                <div class="evidence-explanation">Places sensorineural deafness at five to six years and neurodegeneration within the first two decades.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-second-decade">
+                <div class="item-name">Second decade</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: about 10 to 20 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Insulin-requiring, non-autoimmune diabetes emerges as beta-cell mass is lost, in one reported patient presenting as diabetic ketoacidosis at 15 years. The endocrine phenotype thereby inverts from insulin excess to insulin deficiency.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32738013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738013" target="_blank">PMID:32738013</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic loss-of-function in the ER co-chaperone DNAJC3 leads to a new form of diabetes with early onset hyperinsulinemic hypoglycemia evolving into insulin deficiency as well as severe growth failure, hypothyroidism and diffuse neurodegeneration."</div>
+
+
+                <div class="evidence-explanation">Summarises the biphasic endocrine course that culminates in insulin deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-adulthood-and-diagnostic-delay">
+                <div class="item-name">Adulthood and diagnostic delay</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The neurological features progress slowly and severity varies widely, with an adult homozygote reported to have no clinically evident neurological disease at evaluation. Because the endocrine, audiological and neurological problems are managed by different subspecialties, the unifying genetic diagnosis is frequently made late - in one report not until the age of 34.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42353846" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A delayed diagnosis occurs frequently because of fragmented subspecialty care and lack of awareness of syndromic monogenic diabetes."</div>
+
+
+                <div class="evidence-explanation">Supports the observation that the unifying diagnosis is typically delayed.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42353846" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"he demonstrated no clinically evident neurological manifestations at the time of evaluation, including ataxia, despite reaching adulthood, highlighting the phenotypic variability associated with DNAJC3-related disease"</div>
+
+
+                <div class="evidence-explanation">Documents an adult homozygote without clinically evident neurological disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8800,10 +10233,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-wolcott-rallison-syndrome">
                 <div class="item-name">
 
-                    Wolcott-Rallison syndrome
+                    <a class="item-name-link" href="Wolcott-Rallison_Syndrome.html">Wolcott-Rallison syndrome</a>
 
 
                 </div>
@@ -8828,7 +10261,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34654017" target="_blank">PMID:34654017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8853,10 +10289,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-marinesco-sjogren-syndrome">
                 <div class="item-name">
 
-                    Marinesco-Sjogren syndrome
+                    <a class="item-name-link" href="Marinesco-Sjogren_Syndrome.html">Marinesco-Sjogren syndrome</a>
 
 
                 </div>
@@ -8881,7 +10317,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466870" target="_blank">PMID:25466870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8906,7 +10345,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-wolfram-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Wolfram_Syndrome.html">Wolfram syndrome</a>
@@ -8934,7 +10373,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42353846" target="_blank">PMID:42353846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8959,7 +10401,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mitochondrial-diabetes-with-deafness">
                 <div class="item-name">
 
                     Mitochondrial diabetes with deafness
@@ -8987,7 +10429,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630333" target="_blank">PMID:34630333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9100,7 +10545,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9140,7 +10588,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33486469" target="_blank">PMID:33486469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9247,7 +10698,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9287,7 +10741,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34692675" target="_blank">PMID:34692675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9435,7 +10892,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15793246" target="_blank">PMID:15793246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9475,7 +10935,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15793246" target="_blank">PMID:15793246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9549,7 +11012,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9583,13 +11049,16 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38279270" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38279270" target="_blank">PMID:38279270</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9721,7 +11190,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25655802" target="_blank">PMID:25655802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9761,7 +11233,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25655802" target="_blank">PMID:25655802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9990,7 +11465,7 @@ pathophysiology:
     snippet: &#34;Exome sequencing identified a homozygous stop mutation in DNAJC3.&#34;
     explanation: Identifies the founding genotype in the index sibship.
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genetic analysis using whole-exome sequencing identified a homozygous likely pathogenic DNAJC3 variant, c.1177C&gt;T p.(Arg393*), confirming the diagnosis of DNAJC3-related syndromic monogenic diabetes.&#34;
@@ -10033,7 +11508,7 @@ pathophysiology:
       than self-limiting.
     evidence:
     - reference: PMID:15793246
-      reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58(IPK).&#34;
+      reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58IPK.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;P58(IPK) (DNAJC3) is induced during ER stress and functions as a negative feedback component to inhibit eIF-2alpha signaling and attenuate the later phases of the ER stress response.&#34;
@@ -10124,7 +11599,7 @@ pathophysiology:
     snippet: &#34;This report confirms previously described features and expands the clinical spectrum of syndromic DNAJC3 diabetes, one of the five monogenic forms of diabetes pertaining to the PERK pathway of the endoplasmic reticulum stress response.&#34;
     explanation: Places the disorder mechanistically within the PERK arm of the ER stress response.
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Because of their extensive insulin biosynthesis requirements, pancreatic β-cells are highly susceptible to ER stress. Loss of the co-chaperone activity of DNAJC3 leads to chronic ER stress, subsequent loss of β-cell functionality and ultimately insulin deficiency&#34;
@@ -10246,13 +11721,13 @@ pathophysiology:
     snippet: &#34;DNAJC3 silencing did not impair insulin content or secretion.&#34;
     explanation: A negative result that is load-bearing here - it excludes a primary secretory defect and points to cell loss as the mechanism.
   - reference: PMID:15793246
-    reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58(IPK).&#34;
+    reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58IPK.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;we generated deletion mutant mice that showed a gradual onset of glucosuria and hyperglycemia associated with increasing apoptosis of pancreatic islet cells&#34;
     explanation: In vivo confirmation that loss of p58IPK causes progressive islet-cell apoptosis and hyperglycaemia.
   - reference: PMID:15793246
-    reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58(IPK).&#34;
+    reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58IPK.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Lack of P58(IPK) had no apparent effect on the functional integrity of viable beta-cells.&#34;
@@ -10362,7 +11837,7 @@ phenotypes:
       label: Diabetes mellitus
   evidence:
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;DNAJC3-related syndromic monogenic diabetes is a rare autosomal recessive disorder that presents as juvenile-onset non-autoimmune diabetes; it has been associated with sensorineural hearing loss, hypothyroidism, short stature, and variable degrees of neurological manifestations.&#34;
@@ -10545,7 +12020,7 @@ phenotypes:
     explanation: Reports the white matter and cerebellar peduncle imaging abnormality.
   - reference: PMID:38279270
     reference_title: &#34;Congenital Hyperinsulinism in Humans and Insulin Secretory Dysfunction in Mice Caused by Biallelic DNAJC3 Variants.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cranial MRI, were unremarkable, except for two small, nonspecific, patchy hyperintense frontal white matter lesions&#34;
     explanation: Shows the milder end of the imaging spectrum - explicitly nonspecific lesions on an otherwise unremarkable scan.
@@ -10585,7 +12060,7 @@ phenotypes:
     explanation: Records cerebral atrophy in the index sibship.
   - reference: PMID:34630333
     reference_title: &#34;Case Report: Homozygous DNAJC3 Mutation Causes Monogenic Diabetes Mellitus Associated With Pancreatic Atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;His elder brother, who had the same mutation, had a similar history, except that he had milder ataxia and normal brain MRI finding at the age of 28 years.&#34;
     explanation: Qualifies the finding - imaging can be normal in an adult carrying the same genotype, so cerebral atrophy is not obligate.
@@ -10723,7 +12198,7 @@ genetic:
       snippet: &#34;We studied two fibroblast lines carrying a homozygous c.580C &gt; T (NM_006260.4, p.Arg194∗) premature stop mutation in DNAJC3&#34;
       explanation: Gives the exact founding nonsense allele at cDNA and protein level.
     - reference: PMID:42353846
-      reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+      reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Genetic analysis using whole-exome sequencing identified a homozygous likely pathogenic DNAJC3 variant, c.1177C&gt;T p.(Arg393*), confirming the diagnosis of DNAJC3-related syndromic monogenic diabetes.&#34;
@@ -10841,7 +12316,7 @@ genetic:
       this entry treats the full syndrome, not its components, as the entity.
   - reference: PMID:29767246
     reference_title: &#34;DNAJC3 mutation in Thai familial type 2 diabetes mellitus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genotyping of these variants revealed that DnaJ homolog subfamily C member 3 (DNAJC3) p.H238N segregated with diabetes in the family.&#34;
     explanation: &gt;-
@@ -10924,13 +12399,13 @@ progression:
     frequently made late - in one report not until the age of 34.
   evidence:
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A delayed diagnosis occurs frequently because of fragmented subspecialty care and lack of awareness of syndromic monogenic diabetes.&#34;
     explanation: Supports the observation that the unifying diagnosis is typically delayed.
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;he demonstrated no clinically evident neurological manifestations at the time of evaluation, including ataxia, despite reaching adulthood, highlighting the phenotypic variability associated with DNAJC3-related disease&#34;
@@ -10948,7 +12423,7 @@ diagnosis:
     diabetes and Wolfram syndrome considered and excluded first.
   evidence:
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Wolfram syndrome was also considered, although the absence of optic atrophy and diabetes insipidus made this diagnosis less likely.&#34;
@@ -11112,7 +12587,7 @@ differential_diagnoses:
     signs.
   evidence:
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Wolfram syndrome was also considered, although the absence of optic atrophy and diabetes insipidus made this diagnosis less likely.&#34;
@@ -11215,7 +12690,7 @@ treatments:
   evidence:
   - reference: PMID:34630333
     reference_title: &#34;Case Report: Homozygous DNAJC3 Mutation Causes Monogenic Diabetes Mellitus Associated With Pancreatic Atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;metformin was initiated in addition to lifestyle modifications. One year later, the patient required insulin due to deterioration of his glycemic control&#34;
     explanation: Documents both the use of metformin and its failure to prevent progression to insulin dependence.
@@ -11265,13 +12740,13 @@ treatments:
   evidence:
   - reference: PMID:38279270
     reference_title: &#34;Congenital Hyperinsulinism in Humans and Insulin Secretory Dysfunction in Mice Caused by Biallelic DNAJC3 Variants.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although IGF-1 levels increased to the normal range, there was no growth response, and the treatment was discontinued after one year.&#34;
     explanation: Documents the absence of a growth response to recombinant growth hormone in a DNAJC3-deficient child.
   - reference: PMID:34630333
     reference_title: &#34;Case Report: Homozygous DNAJC3 Mutation Causes Monogenic Diabetes Mellitus Associated With Pancreatic Atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recombinant Human Growth Hormine (rhGH) treatment was postponed until the age of 6.9 years due to a strong family history of diabetes.&#34;
     explanation: &gt;-
@@ -11293,6 +12768,12 @@ treatments:
     cochlear implantation in a molecularly confirmed individual has been
     published, so implantation is listed as standard-of-care extrapolation
     rather than as reported DNAJC3-specific experience.
+
+    That is also why this treatment keeps NCIT:C15315 (Rehabilitation) rather than the
+    NCIT:C15329 (Surgical Procedure) binding used by most cochlear-implantation
+    treatments in the KB. What patients received was amplification and rehabilitation;
+    binding the surgical term would assert a surgical intervention that has never been
+    reported in this disease.
   evidence:
   - reference: PMID:38279270
     reference_title: &#34;Congenital Hyperinsulinism in Humans and Insulin Secretory Dysfunction in Mice Caused by Biallelic DNAJC3 Variants.&#34;
@@ -11301,7 +12782,7 @@ treatments:
     snippet: &#34;At the age of 7 years, bilateral high frequency sensorineural hearing loss (HF-SNHL) was diagnosed, requiring hearing aids.&#34;
     explanation: Documents hearing amplification as the intervention used in a molecularly confirmed patient.
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Sensorineural hearing loss was diagnosed at 9 years of age and managed with bilateral hearing aids.&#34;
@@ -11320,7 +12801,7 @@ treatments:
       label: Genetic Counseling
   evidence:
   - reference: PMID:42353846
-    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult.&#34;
+    reference_title: &#34;DNAJC3-Related Syndromic Monogenic Diabetes Without Clinically Evident Neurological Manifestations in an Adult: Expanding the Phenotypic Spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Establishing a specific genetic diagnosis supports appropriate genetic counseling, informs reproductive decision-making, and may help reduce prolonged diagnostic uncertainty.&#34;
@@ -11359,14 +12840,14 @@ animal_models:
       interpretation: Structural correlate of the beta-cell death node in this model.
       evidence:
       - reference: PMID:15793246
-        reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58(IPK).&#34;
+        reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58IPK.&#34;
         supports: SUPPORT
         evidence_source: MODEL_ORGANISM
         snippet: &#34;we generated deletion mutant mice that showed a gradual onset of glucosuria and hyperglycemia associated with increasing apoptosis of pancreatic islet cells&#34;
         explanation: Reports the measured increase in islet-cell apoptosis in the knockout.
     evidence:
     - reference: PMID:15793246
-      reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58(IPK).&#34;
+      reference_title: &#34;Pancreatic beta-cell failure and diabetes in mice with a deletion mutation of the endoplasmic reticulum molecular chaperone gene P58IPK.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Insulin deficiency associated with the absence of P58(IPK) mimics beta-cell failure associated with type 1 and late-stage type 2 diabetes.&#34;
@@ -11398,7 +12879,7 @@ animal_models:
     evidence:
     - reference: PMID:38279270
       reference_title: &#34;Congenital Hyperinsulinism in Humans and Insulin Secretory Dysfunction in Mice Caused by Biallelic DNAJC3 Variants.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;In the youngest experimentally accessible age group of 4-week-old mice, the in vivo glycemic phenotype was already dominated by a reduced total insulin secretion capacity.&#34;
       explanation: &gt;-
@@ -11654,6 +13135,78 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation boundaries and deliberate omissions.
+No conforms_to declarations are made. The two candidate modules are er_protein_storage_disease, which models hepatocellular retention and polymerisation of a mutant secretory protein and is therefore the wrong mechanism (nothing is stored here - a chaperone is missing), and loss_of_proteostasis, which is framed around age-associated network decline converging on misfolded-protein aggregation. DNAJC3 disease is a congenital chaperone-capacity deficit without a demonstrated aggregating species, so declaring conformance would assert an aggregation step the literature does not support. If a dedicated ER-stress/UPR module is created, the Dysregulated Unfolded Protein Response and Chronic ER Stress node is the natural conformance point.
+The Pancreatic Atrophy phenotype is bound to HP:0001732 (Abnormality of the pancreas) rather than to the more specific HP:0002594 (Pancreatic hypoplasia). This is deliberate. HPO defines hypoplasia as &#34;a small organ or structure owing to failure to develop to normal size&#34;, and its parent HP:0100800 is explicitly &#34;a congenital underdevelopment&#34;; the DNAJC3 finding is an acquired atrophy with fibrosis, imaged in a child who had a normal abdominal ultrasound earlier in the same workup and whose beta-cell mass was progressively lost. Curating it as developmental hypoplasia would assert a prenatal origin the literature does not support, so the deliberately broader parent term is used with a more specific preferred_term. HPO has no &#34;pancreatic atrophy&#34; class; if one is added, this binding should be re-pointed. Note also that the deep-research artifact proposed &#34;HP:0001734 Pancreatic hypoplasia&#34; for this phenotype - HP:0001734 is in fact Annular pancreas, and the suggestion was rejected.
+No causal edge is drawn from Insulin Deficiency and Pancreatic Atrophy to Progressive Central and Peripheral Neurodegeneration. Hearing loss and ataxia commonly appear years before the diabetes, so a diabetes-to-neurodegeneration edge would invert the observed temporal order; the two arms are modelled as parallel consequences of the same upstream lesion.
+Prevalence is deliberately absent. Fewer than about twenty individuals have been reported worldwide, spread over single-family case reports, and the one systematic denominator available - a screen of 226,194 individuals in a diabetes database - was a targeted search rather than a population prevalence estimate. Recording a rate from it would over-read the source.
+Frequency qualifiers are omitted from all phenotypes. With a published experience of this size and no cohort study reporting per-feature frequencies, any FrequencyEnum value would be a guess dressed as data.
+The heterozygous DNAJC3 p.His238Asn allele proposed for autosomal dominant type 2 diabetes in Thai families is recorded in the genetic section only to mark the boundary; it is a monoallelic, non-syndromic claim and is not this entity.
+No GeneReviews chapter exists for DNAJC3 (PubMed searches for both the gene and the disease name return no GeneReviews article), so the GeneReviews phenotype baseline step was not applicable.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Juvenile-Onset Diabetes Mellitus With Central and Peripheral Neurodegeneration</strong> · 2026-08-20T14:46:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Juvenile-Onset_Diabetes_Mellitus_with_Central_and_Peripheral_Neurodegeneration/2026-08-20T144614Z-claude-code-726386.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0014523 (juvenile-onset diabetes
+mellitus-central and peripheral neurodegeneration syndrome), the autosomal
+recessive DNAJC3/p58IPK disorder, for issue #8950.
+
+Duplicate preflight: `git grep -i MONDO:0014523 origin/main -- kb/` returned
+nothing; no existing entry, PR, or other issue covers the concept.
+
+Deep research: one falcon (Edison) run,
+research/Juvenile-Onset_Diabetes_Mellitus_with_Central_and_Peripheral_Neurodegeneration-deep-research-falcon.md.
+Its own reference-validation block reported 6/6 references resolved,
+confabulation_rate 0.0, 5/6 on topic, needs_review not set. NEC preflight
+(`just preflight-dr ... MONDO:0014523`) returned PASS: canonical gene DNAJC3
+mentioned 44 times against APP=3 as the next-most-frequent symbol, and the
+report&#39;s OMIM identifiers include the MONDO xref 616192. The report cites
+by author-year keys rather than PMIDs, so nothing was curated directly from
+it; it was used only to cross-check that the entity, mechanism chain and
+phenotype list matched the primary literature curated independently.
+
+GeneReviews baseline: not applicable. PubMed searches for
+`DNAJC3 GeneReviews[All Fields]` and for the disease name return no
+GeneReviews chapter.
+
+Evidence: 80 evidence snippets, every one an exact quote from a reference
+fetched with `just fetch-reference` (15 PMIDs). Anchors are the founding
+report (PMID:25466870), the natural-history series (PMID:32738013), the
+beta-cell mechanism study (PMID:33486469), the Sec61/calcium hyperinsulinism
+study (PMID:38279270), the patient-fibroblast proteomics (PMID:34692675) and
+the Dnajc3-null mouse (PMID:15793246).
+
+Deliberate omissions, all recorded in the entry&#39;s notes: no `conforms_to`
+(er_protein_storage_disease models hepatocellular retention of a mutant
+secretory protein, and loss_of_proteostasis is aggregation-centred; neither
+fits a congenital chaperone-capacity deficit with no demonstrated aggregating
+species); no `prevalence` (fewer than about twenty reported individuals, and
+the one large denominator in the literature is a targeted database screen,
+not a population estimate); no `frequency:` on any phenotype, since no cohort
+study reports per-feature frequencies. Two KNOWLEDGE_GAP discussions record
+the unexplained neuronal-death mechanism and the wide phenotypic variability.
+The proposed edge from insulin deficiency to neurodegeneration was removed
+rather than curated as CONDITIONAL: the neurological arm frequently precedes
+the diabetes and is not a diabetic complication.
+
+Validation: `just validate`, `just validate-terms`,
+`just count-verified-snippets` (80/80 verified), and the full batched
+`just validate-disorders` sweep all pass, as do
+scripts/check_snippet_length.py --against-ref origin/main,
+scripts/check_folded_hyphens.py, scripts/check_title_snippets.py and
+`just check-duplicate-keys`.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12714,7 +14267,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Juvenile-Onset Diabetes Mellitus With Central and Peripheral Neurodegeneration", "mondoId": "MONDO:0014523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile-Onset_Diabetes_Mellitus_With_Central_and_Peripheral_Neurodegeneration", "yamlRevision": "fa67a4503663"};
+        const OS_CONFIG = {"diseaseName": "Juvenile-Onset Diabetes Mellitus With Central and Peripheral Neurodegeneration", "mondoId": "MONDO:0014523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile-Onset_Diabetes_Mellitus_With_Central_and_Peripheral_Neurodegeneration", "yamlRevision": "c3d273cd05cc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

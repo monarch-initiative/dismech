@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities</h1>
             <div class="header-meta">
 
@@ -4107,7 +4250,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4152,7 +4295,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4168,13 +4314,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4196,7 +4345,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4219,7 +4371,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-homozygosity-in-consanguineous-families">
                 <div class="item-name">
                     Homozygosity in consanguineous families
 
@@ -4264,7 +4416,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4375,6 +4530,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4391,6 +4552,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Repeat the asparagine rescue in fibroblasts, iNPCs and cortical organoids carrying the recurrent biallelic p.Arg545Cys and p.Thr17Met genotypes, using organoid diameter and rosette number as the tissue-level readouts already validated for this disorder, and puromycin incorporation as the translational readout.</div>
+
+
+
+
+
+
 
 
 
@@ -4426,13 +4593,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42381704" target="_blank">PMID:42381704</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4448,13 +4618,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42381704" target="_blank">PMID:42381704</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4476,7 +4649,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27268761" target="_blank">PMID:27268761</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4573,6 +4749,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4590,13 +4772,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38495304" target="_blank">PMID:38495304</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4612,13 +4797,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4715,6 +4903,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4732,13 +4926,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4775,6 +4972,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-nars1-variants" data-dismech-node="Biallelic Hypomorphic NARS1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic NARS1 Variants</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The initiating lesion is a pair of NARS1 alleles, in trans, that reduce but do not abolish asparaginyl-tRNA synthetase function. Reported recessive alleles include missense changes in the unique N-terminal extension (UNE-N) domain (p.Thr17Met), in the catalytic domain (p.Asp356Ala, the recurrent p.Arg545Cys), and frameshift alleles (p.Met69AspfsTer4, p.Arg386ThrfsTer19). Complete loss of the enzyme is not compatible with life, so disease-causing biallelic genotypes are necessarily partial-function rather than null. Structural modelling of p.Arg545Cys predicts weaker spatial positioning and reduced tRNA selectivity through local destabilisation near the N-terminal end of the catalytic domain.</div>
 
@@ -4841,9 +5045,14 @@ This pathophysiological event involves NARS1 (hgnc:7643). hgnc:7643 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4884,7 +5093,10 @@ This pathophysiological event involves NARS1 (hgnc:7643). hgnc:7643 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4906,7 +5118,10 @@ This pathophysiological event involves NARS1 (hgnc:7643). hgnc:7643 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4928,7 +5143,10 @@ This pathophysiological event involves NARS1 (hgnc:7643). hgnc:7643 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40914244" target="_blank">PMID:40914244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4953,6 +5171,13 @@ This pathophysiological event involves NARS1 (hgnc:7643). hgnc:7643 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cytoplasmic-asparaginyl-trna-charging" data-dismech-node="Reduced Cytoplasmic Asparaginyl-tRNA Charging" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cytoplasmic Asparaginyl-tRNA Charging</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NARS1 is the sole enzyme that charges asparagine onto cytoplasmic tRNA-Asn. Patient fibroblasts and induced neural progenitor cells carry roughly half the normal amount of NARS1 protein and about half the normal tRNA-charging activity, and overexpression of the patient missense alleles shows the mutant proteins are unstable. The defect is specific: charging activity of the arginyl-, lysyl- and threonyl-tRNA synthetases is unaffected in the same cells, so this is not a general collapse of the translational apparatus but a targeted shortfall in one aminoacylation reaction.</div>
 
@@ -5092,7 +5317,10 @@ This pathophysiological event involves decreased asparagine-tRNA ligase activity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5114,7 +5342,10 @@ This pathophysiological event involves decreased asparagine-tRNA ligase activity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5136,7 +5367,10 @@ This pathophysiological event involves decreased asparagine-tRNA ligase activity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5161,6 +5395,13 @@ This pathophysiological event involves decreased asparagine-tRNA ligase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-global-protein-synthesis" data-dismech-node="Impaired Global Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Global Protein Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Because asparagine charging is rate-limiting for any transcript containing asparagine codons, the shortfall in charged tRNA-Asn reduces bulk cytoplasmic translation. Puromycin pulse labelling of patient-derived induced pluripotent stem cells shows a marked fall in incorporation into nascent protein relative to cells from unaffected parents.</div>
 
@@ -5274,7 +5515,10 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5296,7 +5540,10 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5321,6 +5568,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-radial-glial-progenitor-proliferation-failure" data-dismech-node="Radial Glial Progenitor Proliferation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Radial Glial Progenitor Proliferation Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The developing cortical neuroepithelium is the tissue least able to tolerate a translational shortfall, because radial glial cells must sustain a very high biosynthetic rate through repeated rounds of division. In patient-derived cortical brain organoids, DNA synthesis is reduced, SOX2-positive neural rosettes are fewer, smaller and poorly organised, and the mature-neuron marker TUJ1 is depleted, indicating failed generation of radial glia and consequent loss of the post-mitotic neuronal output pool. Single-cell profiling shows the astrocytic and radial glial lineages are both altered.</div>
 
@@ -5554,7 +5808,10 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5576,7 +5833,10 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5598,7 +5858,10 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5625,6 +5888,13 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cortical-progenitor-apoptosis" data-dismech-node="Increased Cortical Progenitor Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cortical Progenitor Apoptosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Alongside reduced division, patient-derived cortical organoids show markedly elevated programmed cell death in the progenitor compartment. The founding organoid study attributes the size deficit to both routes rather than to proliferation failure alone, so the neuroepithelium is depleted by two convergent mechanisms. Modelling this as a sibling of the proliferation node keeps the two arms separable downstream.</div>
 
@@ -5743,7 +6013,10 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5765,7 +6038,10 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5790,6 +6066,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-reduction-of-cortical-volume" data-dismech-node="Progressive Reduction of Cortical Volume" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Reduction of Cortical Volume</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The depleted progenitor pool yields a small cortex, and the ongoing translational insufficiency in post-mitotic neurons superimposes a degenerative component on the developmental deficit. Brain MRI in affected individuals shows severe microcephaly with diffuse cerebral and cerebellar atrophy, loss of both grey and white matter volume, and ventriculomegaly, with milder cortical and cerebellar atrophy on scans obtained earlier in the course — the imaging signature of a process that continues after birth rather than a fixed malformation.</div>
 
@@ -5874,7 +6157,10 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5896,7 +6182,10 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5921,6 +6210,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-involvement" data-dismech-node="Peripheral Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Nerve Involvement</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A subset of affected individuals develop a peripheral sensorimotor neuropathy, demyelinating or axonal, with atrophy predominantly of the distal lower limbs. Nerve conduction studies can be abnormal in early childhood. Peripheral nerve is a second high-demand compartment for the same reason as the cortex — long axons and myelinating Schwann cells sustain heavy biosynthetic loads — and its involvement is what makes NARS1 disease a combined CNS/PNS disorder rather than a pure microcephaly syndrome. The peripheral arm is not universal in the recessive form and is here modelled as a parallel consequence of the same translational shortfall, not as a downstream effect of the cortical defect.</div>
 
@@ -5988,7 +6284,10 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6010,7 +6309,10 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6035,6 +6337,13 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-central-and-peripheral-nervous-system-dysfunction" data-dismech-node="Combined Central and Peripheral Nervous System Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Central and Peripheral Nervous System Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergence of the cortical and peripheral arms produces the clinical entity: global developmental delay and impaired intellectual development with poor or absent language, progressive microcephaly, delayed walking with an ataxic and/or spastic gait, seizures, and — where the peripheral arm is present — distal weakness and abnormal nerve conduction. Muscle tone may be low or high in different individuals, which is why the gait abnormality has no single characteristic form.</div>
 
@@ -6068,7 +6377,10 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6090,7 +6402,10 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6138,7 +6453,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent or Severely Impaired Speech and Language\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is the most severely affected developmental domain, and impaired language is one of the three features named in the disorder\u0027s own designation. In the founding biallelic series language was recorded as absent in five of the seven individuals and delayed in the remaining two, but that count comes from a per-proband clinical table whose cells do not survive text extraction, so it is stated here as description rather than quoted as evidence and no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed with standard antiseizure medication under neurology supervision. Response is heterogeneous, from seizure freedom to refractory epilepsy despite polytherapy. No agent has been shown to be preferentially effective in this genotype.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic Hypomorphic NARS1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a pair of NARS1 alleles, in trans, that reduce but do not abolish asparaginyl-tRNA synthetase function. Reported recessive alleles include missense changes in the unique N-terminal extension (UNE-N) domain (p.Thr17Met), in the catalytic domain (p.Asp356Ala, the recurrent p.Arg545Cys), and frameshift alleles (p.Met69AspfsTer4, p.Arg386ThrfsTer19). Complete loss of the enzyme is not compatible with life, so disease-causing biallelic genotypes are necessarily partial-function rather than null. Structural modelling of p.Arg545Cys predicts weaker spatial positioning and reduced tRNA selectivity through local destabilisation near the N-terminal end of the catalytic domain.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}, \"role\": \"root\"}}, {\"id\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of the cortical and peripheral arms produces the clinical entity: global developmental delay and impaired intellectual development with poor or absent language, progressive microcephaly, delayed walking with an ataxic and/or spastic gait, seizures, and \\u2014 where the peripheral arm is present \\u2014 distal weakness and abnormal nerve conduction. Muscle tone may be low or high in different individuals, which is why the gait abnormality has no single characteristic form.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Delayed Walking with Gait Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Walking is delayed and, once achieved, abnormal. The gait may be ataxic, spastic, or mixed, because muscle tone can be low or high in different individuals; some never walk independently. Gait abnormality is the third feature named in the disorder\u0027s designation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031936\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor and bulbar dysfunction can produce progressive dysphagia, in at least one reported biallelic patient becoming incompatible with oral feeding and requiring gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Gastrostomy Feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where dysphagia becomes incompatible with oral feeding, gastrostomy resolves the feeding difficulty. Nutrition and feeding support is a named component of routine care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because asparagine charging is rate-limiting for any transcript containing asparagine codons, the shortfall in charged tRNA-Asn reduces bulk cytoplasmic translation. Puromycin pulse labelling of patient-derived induced pluripotent stem cells shows a marked fall in incorporation into nascent protein relative to cells from unaffected parents.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cytoplasmic translation\"], \"experimental_models\": [{\"name\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"model_type\": \"ORGANOID\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The same iPSC lines that seed the organoids were used to quantify bulk translation by puromycin pulse labelling.\"}]}}, {\"id\": \"Increased Cortical Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside reduced division, patient-derived cortical organoids show markedly elevated programmed cell death in the progenitor compartment. The founding organoid study attributes the size deficit to both routes rather than to proliferation failure alone, so the neuroepithelium is depleted by two convergent mechanisms. Modelling this as a sibling of the proliferation node keeps the two arms separable downstream.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"NARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"NM_004539.4:c.1633C\u003eT (p.Arg545Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent biallelic missense allele, reported homozygous in a consanguineous Indian family and independently recognised as one of the two most recurrent NARS1 mutations across families. It lies in the catalytic domain, but its side chain points away from both the dimer interface and the active site, so it destabilises locally rather than poisoning the homodimer \\u2014 the structural distinction from the recurrent dominant alleles.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"NM_004539.4:c.50C\u003eT (p.Thr17Met)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the eukaryote-specific UNE-N domain, reported in a consanguineous Libyan family with three affected siblings who additionally showed progeroid facial features.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NM_004539.4:c.662A\u003eG (p.Asn221Ser) and c.1155dup (p.Arg386ThrfsTer19)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous pair reported in a patient presenting with failure to thrive, acquired microcephaly and progressive dysphagia, inherited one from each parent.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Orthopaedic Management of Scoliosis and Kyphoscoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Scoliosis and kyphoscoliosis develop as secondary neuromuscular complications and are managed by orthopaedics, surgically where indicated. GeneReviews names orthopaedic input for these specifically rather than folding it into general supportive care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cortical organoids differentiated from induced pluripotent stem cells of two affected individuals and two unaffected relatives from the founding biallelic families. At 28 days in vitro the organoids are indistinguishable; by day 52 the patient organoids are visibly smaller, and by day 90 none exceed 5 mm whereas almost all control organoids do. Daily monitoring excluded shrinkage \\u2014 patient organoids simply never grow. This is the flagship human model of the disorder and the reason the microcephaly can be attributed to a progenitor-proliferation defect rather than to postnatal degeneration alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"model_type\": \"ORGANOID\", \"publication\": \"PMID:32788587\"}}, {\"id\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts and induced neural progenitor cells from affected individuals, used to establish that the recessive alleles are hypomorphic. NARS1 protein is reduced by about half and tRNA-charging activity by about half, while the charging activity of three other aminoacyl-tRNA synthetases measured in the same cells is normal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32738225\"}}, {\"id\": \"Peripheral Nerve Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of affected individuals develop a peripheral sensorimotor neuropathy, demyelinating or axonal, with atrophy predominantly of the distal lower limbs. Nerve conduction studies can be abnormal in early childhood. Peripheral nerve is a second high-demand compartment for the same reason as the cortex \\u2014 long axons and myelinating Schwann cells sustain heavy biosynthetic loads \\u2014 and its involvement is what makes NARS1 disease a combined CNS/PNS disorder rather than a pure microcephaly syndrome. The peripheral arm is not universal in the recessive form and is here modelled as a parallel consequence of the same translational shortfall, not as a downstream effect of the cortical defect.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"peripheral nervous system\"]}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses the gait abnormality, tone abnormality and mobility impairment, and is part of the standard multidisciplinary package.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Reduction of Cortical Volume\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The depleted progenitor pool yields a small cortex, and the ongoing translational insufficiency in post-mitotic neurons superimposes a degenerative component on the developmental deficit. Brain MRI in affected individuals shows severe microcephaly with diffuse cerebral and cerebellar atrophy, loss of both grey and white matter volume, and ventriculomegaly, with milder cortical and cerebellar atrophy on scans obtained earlier in the course \\u2014 the imaging signature of a process that continues after birth rather than a fixed malformation.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebral cortex\", \"cerebellum\"]}}, {\"id\": \"Radial Glial Progenitor Proliferation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developing cortical neuroepithelium is the tissue least able to tolerate a translational shortfall, because radial glial cells must sustain a very high biosynthetic rate through repeated rounds of division. In patient-derived cortical brain organoids, DNA synthesis is reduced, SOX2-positive neural rosettes are fewer, smaller and poorly organised, and the mature-neuron marker TUJ1 is depleted, indicating failed generation of radial glia and consequent loss of the post-mitotic neuronal output pool. Single-cell profiling shows the astrocytic and radial glial lineages are both altered.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"radial glial cell\", \"astrocyte\"], \"biological_processes\": [\"cell population proliferation\", \"G1/S transition of the mitotic cell cycle\", \"neurogenesis\"], \"experimental_models\": [{\"name\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"model_type\": \"ORGANOID\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The organoid reproduces the human progenitor defect directly: reduced radial glial proliferation, fewer and smaller SOX2-positive neural rosettes, and depletion of TUJ1-positive post-mitotic neurons.\"}]}}, {\"id\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NARS1 is the sole enzyme that charges asparagine onto cytoplasmic tRNA-Asn. Patient fibroblasts and induced neural progenitor cells carry roughly half the normal amount of NARS1 protein and about half the normal tRNA-charging activity, and overexpression of the patient missense alleles shows the mutant proteins are unstable. The defect is specific: charging activity of the arginyl-, lysyl- and threonyl-tRNA synthetases is unaffected in the same cells, so this is not a general collapse of the translational apparatus but a targeted shortfall in one aminoacylation reaction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"asparaginyl-tRNA aminoacylation\"], \"molecular_functions\": [\"asparagine-tRNA ligase activity\"], \"experimental_models\": [{\"name\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies the residual enzyme level and aminoacylation activity that define the partial-loss-of-function mechanism.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis and kyphoscoliosis develop as secondary neuromuscular complications and are prominent enough that GeneReviews prescribes routine orthopaedic input for them.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset seizures affect most reported biallelic individuals, with onset between five months and six years. Generalised tonic-clonic seizures are the commonest type in the founding biallelic series; focal-onset seizures are also described across the NARS1 spectrum. Seizure control ranges from complete to refractory despite polytherapy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy targets the poor or absent expressive language that gives the disorder part of its name, including augmentative and alternative communication where speech does not develop.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic NARS1 Variants\", \"target\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"target\": \"Impaired Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Radial Glial Progenitor Proliferation Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Increased Cortical Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Peripheral Nerve Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Radial Glial Progenitor Proliferation Failure\", \"target\": \"Progressive Reduction of Cortical Volume\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Cortical Progenitor Apoptosis\", \"target\": \"Progressive Reduction of Cortical Volume\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Reduction of Cortical Volume\", \"target\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral Nerve Involvement\", \"target\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Delayed Walking with Gait Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Absent or Severely Impaired Speech and Language\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy Feeding\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopaedic Management of Scoliosis and Kyphoscoliosis\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"target\": \"Radial Glial Progenitor Proliferation Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoid reproduces the human progenitor defect directly: reduced radial glial proliferation, fewer and smaller SOX2-positive neural rosettes, and depletion of TUJ1-positive post-mitotic neurons.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cortical organoids model fetal corticogenesis only. They cannot reproduce the postnatal neurodegenerative arm of the disease, the peripheral neuropathy, or the seizure phenotype, and they lack vasculature and microglia.\"}, {\"source\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"target\": \"Impaired Global Protein Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same iPSC lines that seed the organoids were used to quantify bulk translation by puromycin pulse labelling.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Measured in undifferentiated iPSCs rather than in the organoid neuroepithelium, so it establishes the translational deficit in the patient genotype but not its magnitude in radial glia specifically.\"}, {\"source\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"target\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies the residual enzyme level and aminoacylation activity that define the partial-loss-of-function mechanism.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not a disease-relevant tissue; the iNPCs are closer but are a two-dimensional culture that does not reproduce the proliferative architecture of the cortical neuroepithelium.\"}, {\"source\": \"NARS1\", \"target\": \"Biallelic Hypomorphic NARS1 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.1633C\u003eT (p.Arg545Cys)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.50C\u003eT (p.Thr17Met)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.662A\u003eG (p.Asn221Ser) and c.1155dup (p.Arg386ThrfsTer19)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent or Severely Impaired Speech and Language\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is the most severely affected developmental domain, and impaired language is one of the three features named in the disorder\u0027s own designation. In the founding biallelic series language was recorded as absent in five of the seven individuals and delayed in the remaining two, but that count comes from a per-proband clinical table whose cells do not survive text extraction, so it is stated here as description rather than quoted as evidence and no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed with standard antiseizure medication under neurology supervision. Response is heterogeneous, from seizure freedom to refractory epilepsy despite polytherapy. No agent has been shown to be preferentially effective in this genotype.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic Hypomorphic NARS1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a pair of NARS1 alleles, in trans, that reduce but do not abolish asparaginyl-tRNA synthetase function. Reported recessive alleles include missense changes in the unique N-terminal extension (UNE-N) domain (p.Thr17Met), in the catalytic domain (p.Asp356Ala, the recurrent p.Arg545Cys), and frameshift alleles (p.Met69AspfsTer4, p.Arg386ThrfsTer19). Complete loss of the enzyme is not compatible with life, so disease-causing biallelic genotypes are necessarily partial-function rather than null. Structural modelling of p.Arg545Cys predicts weaker spatial positioning and reduced tRNA selectivity through local destabilisation near the N-terminal end of the catalytic domain.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}, \"role\": \"root\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of the cortical and peripheral arms produces the clinical entity: global developmental delay and impaired intellectual development with poor or absent language, progressive microcephaly, delayed walking with an ataxic and/or spastic gait, seizures, and \\u2014 where the peripheral arm is present \\u2014 distal weakness and abnormal nerve conduction. Muscle tone may be low or high in different individuals, which is why the gait abnormality has no single characteristic form.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Delayed Walking with Gait Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Walking is delayed and, once achieved, abnormal. The gait may be ataxic, spastic, or mixed, because muscle tone can be low or high in different individuals; some never walk independently. Gait abnormality is the third feature named in the disorder\u0027s designation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031936\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor and bulbar dysfunction can produce progressive dysphagia, in at least one reported biallelic patient becoming incompatible with oral feeding and requiring gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Gastrostomy Feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where dysphagia becomes incompatible with oral feeding, gastrostomy resolves the feeding difficulty. Nutrition and feeding support is a named component of routine care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because asparagine charging is rate-limiting for any transcript containing asparagine codons, the shortfall in charged tRNA-Asn reduces bulk cytoplasmic translation. Puromycin pulse labelling of patient-derived induced pluripotent stem cells shows a marked fall in incorporation into nascent protein relative to cells from unaffected parents.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cytoplasmic translation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"model_type\": \"ORGANOID\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The same iPSC lines that seed the organoids were used to quantify bulk translation by puromycin pulse labelling.\"}]}}, {\"id\": \"Increased Cortical Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside reduced division, patient-derived cortical organoids show markedly elevated programmed cell death in the progenitor compartment. The founding organoid study attributes the size deficit to both routes rather than to proliferation failure alone, so the neuroepithelium is depleted by two convergent mechanisms. Modelling this as a sibling of the proliferation node keeps the two arms separable downstream.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"apoptotic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"NARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"NM_004539.4:c.1633C\u003eT (p.Arg545Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent biallelic missense allele, reported homozygous in a consanguineous Indian family and independently recognised as one of the two most recurrent NARS1 mutations across families. It lies in the catalytic domain, but its side chain points away from both the dimer interface and the active site, so it destabilises locally rather than poisoning the homodimer \\u2014 the structural distinction from the recurrent dominant alleles.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"NM_004539.4:c.50C\u003eT (p.Thr17Met)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the eukaryote-specific UNE-N domain, reported in a consanguineous Libyan family with three affected siblings who additionally showed progeroid facial features.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NM_004539.4:c.662A\u003eG (p.Asn221Ser) and c.1155dup (p.Arg386ThrfsTer19)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous pair reported in a patient presenting with failure to thrive, acquired microcephaly and progressive dysphagia, inherited one from each parent.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Orthopaedic Management of Scoliosis and Kyphoscoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Scoliosis and kyphoscoliosis develop as secondary neuromuscular complications and are managed by orthopaedics, surgically where indicated. GeneReviews names orthopaedic input for these specifically rather than folding it into general supportive care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cortical organoids differentiated from induced pluripotent stem cells of two affected individuals and two unaffected relatives from the founding biallelic families. At 28 days in vitro the organoids are indistinguishable; by day 52 the patient organoids are visibly smaller, and by day 90 none exceed 5 mm whereas almost all control organoids do. Daily monitoring excluded shrinkage \\u2014 patient organoids simply never grow. This is the flagship human model of the disorder and the reason the microcephaly can be attributed to a progenitor-proliferation defect rather than to postnatal degeneration alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"model_type\": \"ORGANOID\", \"publication\": \"PMID:32788587\"}}, {\"id\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts and induced neural progenitor cells from affected individuals, used to establish that the recessive alleles are hypomorphic. NARS1 protein is reduced by about half and tRNA-charging activity by about half, while the charging activity of three other aminoacyl-tRNA synthetases measured in the same cells is normal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32738225\"}}, {\"id\": \"Peripheral Nerve Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of affected individuals develop a peripheral sensorimotor neuropathy, demyelinating or axonal, with atrophy predominantly of the distal lower limbs. Nerve conduction studies can be abnormal in early childhood. Peripheral nerve is a second high-demand compartment for the same reason as the cortex \\u2014 long axons and myelinating Schwann cells sustain heavy biosynthetic loads \\u2014 and its involvement is what makes NARS1 disease a combined CNS/PNS disorder rather than a pure microcephaly syndrome. The peripheral arm is not universal in the recessive form and is here modelled as a parallel consequence of the same translational shortfall, not as a downstream effect of the cortical defect.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"peripheral nervous system\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses the gait abnormality, tone abnormality and mobility impairment, and is part of the standard multidisciplinary package.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Reduction of Cortical Volume\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The depleted progenitor pool yields a small cortex, and the ongoing translational insufficiency in post-mitotic neurons superimposes a degenerative component on the developmental deficit. Brain MRI in affected individuals shows severe microcephaly with diffuse cerebral and cerebellar atrophy, loss of both grey and white matter volume, and ventriculomegaly, with milder cortical and cerebellar atrophy on scans obtained earlier in the course \\u2014 the imaging signature of a process that continues after birth rather than a fixed malformation.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebral cortex\", \"cerebellum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Radial Glial Progenitor Proliferation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developing cortical neuroepithelium is the tissue least able to tolerate a translational shortfall, because radial glial cells must sustain a very high biosynthetic rate through repeated rounds of division. In patient-derived cortical brain organoids, DNA synthesis is reduced, SOX2-positive neural rosettes are fewer, smaller and poorly organised, and the mature-neuron marker TUJ1 is depleted, indicating failed generation of radial glia and consequent loss of the post-mitotic neuronal output pool. Single-cell profiling shows the astrocytic and radial glial lineages are both altered.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"radial glial cell\", \"astrocyte\"], \"biological_processes\": [\"cell population proliferation\", \"G1/S transition of the mitotic cell cycle\", \"neurogenesis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"model_type\": \"ORGANOID\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The organoid reproduces the human progenitor defect directly: reduced radial glial proliferation, fewer and smaller SOX2-positive neural rosettes, and depletion of TUJ1-positive post-mitotic neurons.\"}]}}, {\"id\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NARS1 is the sole enzyme that charges asparagine onto cytoplasmic tRNA-Asn. Patient fibroblasts and induced neural progenitor cells carry roughly half the normal amount of NARS1 protein and about half the normal tRNA-charging activity, and overexpression of the patient missense alleles shows the mutant proteins are unstable. The defect is specific: charging activity of the arginyl-, lysyl- and threonyl-tRNA synthetases is unaffected in the same cells, so this is not a general collapse of the translational apparatus but a targeted shortfall in one aminoacylation reaction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"asparaginyl-tRNA aminoacylation\"], \"molecular_functions\": [\"asparagine-tRNA ligase activity\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies the residual enzyme level and aminoacylation activity that define the partial-loss-of-function mechanism.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis and kyphoscoliosis develop as secondary neuromuscular complications and are prominent enough that GeneReviews prescribes routine orthopaedic input for them.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset seizures affect most reported biallelic individuals, with onset between five months and six years. Generalised tonic-clonic seizures are the commonest type in the founding biallelic series; focal-onset seizures are also described across the NARS1 spectrum. Seizure control ranges from complete to refractory despite polytherapy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy targets the poor or absent expressive language that gives the disorder part of its name, including augmentative and alternative communication where speech does not develop.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic NARS1 Variants\", \"target\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"target\": \"Impaired Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Radial Glial Progenitor Proliferation Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Increased Cortical Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Global Protein Synthesis\", \"target\": \"Peripheral Nerve Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Radial Glial Progenitor Proliferation Failure\", \"target\": \"Progressive Reduction of Cortical Volume\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Cortical Progenitor Apoptosis\", \"target\": \"Progressive Reduction of Cortical Volume\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Reduction of Cortical Volume\", \"target\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral Nerve Involvement\", \"target\": \"Combined Central and Peripheral Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Delayed Walking with Gait Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Absent or Severely Impaired Speech and Language\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy Feeding\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopaedic Management of Scoliosis and Kyphoscoliosis\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"target\": \"Radial Glial Progenitor Proliferation Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoid reproduces the human progenitor defect directly: reduced radial glial proliferation, fewer and smaller SOX2-positive neural rosettes, and depletion of TUJ1-positive post-mitotic neurons.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cortical organoids model fetal corticogenesis only. They cannot reproduce the postnatal neurodegenerative arm of the disease, the peripheral neuropathy, or the seizure phenotype, and they lack vasculature and microglia.\"}, {\"source\": \"Patient-derived cortical brain organoids (biallelic NARS1)\", \"target\": \"Impaired Global Protein Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same iPSC lines that seed the organoids were used to quantify bulk translation by puromycin pulse labelling.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Measured in undifferentiated iPSCs rather than in the organoid neuroepithelium, so it establishes the translational deficit in the patient genotype but not its magnitude in radial glia specifically.\"}, {\"source\": \"Patient-derived fibroblasts and induced neural progenitor cells\", \"target\": \"Reduced Cytoplasmic Asparaginyl-tRNA Charging\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies the residual enzyme level and aminoacylation activity that define the partial-loss-of-function mechanism.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not a disease-relevant tissue; the iNPCs are closer but are a two-dimensional culture that does not reproduce the proliferative architecture of the cortical neuroepithelium.\"}, {\"source\": \"NARS1\", \"target\": \"Biallelic Hypomorphic NARS1 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.1633C\u003eT (p.Arg545Cys)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.50C\u003eT (p.Thr17Met)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004539.4:c.662A\u003eG (p.Asn221Ser) and c.1155dup (p.Arg386ThrfsTer19)\", \"target\": \"NARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6161,17 +6476,17 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(12)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(13)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6232,6 +6547,9 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6244,7 +6562,10 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6309,6 +6630,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6321,7 +6645,10 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6352,6 +6679,114 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Microcephaly
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38652341" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present the case of a patient referred in infancy for failure to thrive and acquired microcephaly (head circumference: -5 SD)."</div>
+
+
+                <div class="evidence-explanation">Explicitly describes the microcephaly as acquired, supporting the progressive rather than congenital term.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All affected individuals showed microcephaly, developmental delay, and intellectual disability, with progressive loss of neurological function."</div>
+
+
+                <div class="evidence-explanation">Microcephaly in seven of seven biallelic individuals, with an explicitly progressive course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
@@ -6372,15 +6807,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6398,7 +6836,10 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6426,7 +6867,7 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -6449,15 +6890,18 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6475,7 +6919,10 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6503,11 +6950,11 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
@@ -6528,15 +6975,18 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6554,7 +7004,10 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6576,7 +7029,10 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6618,15 +7074,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6644,7 +7103,10 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6655,6 +7117,82 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                 <div class="evidence-explanation">GeneReviews explicitly names spasticity as one of the two possible tone abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-lower-limb-muscle-atrophy" data-dismech-node="Distal Lower Limb Muscle Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal Lower Limb Muscle Atrophy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Distal amyotrophy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Peripheral neuropathy with atrophy predominantly of the distal lower limbs can be associated."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies the distal lower-limb distribution of the atrophy that accompanies the neuropathy, and records it as associated rather than universal.</div>
 
 
 
@@ -6686,15 +7224,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6712,7 +7253,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6740,11 +7284,11 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">12</span>
+                    <span class="cat-count">13</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -6763,15 +7307,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6789,7 +7336,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6811,7 +7361,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6855,10 +7408,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249), qualified as course progressive. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6887,6 +7440,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6899,7 +7455,10 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6915,13 +7474,16 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37393059" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37393059" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37393059" target="_blank">PMID:37393059</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6963,15 +7525,18 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6983,13 +7548,16 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7005,13 +7573,16 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42381704" target="_blank">PMID:42381704</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7022,6 +7593,107 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                 <div class="evidence-explanation">Records speech problems as part of the NARS1 neurodevelopmental phenotype. PARTIAL because the surrounding paragraph is describing the dominant nonsense alleles rather than the biallelic genotype that defines this entity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-walking-with-gait-abnormality" data-dismech-node="Delayed Walking with Gait Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Walking with Gait Abnormality
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Delayed ability to walk</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0031936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Change in muscle tone can manifest either as spasticity or as hypotonia."</div>
+
+
+                <div class="evidence-explanation">Explains the variable character of the motor and gait phenotype recorded in the disorder name.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40914244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40914244" target="_blank">PMID:40914244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients exhibit a spectrum of neurodevelopmental abnormalities,       including developmental delay, microcephaly, intellectual disability, ataxia,       and seizures, as well as peripheral neuropathy, with onset of disease at birth       for the mono-allelic R534∗ mutation and in childhood..."</div>
+
+
+                <div class="evidence-explanation">Places ataxia in the core NARS1 phenotype and, in the same sentence, distinguishes childhood onset for the recurrent biallelic R545C genotype from onset at birth for the mono-allelic one; PARTIAL because the sentence covers both genotypes and only the biallelic half is in scope here.</div>
 
 
 
@@ -7053,10 +7725,10 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7085,6 +7757,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7097,7 +7772,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7113,13 +7791,16 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38495304" target="_blank">PMID:38495304</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7161,15 +7842,18 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7187,7 +7871,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7209,7 +7896,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7253,15 +7943,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7279,7 +7972,10 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7301,7 +7997,10 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7343,15 +8042,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007108</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0007108</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:0007108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7369,7 +8071,10 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7385,13 +8090,16 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38495304" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38495304" target="_blank">PMID:38495304</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7435,15 +8143,18 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7461,7 +8172,10 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7503,10 +8217,10 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059), qualified as course progressive. HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7535,6 +8249,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7547,7 +8264,10 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7589,15 +8309,18 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7615,7 +8338,10 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7657,15 +8383,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7683,7 +8412,10 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7725,15 +8457,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0002344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7751,7 +8486,10 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7779,7 +8517,7 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7802,10 +8540,10 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7816,6 +8554,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7828,7 +8569,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7839,267 +8583,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Failure to thrive as the presenting complaint in a biallelic patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Microcephaly
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38652341" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We present the case of a patient referred in infancy for failure to thrive and acquired microcephaly (head circumference: -5 SD)."</div>
-
-
-                <div class="evidence-explanation">Explicitly describes the microcephaly as acquired, supporting the progressive rather than congenital term.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All affected individuals showed microcephaly, developmental delay, and intellectual disability, with progressive loss of neurological function."</div>
-
-
-                <div class="evidence-explanation">Microcephaly in seven of seven biallelic individuals, with an explicitly progressive course.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-walking-with-gait-abnormality" data-dismech-node="Delayed Walking with Gait Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed Walking with Gait Abnormality
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Delayed ability to walk</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0031936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Change in muscle tone can manifest either as spasticity or as hypotonia."</div>
-
-
-                <div class="evidence-explanation">Explains the variable character of the motor and gait phenotype recorded in the disorder name.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40914244" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40914244" target="_blank">PMID:40914244</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patients exhibit a spectrum of neurodevelopmental abnormalities,       including developmental delay, microcephaly, intellectual disability, ataxia,       and seizures, as well as peripheral neuropathy, with onset of disease at birth       for the mono-allelic R534∗ mutation and in childhood..."</div>
-
-
-                <div class="evidence-explanation">Places ataxia in the core NARS1 phenotype and, in the same sentence, distinguishes childhood onset for the recurrent biallelic R545C genotype from onset at birth for the mono-allelic one; PARTIAL because the sentence covers both genotypes and only the biallelic half is in scope here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-lower-limb-muscle-atrophy" data-dismech-node="Distal Lower Limb Muscle Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal Lower Limb Muscle Atrophy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Distal amyotrophy</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003693</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Peripheral neuropathy with atrophy predominantly of the distal lower limbs can be associated."</div>
-
-
-                <div class="evidence-explanation">GeneReviews specifies the distal lower-limb distribution of the atrophy that accompanies the neuropathy, and records it as associated rather than universal.</div>
 
 
 
@@ -8185,6 +8668,9 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8205,7 +8691,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8227,7 +8716,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8249,7 +8741,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8283,7 +8778,15 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The recurrent biallelic missense allele, reported homozygous in a consanguineous Indian family and independently recognised as one of the two most recurrent NARS1 mutations across families. It lies in the catalytic domain, but its side chain points away from both the dimer interface and the active site, so it destabilises locally rather than poisoning the homodimer — the structural distinction from the recurrent dominant alleles.</div>
+
+
 
 
 
@@ -8303,7 +8806,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -8325,7 +8831,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40914244" target="_blank">PMID:40914244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8359,7 +8868,15 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense allele in the eukaryote-specific UNE-N domain, reported in a consanguineous Libyan family with three affected siblings who additionally showed progeroid facial features.</div>
+
+
 
 
 
@@ -8379,7 +8896,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8413,7 +8933,15 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Compound heterozygous pair reported in a patient presenting with failure to thrive, acquired microcephaly and progressive dysphagia, inherited one from each parent.</div>
+
+
 
 
 
@@ -8433,7 +8961,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8455,7 +8986,10 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8488,6 +9022,9 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8540,6 +9077,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is symptom-directed and multidisciplinary, coordinating developmental paediatrics, speech and language therapy, neurology for seizure management, physical therapy, orthopaedics for scoliosis and kyphoscoliosis, nutrition and feeding support, psychology for behavioural manifestations, and medical genetics with genetic counselling. Surveillance is at each visit or as directed by the treating specialist.</div>
 
 
@@ -8559,7 +9121,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8581,7 +9146,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42381704" target="_blank">PMID:42381704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8645,6 +9213,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical therapy addresses the gait abnormality, tone abnormality and mobility impairment, and is part of the standard multidisciplinary package.</div>
 
 
@@ -8686,7 +9279,10 @@ This treatment targets Delayed ability to walk (HP:0031936). HP:0031936 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8750,6 +9346,31 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech and language therapy targets the poor or absent expressive language that gives the disorder part of its name, including augmentative and alternative communication where speech does not develop.</div>
 
 
@@ -8791,7 +9412,10 @@ This treatment targets Absent speech (HP:0001344). HP:0001344 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8877,6 +9501,31 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures are managed with standard antiseizure medication under neurology supervision. Response is heterogeneous, from seizure freedom to refractory epilepsy despite polytherapy. No agent has been shown to be preferentially effective in this genotype.</div>
 
 
@@ -8918,7 +9567,10 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8982,6 +9634,31 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where dysphagia becomes incompatible with oral feeding, gastrostomy resolves the feeding difficulty. Nutrition and feeding support is a named component of routine care.</div>
 
 
@@ -9023,7 +9700,10 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9087,6 +9767,31 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Scoliosis and kyphoscoliosis develop as secondary neuromuscular complications and are managed by orthopaedics, surgically where indicated. GeneReviews names orthopaedic input for these specifically rather than folding it into general supportive care.</div>
 
 
@@ -9128,7 +9833,10 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9192,6 +9900,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling covers the 25% per-pregnancy recurrence risk for carrier couples, the unaffected status of heterozygous siblings, and the availability of prenatal and preimplantation genetic testing once the familial variant pair is known. Carrier testing of at-risk relatives requires prior identification of the familial variants.</div>
 
 
@@ -9211,7 +9944,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9233,7 +9969,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9265,6 +10004,441 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-for-biallelic-nars1-variants">
+                <div class="item-name">
+                    Molecular genetic testing for biallelic NARS1 variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">There is no biochemical marker; diagnosis rests on recognising the clinical phenotype and demonstrating biallelic NARS1 pathogenic variants, in practice almost always by exome or genome sequencing or a broad developmental-delay multigene panel.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of a NARS1-related neurologic disorder is established in a proband with suggestive findings and either biallelic or heterozygous NARS1 pathogenic variants in those with NARS1-NDD or a NARS1 heterozygous pathogenic variant in those with NARS1-related hereditary neuropathy identified..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the diagnostic standard; for this entity the relevant limb is the biallelic one.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37393059" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37393059" target="_blank">PMID:37393059</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Previously reported homozygous variants of CNTNAP2, TRIT1 and NARS1 were found in individuals from three families."</div>
+
+
+                <div class="evidence-explanation">Illustrates exome sequencing recovering a homozygous NARS1 variant in a consanguineous neurodevelopmental-disorder cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri">
+                <div class="item-name">
+                    Brain MRI
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">Neuroimaging supports the diagnosis and documents progression: diffuse cerebral and cerebellar atrophy with grey and white matter volume loss and ventriculomegaly, milder on earlier scans.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI from the affected in 1433-III-3 showed severe microcephaly, diffuse cerebral and cerebellar atrophy, with both gray and white matter volume loss, and ventriculomegaly"</div>
+
+
+                <div class="evidence-explanation">Describes the characteristic imaging findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nerve-conduction-studies">
+                <div class="item-name">
+                    Nerve conduction studies
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">Nerve conduction studies characterise the peripheral arm where present, and can be abnormal in early childhood, showing a predominantly sensory demyelinating pattern in the recessive form.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38652341" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NCV (Nerve Conduction Velocity) showed four limbs neuropathy, neurophysiological examination performed at 2 years of age mainly sensory and demyelinating."</div>
+
+
+                <div class="evidence-explanation">Nerve conduction studies establishing the neuropathy at age two.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target">
+                <div class="item-name"></div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Global developmental delay is apparent in infancy. Head circumference may be within or near the normal range at birth and fall progressively thereafter, so the microcephaly is characteristically postnatal and acquired rather than congenital. Feeding difficulty, failure to thrive and hypotonia can be the presenting concerns.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38652341" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38652341" target="_blank">PMID:38652341</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present the case of a patient referred in infancy for failure to thrive and acquired microcephaly (head circumference: -5 SD)."</div>
+
+
+                <div class="evidence-explanation">Documents infantile presentation and explicitly describes the microcephaly as acquired.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target">
+                <div class="item-name"></div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Many patients follow a degenerative rather than static course: serial imaging shows progressive cerebral and cerebellar atrophy with ventriculomegaly, and ataxia and dysarthria evolve over time. Survival into adulthood occurs — the founding organoid series included affected individuals followed to 17, 22 and 33 years — but several affected children in that series died in the first or second decade.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32788587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that biallelic loss of NARS1 leads to progressive loss of cortical volume, consistent with the neurodegenerative clinical course."</div>
+
+
+                <div class="evidence-explanation">States the progressive, neurodegenerative trajectory of the biallelic phenotype on serial neuroimaging.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence or incidence has ever been estimated, so no rate is recorded. The cumulative published literature covers 54 individuals from 30 families across the whole NARS1-related neurologic disorder spectrum (recessive NEDMILG, dominant NEDMILEG, and dominant hereditary neuropathy together), of whom only a subset carry the biallelic genotype that defines this entity. Reported families span Libyan, Turkish, Indian and Pakistani ancestries with no evidence of a founder allele.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40014750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40014750" target="_blank">PMID:40014750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, 54 individuals from 30 families with NARS1 pathogenic variant(s) have been reported."</div>
+
+
+                <div class="evidence-explanation">Gives the cumulative published case count. PARTIAL because the figure spans the whole NARS1 spectrum, not the recessive entity alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42381704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42381704" target="_blank">PMID:42381704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of NARS1 disease is extremely low, with 54 cases across 30 distinct families currently reported."</div>
+
+
+                <div class="evidence-explanation">Independent restatement of ultra-rarity and of the same cumulative count; PARTIAL for the same spectrum-level scope reason.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -9279,7 +10453,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-neurodevelopmental-disorder-with-microcephaly-impaired-language-epilepsy-and-gait-abnormalities-nedmileg">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Neurodevelopmental disorder with microcephaly, impaired language, epilepsy, and gait abnormalities (NEDMILEG)</span>
@@ -9325,7 +10499,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40968538" target="_blank">PMID:40968538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9347,7 +10524,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40914244" target="_blank">PMID:40914244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9372,7 +10552,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nars1-related-hereditary-neuropathy">
                 <div class="item-name">
 
                     NARS1-related hereditary neuropathy
@@ -9411,7 +10591,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38495304" target="_blank">PMID:38495304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9433,7 +10616,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40968538" target="_blank">PMID:40968538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9458,7 +10644,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-asparagine-synthetase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Asparagine_synthetase_deficiency.html">Asparagine synthetase deficiency</a>
@@ -9501,7 +10687,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27422383" target="_blank">PMID:27422383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9523,7 +10712,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27422383" target="_blank">PMID:27422383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9545,7 +10737,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25663424" target="_blank">PMID:25663424</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9570,7 +10765,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-aminoacyl-trna-synthetase-related-neurodevelopmental-disorders">
                 <div class="item-name">
 
                     Other aminoacyl-tRNA synthetase-related neurodevelopmental disorders
@@ -9609,7 +10804,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9631,7 +10829,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9808,7 +11009,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9865,7 +11069,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9922,7 +11129,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9962,7 +11172,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10036,7 +11249,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10076,7 +11292,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10121,7 +11340,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10259,7 +11481,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32738225" target="_blank">PMID:32738225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10299,7 +11524,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10344,7 +11572,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32788587" target="_blank">PMID:32788587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10526,7 +11757,7 @@ inheritance:
       biallelic form, which is this entity.
   - reference: PMID:40014750
     reference_title: NARS1-Related Neurologic Disorders.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;NARS1-NDD can be inherited in an autosomal recessive or autosomal dominant
       manner.&#39;
@@ -10582,7 +11813,7 @@ prevalence:
   evidence:
   - reference: PMID:40014750
     reference_title: NARS1-Related Neurologic Disorders.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: To date, 54 individuals from 30 families with NARS1 pathogenic variant(s)
       have been reported.
@@ -10591,7 +11822,7 @@ prevalence:
       the whole NARS1 spectrum, not the recessive entity alone.
   - reference: PMID:42381704
     reference_title: Therapeutic rescue of pathogenic asparaginyl-tRNA synthetase alleles.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: The prevalence of NARS1 disease is extremely low, with 54 cases across
       30 distinct families currently reported.
@@ -11141,7 +12372,7 @@ phenotypes:
   - reference: PMID:37393059
     reference_title: Genomic analysis of multiplex consanguineous families reveals
       causes of neurodevelopmental disorders with epilepsy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Clinical investigations determined that developmental delay, intellectual
       disability and seizures were manifested by most patients in early childhood.
@@ -11167,7 +12398,7 @@ phenotypes:
   evidence:
   - reference: PMID:40014750
     reference_title: NARS1-Related Neurologic Disorders.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;Individuals with NARS1-NDD: multidisciplinary care by specialists in
       relevant fields including developmental pediatrics, speech and language therapy,
@@ -11180,7 +12411,7 @@ phenotypes:
       management rather than the frequency of the deficit.
   - reference: PMID:42381704
     reference_title: Therapeutic rescue of pathogenic asparaginyl-tRNA synthetase alleles.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: These individuals also possess difficulty coordinating movements, speech
       problems, and a decline in intellectual function.
@@ -11213,7 +12444,7 @@ phenotypes:
   - reference: PMID:40914244
     reference_title: Dominant-negative NARS1 R534* mutation causes wild-type subunit
       poisoning and heterodimer predominance in cells.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patients exhibit a spectrum of neurodevelopmental abnormalities,      \ including developmental delay, microcephaly, intellectual disability, ataxia,      \ and seizures, as well as peripheral neuropathy, with onset of disease at birth      \ for the mono-allelic R534∗ mutation and in childhood for the bi-allelic      \ R545C mutation.&#34;
     explanation: &gt;-
@@ -11248,7 +12479,7 @@ phenotypes:
   - reference: PMID:38495304
     reference_title: Dominant NARS1 mutations causing axonal Charcot-Marie-Tooth disease
       expand NARS1-associated diseases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Pathogenic variants in asparaginyl-tRNA synthetase (NARS1) cause a neurological
       phenotype combining developmental delay, ataxia and demyelinating peripheral
@@ -11400,7 +12631,7 @@ phenotypes:
   - reference: PMID:38495304
     reference_title: Dominant NARS1 mutations causing axonal Charcot-Marie-Tooth disease
       expand NARS1-associated diseases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Pathogenic variants in asparaginyl-tRNA synthetase (NARS1) cause a neurological
       phenotype combining developmental delay, ataxia and demyelinating peripheral
@@ -12525,7 +13756,7 @@ discussions:
   evidence:
   - reference: PMID:42381704
     reference_title: Therapeutic rescue of pathogenic asparaginyl-tRNA synthetase alleles.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Asparagine supplementation completely restored cell proliferation defects
       in patient-derived fibroblasts and prevented activation of the ISR.
@@ -12534,7 +13765,7 @@ discussions:
       dominant nonsense variants, not the biallelic hypomorphic alleles curated here.
   - reference: PMID:42381704
     reference_title: Therapeutic rescue of pathogenic asparaginyl-tRNA synthetase alleles.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: We found that two dominant NARS1 nonsense alleles, R534X and R522X, cause
       a cytotoxic phenotype and elicit the integrated stress response (ISR).
@@ -12589,7 +13820,7 @@ discussions:
   - reference: PMID:38495304
     reference_title: Dominant NARS1 mutations causing axonal Charcot-Marie-Tooth disease
       expand NARS1-associated diseases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#39;Similarly, the homozygous knock-in mouse model (p.Ser461Phe/Ser472Phe
       in mouse) also demonstrated loss-of-function characteristics.&#39;
@@ -12600,7 +13831,7 @@ discussions:
   - reference: PMID:32788587
     reference_title: Loss of NARS1 impairs progenitor proliferation in cortical brain
       organoids and leads to microcephaly.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Cortical brain organoid modeling shows reduced proliferation of radial
       glial cells (RGCs), leading to smaller organoids characteristic of microcephaly.
@@ -12637,7 +13868,7 @@ discussions:
   - reference: PMID:32788587
     reference_title: Loss of NARS1 impairs progenitor proliferation in cortical brain
       organoids and leads to microcephaly.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;Other DysmorphismMaxillary hypoplasia, progeroid features, arachnodactylyProgeroid
       appearance, arachnodactylyProgeroid features, arachnodactylyArachnodactyly, cubitus
@@ -12693,6 +13924,46 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and naming. This entry covers ONLY the autosomal recessive entity MONDO:0100348 / OMIM:619091 (NEDMILG), caused by biallelic hypomorphic NARS1 variants. Two allelic entities are deliberately out of scope and must not be merged into it: (1) NEDMILEG (MONDO:0030837 / OMIM:619092), the autosomal dominant / de novo form whose name additionally carries &#34;epilepsy&#34;, and (2) dominant NARS1-related hereditary neuropathy, an adolescent- or adult-onset axonal/sensorimotor Charcot-Marie-Tooth-type neuropathy (PMID:38495304). The two arms differ mechanistically, not just clinically: recessive alleles act by partial loss of function, whereas the recurrent dominant alleles (p.Arg534Ter, p.Arg522Ter and catalytic-domain missense changes) act by poisoning the obligate homodimer (PMID:40968538, PMID:40914244). Where a source reports on the whole NARS1 spectrum without separating the arms, that is stated in the evidence explanation rather than silently attributed to the recessive form.
+Named-entity confusion risk. NARS1 (cytoplasmic, chromosome 18q21.31) is a different gene from NARS2 (mitochondrial); NARS2 causes combined oxidative phosphorylation deficiency 24 and NARS2-related hearing loss, which are unrelated to this entry. Separately, NARS1 is the anti-KS autoantigen in antisynthetase syndrome (already curated in this KB) — an autoimmune disease in which the protein is a target, not a mutated enzyme. A `just preflight-dr` NEC check of the deep-research report against MONDO:0100348 returned PASS (NARS1=38 mentions, report OMIM 619091 matching the MONDO xref).
+Datasets. `just discover-datasets` returns no GEO candidates for this disorder, which is the expected result for an entity with a few dozen reported individuals worldwide. No `datasets:` block is recorded rather than reaching for a gene-only NARS1 search, which would surface antisynthetase-syndrome and unrelated translation-biology series (the Named Entity Confusion trap the dataset SOP warns about).
+Findings recorded but not curated as phenotypes. The founding biallelic series reports cataracts in the two brothers homozygous for p.Arg545Cys and in none of the other five individuals, plus isolated single-patient findings (medullary sponge kidney, hepatic hemangioma, contractures). These come from a per-proband clinical table whose cells do not survive text extraction into a quotable sentence, so they are recorded here as prose rather than as evidence-backed phenotype entries. They are worth revisiting if a later series describes them in running text.
+Recurrent recessive allele. p.Arg545Cys (c.1633C&gt;T) is the recurrent biallelic missense variant reported in multiple independent families; it is not the same as the recurrent dominant nonsense allele p.Arg534Ter, despite the adjacent residue numbers.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities (NEDMILG, NARS1)</strong> · 2026-08-18T15:40:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Microcephaly_Impaired_Language_and_Gait_Abnormalities/2026-08-18T154023Z-claude-code-4c0411.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for MONDO:0100348 / OMIM:619091 (NEDMILG), the AUTOSOMAL RECESSIVE arm of the NARS1-related neurologic disorder spectrum, caused by biallelic hypomorphic NARS1 (hgnc:7643) variants.
+
+Deep research providers: falcon was attempted first (the /curate default) but the Edison Scientific API returned HTTP 402 Payment Required, so no falcon report exists for this entry. Two substitute providers were run instead: claude_code (297s, 9 web searches, 8/8 references resolved, 0 unresolved, 0 off topic) and openscientist (1202s, 11/11 references resolved, 1/1 quoted claim valid, 0 unresolved, 0 off topic). Both reports are committed under research/. Named Entity Confusion preflight (just preflight-dr) was run against MONDO:0100348 for BOTH reports and returned PASS on each (claude_code: NARS1=38 mentions, report OMIM 619091/619092 vs MONDO xref 619091; openscientist: NARS1=56 mentions).
+
+DR outputs were treated as leads only, and several of their identifiers were wrong: the claude_code report gave HGNC:7645 for NARS1 (correct is hgnc:7643), CL:0002608 for radial glial cell (correct is CL:0000681), and attributed the organoid paper to &#34;Lin et al.&#34; with only a PMC id and an incorrect related PMID (the real record is PMID:32788587, Wang et al.). Every ontology term and PMID in the entry was independently verified against OAK/OLS and the fetched abstracts rather than copied from the reports.
+
+GeneReviews baseline (mandatory step): PMID:40014750 &#34;NARS1-Related Neurologic Disorders&#34; was found, fetched, tagged GeneReviews in the top-level references block, and mined section by section. Every phenotype in its Clinical Characteristics list is now represented (global developmental delay, intellectual disability, microcephaly, ataxia, seizures, spasticity/hypotonia as the bidirectional tone abnormality, peripheral neuropathy with distal lower-limb atrophy, and the explicitly rare neurobehavioral/psychiatric manifestations at VERY_RARE), as is its multidisciplinary management list (supportive care, physical therapy, speech and language therapy, antiseizure pharmacotherapy, orthopaedic management of scoliosis/kyphoscoliosis, gastrostomy feeding, genetic counselling). GeneReviews lists no Agents/Circumstances to Avoid for this disorder.
+
+Content: 7-node pathophysiology chain forming a single connected pathograph (biallelic hypomorphic NARS1 variants -&gt; reduced cytoplasmic asparaginyl-tRNA charging -&gt; impaired global protein synthesis, which then branches to radial glial progenitor proliferation failure -&gt; progressive cortical volume reduction, and in parallel to peripheral nerve involvement, both converging on combined CNS/PNS dysfunction); 23 phenotypes; genetic section with three curated variant entries including the recurrent recessive p.Arg545Cys; two experimental models wired to the pathograph via modeled_mechanisms with readouts (the patient-derived cortical organoid as flagship, plus patient fibroblasts/iNPCs); three diagnosis entries; three differential diagnoses; three discussions.
+
+Scope discipline: the allelic dominant entity NEDMILEG (MONDO:0030837 / OMIM:619092) and dominant NARS1 hereditary neuropathy are deliberately excluded and curated as differential diagnoses instead, with the mechanistic distinction (hypomorphic loss of function versus dominant-negative homodimer poisoning) recorded. Where a source reports on the whole NARS1 spectrum rather than the recessive arm, the evidence item is marked supports: PARTIAL and the explanation says so.
+
+Discussions: an EMERGING_HYPOTHESIS on asparagine supplementation (PMID:42381704 rescued patient fibroblast proliferation and prevented ISR activation, but only for the DOMINANT nonsense alleles R534X/R522X, so transfer to the recessive genotype is untested), carrying a REFUTE-tagged safety counterpoint from the nearest phenocopy where supplementation worsened seizures (PMID:27268761); a HUMAN_MODEL_MISMATCH recording that the organoid models only the developmental arm and the sole mammalian NARS1 knock-in carries a dominant neuropathy allele; and a KNOWLEDGE_GAP on the absence of genotype-phenotype correlation.
+
+The openscientist run contributed the asparagine synthetase deficiency (ASNS, OMIM 615574) differential, its congenital-microcephaly and simplified-gyral-pattern discriminators, and the supplementation safety signal. Its claim that asparagine is normal in NARS1 disease is recorded as an explicitly untested inference, not as a finding, because its cited sources address only the ASNS side; a proposed experiment to measure it in a NARS1 cohort was added.
+
+No datasets block: just discover-datasets returned no GEO candidates, and a gene-only NARS1 search would surface antisynthetase-syndrome series, so none was fabricated.
+
+Validation: just validate passed (schema, terms, references). just count-verified-snippets reported 107/107 snippets verified against cached references. just validate-disorders (the batched CI check, which is what CI runs) passed in full. just check-duplicate-keys passed. just check-title-snippets reported no findings for this file. Compliance 93.5 percent global, 93.9 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13677,7 +14948,7 @@ Progressive MICROCEPHALY + intellectual disability + language/gait deficits
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities", "mondoId": "MONDO:0100348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Microcephaly,_Impaired_Language,_and_Gait_Abnormalities", "yamlRevision": "829974832238"};
+        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities", "mondoId": "MONDO:0100348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Microcephaly,_Impaired_Language,_and_Gait_Abnormalities", "yamlRevision": "709fb9f47ed9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

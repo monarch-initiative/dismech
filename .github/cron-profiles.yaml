@@ -26,8 +26,11 @@
 # the high-frequency agents down/up; `fast-weekend` keeps weekday cadence at the
 # `medium` level but boosts the weekend (the weekend GitHub Actions queue is
 # usually quieter). Hourly is the ceiling — no profile schedules a sub-hourly
-# cron. Since `medium` already runs the curation scanner and PR shepherd hourly,
-# `fast`/`fast-weekend` only speed up the discussion scanner relative to it.
+# cron. The deterministic PR-shepherd merge controller stays hourly in every
+# enabled profile; under `slow`, a second controller-only entry fills the hours
+# between the costlier 4-hourly LLM tending runs. Since `medium` already runs the
+# curation scanner and both PR-shepherd lanes hourly, `fast`/`fast-weekend` only
+# speed up the discussion scanner relative to it.
 #
 # The low-frequency weekly/daily jobs (literature-scan, knowledge-gap-scan,
 # weekly-compliance, post-review-agent) are intentionally tier-invariant — they
@@ -40,7 +43,7 @@
 # GitHub can ignore invalid cron updates and leave the previous valid schedule
 # registered.
 
-active: "slow"
+active: "fast"
 
 profiles:
 
@@ -54,7 +57,9 @@ profiles:
           comment: "weekend: every 8h"
       pr-shepherd:
         - cron: "37 */4 * * *"
-          comment: "every 4h, offset from the curation scanner"
+          comment: "agent + merge controller every 4h"
+        - cron: "37 1-3,5-7,9-11,13-15,17-19,21-23 * * *"
+          comment: "merge controller only in intervening hours"
       discussion-scanner:
         - cron: "30 */6 * * *"
           comment: "every 6h"
@@ -73,6 +78,9 @@ profiles:
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
+      auto-close-duplicates:
+        - cron: "17 9 * * *"
+          comment: "daily duplicate closure after the three-day objection window"
 
   medium:
     description: Baseline cadence — mirrors the historical live schedules.
@@ -103,6 +111,9 @@ profiles:
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
+      auto-close-duplicates:
+        - cron: "17 9 * * *"
+          comment: "daily duplicate closure after the three-day objection window"
 
   # NOTE: the key is quoted because YAML 1.1 parses a bare `off` (like `on`/`no`/
   # `yes`) as a boolean — quoting keeps it the string profile name "off".
@@ -117,6 +128,7 @@ profiles:
       preprint-scan: []
       weekly-compliance: []
       post-review-agent: []
+      auto-close-duplicates: []
 
   fast:
     description: Aggressive cadence — hourly is the ceiling (no sub-hourly crons).
@@ -147,6 +159,9 @@ profiles:
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
+      auto-close-duplicates:
+        - cron: "17 9 * * *"
+          comment: "daily duplicate closure after the three-day objection window"
 
   fast-weekend:
     description: Weekday cadence at the medium level, weekend boosted to hourly.
@@ -179,3 +194,6 @@ profiles:
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
+      auto-close-duplicates:
+        - cron: "17 9 * * *"
+          comment: "daily duplicate closure after the three-day objection window"

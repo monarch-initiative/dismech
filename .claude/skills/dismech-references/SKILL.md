@@ -1,353 +1,526 @@
 ---
 name: dismech-references
 description: >
-  Skill for validating and repairing evidence references in the dismech knowledge base.
-  Use this skill when working with evidence items in disorder YAML files, validating
-  that snippet text matches PubMed abstracts, and repairing misquoted or fabricated
-  evidence. Critical for ensuring scientific accuracy and preventing AI hallucinations.
+  Add, validate, repair, or review evidence references and exact-quote snippets
+  in dismech KB YAML and deep-research reports. Use for PMID, DOI, NCT, ICTRP,
+  or structured-source evidence; reference-cache generation; snippet failures;
+  title snippets; bracket normalization; deep-research citation validation;
+  Named Entity Confusion preflight; evidence_source classification; and final
+  evidence checks before a PR.
 ---
 
-# DisMech Reference Validation Skill
+# Curate Evidence and References
 
-## Overview
+Use this workflow whenever evidence or its cited source changes.
 
-Validate and repair evidence references in the dismech disorder knowledge base. This ensures
-that quoted snippets actually appear in the cited sources, preventing fabricated or misquoted
-evidence from entering the knowledge base. The tool supports both PubMed references (PMID)
-and ClinicalTrials.gov data (NCT identifiers).
+## Non-negotiable rules
 
-## When to Use
+- Quote an exact substring of the cited source. Do not paraphrase or fabricate a
+  `snippet`.
+- Confirm that the quote substantively supports the precise claim. A matching
+  string from the wrong paper, or an unrelated sentence from the right paper,
+  is not evidence.
+- Prefer a result sentence from the abstract or authoritative source record.
+  A paper title usually establishes only that a topic was studied.
+- Never create or hand-edit `references_cache/*.md`. Generate or regenerate a
+  cache entry with `just fetch-reference <ID>`.
+- Never use fuzzy auto-repair to rewrite snippets. Read the source and copy the
+  exact passage, choose another source, or remove the evidence.
+- Treat deep-research output as leads, not ground truth.
 
-- Validating evidence items after adding new disorder content
-- Checking that snippets match their cited PMID abstracts
-- Repairing evidence items with minor text mismatches
-- Removing fabricated evidence (AI hallucinations)
-- QC checks before committing changes
-
-## Evidence Item Structure
-
-All evidence items follow this YAML structure:
+## Evidence shape
 
 ```yaml
 evidence:
-  - reference: PMID:12345678  # or clinicaltrials:NCT05813288
-    supports: SUPPORT  # SUPPORT, REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
-    snippet: "Exact quoted text from the abstract or trial summary"
-    explanation: "Why this evidence supports/refutes the claim"
-```
-
-### Reference Types
-
-- **PMID**: PubMed references (e.g., `PMID:12345678`) - validated against PubMed abstracts
-- **clinicaltrials**: ClinicalTrials.gov references (e.g., `clinicaltrials:NCT05813288`) - validated against ClinicalTrials.gov API via linkml-reference-validator
-
-### Support Classifications
-
-| Value | Meaning |
-|-------|---------|
-| SUPPORT | Evidence directly supports the statement |
-| REFUTE | Evidence contradicts the statement |
-| PARTIAL | Evidence partially supports with caveats |
-| NO_EVIDENCE | Citation exists but doesn't address the claim |
-| WRONG_STATEMENT | The statement itself is incorrect |
-
-## Validation Commands
-
-### Validate a Single File
-```bash
-uv run linkml-reference-validator validate data kb/disorders/Asthma.yaml \
-  --schema src/dismech/schema/dismech.yaml \
-  --target-class Disease
-```
-
-### Validate All Disorder Files
-```bash
-just validate-all
-```
-
-Or manually:
-```bash
-for f in kb/disorders/*.yaml; do
-  echo "=== $f ==="
-  uv run linkml-reference-validator validate data "$f" \
-    --schema src/dismech/schema/dismech.yaml \
-    --target-class Disease
-done
-```
-
-### Using the Just Target
-```bash
-just qc  # Runs all QC including reference validation
-```
-
-## Repair Commands
-
-### Dry Run (Preview Changes)
-```bash
-uv run linkml-reference-validator repair data kb/disorders/Cholera.yaml \
-  --schema src/dismech/schema/dismech.yaml \
-  --target-class Disease
-```
-
-### Auto-Repair with Threshold
-```bash
-uv run linkml-reference-validator repair data kb/disorders/Cholera.yaml \
-  --schema src/dismech/schema/dismech.yaml \
-  --target-class Disease \
-  --no-dry-run \
-  --fix-threshold 0.80
-```
-
-The `--fix-threshold 0.80` means snippets with 80%+ similarity to the actual abstract
-text will be automatically corrected.
-
-## Fetching Clinical Trial References
-
-Use the `just fetch-reference` command to cache trial data from ClinicalTrials.gov:
-
-```bash
-just fetch-reference NCT05813288
-```
-
-This will:
-1. Fetch the trial data from ClinicalTrials.gov API
-2. Cache it as markdown in `references_cache/clinicaltrials_NCT05813288.md`
-3. Make the snippet text available for validation
-
-The cached file contains the trial title, status, and summary that you can quote from.
-
-## Common Error Patterns
-
-### 1. Snippet Not Found in Abstract/Trial Data
-```
-ERROR: Snippet not found in reference PMID:12345678
-  Snippet: "The patient showed symptoms..."
-  Abstract: [actual abstract text]
-```
-
-**Solutions:**
-- Check if snippet is from full text (not abstract) - may need to remove
-- Check for minor typos - use repair with threshold
-- If fabricated, remove the evidence item entirely
-
-### 2. Reference Cannot Be Fetched
-```
-ERROR: Could not fetch reference PMID:99999999
-```
-
-**Solutions:**
-- Verify PMID exists on PubMed
-- Check for typos in PMID
-- If PMID is invalid, remove the evidence item
-
-### 3. Fabricated Evidence Patterns
-
-Watch for these red flags indicating AI-generated fake evidence:
-- Snippet says "N/A" or "No abstract available"
-- Snippet is suspiciously perfect match to the claim
-- PMID doesn't exist or is for unrelated topic
-- Generic statements without specific data
-
-**Solution:** Remove the entire evidence item.
-
-## Cache Management
-
-Reference validator caches PubMed abstracts in `.refval_cache/`. If you encounter
-stale cache issues:
-
-```bash
-rm -rf .refval_cache/
-```
-
-### Cache File Format Issues
-
-If you see YAML parsing errors in cache files, check for unquoted colons in titles:
-```yaml
-# Bad - will cause parse error
-title: COVID-19: A New Challenge
-
-# Good - properly quoted
-title: "COVID-19: A New Challenge"
-```
-
-## Batch Processing Workflow
-
-### 1. Get Error Count
-```bash
-uv run linkml-reference-validator validate data kb/disorders/*.yaml \
-  --schema src/dismech/schema/dismech.yaml \
-  --target-class Disease 2>&1 | grep -c "ERROR"
-```
-
-### 2. Process Files with Errors
-```bash
-for f in kb/disorders/*.yaml; do
-  errors=$(uv run linkml-reference-validator validate data "$f" \
-    --schema src/dismech/schema/dismech.yaml \
-    --target-class Disease 2>&1 | grep -c "ERROR" || echo 0)
-  if [ "$errors" -gt 0 ]; then
-    echo "=== $f has $errors errors ==="
-  fi
-done
-```
-
-### 3. Auto-Repair All
-```bash
-for f in kb/disorders/*.yaml; do
-  uv run linkml-reference-validator repair data "$f" \
-    --schema src/dismech/schema/dismech.yaml \
-    --target-class Disease \
-    --no-dry-run \
-    --fix-threshold 0.80
-done
-```
-
-## Best Practices
-
-### Adding New Evidence
-
-1. **Use real PMIDs**: Always verify the PMID exists on PubMed
-2. **Quote exactly**: Copy snippet text directly from the abstract
-3. **Keep snippets short**: 1-2 sentences that directly support the claim
-4. **Validate immediately**: Run validation after adding evidence
-
-### Reviewing AI-Generated Content
-
-When reviewing disorder files that may contain AI-generated evidence:
-
-1. Run validation first to catch obvious fabrications
-2. Spot-check PMIDs on PubMed
-3. Look for suspiciously perfect or generic snippets
-4. Remove any evidence that cannot be verified
-
-### Handling Unfetchable References
-
-If a reference cannot be fetched:
-1. Manually check PubMed for the PMID
-2. If it exists but is restricted, note in explanation
-3. If it doesn't exist, remove the evidence item
-4. Consider replacing with a valid alternative reference
-
-## Reference Validation on Deep-Research Reports
-
-There are **two** reference-validation layers now, checking two different things.
-Do not report one as if it were the other.
-
-| | DR report validation | KB evidence validation |
-|---|---|---|
-| What it checks | the identifiers and quotes in `research/*-deep-research-*.md` | the `snippet:` on each evidence item in `kb/**/*.yaml` |
-| When it runs | while the report is generated (`just research-disorder` etc.) | in the curation loop and before the PR |
-| Command | built in; retro-fit with `just validate-research-reference` | `just count-verified-snippets`, `just validate-disorders` |
-| Where results live | in the report — frontmatter + `## Reference Validation` | validator stdout |
-
-Since `deep-research-client` 0.2.9, every `just research-*` recipe resolves the
-report's PMIDs/DOIs and checks its quoted claims as it generates the report, and
-writes the outcome into the report itself:
-
-- a `reference_validation:` block in the YAML frontmatter (`total_references`,
-  `verified`, `not_found`, `unverifiable`, `confabulation_rate`,
-  `quotes_checked`, `quotes_valid`, `unresolved_references`)
-- a `## Reference Validation` section at the end of the body, with a counts table
-  and an `### Unresolved references` list
-
-Since 0.2.10 the same pass adds a third check — **topical relevance**. Each
-resolved reference's already-fetched record (title, journal, MeSH terms,
-abstract) is scored against the report's own most characteristic vocabulary;
-`>= 0.35` is on topic, `<= 0.08` is off topic. It costs no extra lookups and is
-on by default. It adds `relevance_assessed` / `on_topic` (and `off_topic` +
-`off_topic_references` when something is flagged) to the frontmatter, a
-`### References that may not be about this subject` section to the body, and sets
-`needs_review: true`.
-
-**Read that before citing anything from the report.** An identifier listed under
-`unresolved_references` should not be curated into an evidence item — find
-another source or drop the claim. `needs_review: true` is the single key worth
-grepping for: it is set by an unresolved identifier, an unsupported quote, *or*
-an off-topic reference, whereas `confabulation_rate` only measures identifier
-resolution.
-
-An **off-topic flag is evidence, not a verdict.** The reference resolved, so it
-is not a fabrication — it just shares little vocabulary with the report, and a
-paper can be relevant in ways its title and abstract do not spell out. Read it
-before dropping the claim. Off-topic references deliberately do not count as
-confabulations and do not trip `--fail-on-unresolved`.
-
-For a report generated before 0.2.9 (most of `research/`):
-
-```bash
-just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
-```
-
-This appends the section in place and is safe to re-run. It does **not** add a
-frontmatter summary — upstream only refreshes one that is already present — so on
-a retro-fitted report, read the section at the bottom of the file.
-
-**Three things this deliberately does not do:**
-
-1. It does not validate KB snippets. A green report is not evidence that your
-   `kb/` entry is correctly quoted — the snippet you paste is a different quote
-   in a different file.
-2. It cannot catch Named Entity Confusion (a report about the wrong disease
-   cites real papers correctly). Run `just preflight-dr` as usual. The relevance
-   check does not help here: it scores references against the report's *own*
-   vocabulary, so a wrong-disease report and its wrong-disease citations agree
-   with each other and everything reads as on topic.
-3. It cannot catch a real paper cited for a claim it does not make, where the
-   report paraphrases rather than quotes (issue #7791).
-
-Full detail: [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
-
-## Integration with Schema
-
-The evidence structure is defined in `src/dismech/schema/dismech.yaml`:
-
-```yaml
-EvidenceItem:
-  attributes:
-    reference:
-      description: PMID, DOI, or ClinicalTrials.gov reference
-      pattern: "^PMID:\\d+$|^DOI:.*$|^clinicaltrials:NCT\\d+$"
-    supports:
-      range: SupportType
-    snippet:
-      description: Quoted text from the reference
-    explanation:
-      description: Why this evidence supports/refutes the claim
-```
-
-### Clinical Trials Integration
-
-The `ClinicalTrial` class in the schema supports:
-- **name**: NCT identifier or trial name
-- **phase** (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
-  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
-  phase classification)
-- **status** (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`, `ACTIVE_NOT_RECRUITING`,
-  `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`, `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`.
-  Both slots are enum-bound — the free-text spellings (`Phase III`, `Completed`) fail `just validate`.
-- **description**: Summary of the trial
-- **target_phenotypes**: Phenotypes the trial addresses (as PhenotypeDescriptor objects with HP ontology terms)
-- **evidence**: Evidence items validated against ClinicalTrials.gov
-
-Example clinical trial entry with ontology-linked phenotypes:
-```yaml
-clinical_trials:
-- name: NCT05813288
-  phase: PHASE_III
-  status: COMPLETED
-  description: Study of dexpramipexole in severe eosinophilic asthma
-  target_phenotypes:
-    - preferred_term: Wheezing
-      term:
-        id: HP:0030828
-        label: Wheezing
-    - preferred_term: Breathlessness
-      term:
-        id: HP:0002094
-        label: Dyspnea
-  evidence:
-  - reference: clinicaltrials:NCT05813288
+  - reference: PMID:12345678
     supports: SUPPORT
-    snippet: "The objective of this clinical study is to investigate the safety, tolerability, and efficacy of dexpramipexole in participants with inadequately controlled severe eosinophilic asthma."
-    explanation: "This trial directly evaluates a therapeutic approach for severe eosinophilic asthma"
+    evidence_source: HUMAN_CLINICAL
+    snippet: "Exact text copied from the cited source."
+    explanation: "How this passage supports the specific KB claim."
 ```
+
+Use `supports: SUPPORT`, `REFUTE`, or the value allowed by the schema. Make the
+`explanation` connect the quote to the claim without adding conclusions the
+quote does not establish.
+
+Classify `evidence_source` by the cited study, not by the curator or the claim:
+
+- `HUMAN_CLINICAL`: patients, cohorts, clinical observations, or trials
+- `MODEL_ORGANISM`: in vivo non-human animal or organism work
+- `IN_VITRO`: cells, organoids, explants, or biochemical assays
+- `COMPUTATIONAL`: modeling, simulation, or in-silico analysis
+- `OTHER`: evidence that does not fit the categories above
+
+Inspect the schema and nearby current entries if a field or enum is uncertain.
+
+## Workflow
+
+### 1. Screen deep-research sources
+
+If evidence came from `research/`, first read the report's
+`reference_validation`, `unresolved_references`, `needs_review`, and
+`off_topic_references` results. Do not curate an unresolved identifier. An
+off-topic flag is a reason to inspect the paper, not an automatic rejection.
+
+For an older report without validation output, run:
+
+```bash
+just validate-research-reference research/My_Disease-deep-research-falcon.md
+```
+
+The same recipes also check the report's **ontology terms** (`term_validation`
+in the frontmatter, `## Term Validation` at the end of the body). That is a
+different check from the citations one and catches a different error: a report
+can have every citation verified and still name the wrong MONDO term for the
+disease. Never bind a CURIE listed under `unresolved_terms`. For an older report,
+`just validate-research-terms <report>` adds the section; see
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
+
+Before using any report content, check that the report describes the intended
+disease:
+
+```bash
+just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
+```
+
+Interpret the result as follows:
+
+- `PASS`: proceed to normal source, snippet, and term verification.
+- `WARN`: resolve the reported conflict or degraded lookup, then manually check
+  the causal gene, OMIM xref, and synonyms.
+- `FAIL`: discard the report. Do not cherry-pick from it.
+- `SKIP`: the automated check cannot discriminate; manually check disease
+  identity before proceeding.
+
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+
+```bash
+uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+```
+
+Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
+with the report. Look specifically for synonym aliasing, eponymic collision,
+abbreviation ambiguity, or conflation with a closely related disease. On any
+identity mismatch, discard the report rather than cherry-picking from it.
+
+See `docs/deep-research-reference-validation.md` and
+`research/nec_risk_disease_classes.md` for uncommon cases.
+
+### 2. Fetch each new reference
+
+```bash
+just fetch-reference PMID:12345678
+```
+
+Use the actual identifier for other supported reference types. Read the fetched
+record and confirm its identity, topic, and quoted passage. A successful fetch
+does not prove that the source supports the claim.
+
+"Successfully cached" also does not mean the record has text to quote. If the
+fetch printed a `WARNING: ... cached with no quotable text`, read
+[Empty caches](#empty-caches-content_type-unavailable) before going further.
+
+### 3. Run the fast edit loop
+
+After each disorder-file edit, run:
+
+```bash
+just validate kb/disorders/MyDisease.yaml
+just count-verified-snippets kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
+```
+
+All three commands accept the files supported by their recipes; batch files
+where practical. `count-verified-snippets` is fast and offline, but advisory.
+It reports missing cache entries and skipped prefixes rather than resolving
+them.
+
+### 4. Run the authoritative pre-PR sweep
+
+Once, after the tranche is complete, name every changed disorder file:
+
+```bash
+just validate-disorders \
+  kb/disorders/FirstDisease.yaml \
+  kb/disorders/SecondDisease.yaml
+```
+
+This batched command mirrors CI's schema, term, and reference checks and uses
+`--no-full-text`. It is the authoritative evidence gate for disorder files.
+Use `just validate-kb-references <file>` only when a non-disorder target or a
+full-text-permitting diagnostic requires it.
+
+Never report a validation command as passing unless it finished and you read
+its output.
+
+## Resolve failures
+
+When a snippet is not found:
+
+1. Read the fetched source record.
+2. Confirm the identifier belongs to the intended paper or record.
+3. Copy an exact, substantively relevant passage.
+4. If no such passage exists, cite a better source or remove the evidence.
+
+If the claim is useful but no quotable evidence is available, move it to a
+`notes` field where appropriate, keep an unevidenced description only where the
+schema and curation policy permit it, or remove the claim. Never manufacture a
+quote to preserve an evidence block.
+
+**Moving a claim to `notes` applies to your own well-established knowledge, and
+to nothing else.** It is the exact wrong move for a claim you took from a
+deep-research report and could not verify: moving that into `notes` does not
+soften it, it launders it, because `notes` is the one place no check will ever
+look. The two cases read identically in the diff and are opposite in kind.
+
+| You cannot quote it because… | Do |
+|---|---|
+| the fact is textbook and no abstract states it crisply | move it to `notes`, no evidence |
+| a DR report asserted it and the cited abstract does not contain it | **drop the claim** — it is unverified, not merely unquotable |
+
+`Total checks: 0` in reference-validator output means zero issues were counted;
+it does not mean no evidence was examined. Use the wrapper's affirmative
+`Snippets checked: N/N verified` summary to describe cache-backed coverage.
+
+`DOI:` and `PMID:` snippets are checked by the same authoritative validator.
+A missing source, missing body, or mismatched quote fails validation; a failed
+fetch is not evidence that the quote is valid. A cache containing only an
+abstract cannot verify text quoted from elsewhere in the paper.
+
+Some dataset-accession prefixes remain in `skip_prefixes` within
+`conf/reference_validator_config.yaml`. The `(N skipped by prefix)` summary
+reports those omissions; skipped never means verified. `--unskip-prefix` is a
+diagnostic for auditing an exempt prefix and is not required for DOI evidence.
+
+Never add literature prefixes to `skip_prefixes`, downgrade an unverified
+reference to a warning, or relax quote matching to make CI pass. Changes that
+weaken an evidence constraint require explicit approval from `cmungall`
+(issue #11921).
+
+## Typography: a snippet need not be byte-identical
+
+"Exact substring" means exact **after normalization, on both sides**.
+`SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
+reused by `just count-verified-snippets`) spells out Greek letters, lowercases,
+replaces every non-word non-space character with a space, then collapses runs of
+whitespace with `re.sub(r"\s+", " ", ...)`. Python's `\s` on `str` patterns
+matches Unicode whitespace, so most publisher typography folds away on both
+sides:
+
+| In the source | Write in the snippet |
+|---|---|
+| U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
+| U+00A0 no-break space | an ordinary space |
+| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
+| U+00D7 multiplication sign | see the traps below |
+
+So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
+`AUC<U+2009>=<U+2009>0.933`, and `"(3.97-6.38)"` matches `(3.97–6.38)`. In the
+#9308 tranche, **8 of 15 snippets were not byte-exact and all 15 verified**.
+
+This is worth knowing because the alternative is silently worse curation. During
+#9308 both the curator and the reviewer independently concluded that a figure in
+a Nature paper could not be quoted, because the source puts thin spaces around
+every `=`. Neither checked, and it cost a curated entry — recovered only
+mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
+into `explanation` prose or drops the claim, and nothing goes red.
+
+**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
+for the next curator, and it buys nothing, since the source's typography folds
+anyway. Existing snippets that copied the source's thin spaces and en dashes
+verbatim are equally valid and need no repair; several hundred `kb/disorders`
+snippets do exactly that.
+
+**The traps — characters that do *not* vanish.** Each of these survives
+normalization on one side only, so the comparison fails:
+
+- **`x` for `×`.** `x` is a word character and survives, while U+00D7 becomes a
+  space, so `"7.03 x 10-48"` does *not* match `7.03 × 10−48`. Include the
+  literal `×`, or end the quote before the scientific-notation clause.
+- **Mid-word invisibles.** U+00AD soft hyphen and U+200B zero-width space
+  normalize to a *space*, splitting the word: cached `diffi<U+00AD>culties`
+  becomes `diffi culties` and never matches `difficulties`.
+- **Ligatures.** U+FB01 `ﬁ` is a word character and survives unchanged, so
+  cached `speciﬁc` does not match `specific`. Note the asymmetry: `just
+  count-verified-snippets` folds ligatures in its relaxed cache-defect pass
+  (#8048, `normalize_relaxed` in `src/dismech/reference_snippet_audit.py`) but
+  the gating `linkml-reference-validator` does not — so such a snippet can pass
+  the fast check and fail the pre-PR sweep.
+- **Micro sign.** U+00B5 `µ` survives, since only U+03BC `μ` is in `greek_map`.
+
+If a quote you copied verbatim still fails, run `just count-verified-snippets` —
+it names the span it could not find rather than leaving you guessing.
+
+## Titles and brackets
+
+Run `just check-title-snippets` when adding or repairing evidence. Quote a title
+only in the rare case that the title itself states a result; explain why it is
+probative. If the cached record has no abstract, cite the underlying study or a
+different source instead of treating a topic-shaped title as a finding. Do not
+manually regenerate `tests/title_snippet_baseline.txt` when fixing an existing
+title snippet.
+
+Snippet matching applies `literal_bracket_patterns` from
+`conf/reference_validator_config.yaml`:
+
+- all-caps abbreviations and spans containing a percent sign remain literal and
+  must be quoted exactly;
+- numeric citation markers and curator glosses are stripped before matching.
+
+If a verbatim quote fails near brackets, read the reason printed by
+`count-verified-snippets`. Do not change the global patterns to accommodate one
+snippet without replaying validation across the KB.
+
+### Read the title off the cache, never from memory
+
+`reference_title` (on an `EvidenceItem`) and `title` (on a top-level
+`references:` entry) name the paper you cited, and until #9138 nothing checked
+them. The failure mode that exposed is specific: **correct PMID, verified
+snippet, invented title.** Each gate reads a different field — `linkml-validate`
+confirms the slot is a string, `count-verified-snippets` and
+`validate-kb-references` check the *snippet*, `validate-terms` checks ontology
+terms, and `check_title_snippets` (despite the name) asks whether a snippet
+quotes a title. None of them reads the title.
+
+On PR #9111 three of twenty `(reference, reference_title)` pairs named papers
+that do not exist. Two were written by an agent that had just verified the
+adjacent snippets as exact substrings of the cached text, then wrote the titles
+beside them from memory. Being rigorous about the quote and careless about the
+citation attached to it is a distinct failure mode, and these values are not
+inert — they render on the disorder page and flow into the cx2 and SEPIO
+exports.
+
+The correct title is already on disk, in the reference's cache frontmatter:
+
+```bash
+head -5 references_cache/PMID_34081534.md
+# ---
+# reference_id: PMID:34081534
+# title: Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.
+```
+
+Copy it from there. `just check-reference-titles` gates new mismatches (offline,
+similarity-based, so punctuation, dashes, diacritics and source-XML markup do
+not trip it) and prints the cached title in the failure message, so the fix is a
+copy-paste. `just list-reference-title-mismatches` is the triage view;
+`scripts/find_missing_reference_titles.py` is the complementary check for
+*absent* titles.
+
+## Frequency claims
+
+A phenotype `frequency:` value is a separate quantitative claim from the
+disease-phenotype association. Give it evidence that supports the frequency
+band or omit it. Follow `docs/frequency-evidence-guidelines.md` for acceptable
+quantitative, derived, qualitative, and clinical-estimate evidence.
+
+## The prose layer is unchecked — figures in `description` and `notes`
+
+Every anti-hallucination check dismech runs reads `evidence[].snippet`.
+`validate-references`, `count-verified-snippets`, `check_snippets_verbatim.py`,
+`check-title-snippets`, `check-snippet-length` — all of them. **A claim that
+never becomes a snippet is checked by nothing.**
+
+So this passes the entire suite:
+
+```yaml
+# Wrong: a real, topical PMID attached to a figure it does not contain
+- name: Autism Spectrum Disorder
+  description: >-
+    ...TAND collectively affects ~90% of TSC patients across the lifespan.
+  evidence:
+  - reference: PMID:27226234        # real paper, correct topic, zero percentages
+    snippet: "TSC-associated neuropsychiatric disorders, which can include..."
+```
+
+The snippet verifies. The PMID resolves. The paper is genuinely about TSC. The
+`~90%` appears nowhere in it. This is a distinct failure mode from an unresolved
+identifier or a named-entity confusion: the citation is right and the *number* is
+imported from somewhere else. It is also, empirically, the one that gets through
+— @jmcmurry ran 10 new entries whose curating agents were each explicitly warned
+about this exact risk and each adversarially reviewed for it: snippets came back
+**992/992 clean**, and unverified or source-contradicted prose claims turned up
+in **10 of 10 entries** (#7791). Two recurring generators worth naming: an author
+affiliation read as patient ancestry ("a Sydney affiliation" → "Australian
+families"), and a process claim stated as a world fact.
+
+**The rule:** a figure you cannot attach to a verbatim snippet does not belong in
+prose either. Prose is not the safe place to put a claim you could not verify —
+it is the *unprotected* place. So when screening a deep-research report, verify
+every quantitative claim you write into `description` or `notes` against the
+cached text of the reference you attribute it to, alongside the snippet and term
+checks in the workflow above.
+
+```bash
+just prose-figure-audit                        # whole KB census (~2 min, offline)
+just prose-figure-audit --dr-only --format list
+just prose-figure-audit kb/disorders/Asthma.yaml --format list
+```
+
+The audit reports percentages, `1 in N`, per-100,000 rates and `N-fold` figures
+that do not appear in the references cited *beside* them. Two things it is not:
+
+- **It is advisory, not a gate.** It is heuristic, is not in `just qc`, and is
+  not wired into CI. Derived figures are legitimate (a curator may convert
+  1-in-25,000 to 4 per 100,000; the common conversions are handled, arithmetic in
+  general is not), and not every real source is cached prose.
+- **`OK` is not verification.** Finding the number in an adjacent abstract says
+  nothing about whether it was that percentage *of that thing*. Only reading the
+  source settles it — which is exactly the point of the failure mode.
+
+## Finding a cache file
+
+A cache filename is the reference id with `:`, `/`, `?` and `=` replaced by `_`,
+plus `.md`. **The prefix keeps the identifier's own casing — it is not
+uppercased.** `PMID:29167994` caches as `PMID_29167994.md`, but
+`clinicaltrials:NCT05813288` caches as `clinicaltrials_NCT05813288.md`, so a
+glob for `CLINICALTRIALS_*` finds nothing. Searching `pmid_*` on a
+case-sensitive filesystem is the mirror of the same mistake.
+
+Do not hand-derive the path when a tool will do it. `resolve_cache_path` in
+`src/dismech/reference_snippet_audit.py` is the authority, and it also resolves
+a bare identifier (`NCT06087757`) back to its prefixed file. Prefer the recipes
+that take a reference id or a KB file:
+
+```bash
+just fetch-reference PMID:29167994     # fetch or regenerate the cache entry
+just count-verified-snippets kb/disorders/Asthma.yaml
+```
+
+When you do need to glob, match case-insensitively and on the tail rather than
+guessing a prefix:
+
+```bash
+ls references_cache/ | grep -i "_29167994"
+```
+
+The prefixes in use, with the count of cached records at the time of writing —
+mixed case is normal and none of it is a typo:
+
+| Prefix | Cached | What it is |
+|---|---:|---|
+| `PMID` | 35586 | PubMed |
+| `DOI` | 6056 | DOI-only literature |
+| `clinicaltrials` | 1082 | ClinicalTrials.gov (NCT) |
+| `NCIT` | 796 | NCI Thesaurus predicate edges |
+| `ICEES` | 505 | ICEES KG comorbidity pairs |
+| `CGGV` | 502 | ClinGen gene-disease validity |
+| `ORPHA` | 347 | Orphanet |
+| `GEO` | 176 | Gene Expression Omnibus |
+| `url` | 116 | Web page |
+| `MYGENESET` | 100 | MyGeneset |
+| `STRCHIVE` | 73 | STRchive |
+| `PPR` | 25 | Europe PMC preprint |
+| `CIVIC` | 15 | CIViC assertions and evidence |
+| `ICTRP` | 7 | WHO ICTRP (non-NCT trial registries) |
+| `file` | 5 | Local document |
+| `CGDS` | 3 | ClinGen dosage sensitivity |
+| `METABOLIGHTS` | 2 | MetaboLights |
+| `MGNIFY` | 1 | MGnify |
+
+The list is a snapshot for orientation, not a closed set — a new structured
+source adds a prefix. Regenerate it with
+`ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
+trusting these counts.
+
+## Empty caches (`content_type: unavailable`)
+
+The fetcher writes `content_type: unavailable` into a cache file's frontmatter
+when it found the record but retrieved no text a snippet could quote: no
+abstract and no full text. The file still has a title, authors and journal, and
+the fetch still reports "Successfully cached". A real abstract is
+`abstract_only`; full texts are `full_text_xml`, `full_text_pdf` and similar.
+Go by that field, not by how short the body looks: structured caches (ORPHA,
+ClinGen) and records with no `## Content` heading, such as `PMID:31909928`, are
+short and fully quotable.
+
+**An empty cache describes one fetch, not the paper.** `PMID:33054089` came back
+`unavailable` and was refetched an hour later as `full_text_xml` from PMC. So
+the first step is a retry, especially for an open-access paper:
+
+```bash
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
+```
+
+`just fetch-reference` prints a warning to stderr when the file it leaves behind
+is `unavailable`. The warning is advisory: the file is kept and the exit code is
+unchanged. When you write a note about such a paper, say that no quotable text
+was retrieved on the fetches you made, not that the record cannot be quoted; the
+next curator's fetch may succeed.
+
+**If it stays empty, nothing in it can be a snippet.** A title is not a finding,
+and a sentence recalled from the paper is not a quote from the cache. Say in
+`notes` why it is not cited as evidence, and optionally also list it as a
+top-level `references:` entry with no snippet. The worked
+example is the "Not cited, and why." paragraph in the `notes` of
+`kb/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_9.yaml`: two papers on a
+further WARS1 family that cache with no abstract text are named there as leads
+for a curator with full-text access, and no evidence item cites them.
+
+To see the whole backlog:
+
+```bash
+just list-empty-reference-caches                # summary by identifier prefix
+just list-empty-reference-caches --format tsv   # one row per record
+just list-empty-reference-caches --no-kb        # skip the kb/ citation lookup
+```
+
+It splits records by `full_text_attempted: true` (the full-text route was tried
+and found nothing) versus no such marker (never retried under that route, so a
+`--force` refetch is the obvious first move), counts how many are cited anywhere
+in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
+count should be zero. The recipe is a read-only triage view and always exits 0.
+
+## Reference-cache integrity
+
+Check the derived cache structure with:
+
+```bash
+just check-reference-cache-frontmatter
+```
+
+If an entry is malformed or incorrect, regenerate it with
+`just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+## Never patch the validator from inside dismech
+
+`linkml-reference-validator` (LRV) is used as a library, as-is. dismech applies **two**
+patches over its internals, and both exist in order to be deleted.
+`_wrap_url_fetch` strips scripts and page attributes out of the raw HTML
+`URLSource` caches, because this repository commits its cache to a public git
+repository (linkml/linkml-reference-validator#92). `_wrap_jstage_pdf_title`
+recovers a title for a PDF URL, which `URLSource` otherwise leaves set to the URL
+itself (linkml/linkml-reference-validator#93).
+`tests/test_upstream_validator_behaviours.py` enforces the budget: a patch must
+be one of those two, and must name its upstream issue.
+
+This is worth stating because the repository spent months doing the opposite.
+`src/dismech/patch_reference_validator.py` grew to 650 lines that replaced nine
+private LRV methods at import time — how the fetcher named cache files, parsed
+JATS tables, quoted YAML, coerced authors. Every one of those was a real bug with
+a correct fix, and the patch made each of them invisible to the only project that
+could fix it properly. The costs compounded:
+
+- **The fix never reached anyone else.** Nine defects were fixed for dismech and
+  for nobody else using LRV.
+- **It broke on contact with an upgrade.** Patching a private method means
+  depending on its signature. When LRV changed one, `just validate-kb-references`
+  died at import with `AttributeError: 'function' object has no attribute
+  '__func__'` — the gate, not a test.
+- **It hid the upstream problem from tests.** dismech's suite tested the patch,
+  so it stayed green while the thing it was patching was still broken.
+
+Ten of the twelve are now fixed in LRV (#66-74, #85, #87, #88) and deleted here.
+The two that remain are real upstream gaps rather than workarounds, so they were
+filed rather than quietly kept. Both arrived the same way the others did -- a
+curation PR adding a patch as a side effect of curating a disease -- which is
+what the budget test now catches.
+
+**If you genuinely must patch, the patch is temporary and the issue is filed
+first.** Open the upstream issue before writing the patch, name that issue in a
+comment at the patch site, and test the *behaviour* you need rather than the
+patch itself — a behaviour test keeps passing when the fix lands upstream and the
+patch comes out, which is exactly when you want to find out it is redundant.
+`tests/test_upstream_validator_behaviours.py` is the worked example: each test
+names the upstream issue it pins, and none of them reference a patch.
+
+A bug worth working around is a bug worth reporting.
