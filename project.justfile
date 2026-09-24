@@ -130,6 +130,11 @@ validate file:
 #    unverified, not wrong — so failing an in-progress edit on it strands the
 #    curator mid-file. It is reported here as advisory and enforced for real by
 #    `just validate`, `just qc`, and CI before anything merges.
+#
+#    Term validation is offline only for terms already in the cache. An
+#    uncached CURIE is looked up over the network (OLS for most prefixes), and
+#    when that lookup times out the term has not been checked at all. That case
+#    warns instead of blocking (dismech#12634); see the comment in the recipe.
 [group('QC')]
 validate-pre-edit file:
     #!/usr/bin/env bash
@@ -138,7 +143,19 @@ validate-pre-edit file:
     lv_config=$(just _linkml-validate-config Disease)
     uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
-    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    # Exit 75 from the wrapper means the ontology service did not answer, so an
+    # uncached term could not be looked up. That is an outage, not a bad term,
+    # and blocking the edit on it only teaches agents to write around the hook
+    # (dismech#12634). Warn and continue; a wrong CURIE, label or enum member
+    # still exits 1 and still blocks. `just validate` and `validate-disorders`
+    # are not relaxed, so CI still checks the terms before merge.
+    term_rc=0
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}} || term_rc=$?
+    if [ "$term_rc" -eq 75 ]; then
+        echo "⚠ TERMS NOT CHECKED: ontology service unavailable. Edit allowed; run \`just validate-terms\` on the edited file once the service answers." >&2
+    elif [ "$term_rc" -ne 0 ]; then
+        exit "$term_rc"
+    fi
     echo "Reference validation (advisory, cache-bound)..."
     if ! {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text; then
         echo "⚠ Reference validation reported issues (advisory here; run \`just validate\` before committing)"

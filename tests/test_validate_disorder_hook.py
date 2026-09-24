@@ -140,3 +140,23 @@ def test_validate_pre_edit_keeps_reference_validation_advisory():
 @pytest.mark.parametrize("validator", ["linkml-validate", "validate-data", "validate data"])
 def test_validate_pre_edit_keeps_all_three_validators(validator):
     assert validator in _recipe_body("validate-pre-edit")
+
+
+def test_hook_marker_matches_the_recipe_warning():
+    """The hook recognizes an outage by the text the recipe prints (#12634)."""
+    assert hook.TERMS_NOT_CHECKED_MARKER in _recipe_body("validate-pre-edit")
+
+
+def test_terms_not_checked_notice_reaches_the_model_without_approving():
+    import json
+
+    assert hook.terms_not_checked_notice("✓ Pre-edit validation passed") is None
+
+    notice = hook.terms_not_checked_notice(
+        "⚠ TERMS NOT CHECKED: ontology service unavailable."
+    )
+    payload = json.loads(notice)["hookSpecificOutput"]
+    assert payload["hookEventName"] == "PreToolUse"
+    assert "NOT checked" in payload["additionalContext"]
+    # Adding context must never double as an approval of the tool call.
+    assert "permissionDecision" not in payload

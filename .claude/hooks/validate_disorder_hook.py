@@ -35,6 +35,36 @@ from pathlib import Path
 # Side-effect-free counterpart of `just validate`; see project.justfile.
 VALIDATE_RECIPE = "validate-pre-edit"
 
+# Printed by `validate-pre-edit` when term lookup could not reach the ontology
+# service (dismech#12634). The edit is allowed, but its terms were not checked.
+TERMS_NOT_CHECKED_MARKER = "TERMS NOT CHECKED"
+TERMS_NOT_CHECKED_CONTEXT = (
+    "Pre-edit validation allowed this edit, but the ontology service did not "
+    "answer, so its ontology terms were NOT checked. Run `just validate-terms` "
+    "on this file once the service is reachable, and do not change a term just "
+    "because it could not be looked up."
+)
+
+
+def terms_not_checked_notice(output: str) -> str | None:
+    """
+    JSON for the hook's stdout when the edit passed with terms unchecked.
+
+    Stderr from a hook that exits 0 is not shown to the model, so the warning is
+    passed as `additionalContext` instead. No `permissionDecision` is set: the
+    hook only adds context and never approves a tool call on its own authority.
+    """
+    if TERMS_NOT_CHECKED_MARKER not in output:
+        return None
+    return json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": TERMS_NOT_CHECKED_CONTEXT,
+            }
+        }
+    )
+
 
 def find_project_root(file_path: Path) -> Path | None:
     """
@@ -210,6 +240,13 @@ def main():
         print("Fix the issues above before proceeding.", file=sys.stderr)
         print("=" * 60 + "\n", file=sys.stderr)
         sys.exit(2)  # Block the operation
+
+    notice = terms_not_checked_notice(output)
+    if notice is not None:
+        print("⚠ Allowing edit, but ontology terms were NOT checked", file=sys.stderr)
+        print("=" * 60 + "\n", file=sys.stderr)
+        print(notice)
+        sys.exit(0)
 
     print("✓ Validation passed - allowing edit", file=sys.stderr)
     print("=" * 60 + "\n", file=sys.stderr)
