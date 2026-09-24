@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://www.ncbi.nlm.nih.gov/sites/books/NBK1434/?report=reader
+extractor_version: 1
 title: "Genetic Hearing Loss Overview - GeneReviews&reg; - NCBI Bookshelf"
 content_type: url
 ---

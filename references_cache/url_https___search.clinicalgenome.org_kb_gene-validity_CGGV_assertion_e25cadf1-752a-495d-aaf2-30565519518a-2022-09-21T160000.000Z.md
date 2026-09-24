@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_e25cadf1-752a-495d-aaf2-30565519518a-2022-09-21T160000.000Z
+extractor_version: 1
 title: curation results for Gene-Disease Validity
 content_type: url
 ---
@@ -485,7 +486,7 @@ content_type: url
 </div>
 </div>
 <div>
-<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however,
+<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however, 
 			ClinGen will save your requests pending confirmationo of your email address. </p>
 <form>
 <input/> <div>
@@ -1256,10 +1257,10 @@ content_type: url
 <div>
 <ul>
 <li><a><i></i>Case Level Variants
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Segregation
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Family Segregation w/o a Scored Proband</a></li>
 <li><a><i></i>Case-Control
@@ -1277,7 +1278,7 @@ content_type: url
 <div>
 <h4>SCORED GENETIC EVIDENCE <span>Total Proband Counted Points:  1.60</span></h4>
         Case Level Variants
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1317,9 +1318,9 @@ content_type: url
                             Wang Proband
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1376,9 +1377,9 @@ content_type: url
                             ISO34
                         </td>
 <td>
-
+                            
                                                         Predicted or proven null
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1436,9 +1437,9 @@ content_type: url
                             Hofrichter Proband
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1495,9 +1496,9 @@ content_type: url
                             IV-2
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1542,7 +1543,7 @@ content_type: url
 <td>
 <strong>Method 1:</strong><br/>Next generation sequencing panels<br/>
 <strong>Description of genotyping method:</strong>
-                            An NGS panel of 168 hearing loss-associated genes
+                            An NGS panel of 168 hearing loss-associated genes 
                                                     </td>
 <td>
                                                                                     Yes (Transfection studies in HEK cells demonstrate increased secretion of the variant protein.)
@@ -1556,9 +1557,9 @@ content_type: url
                             Zheng Family Proband
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1800,7 +1801,7 @@ content_type: url
 <div>
 <h4>GENETIC EVIDENCE <span>Total Points:  N/A</span></h4>
         Case Control
-
+        
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1873,7 +1874,7 @@ content_type: url
 <div>
 <h4>EXPERIMENTAL EVIDENCE <span>Total Points:  3.00</span></h4>
          
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -2047,7 +2048,7 @@ content_type: url
 </a>
 <br/>
                                             Cheatham MA,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Loss of the tectorial membrane protein CEACAM16 enhances spontaneous, stimulus-frequency, and transiently evoked otoacoustic emissions. <strong>2014</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>This is a second CEACAM16 null mouse. However, there is already a null mouse scored and downgraded because of the AD hearing loss observed in humans. Therefore, this second mouse model will not be scored.</p>

@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://pmc.ncbi.nlm.nih.gov/articles/PMC4115139/?report=xml
+extractor_version: 1
 title: "Loss of the Tectorial Membrane Protein CEACAM16 Enhances Spontaneous, Stimulus-Frequency, and Transiently Evoked Otoacoustic Emissions - PMC"
 content_type: url
 ---
@@ -176,11 +177,11 @@ content_type: url
 
 
                             Search
+                        
 
-
-
-
-
+        
+    
+        
             </button>
 
 <div>
@@ -197,49 +198,49 @@ content_type: url
 <li>
 
 <a>
+        
 
-
-
+        
             Dashboard
+        
 
-
-
+        
     </a>
 </li>
 <li>
 
 <a>
+        
 
-
-
+        
             Publications
+        
 
-
-
+        
     </a>
 </li>
 <li>
 
 <a>
+        
 
-
-
+        
             Account settings
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <button>
-
-
+    
+        
 
         Log out
 
-
-
-
+        
+    
+        
             </button>
 </li>
 </ul>
@@ -292,48 +293,48 @@ content_type: url
 <ul>
 <li>
 <a>
+        
 
-
-
+        
             Dashboard
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             Publications
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             Account settings
+        
 
-
-
+        
     </a>
 </li>
 </ul>
 </div>
 <button>
-
-
+    
+        
 
         Log in
 
-
-
-
+        
+    
+        
             </button>
 </nav>
 </header>
@@ -1361,70 +1362,70 @@ Sussex Neuroscience, School of Life Sciences, University of Sussex, Falmer, Brig
 <ul>
 <li>
 <a>
+        
 
-
-
+        
             Web Policies
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             FOIA
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             HHS Vulnerability Disclosure
+        
 
-
-
+        
     </a>
 </li>
 </ul>
 <ul>
 <li>
 <a>
+        
 
-
-
+        
             Help
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             Accessibility
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             Careers
+        
 
-
-
+        
     </a>
 </li>
 </ul>
@@ -1433,46 +1434,46 @@ Sussex Neuroscience, School of Life Sciences, University of Sussex, Falmer, Brig
 <ul>
 <li>
 <a>
+        
 
-
-
+        
             NLM
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             NIH
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             HHS
+        
 
-
-
+        
     </a>
 </li>
 <li>
 <a>
+        
 
-
-
+        
             USA.gov
+        
 
-
-
+        
     </a>
 </li>
 </ul>
