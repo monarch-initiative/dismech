@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_01d1a7f4-8421-4be3-8fe7-2c2025f03ac9-2023-09-26T160000.000Z
+extractor_version: 1
 title: curation results for Gene-Disease Validity
 content_type: url
 ---
@@ -485,7 +486,7 @@ content_type: url
 </div>
 </div>
 <div>
-<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however,
+<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however, 
 			ClinGen will save your requests pending confirmationo of your email address. </p>
 <form>
 <input/> <div>
@@ -1259,10 +1260,10 @@ content_type: url
 <div>
 <ul>
 <li><a><i></i>Case Level Variants
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Segregation
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Family Segregation w/o a Scored Proband</a></li>
 <li><a><i></i>Case-Control
@@ -1280,7 +1281,7 @@ content_type: url
 <div>
 <h4>SCORED GENETIC EVIDENCE <span>Total Proband Counted Points:  1.50</span></h4>
         Case Level Variants
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1320,9 +1321,9 @@ content_type: url
                             Solda_1, III-2
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1396,9 +1397,9 @@ decade. Down sloping audiometric profile, all frequencies affected. Episodes of 
                             III:1
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1461,9 +1462,9 @@ decade. Down sloping audiometric profile, all frequencies affected. Episodes of 
                             III:8
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1732,7 +1733,7 @@ decade. Down sloping audiometric profile, all frequencies affected. Episodes of 
 <div>
 <h4>GENETIC EVIDENCE <span>Total Points:  N/A</span></h4>
         Case Control
-
+        
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -2055,7 +2056,7 @@ decade. Down sloping audiometric profile, all frequencies affected. Episodes of 
 </a>
 <br/>
                                             Likar T,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Diagnostic outcomes of exome sequencing in patients with syndromic or non-syndromic hearing loss. <strong>2018</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>Individual P354 carriers n.43G&gt;A variant and presents with moderately severe nonsyndromic SNHL, but affected mother Mother is homozygous for TMPRSS3 c.208delC (p.His208Thrfs*).</p>
@@ -2068,7 +2069,7 @@ decade. Down sloping audiometric profile, all frequencies affected. Episodes of 
 </a>
 <br/>
                                             Dallol A,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Utilization of amplicon-based targeted sequencing panel for the massively parallel sequencing of sporadic hearing impairment patients from Saudi Arabia. <strong>2016</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>Case 873 carries n.43G&gt;A but ILDR1 c.1586T&gt;C (p.Val529Ala) was also identified in the patient.</p>

@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC4065360/fullTextXML
+extractor_version: 1
 title: Abstract
 content_type: url
 ---
