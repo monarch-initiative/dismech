@@ -33,8 +33,12 @@ Verdicts
     no genes could be found at all, or the canonical gene is mentioned fewer
     than ``min_signal`` times, or a lookup the verdict depends on failed. This
     is the Temtamy pattern (PR #3835): a single report mixing C12orf57 and
-    CHSY1 content. Sections about the rival entity must be excluded before
-    curating.
+    CHSY1 content. A mention count cannot tell that apart from a report on
+    the right disease that names the disease's own receptor, ligand, fusion
+    partner or modifier gene: in KDM1A-related adrenal hyperplasia (#9826)
+    the effector gene GIP reaches 0.44 of KDM1A, above the 0.40 the Temtamy
+    rival reached, so no ratio separates the two. Read the sections naming
+    the second gene and exclude them only if they are about another disease.
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
@@ -108,6 +112,17 @@ OMIM_RE = re.compile(r"\b(?:OMIM|MIM)\s*[:#\s]\s*#?\s*(\d{6})\b", re.IGNORECASE)
 # phenotype-rich DR report otherwise ranks "HP" among its top genes and drowns out
 # the actual rival-gene signal.
 CURIE_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_]*\s*:\s*\d[\w.]*")
+
+# Ontology prefixes that are also HGNC symbols, or that the uppercase token
+# pattern picks up as one. CURIE_RE removes them when they carry a local ID,
+# but reports also name the ontology in prose ("HP calls it Optic atrophy",
+# "(HP terms)"), and 40 such bare mentions put haptoglobin among the top
+# "rival" genes of a correct ACO2 report (#9826). These are kept out of the
+# rival pool only: a disease whose own causal gene is HP still counts it.
+ONTOLOGY_PREFIX_TOKENS = frozenset({
+    "HP", "HPO", "GO", "CL", "MP", "SO", "MONDO", "PATO", "UBERON", "NCIT",
+    "CHEBI", "ECTO", "MAXO", "ORPHA", "OMIM", "HGNC",
+})
 
 # A gene needs at least this many mentions before it counts as "discussed
 # substantively". Below it, a symbol is usually an aside, a pathway member, or a
@@ -594,7 +609,9 @@ def assess(
     rivals = [
         (sym, n)
         for sym, n in gene_counts.most_common()
-        if sym not in claimed and n >= min_signal
+        if sym not in claimed
+        and sym not in ONTOLOGY_PREFIX_TOKENS
+        and n >= min_signal
     ]
 
     result = PreflightResult(
@@ -722,9 +739,13 @@ def assess(
         result.verdict = WARN
         rival_sym, rival_n = rivals[0]
         result.reasons.append(
-            f"Rival gene {rival_sym} is mentioned {rival_n} times "
+            f"Second gene {rival_sym} is mentioned {rival_n} times "
             f"({rival_n / expected_total:.0%} of {expected_str}). The report may "
-            "mix in a second disease entity — exclude those sections before curating."
+            f"mix in a second disease entity, or {rival_sym} may be this disease's "
+            "own receptor, ligand, fusion partner, or modifier gene; a mention "
+            "count cannot tell the two apart. Read the sections naming "
+            f"{rival_sym} and decide which it is; exclude them only if they are "
+            "about a different disease."
         )
 
     if unresolved:

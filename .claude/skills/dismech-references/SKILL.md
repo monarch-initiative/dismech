@@ -116,6 +116,10 @@ Use the actual identifier for other supported reference types. Read the fetched
 record and confirm its identity, topic, and quoted passage. A successful fetch
 does not prove that the source supports the claim.
 
+"Successfully cached" also does not mean the record has text to quote. If the
+fetch printed a `WARNING: ... cached with no quotable text`, read
+[Empty caches](#empty-caches-content_type-unavailable) before going further.
+
 ### 3. Run the fast edit loop
 
 After each disorder-file edit, run:
@@ -418,6 +422,54 @@ source adds a prefix. Regenerate it with
 `ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
 trusting these counts.
 
+## Empty caches (`content_type: unavailable`)
+
+The fetcher writes `content_type: unavailable` into a cache file's frontmatter
+when it found the record but retrieved no text a snippet could quote: no
+abstract and no full text. The file still has a title, authors and journal, and
+the fetch still reports "Successfully cached". A real abstract is
+`abstract_only`; full texts are `full_text_xml`, `full_text_pdf` and similar.
+Go by that field, not by how short the body looks: structured caches (ORPHA,
+ClinGen) and records with no `## Content` heading, such as `PMID:31909928`, are
+short and fully quotable.
+
+**An empty cache describes one fetch, not the paper.** `PMID:33054089` came back
+`unavailable` and was refetched an hour later as `full_text_xml` from PMC. So
+the first step is a retry, especially for an open-access paper:
+
+```bash
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
+```
+
+`just fetch-reference` prints a warning to stderr when the file it leaves behind
+is `unavailable`. The warning is advisory: the file is kept and the exit code is
+unchanged. When you write a note about such a paper, say that no quotable text
+was retrieved on the fetches you made, not that the record cannot be quoted; the
+next curator's fetch may succeed.
+
+**If it stays empty, nothing in it can be a snippet.** A title is not a finding,
+and a sentence recalled from the paper is not a quote from the cache. Say in
+`notes` why it is not cited as evidence, and optionally also list it as a
+top-level `references:` entry with no snippet. The worked
+example is the "Not cited, and why." paragraph in the `notes` of
+`kb/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_9.yaml`: two papers on a
+further WARS1 family that cache with no abstract text are named there as leads
+for a curator with full-text access, and no evidence item cites them.
+
+To see the whole backlog:
+
+```bash
+just list-empty-reference-caches                # summary by identifier prefix
+just list-empty-reference-caches --format tsv   # one row per record
+just list-empty-reference-caches --no-kb        # skip the kb/ citation lookup
+```
+
+It splits records by `full_text_attempted: true` (the full-text route was tried
+and found nothing) versus no such marker (never retried under that route, so a
+`--force` refetch is the obvious first move), counts how many are cited anywhere
+in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
+count should be zero. The recipe is a read-only triage view and always exits 0.
+
 ## Reference-cache integrity
 
 Check the derived cache structure with:
@@ -428,3 +480,47 @@ just check-reference-cache-frontmatter
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+## Never patch the validator from inside dismech
+
+`linkml-reference-validator` (LRV) is used as a library, as-is. dismech applies **two**
+patches over its internals, and both exist in order to be deleted.
+`_wrap_url_fetch` strips scripts and page attributes out of the raw HTML
+`URLSource` caches, because this repository commits its cache to a public git
+repository (linkml/linkml-reference-validator#92). `_wrap_jstage_pdf_title`
+recovers a title for a PDF URL, which `URLSource` otherwise leaves set to the URL
+itself (linkml/linkml-reference-validator#93).
+`tests/test_upstream_validator_behaviours.py` enforces the budget: a patch must
+be one of those two, and must name its upstream issue.
+
+This is worth stating because the repository spent months doing the opposite.
+`src/dismech/patch_reference_validator.py` grew to 650 lines that replaced nine
+private LRV methods at import time — how the fetcher named cache files, parsed
+JATS tables, quoted YAML, coerced authors. Every one of those was a real bug with
+a correct fix, and the patch made each of them invisible to the only project that
+could fix it properly. The costs compounded:
+
+- **The fix never reached anyone else.** Nine defects were fixed for dismech and
+  for nobody else using LRV.
+- **It broke on contact with an upgrade.** Patching a private method means
+  depending on its signature. When LRV changed one, `just validate-kb-references`
+  died at import with `AttributeError: 'function' object has no attribute
+  '__func__'` — the gate, not a test.
+- **It hid the upstream problem from tests.** dismech's suite tested the patch,
+  so it stayed green while the thing it was patching was still broken.
+
+Ten of the twelve are now fixed in LRV (#66-74, #85, #87, #88) and deleted here.
+The two that remain are real upstream gaps rather than workarounds, so they were
+filed rather than quietly kept. Both arrived the same way the others did -- a
+curation PR adding a patch as a side effect of curating a disease -- which is
+what the budget test now catches.
+
+**If you genuinely must patch, the patch is temporary and the issue is filed
+first.** Open the upstream issue before writing the patch, name that issue in a
+comment at the patch site, and test the *behaviour* you need rather than the
+patch itself — a behaviour test keeps passing when the fix lands upstream and the
+patch comes out, which is exactly when you want to find out it is redundant.
+`tests/test_upstream_validator_behaviours.py` is the worked example: each test
+names the upstream issue it pins, and none of them reference a patch.
+
+A bug worth working around is a bug worth reporting.
