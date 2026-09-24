@@ -63,36 +63,76 @@ class TypeSafeClassifier:
             json.dumps(payload, sort_keys=True).encode()
         ).hexdigest()
         start = time.monotonic()
+        requests = []
         with httpx.Client(timeout=60, transport=self._transport) as client:
-            for attempt in range(3):
-                try:
-                    response = client.post(
-                        "https://api.typesafe.ai/v1/systemone",
-                        json=payload,
-                        headers={"Authorization": f"Bearer {self._key}"},
-                    )
-                except httpx.TransportError:
-                    if attempt == 2:
-                        raise
-                    time.sleep(2**attempt)
-                    continue
-                if (
-                    response.status_code not in {429, 500, 502, 503, 504, 529}
-                    or attempt == 2
-                ):
-                    break
-                time.sleep(2**attempt)
-            response.raise_for_status()
-            body = response.json()
-        if set(body["answers"]) != {t.name for t in tasks}:
-            raise ValueError("TypeSafe returned unexpected questions")
+            body = self._request(client, payload, requests)
         return ClassificationBatch(
             answers={t.name: self._answer(t, body["answers"][t.name]) for t in tasks},
             model=body["model"],
             usage=body["usage"],
             elapsed_seconds=round(time.monotonic() - start, 4),
             request_sha256=digest,
+            request_sha256s=requests,
         )
+
+    def _request(self, client, payload, requests):
+        for attempt in range(3):
+            try:
+                response = client.post(
+                    "https://api.typesafe.ai/v1/systemone",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {self._key}"},
+                )
+            except httpx.TransportError:
+                if attempt == 2:
+                    raise
+                time.sleep(2**attempt)
+                continue
+            if (
+                response.status_code not in {429, 500, 502, 503, 504, 529}
+                or attempt == 2
+            ):
+                break
+            time.sleep(2**attempt)
+        if response.status_code == 400 and len(payload["questions"]) > 1:
+            try:
+                detail = response.json().get("detail", {})
+            except (ValueError, AttributeError):
+                detail = {}
+            if (
+                isinstance(detail, dict)
+                and detail.get("error_type") == "max_tokens_exceeded"
+            ):
+                # Questions are independent. Preserve the full state and exact
+                # questions; split only the oversized bundle, never truncate.
+                questions = list(payload["questions"].items())
+                middle = len(questions) // 2
+                parts = [
+                    self._request(
+                        client, payload | {"questions": dict(group)}, requests
+                    )
+                    for group in (questions[:middle], questions[middle:])
+                ]
+                if parts[0]["model"] != parts[1]["model"]:
+                    raise ValueError(
+                        "TypeSafe returned different models for split requests"
+                    )
+                return {
+                    "answers": parts[0]["answers"] | parts[1]["answers"],
+                    "model": parts[0]["model"],
+                    "usage": {
+                        key: sum(part["usage"].get(key, 0) for part in parts)
+                        for key in set(parts[0]["usage"]) | set(parts[1]["usage"])
+                    },
+                }
+        response.raise_for_status()
+        body = response.json()
+        if set(body["answers"]) != set(payload["questions"]):
+            raise ValueError("TypeSafe returned unexpected questions")
+        requests.append(
+            hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        )
+        return body
 
     @staticmethod
     def _answer(task: ClassificationTask, answer: dict) -> ChoiceAnswer:
@@ -122,8 +162,14 @@ class TypeSafeClassifier:
         ):
             raise ValueError("TypeSafe probabilities do not sum to one")
         label = answer["choice"]
-        if label not in probabilities or probabilities[label] < max(
-            probabilities.values()
+        if label not in probabilities or (
+            probabilities[label] < max(probabilities.values())
+            and not math.isclose(
+                probabilities[label],
+                max(probabilities.values()),
+                rel_tol=0,
+                abs_tol=1e-12,
+            )
         ):
             raise ValueError("TypeSafe returned an inconsistent choice")
         return ChoiceAnswer(label, probabilities, answer["confidence"])

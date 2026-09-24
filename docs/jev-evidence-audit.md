@@ -59,6 +59,15 @@ contextual implication and faithful broader abstractions. A proposed mechanism
 is not interpreted as a clinical recommendation. Quote fidelity and ontology
 validation remain separate deterministic checks.
 
+If TypeSafe rejects a bundle with `max_tokens_exceeded`, the adapter splits its
+independent aspect questions into smaller requests. Every request keeps the full
+claim state and unchanged questions; it never truncates the assertion or snippet.
+A single question that still exceeds the limit remains an error. Results combine
+all aspect answers and sum the successful requests' token usage. The logical
+bundle retains `request_sha256`; `request_sha256s` records the successful HTTP
+payloads, including the individual batches after splitting. Existing cached
+assessments remain reusable because the model, prompts and questions are unchanged.
+
 ## Reports
 
 Reports are generated under `reports/jev-audit/` (inventory defaults to
@@ -87,7 +96,7 @@ Probabilities are retained for sorting and review, not treated as measured accur
 Missing evidence, missing snippets and invalid input (for example, an unresolved
 subtype) have distinct statuses. Invalid KB input is a reported curation issue;
 it does not stop other assessments. API failures and pairs left unassessed after
-a time limit cause a nonzero exit **after reports are written**. Authentication
+a time limit cause a nonzero exit **after reports are written**. Authentication or payment-required (HTTP 402)
 failure stops new requests while retaining cache hits and recording remaining
 pairs as unassessed. No KB files are changed.
 
