@@ -16,10 +16,9 @@ diseases:
   - Bartter_Syndrome
   - Gitelman_Syndrome
   - Cystinosis
-  - Smith-Lemli-Opitz_Syndrome
+  - Smith-Lemli-Opitz_syndrome
   - Alpers-Huttenlocher_Syndrome
 modules:
-  - primary_hemostatic_plug_failure
   - drug_induced_liver_injury
   - drug_induced_nephrotoxicity
 ---
@@ -49,12 +48,22 @@ without naming the distinction will fill with model-system results.
 | [`phenocopy-table.md`](PHENOCOPIES/phenocopy-table.md) | 48 exposure–gene pairs in five sections, with a cross-cutting tier and a per-pair "what separates them" column |
 | [`Toxicologic-Phenocopy-Atlas.pdf`](PHENOCOPIES/Toxicologic-Phenocopy-Atlas.pdf) | The same material formatted |
 
+The entries and modules declared in this page's frontmatter are the dismech content the
+compilation's rows touch, whether or not the text below names them individually. They are
+a reading list, not a worklist, and nothing has been curated against them.
+
 **The compilation's own caveats govern.** It states that tiers are a judgement about
 mechanistic tightness and **not** an evidence rating, that two rows are arguably
 gene–environment interaction rather than phenocopy, that valproate/`POLG` is deliberately
 both a phenocopy and a trigger and would need two edge types, and that the set is a
 literature compilation rather than curated content. No row has been verified for this
 project.
+
+**A section heading is not a tier count.** The five sections group by theme and the tier
+runs across them, so the two do not line up. The first section, "Identical molecular
+target", holds 14 rows of which 11 are tier 1; its other three, aminoglycosides, warfarin
+and the benzocaine/dapsone/nitrites row, are tier 2 and do not inhibit the gene product
+the section blurb describes. Read the tier column rather than the heading.
 
 **Decided 2026-09-24: every row is verified against primary literature before it is
 curated.** The compilation is a starting list, not a source, so no entry is written from a
@@ -142,6 +151,11 @@ definition. The definition is tied to the purpose AOPs were designed to serve, w
 regulatory: an AO is defined by its relevance as a regulatory endpoint informing
 chemical safety decision-making. That said, the framework has since been adopted for
 organizing evidence on causal biological sequences outside regulatory science.
+
+What the two bodies of work do share is the question of where a disease-level
+correspondence attaches, since it names a whole entry rather than any single node. That is
+already open as question 2 in [AOP_EMOD_ALIGNMENT](AOP_EMOD_ALIGNMENT.md) and is tracked
+there rather than here.
 
 ## Not yet included
 
