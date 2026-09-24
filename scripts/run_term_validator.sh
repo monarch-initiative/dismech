@@ -18,8 +18,23 @@
 # (dismech#11004). The probe is gone. When #29 ships and uv.lock resolves a
 # version that has the flag, pass the flag and keep the greps; do not
 # reinstate a per-call probe.
+#
+# Ontology-service outages (dismech#12634). linkml-term-validator exits 2 and
+# prints "ontology service unavailable" when an uncached term could not be
+# looked up because OLS (or another network adapter) timed out or refused the
+# connection. That means the terms were *not checked*, not that one is wrong.
+# The wrapper re-reports that case as exit 75 (EX_TEMPFAIL) so a caller can
+# tell it apart from a real validation failure (exit 1) and from a usage error
+# (exit 2, which is also what click returns for a bad option; the message is
+# checked as well as the code for that reason). Exit 75 is still non-zero, so
+# every caller that only tests for success (`just validate`,
+# `just validate-disorders`, `just qc`, CI) stays strict. Only
+# `validate-pre-edit` treats it as a warning.
 
 set -euo pipefail
+
+# Keep in sync with the check in project.justfile's `validate-pre-edit`.
+EXIT_SERVICE_UNAVAILABLE=75
 
 if [[ $# -eq 0 ]]; then
     echo "Usage: $0 <linkml-term-validator subcommand> [args...]" >&2
@@ -39,6 +54,11 @@ exit_code=$?
 set -e
 
 printf '%s\n' "$output"
+
+if [[ $exit_code -eq 2 ]] && grep -qi 'ontology service unavailable' <<<"$output"; then
+    echo "Term validation could not run: ontology service unavailable (exit $EXIT_SERVICE_UNAVAILABLE)." >&2
+    exit "$EXIT_SERVICE_UNAVAILABLE"
+fi
 
 if [[ $exit_code -ne 0 ]]; then
     exit "$exit_code"
