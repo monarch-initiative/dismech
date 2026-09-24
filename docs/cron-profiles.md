@@ -85,7 +85,6 @@ just cron-profile-preview <name>
 
 `curation-scanner`, `pr-shepherd`, `discussion-scanner`, `literature-scan`,
 `knowledge-gap-scan`, `preprint-scan`, `weekly-compliance`, `post-review-agent`,
-`jev-evidence-audit` (weekly Monday 09:17 UTC; reuses unchanged successful judgments),
 `auto-close-duplicates` (deterministic daily sweep; see [duplicate detection](issue-duplicates.md)).
 
 The page/build crons (`generate-grouping-pages`, `generate-project-pages`,

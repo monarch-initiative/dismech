@@ -16,7 +16,7 @@ from dismech.classifier.structured import structured_claim_task
 from dismech.yaml_io import find_duplicate_keys, safe_load
 
 BENCHMARK = "evidence_claim_match"
-DEFAULT_ROOT = "analysis/classification/jev"
+DEFAULT_ROOT = "build/jev-assessments"
 
 
 def timestamp():
@@ -54,11 +54,89 @@ def atomic_yaml(path, data):
         Path(temporary).unlink(missing_ok=True)
 
 
+OUTCOME_FIELDS = ("status", "assessed_at", "result")
+
+
+def merge_input(left, right):
+    """Combine observations without duplicating the canonical claim snapshot."""
+    if left["claim"] != right["claim"]:
+        raise ValueError("Conflicting snapshots for the same input hash")
+    if right["first_seen_at"] < left["first_seen_at"]:
+        for field in (
+            "first_seen_at",
+            "first_seen_revision",
+            "origin",
+            "evidence_metadata",
+        ):
+            left[field] = deepcopy(right[field])
+    left["last_seen_at"] = max(left["last_seen_at"], right["last_seen_at"])
+    if right["active_as_of"] > left["active_as_of"]:
+        for field in ("active", "active_as_of", "occurrences"):
+            left[field] = deepcopy(right[field])
+    history = {
+        digest(h): h
+        for h in (*left.get("activity_history", []), *right.get("activity_history", []))
+    }
+    if history:
+        left["activity_history"] = sorted(
+            history.values(), key=lambda h: (h["observed_at"], digest(h))
+        )
+
+
+def upgrade(document):
+    """Convert v1 without inference, retaining all responses and observed history."""
+    if document.get("format_version") != 1:
+        return document
+    inputs = {}
+    for key, record in document["assessments"].items():
+        identity = record["input_sha256"]
+        state = record["model_input"]
+        if identity != digest(state) or key != record["assessment_sha256"]:
+            raise ValueError("Invalid v1 assessment hash")
+        claim = record["claim"]
+        item = {
+            field: deepcopy(record[field])
+            for field in (
+                "first_seen_at",
+                "first_seen_revision",
+                "last_seen_at",
+                "active",
+                "occurrences",
+            )
+        }
+        item.update(
+            claim=state,
+            origin=claim.get("origin", {}),
+            evidence_metadata={
+                k: v
+                for k, v in claim.get("selected_evidence", {}).items()
+                if k not in state["selected_evidence"]
+            },
+        )
+        if "activity_history" in record:
+            item["activity_history"] = deepcopy(record["activity_history"])
+        item["active_as_of"] = max(
+            [
+                item["last_seen_at"],
+                *[h["observed_at"] for h in item.get("activity_history", [])],
+            ]
+        )
+        if identity in inputs:
+            merge_input(inputs[identity], item)
+        else:
+            inputs[identity] = item
+        for field in (*item, "model_input", "assessment_sha256"):
+            record.pop(field, None)
+    document["format_version"] = 2
+    document["inputs"] = inputs
+    return document
+
+
 class ResultCache:
-    """One YAML per disease/task. Successful assessments are never discarded.
+    """One YAML per disease/task; inputs shared by all assessment configurations.
 
     Only one writer should use a checkout at a time. CI shards use separate
-    checkouts and merge their successful result streams in a single writer job.
+    checkouts and merge successful histories in a single writer job.
     """
 
     def __init__(self, root):
@@ -74,8 +152,7 @@ class ResultCache:
                 },
             }
         )
-        self._path = None
-        self._document = None
+        self._path = self._document = None
         if self.root.is_file():
             raise ValueError("--cache must be a directory, not a SQLite file")
 
@@ -89,30 +166,39 @@ class ResultCache:
             if find_duplicate_keys(text):
                 raise ValueError(f"Duplicate keys in assessment cache: {path}")
             document = safe_load(text)
+            if not isinstance(document, dict):
+                raise ValueError(f"Invalid assessment cache: {path}")
+            document = upgrade(document)
             if (
-                not isinstance(document, dict)
-                or document.get("format_version") != 1
+                document.get("format_version") != 2
                 or document.get("benchmark") != BENCHMARK
+                or not isinstance(document.get("inputs"), dict)
                 or not isinstance(document.get("assessments"), dict)
             ):
                 raise ValueError(f"Invalid assessment cache: {path}")
+            for identity, item in document["inputs"].items():
+                if (
+                    not isinstance(item, dict)
+                    or digest(item.get("claim")) != identity
+                    or not isinstance(item.get("active"), bool)
+                ):
+                    raise ValueError(f"Invalid input {identity} in {path}")
             for key, record in document["assessments"].items():
                 if (
                     not isinstance(record, dict)
                     or record.get("status") != "assessed"
-                    or record.get("input_sha256") != digest(record.get("model_input"))
-                    or record.get("assessment_sha256") != key
-                    or not isinstance(record.get("active"), bool)
+                    or record.get("input_sha256") not in document["inputs"]
                     or not isinstance(record.get("result", {}).get("answers"), dict)
                 ):
                     raise ValueError(f"Invalid assessment {key} in {path}")
         else:
             document = {
-                "format_version": 1,
+                "format_version": 2,
                 "benchmark": BENCHMARK,
                 "source_file": file.as_posix(),
                 "disease": disease or file.stem,
                 "inventory": None,
+                "inputs": {},
                 "assessments": {},
             }
         if Path(document["source_file"]).resolve() != file.resolve():
@@ -128,12 +214,8 @@ class ResultCache:
             return None
         if record["input_sha256"] != input_key(row["claim"]):
             raise ValueError("Assessment hash refers to a different input")
-        # Explicit refreshes keep the previous results in history.
         result = record.get("reassessments", [])[-1:] or [record]
-        return {
-            name: deepcopy(result[0][name])
-            for name in ("status", "assessed_at", "result")
-        }
+        return {name: deepcopy(result[0][name]) for name in OUTCOME_FIELDS}
 
     def put(self, row, key, outcome, tasks, model, revision=None):
         if outcome["status"] != "assessed" or cache_key(model, tasks) != key:
@@ -141,20 +223,50 @@ class ResultCache:
                 "Only successful responses with verified input hashes can be cached"
             )
         document = self._load(row["file"], row["disease"])
+        identity = digest(tasks[0].state)
+        inputs = document["inputs"]
+        item = {
+            "claim": deepcopy(tasks[0].state),
+            "origin": deepcopy(row["claim"].get("origin", {})),
+            "evidence_metadata": {
+                k: v
+                for k, v in row["claim"].get("selected_evidence", {}).items()
+                if k not in tasks[0].state["selected_evidence"]
+            },
+            "first_seen_at": outcome["assessed_at"],
+            "first_seen_revision": revision,
+            "last_seen_at": outcome["assessed_at"],
+            "active": True,
+            "active_as_of": outcome["assessed_at"],
+            "occurrences": [self._occurrence(row)],
+        }
+        if identity in inputs:
+            # An imported historical response is not a new observation of the KB.
+            if outcome["assessed_at"] < inputs[identity]["first_seen_at"]:
+                for field in (
+                    "first_seen_at",
+                    "first_seen_revision",
+                    "origin",
+                    "evidence_metadata",
+                ):
+                    inputs[identity][field] = item[field]
+        else:
+            inputs[identity] = item
         records = document["assessments"]
         if key in records:
             record = records[key]
             previous = [record, *record.get("reassessments", [])]
             if not any(all(old[k] == outcome[k] for k in outcome) for old in previous):
-                record.setdefault("reassessments", []).append(deepcopy(outcome))
+                responses = [
+                    {k: old[k] for k in OUTCOME_FIELDS} for old in previous
+                ] + [deepcopy(outcome)]
+                responses.sort(key=lambda r: (r["assessed_at"], digest(r)))
+                if responses[0] == outcome:
+                    record["assessment_source_revision"] = revision
+                record.update(responses[0])
+                record["reassessments"] = responses[1:]
         else:
-            identity = input_key(row["claim"])
-            siblings = [r for r in records.values() if r["input_sha256"] == identity]
-            first = (
-                min(siblings, key=lambda r: r["first_seen_at"]) if siblings else None
-            )
             records[key] = {
-                "assessment_sha256": key,
                 "input_sha256": identity,
                 "configuration_sha256": digest(
                     {
@@ -167,17 +279,6 @@ class ResultCache:
                 ),
                 "model": model,
                 "assessment_source_revision": revision,
-                "claim": deepcopy(row["claim"]),
-                "model_input": deepcopy(tasks[0].state),
-                "first_seen_at": first["first_seen_at"]
-                if first
-                else outcome["assessed_at"],
-                "first_seen_revision": first["first_seen_revision"]
-                if first
-                else revision,
-                "last_seen_at": outcome["assessed_at"],
-                "active": True,
-                "occurrences": [self._occurrence(row)],
                 **deepcopy(outcome),
             }
         atomic_yaml(self._path, document)
@@ -189,22 +290,22 @@ class ResultCache:
         }
 
     def reconcile(self, files=None, revision=None):
-        """Refresh activity from complete files, without inference or pruning.
+        """Refresh activity from complete files without inference or pruning.
 
-        Incomplete/invalid extraction never retires a record. Explicit file
-        selections leave other diseases alone; no selection checks all cached
-        source files, including ones since deleted from the KB.
+        Incomplete/invalid extraction never retires a record. Explicit selections
+        leave other diseases alone; no selection also checks deleted source files.
+        Call from the disease repository so relative source paths resolve there.
         """
         from dismech.classifier.audit import inventory
 
         if files is None:
-            files = []
-            for path in sorted(self.root.glob(f"*/{BENCHMARK}.yaml")):
-                doc = safe_load(path.read_text())
-                files.append(Path(doc["source_file"]))
+            files = [
+                Path(safe_load(p.read_text())["source_file"])
+                for p in sorted(self.root.glob(f"*/{BENCHMARK}.yaml"))
+            ]
         for file in files:
             document = self._load(file)
-            if not document["assessments"]:
+            if not document["inputs"]:
                 continue
             source_hash = (
                 hashlib.sha256(file.read_bytes()).hexdigest() if file.exists() else None
@@ -216,11 +317,11 @@ class ResultCache:
                     if row["status"] == "invalid_input":
                         valid = False
                     elif row["status"] == "ready":
+                        document["disease"] = row["disease"]
                         present.setdefault(input_key(row["claim"]), []).append(
                             self._occurrence(row)
                         )
             previous = document["inventory"] or {}
-            # Unchanged files do not acquire a new timestamp on every run.
             observed = (
                 previous.get("observed_at")
                 if previous.get("source_sha256") == source_hash
@@ -228,34 +329,24 @@ class ResultCache:
                 and previous.get("complete") == valid
                 else None
             ) or timestamp()
-            earliest = {}
-            for record in document["assessments"].values():
-                identity = record["input_sha256"]
-                if (
-                    identity not in earliest
-                    or record["first_seen_at"] < earliest[identity]["first_seen_at"]
-                ):
-                    earliest[identity] = record
-            for record in document["assessments"].values():
-                first = earliest[record["input_sha256"]]
-                record["first_seen_at"] = first["first_seen_at"]
-                record["first_seen_revision"] = first["first_seen_revision"]
-                occurrences = present.get(record["input_sha256"], [])
+            for identity, item in document["inputs"].items():
+                occurrences = present.get(identity, [])
                 if not occurrences and not valid:
                     continue
                 active = bool(occurrences)
-                if record["active"] != active:
-                    record.setdefault("activity_history", []).append(
+                if item["active"] != active:
+                    item.setdefault("activity_history", []).append(
                         {
                             "active": active,
                             "observed_at": observed,
                             "source_revision": revision,
                         }
                     )
-                record["active"] = active
+                item["active"] = active
+                item["active_as_of"] = max(item["first_seen_at"], observed)
                 if active:
-                    record["last_seen_at"] = max(record["first_seen_at"], observed)
-                    record["occurrences"] = occurrences
+                    item["last_seen_at"] = max(item["first_seen_at"], observed)
+                    item["occurrences"] = occurrences
             document["inventory"] = {
                 "source_sha256": source_hash,
                 "extraction_sha256": self.extraction_sha256,
@@ -269,18 +360,22 @@ class ResultCache:
             atomic_yaml(self._path, document)
 
     def merge(self, root):
-        """Union successful history from another checkout; recompute activity later."""
+        """Union successful histories from another checkout; reconcile activity later."""
         incoming = ResultCache(root)
         for path in sorted(incoming.root.glob(f"*/{BENCHMARK}.yaml")):
             source = safe_load(path.read_text())["source_file"]
             other = incoming._load(source)
             document = self._load(source, other["disease"])
-            records = document["assessments"]
+            for identity, item in other["inputs"].items():
+                if identity in document["inputs"]:
+                    merge_input(document["inputs"][identity], item)
+                else:
+                    document["inputs"][identity] = deepcopy(item)
             for key, record in other["assessments"].items():
-                if key not in records:
-                    records[key] = deepcopy(record)
+                if key not in document["assessments"]:
+                    document["assessments"][key] = deepcopy(record)
                     continue
-                ours = records[key]
+                ours = document["assessments"][key]
                 for field in ("input_sha256", "configuration_sha256", "model"):
                     if ours[field] != record[field]:
                         raise ValueError(f"Conflicting assessment identity: {key}")
@@ -291,28 +386,18 @@ class ResultCache:
                     record,
                     *record.get("reassessments", []),
                 ):
-                    outcome = {k: entry[k] for k in ("status", "assessed_at", "result")}
+                    outcome = {k: entry[k] for k in OUTCOME_FIELDS}
                     responses[digest(outcome)] = outcome
                 ordered = sorted(
                     responses.values(), key=lambda r: (r["assessed_at"], digest(r))
                 )
+                if record["assessed_at"] < ours["assessed_at"]:
+                    ours["assessment_source_revision"] = record.get(
+                        "assessment_source_revision"
+                    )
                 ours.update(deepcopy(ordered[0]))
                 if len(ordered) > 1:
                     ours["reassessments"] = deepcopy(ordered[1:])
-                if record["first_seen_at"] < ours["first_seen_at"]:
-                    for field in ("first_seen_at", "first_seen_revision"):
-                        ours[field] = record[field]
-                history = {
-                    digest(h): h
-                    for h in (
-                        *ours.get("activity_history", []),
-                        *record.get("activity_history", []),
-                    )
-                }
-                if history:
-                    ours["activity_history"] = sorted(
-                        history.values(), key=lambda h: (h["observed_at"], digest(h))
-                    )
             atomic_yaml(self._path, document)
         incoming.close()
 

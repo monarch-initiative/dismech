@@ -91,9 +91,22 @@ a time limit cause a nonzero exit **after reports are written**. Authentication
 failure stops new requests while retaining cache hits and recording remaining
 pairs as unassessed. No KB files are changed.
 
-## Durable assessment history and cost
+## Assessment history lives in dismech-evals
 
-Successful responses are saved immediately to ordinary, versioned YAML files:
+The public [dismech-evals repository](https://github.com/monarch-initiative/dismech-evals)
+owns corpus assessment history and the weekly workflow. Dismech owns extraction,
+the classifier and these CLI commands. The private dismech-bench repository remains
+focused on curated benchmark cases, reviews and benchmark results.
+
+A local audit defaults to the ignored `build/jev-assessments/` directory. To use a
+sibling evaluation checkout, run from the **dismech source checkout**:
+
+```sh
+just jev-audit --cache ../dismech-evals/analysis/classification/jev
+just jev-audit-cache --cache ../dismech-evals/analysis/classification/jev
+```
+
+Do not commit corpus assessment YAML to dismech. In dismech-evals the layout is:
 
 ```text
 analysis/classification/jev/
@@ -101,107 +114,82 @@ analysis/classification/jev/
   Cystic_Fibrosis/evidence_claim_match.yaml
 ```
 
-Each file has an `assessments` mapping keyed by assessment SHA256. The key includes
-the model and complete question/state payload: structured assertion, disease and
-subtype context, selected snippet, declared support/directness, prompt, and aspect
-questions with their slot semantics. No punctuation or whitespace inside strings
-is normalized. YAML formatting changes alone do not change the parsed input.
-A changed input gets a new record; old records and scores are retained. A return
-to an earlier input reuses its saved assessment. Use pinned model versions for
-reproducible caching; a moving model alias does not identify a new model release.
+Version 2 stores each input once, shared across model and prompt configurations:
 
-| Field | Meaning |
+| Mapping | Contents |
 | --- | --- |
-| `claim` | Exact extracted claim snapshot, including selected evidence and original YAML pointers. |
-| `model_input` | Exact shared state sent to Jev, retained independently of future extraction changes. |
-| `input_sha256` | Identity of the model-visible claim/excerpt, independent of model or prompt. Reference metadata and evidence explanations are not model inputs. |
-| `configuration_sha256`, `model`, `assessment_source_revision` | Fingerprint of questions/rubric, requested model and assessment source commit when known; the assessment key combines configuration and input. |
-| `first_seen_at`, `first_seen_revision` | Earliest retained audit observation of this input, with the source commit when known. **Not the original authoring date.** Imported results without a manifest have a null revision. |
-| `assessed_at`, `result` | Original assessment time, per-aspect labels, probabilities/confidence, usage, returned model, and request fingerprint. |
-| `active` | Whether this exact model-visible claim/excerpt still occurs in the disease file, as of the recorded inventory. Independent of whether its model/prompt is current. |
-| `occurrences` | Most recently observed assertion/evidence pointers and reference IDs; supports repeated identical inputs and reordered lists. |
-| `last_seen_at` | Last recorded positive observation; unchanged source files retain their prior observation timestamp. |
-| `activity_history` | Observed retirement/reactivation dates and source revisions. A removal is detected at the next inventory, not dated retrospectively. |
-| `reassessments` | Subsequent responses from explicit refreshes or independently assessed copies. Cache reads use the latest response; the original remains intact. |
+| `inputs[INPUT_SHA256]` | One canonical `claim` snapshot: the exact shared state sent to Jev. Separate `origin` and `evidence_metadata` preserve source pointers and excluded citation metadata. |
+| `assessments[ASSESSMENT_SHA256]` | An `input_sha256` reference, configuration fingerprint, requested model, source revision, original assessment timestamp, per-aspect results and any reassessments. No repeated claim snapshot. |
 
-The file's `inventory` records the inspected disease-file hash, extraction-code
-and schema fingerprint, source revision, observation time and whether extraction was complete. Unchanged disease snapshots
-and cache hits do not churn timestamps. Activity is reconciled against **complete
-disease files**, even when inference uses `--section`, `--limit` or a time budget.
-Invalid extraction does not retire unseen claims: it records `complete: false`.
-The standalone cache command also detects deleted source files. Explicit audit
-input selections leave other disease files alone.
+The input record owns `first_seen_at`, `first_seen_revision`, `last_seen_at`,
+`active`, `active_as_of`, `occurrences` and observed `activity_history`.
+First seen means the earliest retained audit observation, **not the original
+writing date**. Unknown source revisions remain null. Activity means the exact
+model-visible claim/excerpt still occurs in the source file at the recorded
+observation; it is independent of model or prompt currency.
 
-Errors are never cached as judgments. Successful cached rows retain their original
-assessment date and do not add to new-call token totals. Concurrent identical
-requests within one audit share a response. Run only one writer per checkout;
-CI shards have separate checkouts. Malformed cache files stop a run instead of
-silently spending tokens to recreate their contents. Writes replace one file
-atomically; no global cache file is rewritten.
+The assessment hash covers the model, exact input, prompt and aspect questions
+including slot semantics. Punctuation changes inside strings produce a new input;
+YAML formatting alone does not. Historical inputs and scores remain, and restoring
+old wording reuses its saved response. An explicit `--refresh` retains previous
+responses. Use pinned model versions, since a moving alias does not identify a
+new release. API failures are not cached as judgments.
+
+Each file's `inventory` records source and extraction fingerprints, source revision,
+observation time and completeness. Activity uses complete disease files even when
+inference is limited by section, pair count or elapsed time. Invalid extraction
+does not retire unseen claims. Unchanged inventories do not churn timestamps.
+The standalone cache command also detects deleted source files.
 
 ```sh
-# Update active flags from current KB files, without inference.
-just jev-audit-cache
+# Import successful predictions without inference; original dates/scores survive.
+just jev-audit-cache --cache ../dismech-evals/analysis/classification/jev \
+  --import-results reports/jev-audit/results.jsonl
 
-# Import earlier successful predictions, preserving dates and scores.
-just jev-audit-cache --import-results reports/jev-section-smoke/results.jsonl
-
-# Union saved histories from another checkout or downloaded shard.
-just jev-audit-cache --merge-cache /path/to/saved/analysis/classification/jev
+# Merge saved checkpoints and reconcile activity against this source checkout.
+just jev-audit-cache --cache ../dismech-evals/analysis/classification/jev \
+  --merge-cache /path/to/downloaded/cache
 ```
 
-Import verifies assessment hashes against the current questions and extraction;
-incompatible results fail rather than being relabeled. YAML history merges retain
-older configurations as well as new ones, then reconcile activity with the local
-KB. These commands need no API key. An existing SQLite checkpoint is not silently
-converted: import its accompanying `results.jsonl` using the command above.
+Import verifies assessment hashes against the current inference configuration.
+History merges retain older configurations too. Version 1 YAML is upgraded without
+inference; the duplicate claim/model-input copies become one shared snapshot.
+Malformed caches fail rather than silently buying their contents again. Writes
+replace one file atomically. Use one writer per checkout; workflow shards each
+have their own checkout. A time-limited audit retains successful responses and
+marks unfinished work in its reports.
 
-For future derived HTML, look up a score using the **current input and configured
-model/prompt hash**, and display its model and `assessed_at`. `active: true` alone
-is insufficient: a claim can remain present while the assessment configuration
-has changed. `occurrences` provides the current YAML locations, and `result.answers`
-provides the aspect paths for display. No HTML rendering is added here.
+For future HTML, a build can consume an evaluation export pinned to a dismech-evals
+revision. Match the current input **and** configured assessment hash before showing
+a score, and display the model and assessment date. `active: true` alone is not a
+freshness check. No history download or evaluation dependency is added to ordinary
+dismech builds, and HTML integration is deferred.
 
-The first full audit requests each usable assertion/snippet pair once, batching all
-its aspect questions. Later runs reuse unchanged results. Inventory the corpus
-before a live run; `--max-seconds` bounds scheduling and successful responses survive
-partial failures. CSV reports remain disposable; the YAML history is the checkpoint.
+## Weekly workflow and reports
 
-## Weekly GitHub Action
+The [weekly workflow in dismech-evals](https://github.com/monarch-initiative/dismech-evals/blob/main/.github/workflows/weekly.yaml)
+runs Monday at 09:17 UTC. It records the exact source commit and uses a separately
+pinned classifier commit, so data can advance while the evaluation method remains
+stable. All shards in a run use the same revisions and model. The dismech cron
+profiles do not control this external workflow.
 
-[The Jev evidence audit workflow](../.github/workflows/jev-evidence-audit.yaml)
-runs every Monday at **09:17 UTC**, using the centrally managed cron profiles.
-The `off` profile disables its schedule. Manual dispatch supports an inventory-only
-run, a per-shard limit and a model override.
+The evaluation repository's `TYPESAFE_API_KEY` secret supplies inference credentials.
+Only its publication job receives `contents: write`, using its own `GITHUB_TOKEN`
+to commit generated assessment data and run summaries directly to **dismech-evals**.
+These data updates are automatic; there is no human approval or PR merge stage.
+It has no write credentials for dismech or dismech-bench and never changes curated
+assertions or benchmark labels. Code/configuration changes remain ordinary GitHub
+changes, separate from generated data publication.
 
-Configure the `TYPESAFE_API_KEY` repository or organization Actions secret before
-live runs. Publication uses the existing `AI4C_AGENT_APP_ID` and
-`AI4C_AGENT_PRIVATE_KEY` secrets to propose updates to `analysis/classification/jev/`
-through an ordinary PR targeting `main`. It never edits KB assertions or benchmark
-labels, bypasses review, or enables auto-merge. Only dispatches on `main` publish.
+Sixteen filename partitions run with up to four jobs in parallel and four workers
+per job. Successful assessments are reused from the checked-out evaluation history.
+The publication job unions completed checkpoints even when some inference jobs
+fail. It pushes without force; unpublished checkpoints remain downloadable if
+publication fails. Recover them before a new paid run to avoid repeat charges.
 
-Sixteen stable filename-hash partitions run with at most four jobs in parallel,
-each with four API workers. Each job stops scheduling new requests after five
-hours so it has time to save its checkpoint and report before the job timeout.
-Successful judgments come from the checked-out YAML history and any open assessment
-update PR. Reusing that pending PR prevents repeat charges while review is pending.
-Only changed per-disease YAML files are uploaded with each shard, including after
-partial failure. A separate job unions the checkpoints and reconciles activity
-against its checkout of current `main`, then creates or updates the assessment PR.
-It writes only the assessment directory and pushes without force. Reports can be
-incomplete while successful assessments are still saved for the next run.
-
-The committed history has no Actions-cache expiration. The combined `jev-assessment-history` artifact has 90-day retention; individual
-shard artifacts have 14-day retention: if publication fails, recover their `cache/` directories
-with `just jev-audit-cache --merge-cache ...` before another paid run. Missing or
-unreadable pending history stops inference rather than being treated as an empty
-cache. CSV reports and prediction artifacts retain their normal expiration.
-
-Download **`jev-recuration-report`** from the Actions run for combined CSVs, raw
-predictions and provenance. Per-shard prediction artifacts are also retained.
-Missing shards, failed API requests, or pairs left unassessed after a time limit
-produce `complete: false` and an explicitly incomplete combined report
-and a failed report job; they are not presented as a full-corpus audit.
+CSV reports, complete prediction streams and provenance are workflow artifacts;
+small recuration summaries are also published in dismech-evals. Missing shards,
+API failures and time-limited runs remain explicitly incomplete.
 
 To combine downloaded shard artifacts locally:
 
@@ -209,6 +197,5 @@ To combine downloaded shard artifacts locally:
 just jev-audit-report reports/jev-combined --merge build/jev-shards --expected-shards 16
 ```
 
-`--merge` expects one subdirectory per artifact, each containing `manifest.json`
-and `results.jsonl`. It rejects duplicate partitions or incompatible model,
-source, schema, classifier or prompt settings.
+`--merge` expects one subdirectory per shard, containing `manifest.json` and
+`results.jsonl`. It rejects duplicate partitions or incompatible configurations.

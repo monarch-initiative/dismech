@@ -280,7 +280,8 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Evidence recuration reports
 
 Run `just jev-audit` to assess disease assertion/snippet pairs with Jev and produce
-CSV reports for recuration. See [the audit guide](docs/jev-evidence-audit.md) for
+CSV reports for recuration. Corpus assessment history and the weekly workflow live in
+[dismech-evals](https://github.com/monarch-initiative/dismech-evals). See [the audit guide](docs/jev-evidence-audit.md) for
 inventory, cached reruns, report columns and the weekly GitHub Action.
 
 ## Schema Documentation

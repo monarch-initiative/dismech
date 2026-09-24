@@ -3,7 +3,7 @@ Note that this repo is mostly geared around Claude Code.
 You MUST read the full contents of @CLAUDE.md
 
 Use the locally installed TypeSafe skill at
-`.agents/skills/typesafe-ai/SKILL.md` when working on AI-powered features in
+`.claude/skills/typesafe-ai/SKILL.md` when working on AI-powered features in
 this project, following its live-documentation guidance for integrations.
 
 For Codex and any other agent: never create or hand-edit `references_cache/*.md`.

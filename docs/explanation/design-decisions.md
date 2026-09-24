@@ -636,7 +636,19 @@ whole claim. They never automatically change KB assertions, `supports` or
 scale, while the decision to change a claim or its evidence remains a curation
 task. This audit evaluates snippet support rather than source quality or the
 claim's truth elsewhere. Missing evidence, API errors and incomplete runs remain
-separate from model judgments. See [the audit guide](../jev-evidence-audit.md).
+separate from model judgments.
+
+**Storage and execution.** Corpus assessment history and the weekly workflow live
+in the public `monarch-initiative/dismech-evals` repository. Dismech owns the
+classifier and extraction code; `dismech-bench` owns curated benchmark cases and
+benchmark results. Local corpus outputs in dismech are ignored build artifacts.
+The evaluation repository stores each canonical input snapshot once, shared by
+assessment records across configurations. It retains historical inputs, scores
+and observed activity. A first corpus pass is large enough that committing it to
+dismech would burden ordinary checkouts; compression does not resolve that boundary.
+The evaluation workflow pins classifier and source revisions, then automatically
+commits generated data to its own repository using its own token. It has no write
+access to dismech or benchmark curation. See [the audit guide](../jev-evidence-audit.md).
 
 ### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
 

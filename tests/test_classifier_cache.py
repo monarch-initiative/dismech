@@ -40,7 +40,8 @@ def test_punctuation_history_reactivation_and_unchanged_bytes(tmp_path):
     cache.reconcile([file], "first-revision")
     before = document(root)
     old_key = original[0]["cache_key"]
-    old_claim = deepcopy(before["assessments"][old_key]["claim"])
+    identity = before["assessments"][old_key]["input_sha256"]
+    old_claim = deepcopy(before["inputs"][identity]["claim"])
     old_scores = deepcopy(before["assessments"][old_key]["result"])
     initial_calls = fake.calls
     path = root / "Example" / f"{BENCHMARK}.yaml"
@@ -56,13 +57,13 @@ def test_punctuation_history_reactivation_and_unchanged_bytes(tmp_path):
     cache.reconcile([file], "edit-revision")
     assert fake.calls == initial_calls + 1
     after = document(root)
-    retired = after["assessments"][old_key]
+    retired = after["inputs"][identity]
     assert not retired["active"]
     assert retired["claim"] == old_claim
-    assert retired["result"] == old_scores
+    assert after["assessments"][old_key]["result"] == old_scores
     assert retired["first_seen_revision"] == "first-revision"
     assert retired["activity_history"][-1]["source_revision"] == "edit-revision"
-    assert sum(r["active"] for r in after["assessments"].values()) == initial_calls
+    assert sum(r["active"] for r in after["inputs"].values()) == initial_calls
     assert sum(r.get("cached", False) for r in changed) == initial_calls - 1
     # Restoring the original wording reuses its original judgment.
     file.write_text(yaml.safe_dump(disease()))
@@ -70,9 +71,9 @@ def test_punctuation_history_reactivation_and_unchanged_bytes(tmp_path):
     restored = list(assess(inventory([file]), fake, cache, 2))
     assert fake.calls == initial_calls + 1
     assert all(r["cached"] for r in restored if r["status"] == "assessed")
-    assert document(root)["assessments"][old_key]["active"]
+    assert document(root)["inputs"][identity]["active"]
     assert [
-        h["active"] for h in document(root)["assessments"][old_key]["activity_history"]
+        h["active"] for h in document(root)["inputs"][identity]["activity_history"]
     ] == [False, True]
 
 
@@ -100,7 +101,7 @@ def test_filter_and_limit_never_retire_unselected_claims(tmp_path, monkeypatch):
         ],
     )
     assert result.exit_code == 0, result.output
-    assert all(r["active"] for r in document(root)["assessments"].values())
+    assert all(r["active"] for r in document(root)["inputs"].values())
     assert fake.calls == len(rows)
 
 
@@ -112,7 +113,10 @@ def test_model_change_does_not_retire_claim_and_refresh_preserves_response(tmp_p
     (second,) = assess(rows[:1], fake, cache, 1)
     cache.reconcile([file])
     records = document(root)["assessments"]
-    assert len(records) == 2 and all(r["active"] for r in records.values())
+    assert len(records) == 2
+    inputs = document(root)["inputs"]
+    assert len(inputs) == 1 and all(r["active"] for r in inputs.values())
+    assert all("claim" not in r and "model_input" not in r for r in records.values())
     assert len({r["input_sha256"] for r in records.values()}) == 1
     assert len({r["configuration_sha256"] for r in records.values()}) == 2
     (refreshed,) = assess(rows[:1], fake, cache, 1, refresh=True)
@@ -133,15 +137,15 @@ def test_removed_claim_missing_source_and_invalid_source(tmp_path):
     file.write_text("name: Example\nphenotypes: [")
     cache.reconcile([file])
     assert not document(root)["inventory"]["complete"]
-    assert all(r["active"] for r in document(root)["assessments"].values())
+    assert all(r["active"] for r in document(root)["inputs"].values())
     file.write_text("name: Example\n")
     cache.reconcile([file])
-    assert not any(r["active"] for r in document(root)["assessments"].values())
+    assert not any(r["active"] for r in document(root)["inputs"].values())
     file.write_text(yaml.safe_dump(disease()))
     cache.reconcile([file])
     file.unlink()
     cache.reconcile()
-    assert not any(r["active"] for r in document(root)["assessments"].values())
+    assert not any(r["active"] for r in document(root)["inputs"].values())
     assert not document(root)["inventory"]["source_exists"]
 
 
@@ -231,7 +235,7 @@ def test_import_reuses_paid_results_with_original_timestamp(tmp_path):
     }
     assert all(
         r["first_seen_revision"] == "original"
-        for r in document(destination)["assessments"].values()
+        for r in document(destination)["inputs"].values()
     )
 
 
@@ -248,3 +252,40 @@ def test_extraction_changes_advance_observation_without_rebuying_scores(tmp_path
     for key, record in before["assessments"].items():
         assert after["assessments"][key]["result"] == record["result"]
         assert after["assessments"][key]["assessed_at"] == record["assessed_at"]
+
+
+def test_v1_migration_keeps_scores_and_one_input_across_models(tmp_path):
+    file, root, cache, rows = setup(tmp_path)
+    fake = FakeClassifier()
+    list(assess(rows[:1], fake, cache, 1))
+    fake.model = "jev-next"
+    list(assess(rows[:1], fake, cache, 1))
+    cache.reconcile([file])
+    before = document(root)
+    legacy = deepcopy(before)
+    for key, record in legacy["assessments"].items():
+        item = legacy["inputs"][record["input_sha256"]]
+        record.update(
+            {
+                k: v
+                for k, v in item.items()
+                if k not in {"origin", "evidence_metadata", "active_as_of"}
+            }
+        )
+        record["claim"] = deepcopy(rows[0]["claim"])
+        record["model_input"] = deepcopy(item["claim"])
+        record["assessment_sha256"] = key
+    del legacy["inputs"]
+    legacy["format_version"] = 1
+    path = root / "Example" / f"{BENCHMARK}.yaml"
+    path.write_text(yaml.safe_dump(legacy))
+    cache.close()
+    cache = ResultCache(root)
+    cache.reconcile([file])
+    migrated = document(root)
+    assert migrated["format_version"] == 2
+    assert len(migrated["inputs"]) == 1
+    assert migrated["assessments"] == before["assessments"]
+    fake.calls = 0
+    assert all(r["cached"] for r in assess(rows[:1], fake, cache, 1))
+    assert fake.calls == 0
