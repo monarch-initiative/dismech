@@ -160,3 +160,30 @@ def test_terms_not_checked_notice_reaches_the_model_without_approving():
     assert "NOT checked" in payload["additionalContext"]
     # Adding context must never double as an approval of the tool call.
     assert "permissionDecision" not in payload
+
+
+def test_terms_not_checked_notice_lists_the_unchecked_terms():
+    """The model is told which terms to recheck, not just that some were skipped."""
+    import json
+
+    output = (
+        "⚠ TERMS NOT CHECKED: ontology service unavailable.\n"
+        "Offline recheck: no errors in what the local cache could check. Not checked:\n"
+        "  not checked: HP:9999998 at phenotypes[1].phenotype_term.term "
+        "(not in the local term cache)\n"
+    )
+    context = json.loads(hook.terms_not_checked_notice(output))["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    assert "not checked: HP:9999998 at phenotypes[1].phenotype_term.term" in context
+
+
+def test_terms_not_checked_notice_caps_a_long_list():
+    import json
+
+    many = "\n".join(f"  not checked: HP:{i:07d}" for i in range(30))
+    context = json.loads(
+        hook.terms_not_checked_notice("TERMS NOT CHECKED\n" + many)
+    )["hookSpecificOutput"]["additionalContext"]
+    assert context.count("not checked: HP:") == hook.MAX_NOT_CHECKED_LINES
+    assert "... and 10 more" in context
