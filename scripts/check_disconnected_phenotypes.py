@@ -543,9 +543,10 @@ def main(argv: list[str] | None = None) -> int:
             report = assess(path)
         except OSError as exc:
             # Wider than FileNotFoundError so an unreadable path reports rather
-            # than tracebacks -- but never swallowed: every case here exits 2,
-            # which is the distinction from `check_causal_targets.py`, where a
-            # swallowed OSError leaves a mistyped path exiting 0.
+            # than tracebacks -- but never swallowed: every case here exits 2.
+            # `check_causal_targets.py` and `check_qualifier_terms.py` used to
+            # swallow it and exit 0 on a mistyped path; they now follow this
+            # convention too (#11939).
             usage_errors.append(f"{_display_path(path)}: {exc.strerror or exc}")
             continue
         if report is not None:

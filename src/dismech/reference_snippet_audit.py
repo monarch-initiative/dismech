@@ -28,17 +28,19 @@ Issue #7450 added a second, deliberately narrow matching pass on top of that,
 because a mismatch against the cache is not the same claim as a misquote in the
 KB. Two defects live in *our cached text* rather than in the curation:
 
-- **PDF ligatures.** PDF extraction emits ``ﬁ`` (U+FB01) and friends, so the
-  cache reads ``amyloid ﬁbrils`` where the snippet reads ``amyloid fibrils``.
-  The upstream ``normalize_text`` does not fold these.
 - **Stripped inline markup joining words.** Full-text HTML extraction removes
   ``<i>``/``<em>`` without inserting a space, so "within the *ANAPC7* locus"
   caches as ``within theANAPC7locus``.
 
-Both are cache defects that no amount of re-quoting can fix, so a snippet that
-matches only after ligature folding and ignoring word boundaries is reported as
-verified under :data:`PairOutcome.VERIFIED_RELAXED` -- counted as verified, but
-tallied separately so the cache-defect backlog stays visible.
+That is a cache defect no amount of re-quoting can fix, so a snippet that
+matches only after compatibility folding and ignoring word boundaries is
+reported as verified under :data:`PairOutcome.VERIFIED_RELAXED` -- counted as
+verified, but tallied separately so the cache-defect backlog stays visible.
+
+PDF ligatures (``ﬁ`` for ``fi``) used to need a second local table here. They
+are now folded by the upstream ``normalize_text`` itself, on both the strict and
+the relaxed path, so a ligature mismatch is no longer a relaxed match -- it is
+simply a match.
 
 Separately, a snippet quoted from full text that was never cached (the cache
 holds only the abstract) is neither a misquote nor a mangled cache but an
@@ -68,6 +70,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from linkml_reference_validator.matching import split_supporting_text
 
 from dismech.frontmatter import split_frontmatter
 from dismech.yaml_io import safe_load
@@ -95,36 +98,6 @@ NORMALIZED_CACHE_SIZE = 512
 # detail so a CI log stays readable. The summary line always reports the
 # full count.
 MAX_REPORTED_MISMATCHES = 20
-
-# Multi-letter forms that must be expanded before matching. Two different kinds
-# live here, and the table is NOT redundant with the NFKC pass that follows it:
-#
-# - The first block are true *compatibility* ligatures, the ones PDF text
-#   extraction emits as single codepoints. NFKC does decompose these, so listing
-#   them is a fast path rather than a necessity.
-# - ``Æ æ Œ œ`` are encoded as distinct letters, not compatibility characters,
-#   and NFKC leaves them exactly as they are. For those four this table is the
-#   only thing doing the folding. They are also genuine orthography (archaic
-#   ``anæmia``, ``fœtal``) rather than an extractor artifact -- folding them
-#   symmetrically costs nothing for matching and lets a modern transcription
-#   match an old-spelling source.
-LIGATURES = {
-    # Compatibility ligatures (NFKC would also handle these).
-    "ﬀ": "ff",
-    "ﬁ": "fi",
-    "ﬂ": "fl",
-    "ﬃ": "ffi",
-    "ﬄ": "ffl",
-    "ﬅ": "st",
-    "ﬆ": "st",
-    "Ĳ": "IJ",
-    "ĳ": "ij",
-    # Distinct letters: NFKC does NOT touch these, so the table is required.
-    "Œ": "OE",
-    "œ": "oe",
-    "Æ": "AE",
-    "æ": "ae",
-}
 
 # ``content_type`` values in the reference-cache frontmatter that mean "no full
 # text was ever cached". A snippet quoted from the body of such a paper cannot
@@ -452,23 +425,32 @@ class CachedReferenceIndex:
         return SupportingTextValidator.normalize_text(text)
 
     @classmethod
-    def fold_ligatures(cls, text: str) -> str:
-        """Expand typographic ligatures a PDF extractor leaves in cached text.
+    def fold_compatibility(cls, text: str) -> str:
+        """Apply NFKC, bridging codepoints that render identically.
 
-        ``normalize_text`` treats ``ﬁ`` (U+FB01) as a single word character, so
-        cached ``amyloid ﬁbrils`` never matches a snippet reading ``amyloid
-        fibrils`` however faithful the transcription. Folding is applied to both
-        sides, so it can only ever bring a correct quote and its mangled cache
-        back into agreement -- it cannot make two genuinely different strings
-        match.
+        The upstream ``normalize_text`` deliberately does *not* do this: NFKC
+        rewrites scientific notation, turning ``10⁶`` into ``106`` and ``H₂O``
+        into ``H2O``, which would make two genuinely different quantities
+        compare equal in the gate. That is the right call for a gate.
+
+        This advisory pass is a different question -- "is our *cached text*
+        mangled?" -- and there NFKC does useful work that nothing else does:
+        a PDF extractor emits ``µ`` (U+00B5 MICRO SIGN) where the publisher set
+        ``μ`` (U+03BC GREEK SMALL LETTER MU), and no amount of re-quoting fixes
+        that. Applied to both sides, so it can only bring a correct quote and
+        its mangled cache back into agreement.
+
+        Typographic ligatures are **not** folded here any more; upstream's
+        ``normalize_text`` handles those on both paths. Note upstream folds
+        ``ﬁ``/``ﬀ``/``Ĳ`` but deliberately preserves ``Æ``/``Œ`` as the distinct
+        letters they are, and this module follows that choice rather than
+        re-diverging from the gate it reports on.
         """
-        for ligature, expansion in LIGATURES.items():
-            text = text.replace(ligature, expansion)
         return unicodedata.normalize("NFKC", text)
 
     @classmethod
     def normalize_relaxed(cls, text: str) -> str:
-        """Normalize for the cache-defect pass: folded ligatures, no word gaps.
+        """Normalize for the cache-defect pass: NFKC-folded, no word gaps.
 
         Dropping whitespace entirely is what tolerates markup-stripped joins
         (``theANAPC7locus``). It is a real loosening, but a narrow one: the
@@ -476,27 +458,26 @@ class CachedReferenceIndex:
         merges word boundaries rather than admitting arbitrary text. Only pairs
         that already failed the strict check are ever tested this way.
         """
-        return cls.normalize(cls.fold_ligatures(text)).replace(" ", "")
+        return cls.normalize(cls.fold_compatibility(text)).replace(" ", "")
 
     def split_snippet(self, snippet: str) -> list[str]:
         """Split a snippet into the parts the validator matches independently.
 
-        Mirrors ``SupportingTextValidator._split_query``, including its
-        ``literal_bracket_patterns`` branch: bracketed content matching a
-        configured pattern is source text the validator keeps, so the audit must
-        keep it too. Under this repo's config that means an all-caps
-        abbreviation (``[APTT]``) or a percent-bearing span (``[28, 62%]``).
-        Without configured patterns both sides strip every ``[...]`` as an
-        editorial note.
+        Delegates to the validator's own public splitter, so this audit and the
+        gate can never disagree about where a ``...`` breaks a quote or which
+        ``[...]`` spans are editorial. This used to be a local reimplementation
+        of the private ``SupportingTextValidator._split_query``; upstream made it
+        public (linkml/linkml-reference-validator#74) precisely so downstream
+        reporting would stop copying it.
+
+        ``literal_bracket_patterns`` come from this repo's
+        ``conf/reference_validator_config.yaml``: bracketed content matching one
+        is source text the validator keeps, so the audit keeps it too. Under the
+        current config that means an all-caps abbreviation (``[APTT]``) or a
+        percent-bearing span (``[28, 62%]``). Without configured patterns both
+        sides strip every ``[...]`` as an editorial note.
         """
-
-        def replace_bracket(match: re.Match[str]) -> str:
-            if self.is_literal_bracket(match.group(1)):
-                return match.group(0)
-            return " "
-
-        without_brackets = re.sub(r"\[(.*?)\]", replace_bracket, snippet)
-        return self._split_parts(without_brackets)
+        return split_supporting_text(snippet, self._literal_bracket_regexes)
 
     def is_literal_bracket(self, content: str) -> bool:
         """True when bracketed ``content`` is source text rather than a gloss.
@@ -552,6 +533,12 @@ class CachedReferenceIndex:
 
     @staticmethod
     def _split_parts(text: str) -> list[str]:
+        """Split on ``...`` only, leaving brackets alone.
+
+        Not :func:`split_supporting_text`: the one caller has already decided
+        which bracketed spans to keep, and the public splitter would strip them
+        again. This is the ellipsis half of that function on its own.
+        """
         parts = re.split(r"\s*\.{2,}\s*", text)
         return [re.sub(r"\s+", " ", part).strip() for part in parts if part.strip()]
 

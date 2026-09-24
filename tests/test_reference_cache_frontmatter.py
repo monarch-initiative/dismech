@@ -346,3 +346,40 @@ def test_non_pmid_cache_is_not_subject_to_metadata_check(tmp_path: Path):
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
     assert findings == [], "\n".join(f.format() for f in findings)
+
+
+def test_the_contract_accepts_every_key_the_validator_emits():
+    """Derive the expected fields from the installed emitter, don't hardcode them.
+
+    ``ReferenceCacheFrontmatter`` forbids unknown fields, so a field added
+    upstream fails every cache file the new version touches -- and the failure
+    lands in whichever PR happens to refresh a cache, not in the one that
+    upgraded the pin. That happened three times in a row while retiring the
+    monkeypatches: five fields, then ``absent_content_version``, then
+    ``full_text_source_item_id``, each found by CI rather than by looking.
+
+    Reading the emitter is the check that does not need the failure first. It is
+    the local half of linkml/linkml-reference-validator#89, which asks upstream
+    to own this contract so consumers stop mirroring it.
+    """
+    import inspect
+    import re
+
+    from linkml_reference_validator.etl import reference_fetcher
+
+    from dismech.reference_cache_frontmatter import ReferenceCacheFrontmatter
+
+    source = inspect.getsource(reference_fetcher)
+    # Frontmatter lines only: `lines.append("key: ...")` / `lines.append(f"key: ...")`.
+    # Not `f"access_type:{...}"` (a *value* prefix inside full_text_declined) or
+    # `f"clinicaltrials:{...}"` (a CURIE prefix) -- neither is a frontmatter key.
+    emitted = set(
+        re.findall(r'lines\.append\(\s*\n?\s*f?"([a-z_]+):', source)
+    )
+    declared = set(ReferenceCacheFrontmatter.model_fields)
+
+    missing = sorted(emitted - declared)
+    assert not missing, (
+        "linkml-reference-validator writes frontmatter fields this contract "
+        f"rejects, so every refreshed cache file will fail: {missing}"
+    )

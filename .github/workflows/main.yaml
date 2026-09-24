@@ -21,6 +21,20 @@ permissions:
   contents: read
   pull-requests: read
 
+# Cancel a pull request's superseded run when a new commit is pushed, so stale
+# runs stop holding runners the current head is queued behind (#11941).
+#
+# Only `pull_request` runs share a group. `push` on main and `merge_group` runs
+# are keyed on their own run_id, so each is alone in its group and nothing can
+# cancel it. That is stricter than `cancel-in-progress: false`: GitHub keeps at
+# most one *pending* run per group and cancels the older pending one even with
+# cancel-in-progress off, so a shared main-branch group would drop the middle of
+# three quick post-merge builds. Cancelling a merge_group run would eject the PR
+# from the merge queue (#10168, #2034).
+concurrency:
+  group: build-and-test-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
 
