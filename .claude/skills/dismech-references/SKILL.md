@@ -428,3 +428,47 @@ just check-reference-cache-frontmatter
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+## Never patch the validator from inside dismech
+
+`linkml-reference-validator` (LRV) is used as a library, as-is. dismech applies **two**
+patches over its internals, and both exist in order to be deleted.
+`_wrap_url_fetch` strips scripts and page attributes out of the raw HTML
+`URLSource` caches, because this repository commits its cache to a public git
+repository (linkml/linkml-reference-validator#92). `_wrap_jstage_pdf_title`
+recovers a title for a PDF URL, which `URLSource` otherwise leaves set to the URL
+itself (linkml/linkml-reference-validator#93).
+`tests/test_upstream_validator_behaviours.py` enforces the budget: a patch must
+be one of those two, and must name its upstream issue.
+
+This is worth stating because the repository spent months doing the opposite.
+`src/dismech/patch_reference_validator.py` grew to 650 lines that replaced nine
+private LRV methods at import time — how the fetcher named cache files, parsed
+JATS tables, quoted YAML, coerced authors. Every one of those was a real bug with
+a correct fix, and the patch made each of them invisible to the only project that
+could fix it properly. The costs compounded:
+
+- **The fix never reached anyone else.** Nine defects were fixed for dismech and
+  for nobody else using LRV.
+- **It broke on contact with an upgrade.** Patching a private method means
+  depending on its signature. When LRV changed one, `just validate-kb-references`
+  died at import with `AttributeError: 'function' object has no attribute
+  '__func__'` — the gate, not a test.
+- **It hid the upstream problem from tests.** dismech's suite tested the patch,
+  so it stayed green while the thing it was patching was still broken.
+
+Ten of the twelve are now fixed in LRV (#66-74, #85, #87, #88) and deleted here.
+The two that remain are real upstream gaps rather than workarounds, so they were
+filed rather than quietly kept. Both arrived the same way the others did -- a
+curation PR adding a patch as a side effect of curating a disease -- which is
+what the budget test now catches.
+
+**If you genuinely must patch, the patch is temporary and the issue is filed
+first.** Open the upstream issue before writing the patch, name that issue in a
+comment at the patch site, and test the *behaviour* you need rather than the
+patch itself — a behaviour test keeps passing when the fix lands upstream and the
+patch comes out, which is exactly when you want to find out it is redundant.
+`tests/test_upstream_validator_behaviours.py` is the worked example: each test
+names the upstream issue it pins, and none of them reference a patch.
+
+A bug worth working around is a bug worth reporting.
