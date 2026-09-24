@@ -403,7 +403,7 @@ def read_empty_cache(path: Path) -> EmptyCache | None:
     """Return an :class:`EmptyCache` if ``path`` is ``content_type: unavailable``.
 
     Reads only the frontmatter, with line-anchored regexes rather than a full
-    YAML parse, so a sweep over the ~33k-file corpus stays at a few seconds. A
+    YAML parse, so a sweep over the whole cache stays at a few seconds. A
     file with no frontmatter or no ``content_type`` is not reported: the
     contract check above is what reports malformed files.
     """
@@ -748,6 +748,8 @@ def main_fetch_warning(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
+    # `list-empty` and `fetch-warning` are subcommands; any other first
+    # argument is the cache directory to check, as it always was.
     if args and args[0] == "list-empty":
         return main_list_empty(args[1:])
     if args and args[0] == "fetch-warning":

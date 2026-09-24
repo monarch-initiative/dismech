@@ -448,9 +448,9 @@ was retrieved on the fetches you made, not that the record cannot be quoted; the
 next curator's fetch may succeed.
 
 **If it stays empty, nothing in it can be a snippet.** A title is not a finding,
-and a sentence recalled from the paper is not a quote from the cache. Record the
-paper, if the entry should carry it at all, as a top-level `references:` entry
-with no snippet, and say in `notes` why it is not cited as evidence. The worked
+and a sentence recalled from the paper is not a quote from the cache. Say in
+`notes` why it is not cited as evidence, and optionally also list it as a
+top-level `references:` entry with no snippet. The worked
 example is the "Not cited, and why." paragraph in the `notes` of
 `kb/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_9.yaml`: two papers on a
 further WARS1 family that cache with no abstract text are named there as leads
