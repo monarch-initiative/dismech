@@ -1,6 +1,6 @@
 """Provider-independent input and output for a single classification question."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
@@ -42,3 +42,5 @@ class ClassificationBatch:
     usage: dict[str, int]
     elapsed_seconds: float
     request_sha256: str
+    # Successful HTTP payloads; request_sha256 identifies the logical question set.
+    request_sha256s: list[str] = field(default_factory=list)
