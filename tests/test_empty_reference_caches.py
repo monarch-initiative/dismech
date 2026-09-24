@@ -25,7 +25,6 @@ from dismech.reference_cache_frontmatter import (
     scan_empty_caches,
 )
 
-
 ROOT = Path(__file__).parent.parent
 WRAPPER = ROOT / "scripts" / "run_reference_validator.sh"
 

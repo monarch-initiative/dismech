@@ -575,13 +575,19 @@ def format_empty_cache_summary(
 ) -> str:
     """Human-readable summary of the empty-cache sweep."""
     lines = [
-        f"Reference caches with no quotable text (content_type: "
-        f"{EMPTY_CONTENT_TYPE}): {len(empties)} of {total_files} cache files",
+        (
+            f"Reference caches with no quotable text (content_type: "
+            f"{EMPTY_CONTENT_TYPE}): {len(empties)} of {total_files} cache files"
+        ),
         "",
-        "  'tried full text' = full_text_attempted: true; the full-text route was "
-        "tried and found nothing.",
-        "  'not retried'     = no such marker; fetched before or outside the "
-        "full-text route, so a",
+        (
+            "  'tried full text' = full_text_attempted: true; the full-text "
+            "route was tried and found nothing."
+        ),
+        (
+            "  'not retried'     = no such marker; fetched before or outside "
+            "the full-text route, so a"
+        ),
         "                      --force refetch may recover text.",
         "",
     ]
@@ -611,8 +617,10 @@ def format_empty_cache_summary(
         )
         lines += [
             "",
-            f"Cited anywhere in kb/: {len(cited_ids)} record(s), across "
-            f"{len(cited_files)} file(s).",
+            (
+                f"Cited anywhere in kb/: {len(cited_ids)} record(s), across "
+                f"{len(cited_files)} file(s)."
+            ),
         ]
         snippet_ids = sorted(citations.snippet_citations)
         lines.append(
@@ -629,10 +637,14 @@ def format_empty_cache_summary(
             lines.append(f"  - {rid}: {', '.join(files)}")
     lines += [
         "",
-        "Report-only (exit 0). A --force refetch may recover text; if the record "
-        "stays empty,",
-        "say in `notes` why the paper is not cited (a `references:` entry is "
-        "optional), never write a snippet.",
+        (
+            "Report-only (exit 0). A --force refetch may recover text; if the "
+            "record stays empty,"
+        ),
+        (
+            "say in `notes` why the paper is not cited (a `references:` entry "
+            "is optional), never write a snippet."
+        ),
         "See issue #9825.",
     ]
     return "\n".join(lines)
@@ -643,8 +655,10 @@ def format_empty_cache_tsv(
 ) -> str:
     """One row per empty cache record."""
     rows = [
-        "reference_id\tprefix\tfull_text_attempted\tkb_files_citing\t"
-        "snippet_citations\tpath"
+        (
+            "reference_id\tprefix\tfull_text_attempted\tkb_files_citing\t"
+            "snippet_citations\tpath"
+        )
     ]
     for empty in empties:
         if citations is None:
