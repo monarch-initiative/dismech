@@ -101,8 +101,10 @@ def classify(output: str, exit_code: int) -> tuple[int, list[str]]:
         # Keep the pre-#12658 behaviour (warn, allow) instead of blocking the
         # edit on output this script does not understand.
         return 0, [
-            "not checked: all terms (the offline recheck exited "
-            f"{exit_code} without results this script could read)"
+            (
+                "not checked: all terms (the offline recheck exited "
+                f"{exit_code} without results this script could read)"
+            )
         ]
 
     blocking = [r for r in results if r.unchecked_reason is None]

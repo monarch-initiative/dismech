@@ -75,9 +75,11 @@ def test_both_reasons_for_one_term_are_merged_into_one_line() -> None:
     assert code == 0
     unchecked = [line for line in lines if "not checked:" in line]
     assert unchecked == [
-        "  not checked: HP:9999998 at phenotypes[2].phenotype_term.term "
-        "(PhenotypeTerm membership not in the local enum cache; "
-        "not in the local term cache)"
+        (
+            "  not checked: HP:9999998 at phenotypes[2].phenotype_term.term "
+            "(PhenotypeTerm membership not in the local enum cache; "
+            "not in the local term cache)"
+        )
     ]
 
 
@@ -99,8 +101,10 @@ def test_unreadable_output_keeps_the_old_warning() -> None:
     code, lines = classify("Traceback (most recent call last):\n  boom", 1)
     assert code == 0
     assert lines == [
-        "not checked: all terms (the offline recheck exited 1 without results "
-        "this script could read)"
+        (
+            "not checked: all terms (the offline recheck exited 1 without results "
+            "this script could read)"
+        )
     ]
 
 
