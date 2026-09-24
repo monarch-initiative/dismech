@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_c1dae6b6-4ed7-4c5a-ba4e-bcfaba026be8-2022-09-21T160000.000Z
+extractor_version: 1
 title: curation results for Gene-Disease Validity
 content_type: url
 ---
@@ -485,7 +486,7 @@ content_type: url
 </div>
 </div>
 <div>
-<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however,
+<p>If you cannot login at this time, enter your email address and click on submit.  You will not have access to your dashboard, however, 
 			ClinGen will save your requests pending confirmationo of your email address. </p>
 <form>
 <input/> <div>
@@ -1257,10 +1258,10 @@ content_type: url
 <div>
 <ul>
 <li><a><i></i>Case Level Variants
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Segregation
-
+                                                                            
 </a></li>
 <li><a><i></i>Case Level Family Segregation w/o a Scored Proband</a></li>
 <li><a><i></i>Case-Control
@@ -1278,7 +1279,7 @@ content_type: url
 <div>
 <h4>SCORED GENETIC EVIDENCE <span>Total Proband Counted Points:  1.70</span></h4>
         Case Level Variants
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1318,9 +1319,9 @@ content_type: url
                             Faletra Proband
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1378,9 +1379,9 @@ content_type: url
                             Family 1 Proband
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1439,9 +1440,9 @@ content_type: url
                             Azizi Malamiri_Proband 1
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1509,9 +1510,9 @@ content_type: url
                             OTO.003
                         </td>
 <td>
-
+                            
                                                         Other variant type
-
+                                                      
                         </td>
 <td>
 <div>
@@ -1620,7 +1621,7 @@ content_type: url
 <tbody>
 <tr>
 <td>
-                            Aziz Malamiri_Family
+                            Aziz Malamiri_Family 
                             <div>(Azizi Malamiri_Proband 1)</div>
 </td>
 <td>
@@ -1768,7 +1769,7 @@ content_type: url
 <div>
 <h4>GENETIC EVIDENCE <span>Total Points:  N/A</span></h4>
         Case Control
-
+        
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -1841,7 +1842,7 @@ content_type: url
 <div>
 <h4>EXPERIMENTAL EVIDENCE <span>Total Points:  4.50</span></h4>
          
-
+                
 </div>
 <div>
         Note:  This is an extremely wide table and portions of it may be horizontally scrolled out of view.
@@ -2018,7 +2019,7 @@ content_type: url
 </a>
 <br/>
                                             Moteki H,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Hearing loss caused by a P2RX2 mutation identified in a MELAS family with a coexisting mitochondrial 3243AG mutation. <strong>2015</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>While the proband did have an identified P2RX2 variant, they also had MELAS and a mitochondrial variant so it's difficult to determine the contribution of P2RX2.</p>
@@ -2031,7 +2032,7 @@ content_type: url
 </a>
 <br/>
                                             Cederholm JME,
-                                                                                         et. al.,
+                                                                                         et. al., 
                                                                                         Onset kinetics of noise-induced purinergic adaptation of the 'cochlear amplifier'. <strong>2019</strong><br/>
 <br/>
 <strong>Explanation:  </strong><p>Further characterization of the Housley mouse. Does not provide additional score.</p>
