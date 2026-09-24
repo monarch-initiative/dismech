@@ -25,6 +25,10 @@ from dismech.reference_cache_frontmatter import (
     scan_empty_caches,
 )
 
+# main() calls kb_cache.default_off(), which sets DISMECH_KB_CACHE=0 for the
+# whole pytest process; without this, tests/test_kb_cache.py fails afterwards.
+pytestmark = pytest.mark.usefixtures("preserve_kb_cache_environment")
+
 ROOT = Path(__file__).parent.parent
 WRAPPER = ROOT / "scripts" / "run_reference_validator.sh"
 
