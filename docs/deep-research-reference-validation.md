@@ -44,12 +44,14 @@ deep-research-client subcommand doing the latter is itself called
 name — issue #8841.)
 
 Because this path both reads and writes `references_cache/`, the recipes invoke
-it through `scripts/run_deep_research_client.sh`, which applies dismech's
-`patch_reference_validator` repairs first — exactly as
-`scripts/run_reference_validator.sh` does for the validator CLI. That matters
-most for the issue #7697 delimiter-aware frontmatter read: without it, a cached
-record whose frontmatter contains a literal `---` is truncated on read and
-reported as a **false unresolved reference**, and the guidance below tells you
+it through `scripts/run_deep_research_client.sh`, which applies dismech's Biomni
+opt-in policy before provider discovery.
+
+The cache repairs that wrapper used to apply are now upstream in
+`linkml-reference-validator`. The one worth knowing about is the issue #7697
+delimiter-aware frontmatter read: without it, a cached record whose frontmatter
+contains a literal `---` is truncated on read and reported as a **false
+unresolved reference**, and the guidance below tells you
 not to cite unresolved references. Do not call `deep-research-client` directly
 for anything that validates; go through the wrapper or the recipes.
 

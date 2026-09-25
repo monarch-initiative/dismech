@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHIM Syndrome 1 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>WHIM Syndrome 1</span>
+            </div>
+
+            <header class="report-header">
+                <h1>WHIM Syndrome 1</h1>
+                
+                <p class="report-subtitle">WHIM Syndrome 1 — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_8000006" target="_blank" rel="noopener noreferrer">MONDO:8000006</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">29 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>WHIM Syndrome 1 — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> WHIM Syndrome 1 (Warts, Hypogammaglobulinemia, Infections, Myelokathexis)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_8000006" target="_blank" rel="noopener noreferrer">MONDO:8000006</a>
+<strong>Category:</strong> Mendelian, autosomal dominant combined primary immunodeficiency
+<strong>Causal gene:</strong> <em>CXCR4</em> (C-X-C chemokine receptor type 4)</p>
+<hr />
+<h2>Summary</h2>
+<p>WHIM Syndrome 1 is a rare, autosomal dominant combined primary immunodeficiency and chronic neutropenic disorder caused by heterozygous <strong>gain-of-function truncating mutations in the intracellular C-terminal tail of the chemokine receptor gene <em>CXCR4</em></strong> (most commonly p.R334X). The acronym encodes the four cardinal features — <strong>W</strong>arts, <strong>H</strong>ypogammaglobulinemia, <strong>I</strong>nfections, and <strong>M</strong>yelokathexis. The unifying molecular lesion is loss of the receptor's C-terminal serine/threonine phosphorylation sites, which normally recruit <strong>GRK6 and β-arrestin</strong> to desensitize and internalize the receptor after ligand binding. Truncation uncouples CXCR4 from this "off switch," producing sustained, exaggerated signaling in response to its sole ligand <strong>CXCL12/SDF-1</strong> (increased calcium flux, ERK phosphorylation, and chemotaxis). Because the CXCL12–CXCR4 axis is the master retention signal for mature leukocytes in the bone marrow, hyperactive CXCR4 traps mature neutrophils (and other leukocytes) in the marrow — the hallmark <strong>myelokathexis</strong> — yielding paradoxical peripheral neutropenia and panleukopenia despite a hypercellular marrow.</p>
+<p>Clinically, patients present in early childhood with severe congenital neutropenia, recurrent bacterial infections (especially pneumonia), a disproportionate susceptibility to human papillomavirus (HPV)-driven warts and anogenital malignancy, and variable hypogammaglobulinemia with B- and T-lymphopenia. Long-term complications include bronchiectasis and HPV-related cancers. Diagnosis is frequently delayed by a decade or more because myelokathexis requires specialized bone-marrow evaluation and penetrance is incomplete.</p>
+<p>The disease has become a landmark example of mechanism-to-medicine translation. Because pathology stems from CXCR4 hyperactivity, CXCR4 antagonism reverses the leukocyte sequestration: the oral small-molecule antagonist <strong>mavorixafor (Xolremdi)</strong> became the <strong>first FDA-approved targeted therapy for WHIM syndrome on 26 April 2024</strong>, following a positive phase 3 trial. Complementary curative strategies exploit the fact that <em>lowering</em> CXCR4 gives hematopoietic stem cells a competitive advantage: a patient was spontaneously cured by chromothripsis that deleted the disease allele, and CRISPR-based disease-allele inactivation offers a proof-of-concept genetic cure.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> WHIM syndrome is a rare inherited immunodeficiency defined by the tetrad of <strong>W</strong>arts, <strong>H</strong>ypogammaglobulinemia, recurrent bacterial <strong>I</strong>nfections, and <strong>M</strong>yelokathexis (retention/apoptosis of mature neutrophils in the bone marrow). It is classified as an autosomal dominant combined immunodeficiency (CID) with an early-onset hallmark of neutropenia (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29066537/">PMID: 29066537</a>).</p>
+<p><strong>Key identifiers.</strong>
+| Resource | Identifier |
+|----------|-----------|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_8000006" target="_blank" rel="noopener noreferrer">MONDO:8000006</a> |
+| OMIM | #193670 (WHIM syndrome 1, WHIMS1) |
+| Gene | <em>CXCR4</em>, OMIM *162643; <a href="https://bioregistry.io/HGNC:2561" target="_blank" rel="noopener noreferrer">HGNC:2561</a> |
+| Orphanet | <a href="https://bioregistry.io/ORPHA:51636" target="_blank" rel="noopener noreferrer">ORPHA:51636</a> |
+| MeSH | WHIM syndrome / Warts, hypogammaglobulinemia, infections, and myelokathexis syndrome |
+| ICD-10 | D84.8 (other specified immunodeficiencies) / D70 (neutropenia) |</p>
+<p><strong>Synonyms / alternative names.</strong> Warts–hypogammaglobulinemia–infections–myelokathexis syndrome; WHIMS; WHIMS1; historical "myelokathexis" descriptions (now attributed to CXCR4). "WHIM Syndrome 1" specifically denotes the CXCR4-associated form (the canonical and by far most common genotype).</p>
+<p><strong>Information source.</strong> The knowledge base entry is derived from <strong>aggregated disease-level resources</strong> — international patient cohorts, case series, mechanistic in vitro and mouse studies, and clinical trials — rather than from a single individual EHR.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal factor — genetic.</strong> WHIM Syndrome 1 is caused by <strong>heterozygous, autosomal dominant, gain-of-function truncating mutations in the <em>CXCR4</em> gene</strong>, which encodes a seven-transmembrane G-protein-coupled chemokine receptor. Mutations truncate the intracellular C-terminal tail, removing the serine/threonine residues required for receptor desensitization (<a href="https://pubmed.ncbi.nlm.nih.gov/31313072/">PMID: 31313072</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">PMID: 36883568</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>).</p>
+<blockquote>
+<p>"WHIM syndrome is usually caused by autosomal dominant mutations in the G protein-coupled chemokine receptor CXCR4 that impair desensitization, resulting in enhanced and prolonged G protein- and β-arrestin-dependent responses" (<a href="https://pubmed.ncbi.nlm.nih.gov/31313072/">PMID: 31313072</a>).</p>
+</blockquote>
+<p><strong>Genetic risk factors.</strong> The disease-causing variants are the risk factors — there are no separate susceptibility loci. The single largest genetic risk factor is inheriting one WHIM <em>CXCR4</em> allele; <strong>p.R334X (c.1000C&gt;T)</strong> is the most frequent variant. Additional described variants include p.Ser338X, p.Gly336X, p.Leu317fsX3, and an N-terminal p.D84H variant that expands the spectrum beyond the canonical C-terminal hotspot (<a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">PMID: 36883568</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>). Notably, some patients with full clinical WHIM carry a <strong>wild-type CXCR4 gene</strong> yet share the same CXCR4 signaling dysfunction, implying rare non-CXCR4 or upstream/downstream causes (genetic heterogeneity) (<a href="https://pubmed.ncbi.nlm.nih.gov/21178277/">PMID: 21178277</a>).</p>
+<p><strong>Environmental risk factors.</strong> No environmental exposure causes WHIM. However, <strong>HPV exposure</strong> is the necessary environmental trigger for the wart/malignancy phenotype: the immune defect renders patients unable to control HPV once acquired. Bacterial pathogens drive the infection phenotype but are opportunistic consequences of neutropenia, not causes of the disease.</p>
+<p><strong>Protective factors.</strong> The most striking protective factor is <em>genetic</em>: <strong>CXCR4 haploinsufficiency (loss of one functional copy) confers a hematopoietic stem-cell engraftment advantage</strong> and can reverse disease. A WHIM patient was cured when a chromothriptic event deleted the disease allele (<a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">PMID: 25662009</a>). No dietary or lifestyle protective factors are established.</p>
+<p><strong>Gene–environment interaction.</strong> The genetic lesion (CXCR4 gain-of-function → immune-cell dysfunction) interacts with environmental HPV exposure to produce warts and cancer; mouse studies show WHIM animals are markedly more susceptible to papillomavirus-induced disease specifically because of immune-cell dysfunction, and bone-marrow transplant from wild-type donors normalizes susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">PMID: 39226327</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>WHIM is a multisystem immunodeficiency. Frequencies below derive chiefly from an international cohort of 18 patients and a review of 105 published cases (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Severity/Course</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe neutropenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a></td>
+<td>Congenital/infancy</td>
+<td>~100% (ANC ~195 ± 102 cells/mm³)</td>
+<td>Severe, chronic</td>
+</tr>
+<tr>
+<td>Myelokathexis (marrow neutrophil retention + apoptotic hypersegmented nuclei)</td>
+<td>Pathology/lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031160" target="_blank" rel="noopener noreferrer">HP:0031160</a> (myelokathexis)</td>
+<td>Congenital</td>
+<td>Defining feature</td>
+<td>Chronic</td>
+</tr>
+<tr>
+<td>Panleukopenia (lymphopenia, monocytopenia)</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" rel="noopener noreferrer">HP:0001882</a>; <a href="http://purl.obolibrary.org/obo/HP_0012312" target="_blank" rel="noopener noreferrer">HP:0012312</a></td>
+<td>Childhood</td>
+<td>Common; B-lymphopenia and monocytopenia</td>
+<td>Chronic</td>
+</tr>
+<tr>
+<td>Recurrent bacterial infections</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a></td>
+<td>Early childhood (2.2 ± 2.6 yr)</td>
+<td>Severe bacterial infection in 78%</td>
+<td>Recurrent</td>
+</tr>
+<tr>
+<td>Recurrent pneumonia</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006532" target="_blank" rel="noopener noreferrer">HP:0006532</a></td>
+<td>Childhood</td>
+<td>61%</td>
+<td>Recurrent → bronchiectasis</td>
+</tr>
+<tr>
+<td>Bronchiectasis</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" rel="noopener noreferrer">HP:0002110</a></td>
+<td>Later (progressive)</td>
+<td>27%</td>
+<td>Progressive, irreversible</td>
+</tr>
+<tr>
+<td>Cutaneous/genital warts (HPV)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200043" target="_blank" rel="noopener noreferrer">HP:0200043</a></td>
+<td>Mean age 11 yr</td>
+<td>61%</td>
+<td>Refractory, progressive</td>
+</tr>
+<tr>
+<td>HPV-related malignancy</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" rel="noopener noreferrer">HP:0002664</a></td>
+<td>Adulthood</td>
+<td>16%</td>
+<td>Life-threatening</td>
+</tr>
+<tr>
+<td>Hypogammaglobulinemia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" rel="noopener noreferrer">HP:0002720</a></td>
+<td>Variable</td>
+<td>Variable (may be absent)</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Congenital cardiac defects</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+<td>Congenital</td>
+<td>Uncommon</td>
+<td>Variable</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset.</strong> Clinical features typically manifest at <strong>2.2 ± 2.6 years</strong>, but diagnosis is delayed to a mean of <strong>12.5 ± 10.4 years</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>).</p>
+<p><strong>Severity/progression.</strong> Neutropenia and myelokathexis are stable and lifelong; infections are episodic; bronchiectasis and HPV malignancy are progressive complications. Lymphopenia is selective — <strong>CD8⁺ T-cell lymphopenia is more severe than CD4⁺</strong>, due to sequestration in the thymus and bone marrow (<a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">PMID: 37133343</a>).</p>
+<blockquote>
+<p>"Pneumonia recurrence was observed in 61% of patients and was complicated with bronchiectasis in 27%. Skin warts were observed in 61% of patients at a mean age of 11 years, whereas human papilloma virus (HPV)-related malignancies manifested in 16% of patients." (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>)</p>
+</blockquote>
+<p><strong>Quality of life impact.</strong> Recurrent infections, chronic wart burden (disfiguring, refractory), IVIG dependence, and progressive lung disease substantially impair daily functioning; formal EQ-5D/SF-36 datasets specific to WHIM are not available. Despite severe neutropenia, the overall clinical course is frequently milder and more manageable than the laboratory picture suggests (<a href="https://pubmed.ncbi.nlm.nih.gov/36793393/">PMID: 36793393</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>CXCR4</em> (chromosome <strong>2q22.1</strong>; historically mapped by linkage to 2q21). <a href="https://bioregistry.io/HGNC:2561" target="_blank" rel="noopener noreferrer">HGNC:2561</a>; OMIM *162643. Encodes a 352-residue GPCR whose sole ligand is CXCL12 (SDF-1).</p>
+<p><strong>Gene discovery.</strong> Hernandez et al. (2003) localized WHIM to chromosome 2q21 and identified <strong>truncating mutations in the cytoplasmic tail domain of <em>CXCR4</em></strong> — the first example of a chemokine receptor causing a human Mendelian disease (<a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>).</p>
+<blockquote>
+<p>"the identification of truncating mutations in the cytoplasmic tail domain of the gene encoding chemokine receptor 4 (CXCR4)" (<a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>)</p>
+<p>"Lymphoblastoid cell lines carrying a 19-residue truncation mutation show significantly greater calcium flux relative to control cell lines in response to the CXCR4 ligand, SDF-1, consistent with dysregulated signaling by the mutant receptor" (<a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>)</p>
+</blockquote>
+<p><strong>Pathogenic variants.</strong>
+| Variant | cDNA | Type | Consequence | Notes |
+|---------|------|------|-------------|-------|
+| p.R334X | c.1000C&gt;T | Nonsense/truncating | Removes ~19 C-terminal residues | Most common WHIM allele |
+| p.S338X | — | Nonsense/truncating | C-terminal truncation | Recurrent |
+| p.G336X | — | Nonsense/truncating | C-terminal truncation | Recurrent |
+| p.Leu317fsX3 | — | Frameshift | Truncation with altered signaling profile | Reduced G-protein signaling despite impaired internalization (<a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">PMID: 36883568</a>) |
+| p.D84H | — | Missense (N-terminal) | Non-canonical activation | Expands genetic spectrum (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>) |</p>
+<ul>
+<li><strong>Classification (ACMG/AMP):</strong> Pathogenic (recurrent truncating variants with established functional gain-of-function mechanism).</li>
+<li><strong>Variant type:</strong> Predominantly nonsense/frameshift truncations of the C-terminal tail; rarely missense.</li>
+<li><strong>Allele frequency:</strong> Absent/ultra-rare in gnomAD (consistent with a severe dominant disease).</li>
+<li><strong>Origin:</strong> <strong>Germline</strong>, inherited autosomal dominant (or de novo). Not somatic in origin (except the acquired <em>somatic</em> chromothriptic reversion event that cured one patient).</li>
+<li><strong>Functional consequence:</strong> <strong>Gain of function</strong> — enhanced and prolonged signaling due to impaired desensitization; not a simple loss of function.</li>
+</ul>
+<blockquote>
+<p>"All mutations reported in WHIM patients lead to the truncations in the C-terminal domain of CXCR4, R334X being the most frequent. This defect prevents receptor internalization and enhances both calcium mobilization and ERK phosphorylation, resulting in increased chemotaxis in response to the unique ligand CXCL12." (<a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">PMID: 36883568</a>)</p>
+</blockquote>
+<p><strong>Modifier genes.</strong> No formally validated modifier genes; the marked clinical variability (incomplete penetrance, variable expressivity, WHIM without hypogammaglobulinemia/warts) suggests genetic and stochastic modifiers exist but are not yet mapped.</p>
+<p><strong>Epigenetic information.</strong> No disease-specific DNA-methylation or histone-modification signature has been established for WHIM.</p>
+<p><strong>Chromosomal abnormalities.</strong> Not a cause of WHIM. However, a spontaneous <strong>chromothripsis</strong> event — deleting the <em>CXCR4^R334X</em> allele plus 163 neighboring genes from one copy of chromosome 2 in a single HSC — produced a natural cure, an instructive example of a large-scale acquired somatic rearrangement reversing a dominant disease (<a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">PMID: 25662009</a>).</p>
+<blockquote>
+<p>"deletion of the disease allele, CXCR4(R334X), as well as 163 other genes from one copy of chromosome 2 occurred in a hematopoietic stem cell (HSC) that repopulated the myeloid but not the lymphoid lineage" (<a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">PMID: 25662009</a>)</p>
+</blockquote>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> No toxins, radiation, or occupational exposures cause WHIM.</li>
+<li><strong>Lifestyle factors:</strong> None established as causal or protective.</li>
+<li><strong>Infectious agents:</strong> Infections are <em>consequences</em> of the immunodeficiency, not causes. The most clinically important pathogen is <strong>human papillomavirus (HPV)</strong>, to which patients are disproportionately susceptible, driving warts and anogenital/cervical/head-and-neck carcinomas (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">PMID: 39226327</a>). Recurrent encapsulated-bacterial infections (pneumonia, otitis, cellulitis, sepsis) result from neutropenia and hypogammaglobulinemia.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>heterozygous truncating mutation</strong> in the <em>CXCR4</em> C-terminal tail (e.g., p.R334X) <strong>removes the serine/threonine phosphorylation cluster</strong> required for receptor regulation. <em>(demonstrated)</em></li>
+<li>The truncated receptor <strong>fails to recruit GRK6</strong> (while GRK3 binding is preserved) and shows <strong>delayed β-arrestin2 recruitment</strong>, which <strong>impairs receptor phosphorylation, internalization, and desensitization</strong>. <em>(demonstrated, in vitro)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19956569/">PMID: 19956569</a>)</li>
+<li>Impaired desensitization <strong>leads to sustained and exaggerated CXCR4 signaling</strong> in response to CXCL12 — <strong>increased calcium mobilization, prolonged ERK phosphorylation, and enhanced chemotaxis</strong>. <em>(demonstrated)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">PMID: 36883568</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>)</li>
+<li>At the membrane, the mutant receptor <strong>fails to nanocluster after CXCL12 stimulation</strong>, producing <strong>inadequate β-arrestin1-dependent actin remodeling and defective chemotactic gradient sensing</strong>. <em>(demonstrated, single-particle tracking)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35588454/">PMID: 35588454</a>)</li>
+<li>Because CXCL12–CXCR4 is the <strong>master retention signal</strong> keeping leukocytes in the bone-marrow niche, hyperactive CXCR4 <strong>results in failure of mature neutrophils to egress</strong> → they accumulate and undergo apoptotic senescence in the marrow → <strong>myelokathexis</strong>. <em>(demonstrated)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29734477/">PMID: 29734477</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21890643/">PMID: 21890643</a>)</li>
+<li>Retention <strong>leads to peripheral neutropenia and panleukopenia</strong> (lymphocytes and monocytes are also sequestered; ALC &gt; monocyte &gt; neutrophil in responsiveness to CXCR4 blockade). <em>(demonstrated pharmacologically)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21890643/">PMID: 21890643</a>)</li>
+</ol>
+<p><strong>Branch A — antibacterial defense:</strong> Neutropenia + hypogammaglobulinemia + impaired B-cell trafficking → <strong>recurrent bacterial infections → pneumonia → bronchiectasis</strong>.</p>
+<p><strong>Branch B — antiviral/antitumor defense:</strong> Selective <strong>CD8⁺ &gt; CD4⁺ T lymphopenia via sequestration in thymus and bone marrow</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">PMID: 37133343</a>) + reduced lymphocyte infiltration into infected tissue → <strong>failure to control HPV → refractory warts → HPV-driven malignancy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">PMID: 39226327</a>).</p>
+<ol>
+<li>Overall, CXCR4 hyperactivation <strong>disrupts stromal niches critical for lymphocyte development and survival</strong>, producing the combined immunodeficiency phenotype. <em>(inferred/demonstrated in models)</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>)</li>
+</ol>
+<h3>Supporting detail</h3>
+<ul>
+<li><strong>Molecular pathways.</strong> CXCL12→CXCR4→Gαi (inhibits adenylyl cyclase; PI3K/AKT; MAPK/ERK) and β-arrestin scaffolding. The regulatory lesion is at the <strong>GRK/β-arrestin desensitization module</strong> (Reactome: "Signaling by GPCR"; GPCR desensitization). Downstream ERK1/2 activation is prolonged.</li>
+<li><strong>Cellular processes.</strong> Impaired cell migration/chemotaxis (<a href="http://purl.obolibrary.org/obo/GO_0006935" target="_blank" rel="noopener noreferrer">GO:0006935</a>), defective receptor internalization (<a href="http://purl.obolibrary.org/obo/GO_0031623" target="_blank" rel="noopener noreferrer">GO:0031623</a> receptor internalization; <a href="http://purl.obolibrary.org/obo/GO_0002031" target="_blank" rel="noopener noreferrer">GO:0002031</a> GPCR internalization), leukocyte retention, actin cytoskeleton remodeling (<a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" rel="noopener noreferrer">GO:0030036</a>), neutrophil apoptosis/senescence.</li>
+<li><strong>Protein dysfunction.</strong> Truncated GPCR with intact ligand binding and surface expression but <strong>defective regulatory phosphorylation</strong> → gain-of-function signaling. Surface expression and internalization of receptor were shown unaffected in some patients while chemotaxis was enhanced (<a href="https://pubmed.ncbi.nlm.nih.gov/15026312/">PMID: 15026312</a>).</li>
+<li><strong>Immune system involvement.</strong> Combined immunodeficiency: neutropenia + B-lymphopenia (reduced memory B cells) + T-cell abnormalities (accumulation of effector memory T cells, restricted TCR repertoire, severe CD8 lymphopenia) + variable hypogammaglobulinemia (<a href="https://pubmed.ncbi.nlm.nih.gov/15026312/">PMID: 15026312</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">PMID: 37133343</a>).</li>
+<li><strong>Tissue damage.</strong> Chronic pulmonary infection → airway destruction → bronchiectasis; HPV-driven epithelial dysplasia → carcinoma.</li>
+<li><strong>Biochemical abnormality.</strong> GPCR desensitization defect (receptor regulation, not enzyme deficiency).</li>
+</ul>
+<blockquote>
+<p>"while both kinases Grk3 and Grk6 bind to WT CXCR4 and are critical to its trafficking to the lysosomes, Grk6 fails to associate with the WHIM-mutant receptor whereas Grk3 associates normally" (<a href="https://pubmed.ncbi.nlm.nih.gov/19956569/">PMID: 19956569</a>)</p>
+<p>"CXCR4R334X, a truncated mutant chemokine receptor linked to WHIM syndrome (warts, hypogammaglobulinemia, infections, myelokathexis), fails to nanocluster after CXCL12 stimulation" (<a href="https://pubmed.ncbi.nlm.nih.gov/35588454/">PMID: 35588454</a>)</p>
+</blockquote>
+<p><strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006935" target="_blank" rel="noopener noreferrer">GO:0006935</a> (chemotaxis), <a href="http://purl.obolibrary.org/obo/GO_0002031" target="_blank" rel="noopener noreferrer">GO:0002031</a> (GPCR internalization), <a href="http://purl.obolibrary.org/obo/GO_0007204" target="_blank" rel="noopener noreferrer">GO:0007204</a> (positive regulation of cytosolic calcium), <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" rel="noopener noreferrer">GO:0070098</a> (chemokine-mediated signaling), <a href="http://purl.obolibrary.org/obo/GO_0002686" target="_blank" rel="noopener noreferrer">GO:0002686</a> (negative regulation of leukocyte migration).
+<strong>CL term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> (CD8⁺ αβ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> (CD4⁺ αβ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a> (B cell), <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> (monocyte), <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" rel="noopener noreferrer">CL:0000037</a> (hematopoietic stem cell).
+<strong>CHEBI term suggestions:</strong> CHEBI:calcium(2+) ion (second messenger); mavorixafor and plerixafor as CXCR4-antagonist small molecules.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <strong>Primary:</strong> Bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>) — site of myelokathexis; hematopoietic/immune system (<a href="http://purl.obolibrary.org/obo/UBERON_0002390" target="_blank" rel="noopener noreferrer">UBERON:0002390</a> hematopoietic system; <a href="http://purl.obolibrary.org/obo/UBERON_0002405" target="_blank" rel="noopener noreferrer">UBERON:0002405</a> immune system).
+- <strong>Secondary:</strong> Lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) → recurrent pneumonia and bronchiectasis; skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) and anogenital mucosa → HPV warts and dysplasia; thymus (<a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a>) → T-cell sequestration; occasionally heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>) → congenital cardiac defects.
+- <strong>Body systems:</strong> Hematologic, immune, respiratory, integumentary; occasionally cardiovascular.</p>
+<p><strong>Tissue and cell level.</strong> Bone-marrow myeloid tissue (accumulated mature neutrophils with hypersegmented, apoptotic nuclei); respiratory epithelium (infection-related damage); squamous epithelium (HPV). Cell populations affected: neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), CD8⁺ and CD4⁺ T lymphocytes, B lymphocytes, monocytes, and hematopoietic stem/progenitor cells whose egress is impaired.</p>
+<p><strong>Subcellular level.</strong> Plasma-membrane GPCR signaling machinery (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> plasma membrane); endocytic/lysosomal trafficking machinery is functionally engaged but the mutant receptor evades normal trafficking to lysosomes (<a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome); β-arrestin/clathrin endocytic compartment (<a href="http://purl.obolibrary.org/obo/GO_0005905" target="_blank" rel="noopener noreferrer">GO:0005905</a> clathrin-coated pit).</p>
+<p><strong>Localization / lateralization.</strong> Systemic and bilateral (marrow-wide, systemic leukopenia); warts and infections are distributed per exposure (not lateralized).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/early-childhood. Neutropenia and myelokathexis are present from infancy; clinical symptoms begin ~2 years of age; pattern is <strong>chronic and insidious</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</li>
+<li><strong>Progression:</strong> Neutropenia is stable and lifelong; infections are episodic/recurrent; <strong>bronchiectasis and HPV malignancy accumulate progressively</strong> with age. Warts typically emerge around age 11; malignancies in adulthood.</li>
+<li><strong>Course pattern:</strong> Chronic, lifelong; complications progressive. No spontaneous remission except the exceptional chromothriptic reversion (<a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">PMID: 25662009</a>).</li>
+<li><strong>Critical periods / windows for intervention:</strong> Early pediatric diagnosis is associated with improved outcomes; newborn screening (low thymic emigrant T cells / TREC assay) can identify some infants, opening an early intervention window (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> WHIM is ultra-rare. Estimated prevalence is on the order of <strong>~0.23 per million</strong> (Orphanet-class ultra-rare); only ~105 published cases had been reviewed at the time of the cohort analyses (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>). Precise incidence figures are unavailable owing to rarity and underdiagnosis.</p>
+<p><strong>Genetic etiology.</strong>
+- <strong>Inheritance:</strong> Autosomal dominant (<a href="https://pubmed.ncbi.nlm.nih.gov/29066537/">PMID: 29066537</a>).
+- <strong>Penetrance:</strong> Incomplete/variable — contributes to diagnostic delay (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).
+- <strong>Expressivity:</strong> Highly variable, even within families (e.g., a Chinese kindred with four affected members showing heterogeneous phenotypes) (<a href="https://pubmed.ncbi.nlm.nih.gov/39575248/">PMID: 39575248</a>).
+- <strong>Genetic anticipation:</strong> Not a repeat-expansion disorder; anticipation not described.
+- <strong>Germline mosaicism / founder effects:</strong> Not established; p.R334X recurs as an independent mutational hotspot rather than a founder allele.
+- <strong>Carrier frequency:</strong> Not applicable (dominant); affected individuals are heterozygotes.</p>
+<p><strong>Population demographics.</strong> No strong ethnic predilection; reported worldwide, including the first documented case in a patient of African ancestry (<a href="https://pubmed.ncbi.nlm.nih.gov/36793393/">PMID: 36793393</a>) and familial Chinese cases (<a href="https://pubmed.ncbi.nlm.nih.gov/39575248/">PMID: 39575248</a>). Sex ratio approximately equal (autosomal). Age distribution spans infancy to adulthood, with diagnosis often in the second decade.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests.</strong>
+- <strong>CBC with differential:</strong> Chronic <strong>severe neutropenia</strong> (ANC ~195 ± 102 cells/mm³ in cohort), lymphopenia, monocytopenia — panleukopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>).
+- <strong>Immunoglobulins:</strong> Hypogammaglobulinemia (variable; may be normal).
+- <strong>Bone-marrow biopsy/aspirate — key diagnostic test:</strong> <strong>Myelokathexis</strong> — hypercellular marrow crowded with mature neutrophils showing hypersegmented, pyknotic (apoptotic) nuclei connected by thin chromatin strands. Detailed BM/peripheral-blood characterization of 30 CXCR4-variant patients confirms morphologic variability and correlates morphology with the CXCR4 internalization defect (<a href="https://pubmed.ncbi.nlm.nih.gov/40239948/">PMID: 40239948</a>).
+- <strong>Lymphocyte immunophenotyping:</strong> Decreased memory B cells, decreased naïve T cells, accumulation of effector-memory T cells, restricted TCR repertoire, and selective severe CD8 lymphopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/15026312/">PMID: 15026312</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">PMID: 37133343</a>).
+- <strong>Imaging:</strong> Chest CT for bronchiectasis surveillance.</p>
+<p><strong>Genetic testing (confirmatory).</strong> Sequencing of <strong>CXCR4</strong> — single-gene testing or inclusion in immunodeficiency/neutropenia gene panels; WES/WGS increasingly used. Detection of a heterozygous C-terminal truncating variant (e.g., p.R334X) confirms the diagnosis. Functional assays (impaired CXCL12-induced internalization; enhanced chemotaxis/calcium flux) support pathogenicity in ambiguous cases.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> The diagnostic tetrad (WHIM), though hypogammaglobulinemia and/or warts may be absent. WHIM should be <strong>suspected in congenital neutropenia + lymphopenia even without hypogammaglobulinemia or warts</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29066537/">PMID: 29066537</a>). Differentials include:
+- <strong>G6PC3 deficiency / severe congenital neutropenia</strong> — can show increased neutrophil CXCR4 expression and myelokathexis-like marrow but is autosomal recessive with multisystem features (<a href="https://pubmed.ncbi.nlm.nih.gov/20616219/">PMID: 20616219</a>).
+- <strong>GATA2 deficiency</strong> — monocytopenia, B/NK lymphopenia, generalized verrucosis, myeloid leukemia risk (<a href="https://pubmed.ncbi.nlm.nih.gov/24359037/">PMID: 24359037</a>).
+- <strong>CXCR2 loss-of-function</strong> — neutropenia + myelokathexis-like morphology (<a href="https://pubmed.ncbi.nlm.nih.gov/41451234/">PMID: 41451234</a>).
+- Other combined immunodeficiencies, epidermodysplasia verruciformis, WILD syndrome.</p>
+<p><strong>Screening.</strong> <strong>Newborn screening TREC assays</strong> (low thymic emigrant T cells) can flag some WHIM infants; cascade genetic testing of first-degree relatives once a proband variant is identified (<a href="https://pubmed.ncbi.nlm.nih.gov/18535531/">PMID: 18535531</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival/mortality.</strong> With modern supportive care (G-CSF, IVIG) and now CXCR4 antagonists, WHIM is generally manageable and compatible with adult survival; there are no large formal survival curves. Principal threats to life are <strong>invasive HPV-driven malignancy</strong> and <strong>progressive lung disease</strong>.</p>
+<p><strong>Morbidity/function.</strong> Substantial: recurrent infections, IVIG dependence, refractory wart burden, and <strong>bronchiectasis in 27%</strong> with progressive lung-function decline (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18535531/">PMID: 18535531</a>).</p>
+<p><strong>Complications.</strong> Bronchiectasis; anogenital dysplasia and invasive cancer; <strong>HPV-related malignancies in 16%</strong> of patients; chronic humoral immunodeficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">PMID: 30716504</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29066537/">PMID: 29066537</a>).</p>
+<p><strong>Prognostic factors.</strong> <strong>Early pediatric diagnosis is associated with improved outcomes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>). Degree of lymphopenia (particularly CD8) and cumulative HPV disease burden predict antiviral/malignancy risk. As a CID with lifetime risk for humoral deficiency, impaired antiviral defense, and malignancy, WHIM warrants <strong>long-term monitoring</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy — mechanism-based (CXCR4 antagonists)</h3>
+<p>Because pathology stems from CXCR4 hyperactivity, <strong>CXCR4 antagonism directly reverses leukocyte sequestration.</strong></p>
+<p><strong>Mavorixafor (Xolremdi)</strong> — oral small-molecule selective CXCR4 antagonist; <strong>first FDA-approved targeted therapy for WHIM (26 April 2024)</strong>, indicated for patients aged ≥12 years (<a href="https://pubmed.ncbi.nlm.nih.gov/40223492/">PMID: 40223492</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40212179/">PMID: 40212179</a>).</p>
+<blockquote>
+<p>"On April 26th, 2024, Xolremdi (mavorixafor) capsules received its approval from US FDA, is the first targeted treatment specifically for patients aged ≥12 years with WHIM syndrome." (<a href="https://pubmed.ncbi.nlm.nih.gov/40223492/">PMID: 40223492</a>)</p>
+</blockquote>
+<p><strong>Clinical trial evidence:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Trial</th>
+<th>Design</th>
+<th>Key result</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1 plerixafor (low-dose, 6 mo)</td>
+<td>n=3, open-label</td>
+<td>Durable leukocyte increases; fewer infections; wart improvement with imiquimod; Ig not fully restored; no side effects</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24523241/">24523241</a></td>
+</tr>
+<tr>
+<td>Phase 1 plerixafor (dose-escalation)</td>
+<td>n=3 (R334X)</td>
+<td>Dose-dependent correction of panleukopenia (ALC&gt;monocyte&gt;neutrophil)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21890643/">21890643</a></td>
+</tr>
+<tr>
+<td>Phase 2 mavorixafor</td>
+<td>n=8, open-label</td>
+<td>Dose-dependent ANC/ALC rise; infection rate 4.63→2.27/yr; ~75% wart reduction</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32870250/">32870250</a></td>
+</tr>
+<tr>
+<td><strong>Phase 3 mavorixafor (pivotal)</strong></td>
+<td>n=31, randomized, double-blind, placebo-controlled, age ≥12</td>
+<td><strong>TAT-ANC 15.0 vs 2.8 h (P&lt;.001); TAT-ALC 15.8 vs 4.6 h (P&lt;.001); annualized infections 60% lower (1.7 vs 4.2, P=.007)</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38643510/">38643510</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"mavorixafor least squares (LS) mean TATANC was 15.0 hours and 2.8 hours for placebo (P &lt; .001)" (<a href="https://pubmed.ncbi.nlm.nih.gov/38643510/">PMID: 38643510</a>)</p>
+</blockquote>
+<p><strong>Plerixafor (Mozobil, AMD3100)</strong> — injectable CXCR4 antagonist (FDA-approved for stem-cell mobilization); used off-label/investigationally in WHIM; provided the first pharmacologic proof that panleukopenia is CXCL12–CXCR4-signaling-dependent (<a href="https://pubmed.ncbi.nlm.nih.gov/21890643/">PMID: 21890643</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24523241/">PMID: 24523241</a>).</p>
+<p><strong>Conventional/supportive therapy.</strong> <strong>G-CSF (filgrastim)</strong> to raise neutrophil counts; <strong>IVIG</strong> for hypogammaglobulinemia/passive immunity; <strong>antibiotic prophylaxis</strong>; topical/ablative wart therapy (e.g., imiquimod); HPV vaccination; cancer surveillance. These have limited efficacy, require frequent administration, and carry patient burden — motivating targeted therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/40212179/">PMID: 40212179</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36793393/">PMID: 36793393</a>).</p>
+<h3>Advanced / curative therapeutics</h3>
+<ul>
+<li><strong>Gene therapy — disease-allele inactivation.</strong> CRISPR/Cas9 inactivation of one <em>Cxcr4</em> copy in HSPCs enriches WHIM-allele-inactivated cells in vivo while retaining long-term pluripotency — a proof-of-concept genetic cure exploiting CXCR4 haploinsufficiency's engraftment advantage (<a href="https://pubmed.ncbi.nlm.nih.gov/36928087/">PMID: 36928087</a>).</li>
+</ul>
+<blockquote>
+<p>"To our knowledge, this is the first example of gene therapy for an autosomal dominant gain-of-function disease using a disease allele inactivation strategy in place of the less efficient disease allele repair approach" (<a href="https://pubmed.ncbi.nlm.nih.gov/36928087/">PMID: 36928087</a>)</p>
+</blockquote>
+<ul>
+<li><strong>Natural cure precedent.</strong> Chromothriptic deletion of the disease allele in an HSC produced a spontaneous, durable cure of a WHIM patient (<a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">PMID: 25662009</a>).</li>
+</ul>
+<p><strong>NCIT term suggestions:</strong> Mavorixafor (CXCR4-antagonist small molecule), Plerixafor (NCIT:C2411), Granulocyte colony-stimulating factor / Filgrastim (NCIT:C1512), Intravenous immunoglobulin therapy (NCIT:C603), Hematopoietic stem cell gene therapy.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable (germline dominant). <strong>Genetic counseling</strong> for affected families; prenatal/preimplantation genetic testing possible when the familial variant is known.</li>
+<li><strong>Secondary prevention (early detection):</strong> Newborn TREC screening flags some infants; cascade genetic testing of relatives; early bone-marrow evaluation in unexplained congenital neutropenia. Early diagnosis improves outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</li>
+<li><strong>Tertiary prevention (complication avoidance):</strong> <strong>HPV vaccination</strong>, dermatologic/gynecologic surveillance for HPV dysplasia/malignancy, antibiotic prophylaxis, IVIG, pulmonary surveillance for bronchiectasis, and CXCR4-antagonist therapy to reduce infection burden (<a href="https://pubmed.ncbi.nlm.nih.gov/29066537/">PMID: 29066537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38643510/">PMID: 38643510</a>).</li>
+<li><strong>Counseling:</strong> Autosomal dominant recurrence risk (50% to offspring); genetic counseling recommended.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Human <em>CXCR4</em> (NCBI Gene 7852). Mouse ortholog <em>Cxcr4</em> (NCBI Gene 12767) is well conserved; the CXCL12–CXCR4 axis and its role in leukocyte retention are evolutionarily conserved across vertebrates (mouse, zebrafish).</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring WHIM-equivalent disease is documented in companion animals or wildlife (OMIA); WHIM in non-human species is experimentally induced, not natural.</li>
+<li><strong>Comparative biology:</strong> The mechanism (CXCR4 gain-of-function → myelokathexis → neutropenia) is faithfully reproduced in engineered mice, supporting deep evolutionary conservation of the pathway. CXCR4 antagonism corrects analogous neutrophil abnormalities even in a <em>CXCR2</em> loss-of-function mouse model, underscoring the conserved CXCR4/CXCR2 balance governing bone-marrow neutrophil release (<a href="https://pubmed.ncbi.nlm.nih.gov/41451234/">PMID: 41451234</a>).</li>
+<li><strong>Transmission / zoonosis:</strong> Not applicable (genetic, non-transmissible).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse (Mus musculus, NCBI Taxon 10090).</strong> The principal WHIM model is a <strong>knock-in mouse carrying the human-equivalent <em>Cxcr4</em> C-terminal truncation (R334X)</strong>.
+- <strong>Phenotype recapitulation (strong):</strong> Reproduces peripheral neutropenia, lymphopenia, myelokathexis-like marrow morphology, selective severe CD8 lymphopenia, and heightened HPV (MmuPV1) susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">PMID: 37133343</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">PMID: 39226327</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40239948/">PMID: 40239948</a>).
+- <strong>Therapeutic validation:</strong> Oral CXCR4 antagonism corrects neutrophil and lymphocyte abnormalities and normalizes leukocyte trafficking in the WHIM mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/39588369/">PMID: 39588369</a>); bone-marrow transplant from WT donors normalizes papillomavirus susceptibility, localizing the defect to hematopoietic cells (<a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">PMID: 39226327</a>).
+- <strong>Competitive transplant models:</strong> Demonstrated that <em>Cxcr4</em> haploinsufficiency confers a strong long-term HSC engraftment advantage — the biological basis for allele-inactivation gene therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/36928087/">PMID: 36928087</a>).</p>
+<p><strong>Zebrafish (Danio rerio, NCBI Taxon 7955).</strong> Used to model CXCR4-axis immunomodulation; plerixafor reduced sepsis mortality in an LPS zebrafish model, supporting broader CXCR4-antagonist repurposing (<a href="https://pubmed.ncbi.nlm.nih.gov/38963161/">PMID: 38963161</a>).</p>
+<p><strong>In vitro / cellular models.</strong> Patient lymphoblastoid cell lines and heterologous CXCR4-expression systems established the gain-of-function signaling (calcium flux, ERK, chemotaxis), the GRK6/β-arrestin recruitment defect, and single-particle-tracking membrane-nanoclustering abnormality (<a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">PMID: 12692554</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19956569/">PMID: 19956569</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35588454/">PMID: 35588454</a>).</p>
+<p><strong>Model limitations.</strong> Murine hypogammaglobulinemia and wart phenotypes are less faithful than the neutropenia/myelokathexis phenotype; HPV modeling requires the surrogate MmuPV1.</p>
+<p><strong>Resources:</strong> MGI (<em>Cxcr4</em>), IMPC, ZFIN (zebrafish <em>cxcr4b</em>).</p>
+<hr />
+<h2>Mechanistic Model (Synthesis)</h2>
+<pre><code>   CXCR4 C-terminal truncating mutation (e.g., p.R334X, heterozygous, germline)
+              │  removes Ser/Thr phosphorylation cluster
+              ▼
+   Failure to recruit GRK6 (GRK3 preserved) + delayed β-arrestin2  [PMID 19956569]
+              │
+              ▼
+   Impaired receptor desensitization / internalization
+              │
+              ▼
+   Sustained, exaggerated CXCL12→CXCR4 signaling
+   (↑Ca²⁺, prolonged pERK, ↑chemotaxis; defective nanoclustering/gradient sensing)
+              │        [PMID 36883568, 12692554, 35588454]
+              ▼
+   Failure of mature leukocyte egress from bone marrow  (CXCR4 = master retention signal)
+              │        [PMID 29734477, 21890643]
+              ▼
+   MYELOKATHEXIS  →  peripheral NEUTROPENIA + PANLEUKOPENIA
+     ┌────────────────────────────┴───────────────────────────┐
+     ▼                                                          ▼
+  Neutropenia + hypogammaglobulinemia                    Selective CD8&gt;CD4 lymphopenia
+   → recurrent bacterial infections                       (thymus/marrow sequestration)
+   → pneumonia → BRONCHIECTASIS                            → failure to control HPV
+                                           → refractory WARTS → MALIGNANCY
+     └───────────────► reversible by CXCR4 antagonism (mavorixafor) ◄──────────┘
+    curable by CXCR4-allele loss (chromothripsis / CRISPR)
+</code></pre>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12692554/">12692554</a></td>
+<td>Gene discovery: CXCR4 C-terminal truncations cause WHIM; first chemokine-receptor Mendelian disease; enhanced calcium flux</td>
+<td>Human genetics + in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31313072/">31313072</a></td>
+<td>Autosomal dominant, impaired desensitization → enhanced G-protein/β-arrestin responses</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36883568/">36883568</a></td>
+<td>R334X most frequent; prevents internalization; ↑Ca²⁺, ↑ERK, ↑chemotaxis</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19956569/">19956569</a></td>
+<td>GRK6 (not GRK3) recruitment failure; delayed β-arrestin2 → delayed internalization</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35588454/">35588454</a></td>
+<td>R334X fails to nanocluster; impaired gradient sensing/directed migration</td>
+<td>In vitro single-particle</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15026312/">15026312</a></td>
+<td>Enhanced chemotaxis with normal surface expression; lymphocyte phenotype abnormalities</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30716504/">30716504</a></td>
+<td>18-patient cohort: infection 78%, pneumonia 61%, bronchiectasis 27%, warts 61%, HPV malignancy 16%; diagnostic delay</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37133343/">37133343</a></td>
+<td>Selective CD8&gt;CD4 lymphopenia via sequestration in primary immune organs</td>
+<td>Human + mouse</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21890643/">21890643</a></td>
+<td>Plerixafor corrects panleukopenia — pharmacologic proof of sequestration mechanism</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38643510/">38643510</a></td>
+<td>Phase 3 mavorixafor: TAT-ANC/ALC and infection endpoints met</td>
+<td>Phase 3 RCT</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40223492/">40223492</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40212179/">40212179</a></td>
+<td>FDA approval of mavorixafor, 26 Apr 2024</td>
+<td>Regulatory</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25662009/">25662009</a></td>
+<td>Chromothriptic spontaneous cure — HSC engraftment advantage from CXCR4 loss</td>
+<td>Human case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36928087/">36928087</a></td>
+<td>CRISPR disease-allele inactivation gene-therapy proof-of-concept</td>
+<td>Mouse/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39226327/">39226327</a></td>
+<td>WHIM mice: HPV susceptibility is immune-cell-dependent; WT BM rescues</td>
+<td>Mouse</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39588369/">39588369</a></td>
+<td>CXCR4 antagonism corrects leukocyte abnormalities in WHIM mouse</td>
+<td>Mouse</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40239948/">40239948</a></td>
+<td>30-patient BM/PB morphology; genotype–morphology correlation</td>
+<td>Human pathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">41451822</a></td>
+<td>Recent review: newborn screening, expanded genetic spectrum (D84H), niche disruption</td>
+<td>Review</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Rarity limits epidemiology.</strong> Precise prevalence/incidence and formal survival statistics are lacking; estimates rest on &lt;150 published cases.</li>
+<li><strong>Genetic heterogeneity.</strong> Rare WHIM-phenotype patients carry wild-type <em>CXCR4</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21178277/">PMID: 21178277</a>); the responsible lesions (upstream regulators, other genes) are not fully mapped. No validated modifier genes explain the marked variable expressivity/incomplete penetrance.</li>
+<li><strong>Incomplete Ig/vaccine-response restoration.</strong> CXCR4 antagonists robustly correct cell counts but do not fully restore immunoglobulin levels or specific antibody responses (<a href="https://pubmed.ncbi.nlm.nih.gov/24523241/">PMID: 24523241</a>), leaving residual humoral risk.</li>
+<li><strong>Long-term antagonist data.</strong> Durability, malignancy-prevention efficacy, and pediatric (&lt;12 y) data for mavorixafor remain to be established.</li>
+<li><strong>Model gaps.</strong> Mouse models under-represent the humoral/wart phenotype; HPV must be modeled via MmuPV1 surrogate.</li>
+<li><strong>Epigenetics/omics.</strong> No disease-specific methylation, transcriptomic, proteomic, or metabolomic signature has been formally defined for WHIM.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Long-term registry</strong> of mavorixafor-treated patients to quantify infection, bronchiectasis progression, HPV malignancy incidence, and survival versus historical G-CSF/IVIG cohorts.</li>
+<li><strong>Pediatric and non-CXCR4 (wild-type WHIM) trials</strong> to extend indication and identify alternative causal genes via WGS + functional CXCR4-pathway assays.</li>
+<li><strong>Advance CRISPR disease-allele-inactivation gene therapy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36928087/">PMID: 36928087</a>) toward first-in-human trials, leveraging the HSC engraftment advantage of CXCR4-haploinsufficient cells.</li>
+<li><strong>Mechanistic dissection of humoral defect</strong> — why antibody responses remain impaired despite corrected B-cell counts (germinal-center/stromal-niche studies).</li>
+<li><strong>Modifier-gene mapping</strong> across large kindreds to explain variable penetrance/expressivity.</li>
+<li><strong>Single-cell / spatial transcriptomics of WHIM bone marrow</strong> to characterize the stromal-niche disruption implicated in the combined immunodeficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/41451822/">PMID: 41451822</a>).</li>
+<li><strong>HPV-directed prevention studies</strong> (early vaccination, surveillance protocols) given the 16% malignancy rate.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous five-iteration literature investigation (32 papers reviewed, 6 confirmed findings). Evidence types are labeled throughout: human clinical/cohort, model organism, in vitro, and regulatory.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/WHIM_Syndrome_1-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/WHIM_Syndrome_1-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:35588454</code> <em>(abstract only)</em>: "CXCR4R334X, a truncated mutant chemokine receptor linked to WHIM syndrome (warts, hypogammaglobulinemia, infections, myelokathexis), fails to nanocluster after CXCL12 stimulation"</li>
+<li>closest text in source: "Using single-particle tracking analysis we show that CXCR4R334X, a truncated mutant chemokine receptor linked to WHIM syndrome (warts, hypogammaglobulinemia, infections, myelokathexis), fails to nanoclusterize after CXCL12 stimulation, and alters the lateral mobility and spatial organization of CXCR4 when coexpressed"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:8000006</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>WHIM syndrome 1</strong></li>
+<li><code>HP:0001875</code> (1 mention) - the report calls it "Lab abnormality"; HP calls it <strong>Decreased total neutrophil count</strong></li>
+<li><code>HP:0002718</code> (1 mention) - the report calls it "Symptom/sign"; HP calls it <strong>Recurrent bacterial infections</strong></li>
+<li><code>HP:0006532</code> (1 mention) - the report calls it "Sign"; HP calls it <strong>Recurrent pneumonia</strong></li>
+<li><code>HP:0002110</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Bronchiectasis</strong></li>
+<li><code>HP:0200043</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Verrucae</strong></li>
+<li><code>HP:0002664</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Neoplasm</strong></li>
+<li><code>HP:0002720</code> (1 mention) - the report calls it "Lab abnormality"; HP calls it <strong>Decreased circulating IgA concentration</strong></li>
+<li><code>HP:0001627</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Abnormal heart morphology</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0002031</code> (2 mentions) - the report calls it "GPCR internalization"; GO calls it <strong>G protein-coupled receptor internalization</strong></li>
+<li><code>GO:0007204</code> (1 mention) - the report calls it "positive regulation of cytosolic calcium"; GO calls it <strong>positive regulation of cytosolic calcium ion concentration</strong></li>
+<li><code>GO:0070098</code> (1 mention) - the report calls it "chemokine-mediated signaling"; GO calls it <strong>chemokine-mediated signaling pathway</strong></li>
+<li><code>CL:0000625</code> (1 mention) - the report calls it "CD8⁺ αβ T cell"; CL calls it <strong>CD8-positive, alpha-beta T cell</strong></li>
+<li><code>CL:0000624</code> (1 mention) - the report calls it "CD4⁺ αβ T cell"; CL calls it <strong>CD4-positive, alpha-beta T cell</strong></li>
+<li><code>UBERON:0002371</code> (1 mention) - the report calls it "Primary:<strong> Bone marrow"; UBERON calls it </strong>bone marrow**</li>
+<li><code>UBERON:0002048</code> (1 mention) - the report calls it "Secondary:<strong> Lung"; UBERON calls it </strong>lung**</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Weiss-Kruszka_Syndrome-perplexity.html">← Weiss-Kruszka Syndrome (Perplexity)</a>
+                
+                
+                <a href="Whipple_Disease-falcon.html">Whipple Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/WHIM_Syndrome_1.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/WHIM_Syndrome_1-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
