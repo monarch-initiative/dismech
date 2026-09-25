@@ -14,6 +14,11 @@ A merge queue tests each PR on a temporary branch and waits for the required
    filter file list. Everything else runs the full suite in a queue build —
    path filtering is why the #9538 cross-file enum break was invisible until
    the branch was updated.
+4. The one other exception is a step whose result is fully determined by the
+   paths its filter lists (``PATH_DETERMINED_STEPS``). There a false filter on
+   a queue build means the group changed none of the step's inputs, so the
+   step would only reproduce a result main already has. Each entry pins the
+   inputs its filter must keep listing.
 """
 
 from pathlib import Path
@@ -33,6 +38,27 @@ MERGE_GROUP_FIRES = "github.event_name == 'merge_group'"
 FILE_SCOPED_STEPS = {
     "Validate changed disorder KB files",
     "Validate changed comorbidity KB files",
+}
+
+# Steps allowed to skip a queue build when their filter is false, because the
+# step reads nothing outside that filter. Unlike a KB check, whose inputs no
+# path filter can bound (#9538), schema generation reads the schema, its
+# generator config and the locked toolchain, and nothing else. Each entry names
+# the filter and the paths that filter must keep listing: dropping one would
+# let the step skip a group that changed its input.
+PATH_DETERMINED_STEPS = {
+    "Run schema generation smoke test": (
+        "schema_generation",
+        {
+            "src/dismech/schema/**",
+            "config.yaml",
+            "config.public.mk",
+            "pyproject.toml",
+            "uv.lock",
+            "justfile",
+            ".github/workflows/main.yaml",
+        },
+    ),
 }
 
 
@@ -90,6 +116,13 @@ def test_no_paths_filter_gate_can_suppress_a_step_on_merge_group():
         if "steps.changes.outputs." not in condition:
             continue
         name = step.get("name", "<unnamed>")
+        if name in PATH_DETERMINED_STEPS:
+            output, _inputs = PATH_DETERMINED_STEPS[name]
+            assert condition == f"steps.changes.outputs.{output} == 'true'", (
+                f"{name!r} may skip queue builds only on its own "
+                f"{output!r} filter; got {condition!r}"
+            )
+            continue
         if name in FILE_SCOPED_STEPS:
             run = str(step.get("run", ""))
             assert "_files }}" in run, (
@@ -205,3 +238,15 @@ def test_schema_term_validation_is_offline_on_every_lane():
     assert not step.get("continue-on-error"), (
         "the step must not be marked continue-on-error"
     )
+
+
+def test_path_determined_steps_keep_every_input_in_their_filter():
+    filters = yaml.safe_load(paths_filter_step()["with"]["filters"])
+    names = {step.get("name") for step in workflow_steps()}
+    for name, (output, inputs) in PATH_DETERMINED_STEPS.items():
+        assert name in names, f"{name!r} is allowlisted but no longer exists"
+        missing = inputs - set(filters[output])
+        assert not missing, (
+            f"the {output!r} filter no longer lists {sorted(missing)}, so "
+            f"{name!r} could skip a queue build that changed its input"
+        )
