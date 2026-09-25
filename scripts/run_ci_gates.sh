@@ -17,6 +17,10 @@
 # scheduled, and a failure also gets an `::error` annotation naming the gate.
 # A table of results goes to $GITHUB_STEP_SUMMARY when that is set.
 #
+# One line is printed live as each gate finishes (`finished: NAME ...`). The
+# full output waits for the end, so if the step is killed by its timeout,
+# those lines are what show which gates never finished.
+#
 # Why: these gates are whole-repo, offline and independent. One after another
 # they took ~10 min of a merge-queue build; four at a time they take less than
 # half that (12.2 -> 5.7 min locally, 2026-09-24). Listing the slowest first
@@ -91,7 +95,10 @@ run_one() {
   rc=$?
   end=$(date +%s)
   echo "$rc $((end - start))" >"$workdir/$i.status"
+  echo "finished: ${names[$i]} (exit $rc, $((end - start))s)"
 }
+
+echo "Running ${#names[@]} gates, $jobs at a time. Full output follows when all finish."
 
 running=0
 for i in "${!names[@]}"; do

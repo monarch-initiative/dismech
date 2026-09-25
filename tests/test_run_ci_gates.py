@@ -101,3 +101,26 @@ def test_list_mode_prints_without_running(tmp_path):
     assert result.returncode == 0
     assert result.stdout == "Would write\ttouch should-not-exist\n"
     assert not (tmp_path / "should-not-exist").exists()
+
+
+def test_each_gate_reports_live_when_it_finishes():
+    # Full output is buffered until every gate is done. These lines are what a
+    # step timeout leaves behind, so they must not wait for the end.
+    result = _run("Quick :: true\nSlow :: sleep 0.3\n")
+    out = result.stdout
+    assert out.index("finished: Quick (exit 0,") < out.index("::group::")
+    assert out.index("finished: Slow (exit 0,") < out.index("::group::")
+
+
+def test_the_gates_step_has_a_timeout():
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "main.yaml").read_text(encoding="utf-8")
+    )
+    step = next(
+        s for s in workflow["jobs"]["test"]["steps"]
+        if s.get("name") == "Run whole-repo gates"
+    )
+    # Buffered output makes a hang silent; the timeout makes it short.
+    assert 0 < int(step.get("timeout-minutes", 0)) <= 60
