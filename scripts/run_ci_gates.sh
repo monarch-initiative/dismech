@@ -85,6 +85,24 @@ if ((list_only)); then
   exit 0
 fi
 
+# Workflow-command escaping. A property value (title=) must escape
+# % CR LF : and , and a message must escape % CR LF; unescaped, a gate name
+# with a comma or colon would truncate or break its own annotation.
+escape_data() {
+  local s="$1"
+  s="${s//'%'/%25}"
+  s="${s//$'\r'/%0D}"
+  s="${s//$'\n'/%0A}"
+  printf '%s' "$s"
+}
+escape_property() {
+  local s
+  s="$(escape_data "$1")"
+  s="${s//:/%3A}"
+  s="${s//,/%2C}"
+  printf '%s' "$s"
+}
+
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -121,7 +139,7 @@ for i in "${!names[@]}"; do
   cat "$workdir/$i.out"
   echo "::endgroup::"
   if [[ "$verdict" == FAIL ]]; then
-    echo "::error title=${names[$i]}::${names[$i]} failed with exit code $rc; its output is in the group above."
+    echo "::error title=$(escape_property "${names[$i]}")::$(escape_data "${names[$i]} failed with exit code $rc; its output is in the group above.")"
   fi
   summary+="| ${names[$i]} | $verdict | $secs |"$'\n'
 done

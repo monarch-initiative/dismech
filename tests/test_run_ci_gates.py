@@ -103,6 +103,17 @@ def test_list_mode_prints_without_running(tmp_path):
     assert not (tmp_path / "should-not-exist").exists()
 
 
+def test_annotation_fields_are_escaped():
+    # GitHub reads `,` and `:` in a property as separators, and `%` as the
+    # escape character itself. Unescaped, this name would cut its own title.
+    result = _run("Gate, with: 100% odd name :: exit 1\n")
+    assert result.returncode == 1
+    assert (
+        "::error title=Gate%2C with%3A 100%25 odd name::"
+        "Gate, with: 100%25 odd name failed with exit code 1;"
+    ) in result.stdout
+
+
 def test_each_gate_reports_live_when_it_finishes():
     # Full output is buffered until every gate is done. These lines are what a
     # step timeout leaves behind, so they must not wait for the end.
