@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4106,6 +4174,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4127,6 +4196,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4197,6 +4267,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4310,6 +4381,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4334,6 +4406,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4355,6 +4428,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4404,6 +4478,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr5a1-sf-1-transcription-factor-haploinsufficiency" data-dismech-node="NR5A1/SF-1 transcription factor haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NR5A1/SF-1 transcription factor haploinsufficiency</div>
+
 
                 <div class="item-desc">NR5A1 encodes steroidogenic factor 1 (SF-1, also called Ad4BP), a nuclear-receptor transcription factor expressed in steroidogenic and gonadal tissue. Heterozygous loss-of-function (haploinsufficiency), and in some families biallelic, variants reduce SF-1 transactivational activity on its target-gene promoters, the proximal molecular lesion shared across all NR5A1-related presentations.</div>
 
@@ -4538,6 +4613,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4559,6 +4635,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4586,6 +4663,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4608,6 +4686,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-adrenogonadal-developmental-and-steroidogenic-program" data-dismech-node="Impaired adrenogonadal developmental and steroidogenic program" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired adrenogonadal developmental and steroidogenic program</div>
+
 
                 <div class="item-desc">SF-1 transcriptionally controls multiple steps of adrenal and gonadal development and steroidogenesis, regulating target genes including STAR, CYP17A1, CYP11A1, CYP19A1, AMH, LHB, and INHA. Reduced SF-1 dosage dysregulates this shared program, simultaneously impairing testis determination and differentiation, ovarian development and maintenance, and steroid-hormone biosynthesis. The same molecular lesion is therefore channeled into divergent, sex-dependent clinical outcomes.</div>
 
@@ -4843,6 +4922,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4864,6 +4944,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4889,6 +4970,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-46-xy-testicular-dysgenesis-and-undervirilization" data-dismech-node="46,XY testicular dysgenesis and undervirilization" data-dismech-type="pathophysiology">
                 <div class="item-name">46,XY testicular dysgenesis and undervirilization</div>
+
 
                 <div class="item-desc">In 46,XY individuals, reduced SF-1 activity impairs testis determination and Sertoli/Leydig-cell function, producing a spectrum from partial or complete gonadal dysgenesis to undervirilized external genitalia; milder alleles instead present later as oligo/azoospermia from spermatogenic failure with otherwise typical genitalia.</div>
 
@@ -5142,6 +5224,7 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5163,6 +5246,7 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5188,6 +5272,7 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sertoli-cell-amh-transcription-failure" data-dismech-node="Sertoli-cell AMH transcription failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sertoli-cell AMH transcription failure</div>
+
 
                 <div class="item-desc">SF-1 activates transcription of anti-Mullerian hormone in the Sertoli cell. Where SF-1 activity falls far enough, AMH output drops below the level needed to signal the paramesonephric ducts, and circulating AMH and inhibin B fall below their reference ranges.</div>
 
@@ -5315,6 +5400,7 @@ This pathophysiological event involves decreased SF-1-dependent activation of AM
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5336,6 +5422,7 @@ This pathophysiological event involves decreased SF-1-dependent activation of AM
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5361,6 +5448,7 @@ This pathophysiological event involves decreased SF-1-dependent activation of AM
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mullerian-duct-persistence" data-dismech-node="Mullerian duct persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Mullerian duct persistence</div>
+
 
                 <div class="item-desc">Absent the AMH signal, the paramesonephric (Mullerian) ducts fail to regress in the 46,XY fetus and a uterus and upper vagina remain alongside the dysgenetic testis. Persistence is partial and variable across SRXY3 patients, which is why Mullerian status does not track with the degree of external undervirilization.</div>
 
@@ -5454,6 +5542,7 @@ This pathophysiological event involves decreased Mullerian duct regression (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5480,6 +5569,7 @@ This pathophysiological event involves decreased Mullerian duct regression (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5502,6 +5592,7 @@ This pathophysiological event involves decreased Mullerian duct regression (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-46-xx-ovarian-dysgenesis-and-insufficiency" data-dismech-node="46,XX ovarian dysgenesis and insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">46,XX ovarian dysgenesis and insufficiency</div>
+
 
                 <div class="item-desc">In 46,XX individuals, reduced SF-1 activity impairs ovarian development and follicle maintenance, depleting the follicle pool and producing primary ovarian insufficiency with hypoestrogenism and elevated gonadotropins. The recurrent p.Arg92Trp variant can instead drive variable testis development in 46,XX individuals (46,XX testicular/ovotesticular DSD).</div>
 
@@ -5665,6 +5756,7 @@ This pathophysiological event involves decreased female gonad development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5686,6 +5778,7 @@ This pathophysiological event involves decreased female gonad development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5711,6 +5804,7 @@ This pathophysiological event involves decreased female gonad development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-steroidogenesis-and-adrenal-insufficiency" data-dismech-node="Impaired steroidogenesis and adrenal insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired steroidogenesis and adrenal insufficiency</div>
+
 
                 <div class="item-desc">Because SF-1 also regulates adrenal steroidogenic genes, severe or biallelic NR5A1 loss can impair adrenal steroid biosynthesis and cause primary adrenal insufficiency. This is the least frequent arm of the spectrum and was the presentation in the first reported human NR5A1 mutation.</div>
 
@@ -5799,6 +5893,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,6 +6004,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5923,6 +6021,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6088,9 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6015,6 +6117,7 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
             </div>
 
 
+
             <div class="context-notes">Reported in 46,XY individuals with NR5A1 variants (karyotypic males).</div>
 
 
@@ -6033,6 +6136,7 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6092,6 +6196,9 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6118,6 +6225,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
             </div>
 
 
+
             <div class="context-notes">46,XY individuals; undervirilization is frequently noted at birth.</div>
 
 
@@ -6136,6 +6244,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6195,6 +6304,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6221,6 +6333,7 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
             </div>
 
 
+
             <div class="context-notes">46,XY men with idiopathic severe spermatogenic failure.</div>
 
 
@@ -6239,6 +6352,7 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6298,6 +6412,9 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6324,6 +6441,7 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
             </div>
 
 
+
             <div class="context-notes">46,XY men with idiopathic severe spermatogenic failure.</div>
 
 
@@ -6342,6 +6460,7 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6520,9 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6427,6 +6549,7 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
             </div>
 
 
+
             <div class="context-notes">Reported in 46,XX individuals carrying NR5A1 variants.</div>
 
 
@@ -6445,6 +6568,7 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6504,6 +6628,9 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -6530,6 +6657,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
             </div>
 
 
+
             <div class="context-notes">Common presenting complaint in adolescents with NR5A1-related gonadal failure.</div>
 
 
@@ -6548,6 +6676,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6604,6 +6733,9 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6618,6 +6750,7 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6672,6 +6805,9 @@ This clinical feature is Presence of uterus in 46,XY individual (HP:0034546). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6686,6 +6822,7 @@ This clinical feature is Presence of uterus in 46,XY individual (HP:0034546). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6710,6 +6847,7 @@ This clinical feature is Presence of uterus in 46,XY individual (HP:0034546). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6764,6 +6902,9 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6778,6 +6919,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,6 +6974,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6846,6 +6991,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7016,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6924,6 +7071,9 @@ This clinical feature is Testicular neoplasm (HP:0010788). HP:0010788 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6938,6 +7088,7 @@ This clinical feature is Testicular neoplasm (HP:0010788). HP:0010788 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6962,6 +7113,7 @@ This clinical feature is Testicular neoplasm (HP:0010788). HP:0010788 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7058,6 +7210,9 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -7080,6 +7235,7 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7107,6 +7263,7 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7128,6 +7285,7 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7243,6 +7401,12 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Estrogen-based hormone replacement treats the hypoestrogenism of the 46,XX primary-ovarian-insufficiency arm (and of 46,XY individuals raised female after gonadectomy), supporting pubertal development and reducing long-term bone and cardiovascular risk.</div>
 
 
@@ -7264,6 +7428,7 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7358,6 +7523,12 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Testosterone replacement is used in 46,XY individuals with undervirilization and Leydig-cell insufficiency to induce or support virilization and secondary sexual characteristics, individualized to the assigned sex and degree of androgen deficiency.</div>
 
 
@@ -7379,6 +7550,7 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7473,6 +7645,12 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Glucocorticoid replacement, with mineralocorticoid replacement when clinically indicated, treats primary adrenal insufficiency in severe NR5A1-related adrenal involvement.</div>
 
 
@@ -7516,6 +7694,7 @@ This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,6 +7766,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is indicated because NR5A1 variants segregate with sex-limited, variable expressivity: at-risk relatives—including carrier mothers and sisters of 46,XY DSD probands—may develop primary ovarian insufficiency and benefit from counseling and reproductive planning.</div>
 
 
@@ -7608,6 +7793,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,6 +7861,9 @@ This treatment is orchidopexy with germ-cell tumour surveillance, annotated with
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7685,6 +7874,9 @@ This treatment is orchidopexy with germ-cell tumour surveillance, annotated with
 
 
     </div>
+
+
+
 
 
 
@@ -7737,6 +7929,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7761,6 +7954,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7782,6 +7976,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,6 +8076,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7962,6 +8158,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8040,6 +8237,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8142,6 +8340,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8163,6 +8362,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8235,6 +8435,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8256,6 +8457,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8313,6 +8515,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8337,6 +8540,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8358,6 +8562,7 @@ This treatment targets Testicular neoplasm (HP:0010788). HP:0010788 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9924,6 +10129,107 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Curate 46,XY sex reversal 3 (MONDO:0013066) as the SRXY3 subtype</strong> · 2026-09-01T06:44:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/NR5A1_Related_Sex_Development_Disorder/2026-09-01T064448Z-claude-code-468b20.yaml">View source</a></p>
+                        <p class="research-review-text">Curation target was the stub 46,XY sex reversal 3 (MONDO:0013066, OMIM
+612965, SRXY3). Recorded as entry_type SUBTYPE rather than a new disorder
+entry, and the stub was deleted.
+
+Lump/split reasoning. OAK against sqlite:obo:mondo shows MONDO:0013066 is a
+subclass of three terms this KB already curates: MONDO:1060211
+(NR5A1-related sex development disorder), MONDO:0010765 (46,XY complete
+gonadal dysgenesis) and MONDO:0016674 (46,XY partial gonadal dysgenesis).
+The latter two already carry NR5A1-specific has_subtypes blocks, so a
+standalone entry would have duplicated content across three parents.
+46_XX_Testicular_DSD.yaml already handles the parallel MONDO terms 46,XX
+sex reversal 3 and 4 as the SRXX3/SRXX4 subtypes, which fixes the shape
+used here. Placing it on the gene-axis parent also begins the has_subtypes
+structuring that entry&#39;s notes had deferred (issue 3310, open question 2);
+the 46,XX POI and 46,XX testicular/ovotesticular bins remain unstructured.
+
+Deep research. Requested provider was falcon, which returned 403 Failed to
+authenticate; deep-research-client providers --check reported falcon
+UNREACHABLE. Rather than substitute by hand, the run was repeated with
+just dr_fallback=&#39;--fallback&#39; research-disorder falcon, which escalated to
+openscientist; that job timed out after 3600s and was cancelled, and
+because the failure surfaced as a ValueError the fallback chain ended
+before reaching claude_code. claude_code was therefore invoked explicitly
+as a third attempt and produced the report used here,
+research/46_XY_Sex_Reversal_3-deep-research-claude_code.md (12 web
+searches, 16 turns, 45 citations). The report carried no validation
+sections, so both were retro-fitted with just validate-research-terms and
+just validate-research-reference. Term validation: 35 checked, 33 resolved,
+0 unresolved, 0 mislabelled, 2 unverifiable (OMIM has no resolver).
+Reference validation: 28 checked, 28 resolved, 0 unresolved, 0 off topic;
+1 quoted claim checked and not found, which is the report quoting
+PMID:17200175&#39;s title as though it were a sentence. No content was taken
+from that quote.
+
+Named Entity Confusion found in the report. Three of its nine PMIDs
+(21129722, 28504475, 35290982) are MAP3K1 papers. MAP3K1 is SRXY6 (OMIM
+618973), not SRXY3, and the report flagged the risk itself in its section 1
+before nonetheless citing them. None were used. The trap is now recorded in
+the SRXY3 subtype&#39;s review_notes so the next curator does not fall into it.
+
+A separate hazard worth recording: four PMIDs recalled from model memory
+during early scoping resolved to entirely unrelated papers (20674172 TiO2
+nanoparticles, 11994345 adipose IL-6, 8033209 Fmr1 knockout, 17179197 a
+PCOS review). All were caught by fetching before use, nothing from them
+reached the entry, and their cache files were deleted. Every citation in
+this edit was instead found by PubMed esearch and verified against the
+cached abstract.
+
+What was added to kb/disorders/NR5A1_Related_Sex_Development_Disorder.yaml:
+the SRXY3 has_subtypes entry bound to MONDO:0013066 with NR5A1, sex-limited
+dominant inheritance and five evidence items; a pathophysiology node
+&#39;Sertoli-cell AMH failure and Mullerian duct persistence&#39; (GO:0001880,
+CL:0000216) wired downstream of the 46,XY testicular dysgenesis node, plus
+new edges to the genital phenotypes and to germ-cell tumour risk; four
+phenotypes (HP:0008730, HP:0034546, HP:0000047, HP:0010788) and
+subtype: SRXY3 tags on the three existing 46,XY phenotypes; two progression
+phases covering neonatal undervirilization and spontaneous pubertal
+virilization; an orchidopexy-plus-tumour-surveillance treatment; a
+subcellular-mislocalization loss-of-function mechanism on the
+haploinsufficiency node (PMID:29190620, from the report); and the
+GeneReviews baseline PMID:20301714.
+
+Scope boundary. Azoospermia and Oligozoospermia are deliberately left
+untagged because isolated NR5A1 spermatogenic failure is a separate OMIM
+entity (SPGF8) and is not within MONDO:0013066.
+
+Known gap, not filled. The report describes streak gonads in the complete
+form and anorchia/vanishing testes at the mild end. Neither was added: no
+cached reference yields an exact quote for either in an NR5A1 46,XY
+context, and manufacturing one is precisely the failure the evidence SOP
+forbids. Both are good candidates for a follow-up with a dedicated source.
+PMID:10369247 (Achermann 1999, the founding SRXY3 report) has no abstract
+in PubMed, so it remains cited in notes for historical provenance only and
+carries no snippet.
+
+GeneReviews baseline. PMID:20301714 &#39;Nonsyndromic Disorders of Testicular
+Development Overview&#39; is the applicable chapter and is now tagged
+GeneReviews in the top-level references. Its PubMed record contains only
+the chapter&#39;s scope statement, not Clinical Characteristics, so it supplied
+no phenotype snippets; phenotype coverage came from the primary literature
+instead.
+
+Validation. just validate passes (schema clean, term validation passed,
+60/60 snippets verified against the local cache). Also run and clean:
+check-duplicate-keys, check-entity-refs, check-causal-targets,
+check-qualifier-terms, check-enum-values, check-folded-hyphens,
+check-snippet-length, check-title-snippets, check-snippet-grading,
+check-environmental-evidence, and the batched just validate-disorders.
+Weighted compliance rose from 84.8% to 88.5%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

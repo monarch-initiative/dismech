@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4133,6 +4201,7 @@ SCOPE. This entry covers the dominant-activating (CID) arm only. The dominant-ne
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4226,6 +4295,7 @@ SCOPE. This entry covers the dominant-activating (CID) arm only. The dominant-ne
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4298,6 +4368,7 @@ SCOPE. This entry covers the dominant-activating (CID) arm only. The dominant-ne
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4319,6 +4390,7 @@ SCOPE. This entry covers the dominant-activating (CID) arm only. The dominant-ne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4356,6 +4428,7 @@ SCOPE. This entry covers the dominant-activating (CID) arm only. The dominant-ne
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rac2-dominant-activating-missense-variant" data-dismech-node="RAC2 Dominant-Activating Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">RAC2 Dominant-Activating Missense Variant</div>
+
 
                 <div class="item-desc">A heterozygous germline missense change, typically in a switch region or the nucleotide-binding pocket, that shifts RAC2 toward its active state. For E62K the defect is specific and measurable, in that intrinsic hydrolysis is preserved but GTPase-activating protein no longer accelerates it.</div>
 
@@ -4490,6 +4563,7 @@ This pathophysiological event involves decreased GTPase activity (GO:0003924). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4512,6 +4586,7 @@ This pathophysiological event involves decreased GTPase activity (GO:0003924). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-gtp-loading-of-rac2" data-dismech-node="Constitutive GTP-Loading of RAC2" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive GTP-Loading of RAC2</div>
+
 
                 <div class="item-desc">RAC2 is a molecular switch whose function depends on cycling, not on being on. Holding it in the GTP-bound state engages its effector modules at rest. Because superoxide production and chemotaxis run through separable effector pathways, the lesion branches here rather than producing a single graded output.</div>
 
@@ -4637,6 +4712,7 @@ This pathophysiological event involves increased GTP-bound occupancy of RAC2, an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4658,6 +4734,7 @@ This pathophysiological event involves increased GTP-bound occupancy of RAC2, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4683,6 +4760,7 @@ This pathophysiological event involves increased GTP-bound occupancy of RAC2, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-nadph-oxidase-superoxide-production" data-dismech-node="Excessive NADPH Oxidase Superoxide Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive NADPH Oxidase Superoxide Production</div>
+
 
                 <div class="item-desc">Superoxide is elevated both at rest and on stimulation. The clinically relevant defect is dysregulation rather than excess as such, since an oxidative burst that cannot be timed is not an effective one.</div>
 
@@ -4806,6 +4884,7 @@ This pathophysiological event involves increased superoxide anion generation (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4828,6 +4907,7 @@ This pathophysiological event involves increased superoxide anion generation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-f-actin-assembly-and-loss-of-polarization" data-dismech-node="Dysregulated F-Actin Assembly and Loss of Polarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated F-Actin Assembly and Loss of Polarization</div>
+
 
                 <div class="item-desc">F-actin content rises while polarization is lost. This is the step at which a gain of GTPase activity becomes a functional loss, because directed migration requires an asymmetric, dynamically remodelled cytoskeleton rather than more polymer.</div>
 
@@ -4971,6 +5051,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4993,6 +5074,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-neutrophil-chemotaxis" data-dismech-node="Absent Neutrophil Chemotaxis" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Neutrophil Chemotaxis</div>
+
 
                 <div class="item-desc">Directed migration toward fMLP is not merely reduced but absent in tested patients, which is the feature that names the disease.</div>
 
@@ -5116,6 +5198,7 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5138,6 +5221,7 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-lymphocyte-and-neutrophil-apoptosis" data-dismech-node="Accelerated Lymphocyte and Neutrophil Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Lymphocyte and Neutrophil Apoptosis</div>
+
 
                 <div class="item-desc">Patient lymphocytes and neutrophils show augmented intracellular active caspase 3. This is the arm through which a cytoskeletal and oxidase lesion reaches a lymphoid phenotype, though the pathway from RAC2 signalling to thymic and marrow output remains partly inferred.</div>
 
@@ -5291,6 +5375,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5317,6 +5402,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5339,6 +5425,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-and-b-lymphopenia-with-impaired-lymphocyte-output" data-dismech-node="T and B Lymphopenia with Impaired Lymphocyte Output" data-dismech-type="pathophysiology">
                 <div class="item-name">T and B Lymphopenia with Impaired Lymphocyte Output</div>
+
 
                 <div class="item-desc">Low TREC and KREC numbers indicate reduced thymic and bone-marrow output rather than peripheral consumption alone, and memory B cells are severely reduced with absent isohaemagglutinins.</div>
 
@@ -5480,6 +5567,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5501,6 +5589,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5526,6 +5615,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-effector-dysfunction" data-dismech-node="Myeloid Effector Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Effector Dysfunction</div>
+
 
                 <div class="item-desc">The converged myeloid consequence, comprising neutropenia, altered oxidative burst, impaired migration and visible neutrophil macropinosomes. Notably the direction of the oxidase defect predicts the infection type, since it is the mutants unable to support superoxide formation that were associated with bacterial infection.</div>
 
@@ -5617,6 +5707,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5638,6 +5729,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5752,6 +5844,9 @@ This clinical feature is T lymphopenia, annotated with Decreased total T cell co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5766,6 +5861,7 @@ This clinical feature is T lymphopenia, annotated with Decreased total T cell co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5822,6 +5918,9 @@ This clinical feature is B lymphopenia, annotated with Decreased total B cell co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5836,6 +5935,7 @@ This clinical feature is B lymphopenia, annotated with Decreased total B cell co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5860,6 +5960,7 @@ This clinical feature is B lymphopenia, annotated with Decreased total B cell co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5918,6 +6019,9 @@ This clinical feature is Decreased circulating IgG, annotated with Decreased cir
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5932,6 +6036,7 @@ This clinical feature is Decreased circulating IgG, annotated with Decreased cir
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5988,6 +6093,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6002,6 +6110,7 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6067,6 +6176,9 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6081,6 +6193,7 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6139,6 +6252,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6153,6 +6269,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6328,9 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6225,6 +6345,7 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6249,6 +6370,7 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6427,9 @@ This clinical feature is Recurrent skin infections (HP:0001581). HP:0001581 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6319,6 +6444,7 @@ This clinical feature is Recurrent skin infections (HP:0001581). HP:0001581 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6384,6 +6510,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6398,6 +6527,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6422,6 +6552,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6522,6 +6653,9 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6536,6 +6670,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6560,6 +6695,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6596,6 +6732,12 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The best-characterised dominant-activating allele. It retains intrinsic GTP hydrolysis but is not accelerated by GTPase-activating protein, so it dwells in the active GTP-bound state.</div>
 
 
@@ -6620,6 +6762,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6656,6 +6799,12 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A dominant-activating allele in a child who presented with combined immunodeficiency at 10 years rather than with a congenital neutrophil disease.</div>
 
 
@@ -6680,6 +6829,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6716,6 +6866,12 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A de novo dominant-activating allele in the highly conserved Switch I domain, reported with raised ROS, elevated F-actin and increased RAC2 protein expression.</div>
 
 
@@ -6740,6 +6896,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6776,6 +6933,12 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A rare variant that produces the dominant-activating phenotype only in the homozygous state. Protein expression is markedly reduced yet effector signalling is increased, so expression level and functional direction point opposite ways in the same patient.</div>
 
 
@@ -6803,6 +6966,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6824,6 +6988,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6936,6 +7101,9 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6946,6 +7114,9 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
     </div>
+
+
+
 
 
 
@@ -6991,6 +7162,7 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7079,6 +7251,9 @@ This treatment uses cotrimoxazole, annotated with Trimethoprim-Sulfamethoxazole 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7089,6 +7264,9 @@ This treatment uses cotrimoxazole, annotated with Trimethoprim-Sulfamethoxazole 
 
 
     </div>
+
+
+
 
 
 
@@ -7137,6 +7315,7 @@ This treatment uses cotrimoxazole, annotated with Trimethoprim-Sulfamethoxazole 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7158,6 +7337,7 @@ This treatment uses cotrimoxazole, annotated with Trimethoprim-Sulfamethoxazole 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7224,6 +7404,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7234,6 +7417,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -7273,6 +7459,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7318,6 +7505,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7339,6 +7527,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7414,6 +7603,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7468,6 +7658,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7519,6 +7710,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7593,6 +7785,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7678,6 +7871,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7730,6 +7924,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7879,6 +8074,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7963,6 +8159,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8012,6 +8209,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,6 +8317,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8160,6 +8359,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9486,6 +9686,30 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research provenance and two corrections. This entry was curated against an OpenScientist report (research/Immunodeficiency_73B-deep-research-openscientist.md). Two of its claims were not carried across.
+First, the report lists the G15D allele (PMID:36459342) among the dominant-activating variants. The paper itself classifies it as loss-of-function inactivating and says so in terms, describing it as the first LoF-I RAC2 mutation affecting lymphocyte function. It causes a combined immunodeficiency but through the opposite biochemical direction, so it is not curated as an IMD73B allele here.
+Second, the report&#39;s limitations section states that no knock-in mouse carries a human dominant-activating allele. One does: the Rac2+/E62K heterozygous knock-in reported in PMID:30723080, which is curated above as the entry&#39;s primary animal model.
+Reference validation. The report&#39;s validator listed PMID:15814684 as unresolved with a confabulation rate of 0.083. That identifier was re-checked directly against NCBI during curation and resolves to Carstanjen et al. 2005 in J Immunol, with the title the report attributed to it, so the failure was in the lookup rather than in the citation. It is cached and cited here on that basis.
+PMID:31382036 has no abstract available in PubMed, so it carries no evidence item and appears in the reference block only.
+PMID:40860338 is deliberately not used. The report cites it as a MENA actinopathy registry describing late-onset presentation with higher EBV and HPV rates, autoimmune cytopenia and lymphoproliferation. Its scope is the broader RAC2-pathway actinopathies rather than dominant-activating RAC2 itself, so curating its phenotype rates against this entry would attribute a mixed cohort&#39;s findings to one allele class. That is the same named-entity problem the report&#39;s own coherence section describes as &#34;variable expressivity within the broader RAC2-regulator spectrum&#34;. It is not cached and not cited.
+Classifications. No IUIS category is asserted here. RAC2 appears in three tables of the IUIS 2022 classification and the KB&#39;s IUIS campaign (monarch-initiative/dismech#10106, #10477) is assigning those systematically; both of those pull requests deliberately left the RAC2 entry unclassified for the same reason. Adding a category here would pre-empt that work.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 73B (RAC2 dominant-activating combined immunodeficiency)</strong> · 2026-09-05T14:54:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_73B/2026-09-05T145458Z-claude-code-f6137c.yaml">View source</a></p>
+                        <p class="research-review-text">New kb/disorders entry for IMD73B (MONDO:0033554), claimed via issue #11107. Curated as the dominant-activating arm of the RAC2 allele-class spectrum, which the existing Neutrophil_Immunodeficiency_Syndrome entry (IMD73A, dominant-negative) explicitly scopes out of itself. Pathograph branches at constitutive GTP-loading into the NADPH-oxidase arm, the actin arm and an apoptosis arm, converging on myeloid effector dysfunction and on T/B lymphopenia with impaired output. Nine HPO-bound phenotypes, four variants with functional evidence, two mouse models (the allele-matched Rac2+/E62K knock-in as RECAPITULATES, the Rac2 null as FAILS_TO_RECAPITULATE with an inverted-lesion limitation), and two KNOWLEDGE_GAP discussions. Deep research: OpenScientist report committed. Two of its claims were rejected and the rejections recorded in entry notes. First, it listed the G15D allele (PMID:36459342) as dominant-activating; the paper classifies it as loss-of-function inactivating, so it is excluded. Second, it states no knock-in mouse exists for a human dominant-activating allele; PMID:30723080 reports Rac2+/E62K, which is curated as the primary model. Reference validation: the report flagged PMID:15814684 as unresolved (confabulation_rate 0.083). I re-checked that identifier directly against NCBI esummary during curation; it resolves to Carstanjen et al. 2005 J Immunol with the title the report attributed to it, so the failure was in the lookup rather than the citation, and it is cached and cited on that basis. PMID:31382036 has no PubMed abstract (content_type unavailable) so it carries no evidence item and appears in the reference block only. Four snippets had to be requoted around square-bracketed allele designations (RAC2[E62K], RAC2 [N92 T]) that the reference validator strips; commented on issue #10192 with this as a new sub-form no proposed keep-pattern reaches. No iuis_category asserted, to avoid pre-empting the IUIS campaign in PRs #10106 and #10477, both of which deliberately left RAC2 unclassified. Validation: schema pass, term validation pass, 62/62 snippets verified, check-entity-refs / check-causal-targets / check-duplicate-keys / check-enum-values clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

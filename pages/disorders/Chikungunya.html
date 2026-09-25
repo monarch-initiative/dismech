@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4134,6 +4202,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4155,6 +4224,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4340,6 +4410,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4363,6 +4434,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4489,6 +4561,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4510,6 +4583,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4547,6 +4621,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chikv-replication-in-fibroblast-lineage-target-cells" data-dismech-node="CHIKV Replication in Fibroblast-Lineage Target Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">CHIKV Replication in Fibroblast-Lineage Target Cells</div>
+
 
                 <div class="item-desc">Chikungunya virus establishes productive replication preferentially in fibroblasts of muscle, joint and skin, a tropism recovered from human biopsy material as well as from the mouse model. This node is the shared root of the entry: the musculoskeletal syndrome and the cardiac arm both begin from infection of the same cell lineage in different tissues.</div>
 
@@ -4680,6 +4755,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4702,6 +4778,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-fibroblast-infection" data-dismech-node="Cardiac Fibroblast Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Fibroblast Infection</div>
+
 
                 <div class="item-desc">Chikungunya virus directly infects and actively replicates in cardiac fibroblasts. This is shown in an immunocompetent mouse model and in primary human cardiac cells, so the cardiac arm rests on a demonstrated cell target rather than on the clinical association alone.</div>
 
@@ -4848,6 +4925,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4870,6 +4948,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mavs-dependent-innate-sensing-failure" data-dismech-node="MAVS-Dependent Innate Sensing Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">MAVS-Dependent Innate Sensing Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of signalling through the mitochondrial antiviral-signaling protein MAVS, the adaptor for cytoplasmic viral RNA sensing. In the model system this state is produced genetically rather than by the virus, which is why it is curated as an upstream host lesion with no incoming edge from infection: the reviewer-suggested route from cardiac infection to sensing failure is not something the source shows. What the source does show is the consequence — mice deficient in MAVS signalling fail to clear chikungunya virus from the heart — so the outgoing edge, not an incoming one, is where the evidence sits. PROVISIONAL because no comparable sensing lesion has been demonstrated in patients with chikungunya cardiac disease.</div>
 
@@ -4982,6 +5067,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5004,6 +5090,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-17a-production-in-infected-heart-tissue" data-dismech-node="IL-17A Production in Infected Heart Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-17A Production in Infected Heart Tissue</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">IL-17A is produced locally in chikungunya-infected cardiac tissue. PROVISIONAL because the cardiac localisation rests solely on a preprint: the peer-reviewed human data measure IL-17 in patient sera and the peer-reviewed mouse data measure it in joint and muscle, so neither places the cytokine in the heart.</div>
 
@@ -5118,6 +5211,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5139,6 +5233,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5164,6 +5259,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-17ra-signalling-in-cardiac-tissue" data-dismech-node="IL-17RA Signalling in Cardiac Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-17RA Signalling in Cardiac Tissue</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">IL-17A signalling through IL-17RA in cardiac tissue. Removing the receptor or blocking it pharmacologically raises the local interferon response and lowers viral burden, so this is the step the emerging hypothesis places upstream of the interferon response rather than downstream of the damage. PROVISIONAL because every result placing IL-17RA signalling in the heart comes from the same preprint.</div>
 
@@ -5300,6 +5402,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5326,6 +5429,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5348,6 +5452,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrained-cardiac-type-i-interferon-response" data-dismech-node="Restrained Cardiac Type I Interferon Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrained Cardiac Type I Interferon Response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Clearance of chikungunya virus from the heart depends on a local type I interferon response raised by both infected and uninfected cardiac cells. Anything that blunts that response therefore converts a self-limiting cardiac infection into a persistent one. Two routes to a blunted response reach this node and they differ sharply in standing: loss of MAVS-dependent innate sensing is a peer-reviewed genetic result and has its own upstream node, whereas restraint by IL-17RA signalling is the emerging claim and is marked as such on its incoming edge. The node is PROVISIONAL because interferon insufficiency has not been measured in the hearts of infected humans.</div>
 
@@ -5439,6 +5550,7 @@ This pathophysiological event involves decreased type I interferon production (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5465,6 +5577,7 @@ This pathophysiological event involves decreased type I interferon production (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5487,6 +5600,13 @@ This pathophysiological event involves decreased type I interferon production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-cardiac-viral-infection" data-dismech-node="Persistent Cardiac Viral Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Cardiac Viral Infection</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Virus that is not cleared continues to replicate in the myocardium and in the vascular tissue at the base of the heart. In the mouse this persistence is prolonged, with large vessel vasculitis still present two months after infection. Whether human cardiac involvement reflects persistence or a single acute insult has not been established, hence PROVISIONAL.</div>
 
@@ -5599,6 +5719,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5621,6 +5742,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-inflammation-and-myocardial-injury" data-dismech-node="Cardiac Inflammation and Myocardial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Inflammation and Myocardial Injury</div>
+
 
                 <div class="item-desc">Inflammatory cell infiltration of cardiac tissue with focal myocarditis and vasculitis of the great vessels at the base of the heart. Blocking IL-17A signalling reduces the pro-inflammatory mediators, the infiltrate and the injury together, which is the observation that makes this node the endpoint of the IL-17A arm rather than an independent process.</div>
 
@@ -5733,6 +5855,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5756,6 +5879,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5783,6 +5907,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5805,6 +5930,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-joint-and-muscle-inflammation-with-neutrophil-infiltration" data-dismech-node="Joint and Muscle Inflammation with Neutrophil Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Joint and Muscle Inflammation with Neutrophil Infiltration</div>
+
 
                 <div class="item-desc">Inflammatory infiltration of joint and muscle tissue, with neutrophils prominent, underlying the arthralgia and myalgia of acute chikungunya and persisting into the postacute phase. IL-17A is required for it in the mouse and is elevated in patients, most strongly during chronic disease; that dependence is recorded as evidence on this node rather than as an edge from the cardiac IL-17A nodes, because the peer-reviewed result is about joint and muscle tissue and the cardiac nodes are explicitly localised to the heart.</div>
 
@@ -5930,6 +6056,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5951,6 +6078,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5999,7 +6127,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chikungunya virus establishes productive replication preferentially in fibroblasts of muscle, joint and skin, a tropism recovered from human biopsy material as well as from the mouse model. This node is the shared root of the entry: the musculoskeletal syndrome and the cardiac arm both begin from infection of the same cell lineage in different tissues.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"viral genome replication\"]}}, {\"id\": \"Cardiac Fibroblast Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chikungunya virus directly infects and actively replicates in cardiac fibroblasts. This is shown in an immunocompetent mouse model and in primary human cardiac cells, so the cardiac arm rests on a demonstrated cell target rather than on the clinical association alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"viral genome replication\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac Inflammation and Myocardial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cell infiltration of cardiac tissue with focal myocarditis and vasculitis of the great vessels at the base of the heart. Blocking IL-17A signalling reduces the pro-inflammatory mediators, the infiltrate and the injury together, which is the observation that makes this node the endpoint of the IL-17A arm rather than an independent process.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"IL-17A Production in Infected Heart Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-17A is produced locally in chikungunya-infected cardiac tissue. PROVISIONAL because the cardiac localisation rests solely on a preprint: the peer-reviewed human data measure IL-17 in patient sera and the peer-reviewed mouse data measure it in joint and muscle, so neither places the cytokine in the heart.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17 production\"], \"locations\": [\"heart\"]}}, {\"id\": \"IL-17RA Signalling in Cardiac Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-17A signalling through IL-17RA in cardiac tissue. Removing the receptor or blocking it pharmacologically raises the local interferon response and lowers viral burden, so this is the step the emerging hypothesis places upstream of the interferon response rather than downstream of the damage. PROVISIONAL because every result placing IL-17RA signalling in the heart comes from the same preprint.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17-mediated signaling pathway\"], \"locations\": [\"heart\"]}}, {\"id\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory infiltration of joint and muscle tissue, with neutrophils prominent, underlying the arthralgia and myalgia of acute chikungunya and persisting into the postacute phase. IL-17A is required for it in the mouse and is elevated in patients, most strongly during chronic disease; that dependence is recorded as evidence on this node rather than as an edge from the cardiac IL-17A nodes, because the peer-reviewed result is about joint and muscle tissue and the cardiac nodes are explicitly localised to the heart.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"neutrophil chemotaxis\"]}}, {\"id\": \"MAVS-Dependent Innate Sensing Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of signalling through the mitochondrial antiviral-signaling protein MAVS, the adaptor for cytoplasmic viral RNA sensing. In the model system this state is produced genetically rather than by the virus, which is why it is curated as an upstream host lesion with no incoming edge from infection: the reviewer-suggested route from cardiac infection to sensing failure is not something the source shows. What the source does show is the consequence \\u2014 mice deficient in MAVS signalling fail to clear chikungunya virus from the heart \\u2014 so the outgoing edge, not an incoming one, is where the evidence sits. PROVISIONAL because no comparable sensing lesion has been demonstrated in patients with chikungunya cardiac disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytoplasmic pattern recognition receptor signaling pathway\"], \"locations\": [\"heart\"]}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial inflammation reported among the cardiovascular manifestations of systemic chikungunya virus infection, alongside arrhythmias, dilated cardiomyopathy and heart failure. No frequency band is asserted: the source that establishes these manifestations occur also states that isolated cardiac compromise is uncommon, and the two statements cannot be reconciled into a band without going beyond what is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012819\"}}, {\"id\": \"Persistent Cardiac Viral Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Virus that is not cleared continues to replicate in the myocardium and in the vascular tissue at the base of the heart. In the mouse this persistence is prolonged, with large vessel vasculitis still present two months after infection. Whether human cardiac involvement reflects persistence or a single acute insult has not been established, hence PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral genome replication\"], \"locations\": [\"heart\"]}}, {\"id\": \"Restrained Cardiac Type I Interferon Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clearance of chikungunya virus from the heart depends on a local type I interferon response raised by both infected and uninfected cardiac cells. Anything that blunts that response therefore converts a self-limiting cardiac infection into a persistent one. Two routes to a blunted response reach this node and they differ sharply in standing: loss of MAVS-dependent innate sensing is a peer-reviewed genetic result and has its own upstream node, whereas restraint by IL-17RA signalling is the emerging claim and is marked as such on its incoming edge. The node is PROVISIONAL because interferon insufficiency has not been measured in the hearts of infected humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"type I interferon production\"]}}], \"edges\": [{\"source\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"target\": \"Cardiac Fibroblast Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same fibroblast tropism extends to the resident fibroblast population of the myocardium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"target\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of joint and muscle fibroblasts is the substrate for the arthralgia and myalgia that define acute chikungunya.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroblast Infection\", \"target\": \"IL-17A Production in Infected Heart Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac infection is itself the stimulus for local IL-17A production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAVS-Dependent Innate Sensing Failure\", \"target\": \"Restrained Cardiac Type I Interferon Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The peer-reviewed route to a cardiac interferon response too weak to clear the virus, and the counterpart of the emerging IL-17A route into the same node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-17A Production in Infected Heart Tissue\", \"target\": \"IL-17RA Signalling in Cardiac Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally produced IL-17A acts on cardiac cells through its receptor IL-17RA, which is the step receptor blockade interrupts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-17RA Signalling in Cardiac Tissue\", \"target\": \"Restrained Cardiac Type I Interferon Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The edge that carries the emerging claim: IL-17RA signalling suppresses the local interferon response rather than merely accompanying it.\", \"hypothesis_groups\": [\"il17a_interferon_restraint\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrained Cardiac Type I Interferon Response\", \"target\": \"Persistent Cardiac Viral Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An interferon response insufficient to clear the virus leaves replicating virus in cardiac tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Cardiac Viral Infection\", \"target\": \"Cardiac Inflammation and Myocardial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent replication in cardiac tissue recruits the infiltrate that produces the myocardial lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Inflammation and Myocardial Injury\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue lesion presenting clinically. Myocarditis is the phenotype the myocardial inflammation and injury node produces, and is named as such both in the mouse histology and in the patient literature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammation of the joint is what patients experience as the arthralgia that defines chikungunya and that outlasts the acute illness.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chikungunya virus establishes productive replication preferentially in fibroblasts of muscle, joint and skin, a tropism recovered from human biopsy material as well as from the mouse model. This node is the shared root of the entry: the musculoskeletal syndrome and the cardiac arm both begin from infection of the same cell lineage in different tissues.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"viral genome replication\"]}}, {\"id\": \"Cardiac Fibroblast Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chikungunya virus directly infects and actively replicates in cardiac fibroblasts. This is shown in an immunocompetent mouse model and in primary human cardiac cells, so the cardiac arm rests on a demonstrated cell target rather than on the clinical association alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"viral genome replication\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac Inflammation and Myocardial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cell infiltration of cardiac tissue with focal myocarditis and vasculitis of the great vessels at the base of the heart. Blocking IL-17A signalling reduces the pro-inflammatory mediators, the infiltrate and the injury together, which is the observation that makes this node the endpoint of the IL-17A arm rather than an independent process.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"IL-17A Production in Infected Heart Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-17A is produced locally in chikungunya-infected cardiac tissue. PROVISIONAL because the cardiac localisation rests solely on a preprint: the peer-reviewed human data measure IL-17 in patient sera and the peer-reviewed mouse data measure it in joint and muscle, so neither places the cytokine in the heart.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17 production\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"IL-17RA Signalling in Cardiac Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-17A signalling through IL-17RA in cardiac tissue. Removing the receptor or blocking it pharmacologically raises the local interferon response and lowers viral burden, so this is the step the emerging hypothesis places upstream of the interferon response rather than downstream of the damage. PROVISIONAL because every result placing IL-17RA signalling in the heart comes from the same preprint.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17-mediated signaling pathway\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory infiltration of joint and muscle tissue, with neutrophils prominent, underlying the arthralgia and myalgia of acute chikungunya and persisting into the postacute phase. IL-17A is required for it in the mouse and is elevated in patients, most strongly during chronic disease; that dependence is recorded as evidence on this node rather than as an edge from the cardiac IL-17A nodes, because the peer-reviewed result is about joint and muscle tissue and the cardiac nodes are explicitly localised to the heart.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"neutrophil chemotaxis\"]}}, {\"id\": \"MAVS-Dependent Innate Sensing Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of signalling through the mitochondrial antiviral-signaling protein MAVS, the adaptor for cytoplasmic viral RNA sensing. In the model system this state is produced genetically rather than by the virus, which is why it is curated as an upstream host lesion with no incoming edge from infection: the reviewer-suggested route from cardiac infection to sensing failure is not something the source shows. What the source does show is the consequence \\u2014 mice deficient in MAVS signalling fail to clear chikungunya virus from the heart \\u2014 so the outgoing edge, not an incoming one, is where the evidence sits. PROVISIONAL because no comparable sensing lesion has been demonstrated in patients with chikungunya cardiac disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytoplasmic pattern recognition receptor signaling pathway\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial inflammation reported among the cardiovascular manifestations of systemic chikungunya virus infection, alongside arrhythmias, dilated cardiomyopathy and heart failure. No frequency band is asserted: the source that establishes these manifestations occur also states that isolated cardiac compromise is uncommon, and the two statements cannot be reconciled into a band without going beyond what is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012819\"}}, {\"id\": \"Persistent Cardiac Viral Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Virus that is not cleared continues to replicate in the myocardium and in the vascular tissue at the base of the heart. In the mouse this persistence is prolonged, with large vessel vasculitis still present two months after infection. Whether human cardiac involvement reflects persistence or a single acute insult has not been established, hence PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral genome replication\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Restrained Cardiac Type I Interferon Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clearance of chikungunya virus from the heart depends on a local type I interferon response raised by both infected and uninfected cardiac cells. Anything that blunts that response therefore converts a self-limiting cardiac infection into a persistent one. Two routes to a blunted response reach this node and they differ sharply in standing: loss of MAVS-dependent innate sensing is a peer-reviewed genetic result and has its own upstream node, whereas restraint by IL-17RA signalling is the emerging claim and is marked as such on its incoming edge. The node is PROVISIONAL because interferon insufficiency has not been measured in the hearts of infected humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"type I interferon production\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"target\": \"Cardiac Fibroblast Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same fibroblast tropism extends to the resident fibroblast population of the myocardium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CHIKV Replication in Fibroblast-Lineage Target Cells\", \"target\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of joint and muscle fibroblasts is the substrate for the arthralgia and myalgia that define acute chikungunya.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroblast Infection\", \"target\": \"IL-17A Production in Infected Heart Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac infection is itself the stimulus for local IL-17A production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAVS-Dependent Innate Sensing Failure\", \"target\": \"Restrained Cardiac Type I Interferon Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The peer-reviewed route to a cardiac interferon response too weak to clear the virus, and the counterpart of the emerging IL-17A route into the same node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-17A Production in Infected Heart Tissue\", \"target\": \"IL-17RA Signalling in Cardiac Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally produced IL-17A acts on cardiac cells through its receptor IL-17RA, which is the step receptor blockade interrupts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-17RA Signalling in Cardiac Tissue\", \"target\": \"Restrained Cardiac Type I Interferon Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The edge that carries the emerging claim: IL-17RA signalling suppresses the local interferon response rather than merely accompanying it.\", \"hypothesis_groups\": [\"il17a_interferon_restraint\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrained Cardiac Type I Interferon Response\", \"target\": \"Persistent Cardiac Viral Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An interferon response insufficient to clear the virus leaves replicating virus in cardiac tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Cardiac Viral Infection\", \"target\": \"Cardiac Inflammation and Myocardial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent replication in cardiac tissue recruits the infiltrate that produces the myocardial lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Inflammation and Myocardial Injury\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue lesion presenting clinically. Myocarditis is the phenotype the myocardial inflammation and injury node produces, and is named as such both in the mouse histology and in the patient literature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Joint and Muscle Inflammation with Neutrophil Infiltration\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammation of the joint is what patients experience as the arthralgia that defines chikungunya and that outlasts the acute illness.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6065,6 +6193,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6079,6 +6210,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6144,6 +6276,9 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6158,6 +6293,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6221,6 +6357,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6235,6 +6374,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6298,6 +6438,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6312,6 +6455,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6432,6 +6576,12 @@ This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive care for acute chikungunya.</div>
 
 
@@ -6453,6 +6603,7 @@ This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6572,6 +6723,7 @@ This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Chikungunya virus (CHIKV) is an arthropod-borne alphavirus"</div>
@@ -6625,6 +6777,7 @@ This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8023,6 +8176,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8091,6 +8245,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8165,6 +8320,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8233,6 +8389,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8464,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8375,6 +8533,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8449,6 +8608,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8517,6 +8677,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8591,6 +8752,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8659,6 +8821,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8733,6 +8896,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8801,6 +8965,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8912,6 +9077,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

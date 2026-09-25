@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4234,6 +4302,7 @@ Two things are worth stating once. The gene symbol is in flux: the live HGNC reg
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4324,7 @@ Two things are worth stating once. The gene symbol is in flux: the live HGNC reg
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4459,6 +4529,13 @@ Note also that the defining study specifically observed that the phenotypic spec
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ccdc115-loss-of-function" data-dismech-node="Biallelic CCDC115 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CCDC115 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">CCDC115 is the human reciprocal homolog of Vma22p, the yeast V-ATPase assembly factor, identified by PSI-BLAST rather than by sequence similarity obvious at first inspection - the gene&#39;s function was unknown when the disease was found. The protein localises mainly to the ER-Golgi intermediate compartment and to COPI vesicles, and notably not to the endoplasmic reticulum where its yeast homolog sits.
 Two alleles carry most of the reported caseload: c.92T&gt;C p.(Leu31Ser), which recurs across unrelated families, and c.31G&gt;T p.(Asp11Tyr). Homozygosity for p.(Leu31Ser) has been associated with higher serum transaminase levels in a review of all reported patients, which is the only genotype-phenotype correlation proposed so far and rests on thirteen individuals.</div>
 
@@ -4520,6 +4597,8 @@ This pathophysiological event involves CCDC115 (hgnc:28178). hgnc:28178 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4532,6 +4611,9 @@ This pathophysiological event involves CCDC115 (hgnc:28178). hgnc:28178 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4577,6 +4659,7 @@ This pathophysiological event involves CCDC115 (hgnc:28178). hgnc:28178 is a gen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4598,6 +4681,7 @@ This pathophysiological event involves CCDC115 (hgnc:28178). hgnc:28178 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4623,6 +4707,13 @@ This pathophysiological event involves CCDC115 (hgnc:28178). hgnc:28178 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-v-atpase-assembly-and-organelle-acidification" data-dismech-node="Impaired V-ATPase Assembly and Organelle Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired V-ATPase Assembly and Organelle Acidification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The V-ATPase acidifies intracellular organelles, and that pH sets several downstream processes - glycosyltransferase activity in the Golgi, lysosomal acid lipase activity, and autophagy. Losing an assembly factor therefore produces a defect that is not confined to one enzyme.
 The evidence that the acidification step is genuinely impaired, rather than inferred from the yeast homology, comes from hepatocyte models: silencing CCDC115 in HepG2 cells produces impaired lysosomal acidification together with impaired autophagic capacity. That is a lysosomal readout rather than a Golgi one, which is worth noting - the Golgi pH defect itself has been argued from the glycosylation phenotype rather than measured directly in these patients&#39; cells.</div>
@@ -4795,6 +4886,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4819,6 +4911,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4847,6 +4940,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4869,6 +4963,13 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-n-and-o-glycosylation-defect" data-dismech-node="Combined N- and O-Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined N- and O-Glycosylation Defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Serum proteins show abnormal N-glycosylation and abnormal mucin-type O-glycosylation - the combined pattern that distinguishes Golgi-homeostasis defects from the earlier, ER-based congenital disorders of glycosylation. Fibroblasts show reduced metabolic labelling of sialic acids.
 The complementation result is what makes this causal rather than correlative: restoring wild-type CCDC115 in patient fibroblasts restores sialic acid labelling. It is also, in practice, the diagnostic handle - the disease is identifiable by screening plasma for abnormal glycosylation, which is why it turns up in patients being investigated for something else.</div>
@@ -5055,6 +5156,7 @@ This pathophysiological event involves abnormal Golgi organization (GO:0007030).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5076,6 +5178,7 @@ This pathophysiological event involves abnormal Golgi organization (GO:0007030).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5103,6 +5206,7 @@ This pathophysiological event involves abnormal Golgi organization (GO:0007030).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5127,6 +5231,13 @@ This pathophysiological event involves abnormal Golgi organization (GO:0007030).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-lipid-accumulation-and-failed-lipophagy" data-dismech-node="Lysosomal Lipid Accumulation and Failed Lipophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Lipid Accumulation and Failed Lipophagy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Silencing CCDC115 in HepG2 hepatocytes increases the number and size of lipid droplets, including abnormally large ones that colocalise with lysosomes, without excessive de novo lipogenesis, failing oxidative capacity or elevated lipid uptake. The proposed mechanism is therefore a failure of lipophagy - lipid that reaches the lysosome and is not degraded - rather than lipid overproduction.
 The hypercholesterolemia follows from this rather than being a separate lesion: apolipoprotein B secretion is markedly increased in the silenced cells, and the patients&#39; hyperlipidemia is in the very-low-density lipoprotein range, with no mutation in any familial-hypercholesterolemia gene or in LIPA.
@@ -5287,6 +5398,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5308,6 +5420,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5335,6 +5448,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5357,6 +5471,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-injury-and-fibrosis" data-dismech-node="Hepatic Injury and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Injury and Fibrosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint is a spectrum from steatohepatitis with fibrosis through cirrhosis to liver failure. What is not established is which of the upstream defects drives it. The glycosylation defect and the lipophagy defect are both present, both plausible, and have not been separated experimentally; the 2018 case series explicitly offers hypotheses about the pathogenesis of the liver disease rather than a demonstration. This node is graded PROVISIONAL for that reason, and the two incoming edges are marked as having unknown intermediates.</div>
 
@@ -5459,6 +5580,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5483,6 +5605,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,7 +5653,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Protein Glycosylation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined N-linked and mucin-type O-linked, with reduced galactose and sialic acid. Serum transferrin capillary electrophoresis shows a pattern compatible with abnormal Golgi N-glycosylation - the type II pattern that gives the disease its CDG-IIo designation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012346\"}}, {\"id\": \"Biallelic CCDC115 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCDC115 is the human reciprocal homolog of Vma22p, the yeast V-ATPase assembly factor, identified by PSI-BLAST rather than by sequence similarity obvious at first inspection - the gene\u0027s function was unknown when the disease was found. The protein localises mainly to the ER-Golgi intermediate compartment and to COPI vesicles, and notably not to the endoplasmic reticulum where its yeast homolog sits.\\nTwo alleles carry most of the reported caseload: c.92T\u003eC p.(Leu31Ser), which recurs across unrelated families, and c.31G\u003eT p.(Asp11Tyr). Homozygosity for p.(Leu31Ser) has been associated with higher serum transaminase levels in a review of all reported patients, which is the only genotype-phenotype correlation proposed so far and rests on thirteen individuals.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CCDC115\"], \"gene_terms\": [{\"label\": \"CCDC115\", \"id\": \"hgnc:28178\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}, \"role\": \"trigger\"}}, {\"id\": \"CCDC115\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC115\"], \"gene_terms\": [{\"label\": \"CCDC115\", \"id\": \"hgnc:28178\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the hepatic manifestation set that every reported patient shows, though it is the least frequent of the four listed. Its presence is one reason the presentation reads as a primary liver disease rather than as a multisystem CDG.\\nGraded OCCASIONAL to preserve the source\u0027s own ordering. The sentence it is cited from ranks the four hepatic manifestations by frequency - hepatosplenomegaly, jaundice, liver failure, cholestasis - and gives no counts, so the band has to sit at or below the band of liver failure, which is OCCASIONAL here. It was initially graded FREQUENT, which inverted that ordering against a description that says in the same breath that cholestasis is the least frequent of the four.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Combined N- and O-Glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum proteins show abnormal N-glycosylation and abnormal mucin-type O-glycosylation - the combined pattern that distinguishes Golgi-homeostasis defects from the earlier, ER-based congenital disorders of glycosylation. Fibroblasts show reduced metabolic labelling of sialic acids.\\nThe complementation result is what makes this causal rather than correlative: restoring wild-type CCDC115 in patient fibroblasts restores sialic acid labelling. It is also, in practice, the diagnostic handle - the disease is identifiable by screening plasma for abnormal glycosylation, which is why it turns up in patients being investigated for something else.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein N-linked glycosylation\", \"mucin-type O-glycosylation\", \"Golgi organization\"]}}, {\"id\": \"Decreased Circulating Ceruloplasmin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the abnormal copper metabolism, and the single most misleading finding in this disease - it is what sends the workup towards Wilson disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010837\"}}, {\"id\": \"Elevated Hepatic Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay, reported as accompanying the hepatic phenotype \\\"often\\\" rather than always. One of the three patients in the 2018 series had isolated late liver involvement without neurological symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cause of death in two of the eight individuals in the defining series, and the indication for transplantation in a third. This is the outcome that makes early diagnosis matter.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatic Injury and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a spectrum from steatohepatitis with fibrosis through cirrhosis to liver failure. What is not established is which of the upstream defects drives it. The glycosylation defect and the lipophagy defect are both present, both plausible, and have not been separated experimentally; the 2018 case series explicitly offers hypotheses about the pathogenesis of the liver disease rather than a demonstration. This node is graded PROVISIONAL for that reason, and the two incoming edges are marked as having unknown intermediates.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the storage-disease-like presentation, and unusual in that it regresses with age rather than progressing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked, and in the very-low-density lipoprotein range. No affected individual carried a mutation in LDLR, APOB, PCSK9 or LIPA, which is what makes this a consequence of the glycosylation/lipophagy defect rather than a coincidental second diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The V-ATPase acidifies intracellular organelles, and that pH sets several downstream processes - glycosyltransferase activity in the Golgi, lysosomal acid lipase activity, and autophagy. Losing an assembly factor therefore produces a defect that is not confined to one enzyme.\\nThe evidence that the acidification step is genuinely impaired, rather than inferred from the yeast homology, comes from hepatocyte models: silencing CCDC115 in HepG2 cells produces impaired lysosomal acidification together with impaired autophagic capacity. That is a lysosomal readout rather than a Golgi one, which is worth noting - the Golgi pH defect itself has been argued from the glycosylation phenotype rather than measured directly in these patients\u0027 cells.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proton transmembrane transport\", \"regulation of intracellular pH\", \"autophagy\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Performed successfully in at least one individual with liver failure. It is the only intervention with a reported disease-altering outcome, and it treats the organ rather than the glycosylation defect - whether the extrahepatic glycosylation abnormality persists after transplantation is not reported.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing CCDC115 in HepG2 hepatocytes increases the number and size of lipid droplets, including abnormally large ones that colocalise with lysosomes, without excessive de novo lipogenesis, failing oxidative capacity or elevated lipid uptake. The proposed mechanism is therefore a failure of lipophagy - lipid that reaches the lysosome and is not degraded - rather than lipid overproduction.\\nThe hypercholesterolemia follows from this rather than being a separate lesion: apolipoprotein B secretion is markedly increased in the silenced cells, and the patients\u0027 hyperlipidemia is in the very-low-density lipoprotein range, with no mutation in any familial-hypercholesterolemia gene or in LIPA.\\nThis node is deliberately cellular. The tissue-level steatosis it produces is the phenotype downstream of it, not part of it - keeping them separate means the cell-biology claim and the clinical finding can be graded and cited independently.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"lipophagy\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Biallelic CCDC115 Loss of Function\", \"target\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Combined N- and O-Glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Decreased Circulating Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second and clinically more pointed half of the copper mechanism, and the one that cannot run through the glycosylation node. ATP7B - the Wilson gene - is explicitly not glycosylated, so its loss of function is proposed to follow from V-ATPase malfunction via its Golgi residence rather than from the glycosylation defect. If that is right, the Wilson mimicry is mechanistic rather than coincidental: the same organelle failure that breaks glycosylation also disables the transporter Wilson disease disables.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Abnormal Protein Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Decreased Circulating Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceruloplasmin is a secreted glycoprotein, and the proposed route runs through the copper transporters rather than through ceruloplasmin itself: ATP7A is glycosylated, deficient glycosylation could impair its function, and loss of copper export into serum would lower ceruloplasmin. The intermediates are named in the source and the mechanism is stated there as uncertain, which is why this is an inference rather than a direct edge.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurological involvement is reported in five of the eleven patients in the systematic review, but nothing traces a route from the glycosylation defect to it. The edge records that the neurological arm exists and is unexplained rather than leaving it disconnected.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hepatic Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level consequence of lipid that reaches the lysosome and is not degraded.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Hepatic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Elevated Hepatic Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CCDC115\", \"target\": \"Biallelic CCDC115 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Protein Glycosylation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined N-linked and mucin-type O-linked, with reduced galactose and sialic acid. Serum transferrin capillary electrophoresis shows a pattern compatible with abnormal Golgi N-glycosylation - the type II pattern that gives the disease its CDG-IIo designation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012346\"}}, {\"id\": \"Biallelic CCDC115 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCDC115 is the human reciprocal homolog of Vma22p, the yeast V-ATPase assembly factor, identified by PSI-BLAST rather than by sequence similarity obvious at first inspection - the gene\u0027s function was unknown when the disease was found. The protein localises mainly to the ER-Golgi intermediate compartment and to COPI vesicles, and notably not to the endoplasmic reticulum where its yeast homolog sits.\\nTwo alleles carry most of the reported caseload: c.92T\u003eC p.(Leu31Ser), which recurs across unrelated families, and c.31G\u003eT p.(Asp11Tyr). Homozygosity for p.(Leu31Ser) has been associated with higher serum transaminase levels in a review of all reported patients, which is the only genotype-phenotype correlation proposed so far and rests on thirteen individuals.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CCDC115\"], \"gene_terms\": [{\"label\": \"CCDC115\", \"id\": \"hgnc:28178\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CCDC115\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC115\"], \"gene_terms\": [{\"label\": \"CCDC115\", \"id\": \"hgnc:28178\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the hepatic manifestation set that every reported patient shows, though it is the least frequent of the four listed. Its presence is one reason the presentation reads as a primary liver disease rather than as a multisystem CDG.\\nGraded OCCASIONAL to preserve the source\u0027s own ordering. The sentence it is cited from ranks the four hepatic manifestations by frequency - hepatosplenomegaly, jaundice, liver failure, cholestasis - and gives no counts, so the band has to sit at or below the band of liver failure, which is OCCASIONAL here. It was initially graded FREQUENT, which inverted that ordering against a description that says in the same breath that cholestasis is the least frequent of the four.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Combined N- and O-Glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum proteins show abnormal N-glycosylation and abnormal mucin-type O-glycosylation - the combined pattern that distinguishes Golgi-homeostasis defects from the earlier, ER-based congenital disorders of glycosylation. Fibroblasts show reduced metabolic labelling of sialic acids.\\nThe complementation result is what makes this causal rather than correlative: restoring wild-type CCDC115 in patient fibroblasts restores sialic acid labelling. It is also, in practice, the diagnostic handle - the disease is identifiable by screening plasma for abnormal glycosylation, which is why it turns up in patients being investigated for something else.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein N-linked glycosylation\", \"mucin-type O-glycosylation\", \"Golgi organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Decreased Circulating Ceruloplasmin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the abnormal copper metabolism, and the single most misleading finding in this disease - it is what sends the workup towards Wilson disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010837\"}}, {\"id\": \"Elevated Hepatic Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay, reported as accompanying the hepatic phenotype \\\"often\\\" rather than always. One of the three patients in the 2018 series had isolated late liver involvement without neurological symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cause of death in two of the eight individuals in the defining series, and the indication for transplantation in a third. This is the outcome that makes early diagnosis matter.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatic Injury and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a spectrum from steatohepatitis with fibrosis through cirrhosis to liver failure. What is not established is which of the upstream defects drives it. The glycosylation defect and the lipophagy defect are both present, both plausible, and have not been separated experimentally; the 2018 case series explicitly offers hypotheses about the pathogenesis of the liver disease rather than a demonstration. This node is graded PROVISIONAL for that reason, and the two incoming edges are marked as having unknown intermediates.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"liver\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hepatic Steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the storage-disease-like presentation, and unusual in that it regresses with age rather than progressing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked, and in the very-low-density lipoprotein range. No affected individual carried a mutation in LDLR, APOB, PCSK9 or LIPA, which is what makes this a consequence of the glycosylation/lipophagy defect rather than a coincidental second diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The V-ATPase acidifies intracellular organelles, and that pH sets several downstream processes - glycosyltransferase activity in the Golgi, lysosomal acid lipase activity, and autophagy. Losing an assembly factor therefore produces a defect that is not confined to one enzyme.\\nThe evidence that the acidification step is genuinely impaired, rather than inferred from the yeast homology, comes from hepatocyte models: silencing CCDC115 in HepG2 cells produces impaired lysosomal acidification together with impaired autophagic capacity. That is a lysosomal readout rather than a Golgi one, which is worth noting - the Golgi pH defect itself has been argued from the glycosylation phenotype rather than measured directly in these patients\u0027 cells.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proton transmembrane transport\", \"regulation of intracellular pH\", \"autophagy\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Performed successfully in at least one individual with liver failure. It is the only intervention with a reported disease-altering outcome, and it treats the organ rather than the glycosylation defect - whether the extrahepatic glycosylation abnormality persists after transplantation is not reported.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing CCDC115 in HepG2 hepatocytes increases the number and size of lipid droplets, including abnormally large ones that colocalise with lysosomes, without excessive de novo lipogenesis, failing oxidative capacity or elevated lipid uptake. The proposed mechanism is therefore a failure of lipophagy - lipid that reaches the lysosome and is not degraded - rather than lipid overproduction.\\nThe hypercholesterolemia follows from this rather than being a separate lesion: apolipoprotein B secretion is markedly increased in the silenced cells, and the patients\u0027 hyperlipidemia is in the very-low-density lipoprotein range, with no mutation in any familial-hypercholesterolemia gene or in LIPA.\\nThis node is deliberately cellular. The tissue-level steatosis it produces is the phenotype downstream of it, not part of it - keeping them separate means the cell-biology claim and the clinical finding can be graded and cited independently.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"lipophagy\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Biallelic CCDC115 Loss of Function\", \"target\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Combined N- and O-Glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired V-ATPase Assembly and Organelle Acidification\", \"target\": \"Decreased Circulating Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second and clinically more pointed half of the copper mechanism, and the one that cannot run through the glycosylation node. ATP7B - the Wilson gene - is explicitly not glycosylated, so its loss of function is proposed to follow from V-ATPase malfunction via its Golgi residence rather than from the glycosylation defect. If that is right, the Wilson mimicry is mechanistic rather than coincidental: the same organelle failure that breaks glycosylation also disables the transporter Wilson disease disables.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Abnormal Protein Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Decreased Circulating Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceruloplasmin is a secreted glycoprotein, and the proposed route runs through the copper transporters rather than through ceruloplasmin itself: ATP7A is glycosylated, deficient glycosylation could impair its function, and loss of copper export into serum would lower ceruloplasmin. The intermediates are named in the source and the mechanism is stated there as uncertain, which is why this is an inference rather than a direct edge.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurological involvement is reported in five of the eleven patients in the systematic review, but nothing traces a route from the glycosylation defect to it. The edge records that the neurological arm exists and is unexplained rather than leaving it disconnected.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hepatic Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level consequence of lipid that reaches the lysosome and is not degraded.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Lipid Accumulation and Failed Lipophagy\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Hepatic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Elevated Hepatic Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Injury and Fibrosis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Injury and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CCDC115\", \"target\": \"Biallelic CCDC115 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5602,6 +5725,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5616,6 +5742,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5699,6 +5826,9 @@ This clinical feature is Cirrhosis (HP:0001394), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5713,6 +5843,7 @@ This clinical feature is Cirrhosis (HP:0001394), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5769,6 +5900,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5783,6 +5917,7 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5839,6 +5974,9 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5853,6 +5991,7 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,6 +6048,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5923,6 +6065,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6122,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5993,6 +6139,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6058,6 +6205,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6072,6 +6222,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6139,6 +6290,9 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6153,6 +6307,7 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6366,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6225,6 +6383,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6249,6 +6408,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6465,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6319,6 +6482,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6343,6 +6507,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6566,9 @@ This clinical feature is Decreased circulating ceruloplasmin concentration (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6415,6 +6583,7 @@ This clinical feature is Decreased circulating ceruloplasmin concentration (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6442,6 +6611,7 @@ This clinical feature is Decreased circulating ceruloplasmin concentration (HP:0
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6497,6 +6667,9 @@ This clinical feature is Abnormal protein glycosylation (HP:0012346). HP:0012346
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6511,6 +6684,7 @@ This clinical feature is Abnormal protein glycosylation (HP:0012346). HP:0012346
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6576,6 +6750,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6590,6 +6767,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6655,6 +6833,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6669,6 +6850,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6769,6 +6951,9 @@ This disease-associated gene is CCDC115 (hgnc:28178). hgnc:28178 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6783,6 +6968,7 @@ This disease-associated gene is CCDC115 (hgnc:28178). hgnc:28178 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7054,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6878,6 +7067,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6908,6 +7100,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6973,6 +7166,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6983,6 +7179,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7020,6 +7219,7 @@ What it does not touch is everything upstream. The glycosylation defect is const
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7063,6 +7263,7 @@ What it does not touch is everything upstream. The glycosylation defect is const
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7139,6 +7340,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7160,6 +7362,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7234,6 +7437,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7319,6 +7523,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7340,6 +7545,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7398,6 +7604,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7419,6 +7626,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,6 +7685,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7529,6 +7738,7 @@ A second route exists and has already yielded patients: exome sequencing in peop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8907,6 +9117,76 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews. There is no GeneReviews chapter for CCDC115-CDG. The only related chapter, &#34;Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview&#34; (PMID:20301507), is a retired archival overview with no CCDC115-specific content; it is tagged in the references block for the same reason the sibling CDG entries tag it, as a record that the search was done and came back negative. The 2021 systematic review of liver involvement in CDG (PMID:34173795) serves as the equivalent expert phenotype baseline here, and is the source for cholestasis, jaundice, the facial dysmorphism count and the copper/ceruloplasmin mechanism.
+How the frequency bands were computed, because it is otherwise invisible and the denominators are not the same across the entry. Two denominators exist in this literature: the eight-patient defining series, which is the only source giving counts, and the thirteen-patient total from the 2025 review, which is the entry&#39;s stated caseload. Bands here use thirteen where a count exists (Hepatic Failure: two deaths plus one transplant, 3/13, OCCASIONAL) and the source&#39;s own ordinal ranking where it does not (Hepatosplenomegaly, Jaundice, Cholestasis, from the systematic review&#39;s &#34;in order of frequency&#34; sentence). Against the eight-patient series alone, Hepatic Failure would be 3/8 and would fall in the FREQUENT band instead - so the choice of denominator moves that band, and this note exists so a reader can see which one was used rather than reverse-engineering it.
+Seizures are deliberately absent. The deep-research report lists them; the systematic review says five of eleven patients had &#34;neurological symptoms&#34; without specifying seizures, and no cached source attributes seizures to this disease. The neurological arm is recorded as developmental delay and hypotonia only, wired to the glycosylation node by an edge marked as having unknown intermediates.
+Curation inputs. One Perplexity deep-research run, committed alongside, plus independent PubMed searching. The report was accurate in outline and useful for orientation, and its own validation panel is the reason it was not used further: it contains no PMID or DOI anywhere in its body, and its term validation reported eight of thirteen checked labels naming a different term - including NCIT:C15273 offered as &#34;Liver Transplantation&#34; when NCIT calls it Longitudinal Study. This entry uses NCIT:C15271. Every CURIE here was verified independently.
+Gene symbol. The live HGNC registry has renamed HGNC:28178 to VMA22; the OBO HGNC build this repository validates against still says CCDC115, which is what this entry binds. See the genetic notes - the disagreement is real and is recorded rather than resolved locally.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: pathograph wiring, node split, cholestasis and facial dysmorphism</strong> · 2026-08-29T21:02:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CCDC115-CDG/2026-08-29T210202Z-claude-code-b22217.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the automated review on PR #10097 (ai4c-reviewer, CHANGES_REQUESTED). All four IMPORTANT items and all three suggestions addressed. Nothing disputed. Snippets 38 to 45 verified.
+
+IMPORTANT 1, orphan phenotypes. Correct, and the ceruloplasmin case was the one that mattered: the entry is built around the Wilson mimicry and the finding that drives it had no mechanistic link. It now hangs off the glycosylation node by an INDIRECT_KNOWN_INTERMEDIATES edge, and the intermediates are named rather than gestured at - ATP7A is glycosylated, deficient glycosylation could impair its function, and loss of copper export into serum would lower ceruloplasmin. Two new evidence items from PMID:34173795 carry that: the attribution of the copper and ceruloplasmin abnormality to hypoglycosylation, and the ATP7A glycosylation claim, the second graded directness INDIRECT because its own source says the mechanism is at present uncertain.
+
+The neurological arm is now wired by INDIRECT_UNKNOWN_INTERMEDIATES edges from the glycosylation node to developmental delay and hypotonia, with a description saying explicitly that nothing traces a route and the edge records that the arm exists and is unexplained. That is preferable to inventing an intermediate node to make the graph look complete. The hepatic injury node picked up four further edges - hepatosplenomegaly, transaminases, cholestasis, jaundice.
+
+IMPORTANT 2, node scale. Correct and the CLAUDE.md rule is the right one to invoke: a node that would take two biological_scale values is bundling two claims. Split into &#34;Lysosomal Lipid Accumulation and Failed Lipophagy&#34; (CELLULAR) with phenotypes#Hepatic Steatosis downstream, which also resolves that orphan. The node description now says the separation is deliberate, so the cell-biology claim and the clinical finding can be graded and cited independently. All references to the old node name were updated - the incoming edge from the acidification node and the attaches_to in the first discussion.
+
+IMPORTANT 3, claim-evidence mismatch on transaminases. Correct. The genotype-correlation sentence presupposes the frequency rather than establishing it. The core-presentation sentence from the same paper is now the first evidence item and carries the VERY_FREQUENT band; the genotype sentence is retained as a second, explicitly weaker claim about magnitude rather than frequency, and its explanation says so.
+
+IMPORTANT 4, research cross-check. The reviewer was right and the omission had a specific cause worth recording: PMID:34173795 (PMC9255677, the 2021 systematic review of liver involvement in CDG) was fetched during initial curation and then deleted from the commit as uncited. That was a mistake - it is the more recent systematic review, superseding the 2017 one that was cited, and it carries CCDC115-specific content the older one does not. It is now cited and its one enumerating sentence supports three new phenotypes: Cholestasis, Jaundice and Abnormal Facial Shape.
+
+Seizures were deliberately not added, and the entry now says why. The deep-research report lists them; the systematic review says five of eleven patients had &#34;neurological symptoms&#34; without specifying seizures, and no cached source attributes seizures to this disease. Adding them would have been consuming the report&#39;s claim rather than the literature&#39;s.
+
+ORPHA:468684, the reviewer&#39;s other suggested source, could not be fetched: it is not among the 347 ORPHA records cached in this repository and just refresh-orphadata fails on a checksum mismatch against the pinned manifest. That failure is already open eight times (#7199, #7234, #7522, #7539, #7622, #8836, #9687, #9897), so no further issue was filed.
+
+SUGGESTION, GeneReviews negative result. Adopted in the form the sibling CDG entries use: PMID:20301507 is tagged GeneReviews in the references block and the notes state that it is a retired archival overview with no CCDC115-specific content, so the tag records that the search was done and came back negative rather than implying a usable baseline. PMID:34173795 is named as the equivalent expert phenotype baseline.
+
+SUGGESTION, target_mechanisms on Liver Transplantation. Added, pointing at Hepatic Injury and Fibrosis. treatment_effect is RESTORES, and the description states that this is the closest available enum value rather than an exact one - the graft does not reverse the fibrosis, it removes the tissue carrying it - and that nothing upstream is touched, since a constitutional glycosylation defect persists in every other tissue.
+
+SUGGESTION, OBO HGNC refresh tracking issue. Not filed, and deliberately. The per-entry handling was affirmed as correct by the reviewer, and the repository already carries a large number of duplicate infrastructure issues of exactly this shape - eight for the Orphadata pin alone - so an unchecked ninth-of-its-kind is a cost rather than a contribution. The disagreement is recorded in the entry&#39;s genetic notes where a curator hitting it will see it. Raised for a maintainer in the PR thread instead.
+
+Validation after the round: schema validation passes; 45 of 45 evidence snippets verified; term validation, duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet and snippet-grading checks all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: CCDC115-CDG (MONDO:0014789, CCDC115/VMA22)</strong> · 2026-08-29T20:14:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CCDC115-CDG/2026-08-29T201443Z-claude-code-abb752.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of CCDC115-CDG (congenital disorder of glycosylation type IIo), an autosomal recessive Golgi-homeostasis defect with a liver-predominant phenotype.
+
+Lump/split decision. Curated as its own kb/disorders entry. MONDO:0014789 is a leaf with no descendants and one causal gene; neither the term nor the label appeared in kb/ or in an open PR at claim time. The closest neighbour already in the KB is MPI-Congenital_Disorder_of_Glycosylation, a different gene and a treatable disease, so this does not duplicate it.
+
+Curation inputs. One Perplexity deep-research run (research/CCDC115-CDG-deep-research-perplexity.md, committed alongside) plus independent PubMed E-utilities searching. The report was accurate in outline and useful for orientation. It was not used as a source, for the reason its own validation panel gives: it contains no PMID and no DOI anywhere in its body - reference validation checked 5 URL-embedded identifiers out of 18 citations - and its term validation reported 8 of 13 checked labels naming a different term. Those mislabels are worth naming because they are systematic rather than random: NCIT:C15607 offered as Supportive Care (NCIT: Clinical Diagnosis), NCIT:C28255 as Physical Therapy (International Unit), NCIT:C15279 as Occupational Therapy (Radical Mastectomy), NCIT:C28254 as Speech Therapy (Milliliter), NCIT:C15273 as Liver Transplantation (Longitudinal Study), NCIT:C16690 as Gene Therapy (HIV Envelope Protein gp41). Every NCIT suggestion in the treatments section was wrong. This entry uses NCIT:C15271 for liver transplantation, verified independently.
+
+Gene symbol disagreement, recorded rather than resolved. The live HGNC REST API returns VMA22 (&#34;vacuolar ATPase assembly factor VMA22&#34;) as the approved symbol for HGNC:28178, with CCDC115 as a previous symbol. The OBO HGNC build that this repository&#39;s linkml-term-validator resolves against still returns CCDC115, and binding VMA22 fails term validation here with a label mismatch. The entry binds CCDC115, which is what the configured authority says, what MONDO says, and what every paper says. The consequence - a query matching this entry against a current HGNC download will not match on symbol - is stated in the entry&#39;s genetic notes and in its description, so it is discoverable rather than silently absorbed. The right fix is a refresh of the OBO HGNC build, not a per-entry workaround, so none was applied. The MONDO stub for this disease already carried the VMA22 label, which is how the discrepancy surfaced.
+
+Structure. Five pathophysiology nodes forming a chain with a branch: biallelic CCDC115 loss of function, impaired V-ATPase assembly and organelle acidification, then two parallel consequences - a combined N- and O-glycosylation defect and lysosomal lipid accumulation with hepatic steatosis - converging on hepatic injury and fibrosis.
+
+The convergence node is graded PROVISIONAL and both incoming edges are INDIRECT_UNKNOWN_INTERMEDIATES on purpose. Which upstream defect drives the liver disease is not established, and the 2018 case series is explicit that its account of the hepatic pathogenesis is hypothesis rather than demonstration. That is one of the two discussions.
+
+The acidification node carries a caveat stated in place: the measurement that exists is lysosomal, from CCDC115-silenced HepG2 cells. Golgi luminal pH has not been measured in patient cells; it is argued from the glycosylation phenotype, which the glycosylation phenotype is then explained by. That circularity is the second discussion, and the defining paper&#39;s own observation - that the phenotypic spectrum here is distinct from V-ATPase core-subunit defects, suggesting a more general trafficking role - is an argument for measuring rather than assuming.
+
+Diagnostic content. The entry is built around the Wilson-disease mimicry, because that is the practical failure mode: low ceruloplasmin plus abnormal copper handling plus childhood liver disease reads as Wilson, and two patients in this literature were in fact found inside an ATP7B-negative Wilson series (PMID:32043565). The separator is plasma transferrin glycosylation, not the copper studies, and the entry says so in both the diagnosis and differential-diagnoses blocks.
+
+Evidence grading. Several items are SUPPORT with directness INDIRECT: the V-ATPase general principle (background framing in its source rather than a measured result), the low-ceruloplasmin finding taken from TMEM199 patients to show it belongs to the mechanism class, and the supportive-care item, which is cited for what the most recent whole-caseload review does not contain. That last one is flagged in its own explanation as being an absence rather than a positive finding.
+
+Denominator. Thirteen patients reported worldwide as of the 2025 review. Every frequency band in this entry rests on that, and the prevalence notes say so.
+
+Validation. Schema validation passes; 38 of 38 evidence snippets verified against cached primary references; term validation, duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet and snippet-grading checks all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

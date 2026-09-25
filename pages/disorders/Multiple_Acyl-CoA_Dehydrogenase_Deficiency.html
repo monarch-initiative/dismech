@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4189,6 +4257,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-etf-etfdh-molecular-function-deficiency" data-dismech-node="ETF/ETFDH molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ETF/ETFDH molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in ETFA, ETFB, or ETFDH reduce catalytic electron-transfer capacity of the ETF system.
 </div>
 
@@ -4392,6 +4461,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4414,6 +4484,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-electron-transfer-from-fad-dependent-dehydrogenases-to-ubiquinone" data-dismech-node="Impaired electron transfer from FAD-dependent dehydrogenases to ubiquinone" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired electron transfer from FAD-dependent dehydrogenases to ubiquinone</div>
+
 
                 <div class="item-desc">Disrupted electron flow from multiple acyl-CoA dehydrogenases through the ETF/ETFDH system to the mitochondrial coenzyme Q pool blocks fatty acid beta-oxidation, branched-chain amino acid catabolism, and choline oxidation, causing accumulation of metabolic intermediates and energy deficit.
 </div>
@@ -4725,6 +4796,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4747,6 +4819,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-metabolic-decompensation" data-dismech-node="Systemic metabolic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic metabolic decompensation</div>
+
 
                 <div class="item-desc">Catabolic stress and impaired mitochondrial fatty acid oxidation produce a systemic energy crisis, particularly in liver, heart, and brain. Reduced ketone generation, impaired fuel availability, and accumulated organic acids manifest as metabolic acidosis, hypoketotic hypoglycemia, hyperammonemia, encephalopathy, and cardiomyopathy in severe presentations.
 </div>
@@ -5005,6 +5078,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5027,6 +5101,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flad1-related-fad-synthesis-impairment" data-dismech-node="FLAD1-related FAD synthesis impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">FLAD1-related FAD synthesis impairment</div>
+
 
                 <div class="item-desc">FLAD1 variants impair flavin adenine dinucleotide synthesis and can produce a riboflavin-responsive MADD-like lipid storage myopathy with biochemical and fatty-acid metabolism changes overlapping ETFDH-related MADD.
 </div>
@@ -5225,6 +5300,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5247,6 +5323,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-etfdh-driven-metabolon-disruption-and-oxphos-dysfunction" data-dismech-node="ETFDH-driven metabolon disruption and OXPHOS dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ETFDH-driven metabolon disruption and OXPHOS dysfunction</div>
+
 
                 <div class="item-desc">Recent work demonstrates that ETFDH participates in a metabolon comprising ETFDH, respiratory chain complex III (CIII), and the CoQ biosynthesis regulator COQ2. This complex maintains coenzyme Q homeostasis, minimizes reduced-Q reductive stress, and supports OXPHOS efficiency. Loss of ETFDH causes CIII dysfunction, pathological QH2 accumulation, reductive stress, and increased ROS.
 </div>
@@ -5420,6 +5497,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5442,6 +5520,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-apoptosis-in-neuronal-cells" data-dismech-node="Oxidative stress and apoptosis in neuronal cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative stress and apoptosis in neuronal cells</div>
+
 
                 <div class="item-desc">ETFDH mutations lead to oxidative stress, activation of the BCL-2 family/MOMP apoptotic signaling pathway, and neurite outgrowth defects. In cellular models, ETFDH mutations cause increased pro-apoptotic markers including BAX, cytochrome c, caspase-9 and caspase-3, linking mitochondrial redox disturbance to neurodegeneration.
 </div>
@@ -5585,6 +5664,7 @@ This pathophysiological event occurs in mitochondrial outer membrane (GO:0005741
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5607,6 +5687,7 @@ This pathophysiological event occurs in mitochondrial outer membrane (GO:0005741
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sertraline-associated-acquired-madd-like-metabolic-dysfunction" data-dismech-node="Sertraline-associated acquired MADD-like metabolic dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sertraline-associated acquired MADD-like metabolic dysfunction</div>
+
 
                 <div class="item-desc">Sertraline exposure has been associated with an acquired late-onset MADD-like phenotype in patients without disease-causing MADD mutations, with muscle weakness, elevated creatine kinase, lipid storage myopathy, and elevated acylcarnitines. The mechanism remains emerging, but the clinical pattern links sertraline exposure to a reversible MADD-like metabolic state.
 </div>
@@ -5762,6 +5843,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5784,6 +5866,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipid-storage-myopathy" data-dismech-node="Lipid storage myopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipid storage myopathy</div>
+
 
                 <div class="item-desc">Defective fatty acid oxidation leads to pathological lipid droplet accumulation in skeletal muscle fibers, resulting in lipid storage myopathy. Late-onset MADD is the most common lipid storage myopathy.
 </div>
@@ -5959,6 +6042,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5980,6 +6064,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,6 +6187,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6116,6 +6204,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6181,6 +6270,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6195,6 +6287,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6251,6 +6344,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6265,6 +6361,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6330,6 +6427,9 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6344,6 +6444,7 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6400,6 +6501,9 @@ This clinical feature is Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6414,6 +6518,7 @@ This clinical feature is Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6453,7 +6558,7 @@ This clinical feature is Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6463,10 +6568,13 @@ This clinical feature is Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6486,6 +6594,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6542,6 +6651,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6556,6 +6668,7 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6621,6 +6734,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6635,6 +6751,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,6 +6776,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6715,6 +6833,9 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6729,6 +6850,7 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6785,6 +6907,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6799,6 +6924,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6864,6 +6990,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6878,6 +7007,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6902,6 +7032,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6958,6 +7089,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6972,6 +7106,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7037,6 +7172,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7051,6 +7189,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7075,6 +7214,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7140,6 +7280,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7154,6 +7297,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7354,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7224,6 +7371,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7318,6 +7466,9 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7340,6 +7491,7 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7374,6 +7526,12 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Most common ETFDH variant in southern Chinese and East Asian populations. Found in 86% of patients in the Malaysian MADD cohort.
 </div>
 
@@ -7399,6 +7557,7 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7433,6 +7592,12 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Deep intronic variants in ETFDH intron 1 causing pseudo-exon inclusion have been identified as a recurrent pathogenic mechanism that is missed by standard exome sequencing.
 </div>
 
@@ -7458,6 +7623,7 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7518,6 +7684,9 @@ This disease-associated gene is ETFA (hgnc:3481). hgnc:3481 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7540,6 +7709,7 @@ This disease-associated gene is ETFA (hgnc:3481). hgnc:3481 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7595,6 +7765,9 @@ This disease-associated gene is ETFB (hgnc:3482). hgnc:3482 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7617,6 +7790,7 @@ This disease-associated gene is ETFB (hgnc:3482). hgnc:3482 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7672,6 +7846,9 @@ This disease-associated gene is FLAD1 (hgnc:24671). hgnc:24671 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7694,6 +7871,7 @@ This disease-associated gene is FLAD1 (hgnc:24671). hgnc:24671 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7751,6 +7929,9 @@ This disease-associated gene is ETFA (hgnc:3481). hgnc:3481 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7765,6 +7946,7 @@ This disease-associated gene is ETFA (hgnc:3481). hgnc:3481 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7822,6 +8004,9 @@ This disease-associated gene is ETFB (hgnc:3482). hgnc:3482 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7836,6 +8021,7 @@ This disease-associated gene is ETFB (hgnc:3482). hgnc:3482 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7893,6 +8079,9 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7907,6 +8096,7 @@ This disease-associated gene is ETFDH (hgnc:3483). hgnc:3483 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7998,6 +8188,12 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Riboflavin (vitamin B2) is the cornerstone treatment for late-onset MADD. It increases FAD availability and may stabilize mutant ETFDH/ETF-QO protein folding. Doses of 100-400 mg/day produce dramatic improvement in most late-onset patients, with symptom resolution and CK normalization.
 </div>
 
@@ -8054,6 +8250,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8078,6 +8275,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8099,6 +8297,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,6 +8370,12 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">CoQ10 supplementation is used as adjunctive therapy in MADD. In cellular models, CoQ10 mitigates apoptosis and neurite outgrowth defects caused by ETFDH mutations.
 </div>
 
@@ -8214,6 +8419,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8235,6 +8441,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8514,12 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">L-carnitine supplementation addresses secondary carnitine depletion caused by increased acylcarnitine conjugation. It supports acyl group handling and excretion.
 </div>
 
@@ -8350,6 +8563,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8371,6 +8585,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8438,6 +8653,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8448,6 +8666,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8497,6 +8718,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8518,6 +8740,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8590,6 +8813,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Emergency management during metabolic crises includes IV dextrose infusion to suppress catabolism, correction of metabolic acidosis, and initiation of riboflavin therapy. Mechanical ventilation may be required for respiratory failure.
 </div>
 
@@ -8633,6 +8862,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8654,6 +8884,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8713,6 +8944,12 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8824,6 +9061,7 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8892,6 +9130,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is important for affected families given the autosomal recessive inheritance pattern, carrier testing, and prenatal diagnosis options. Genotype-phenotype correlations can inform prognosis.
 </div>
 
@@ -8917,6 +9161,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8938,6 +9183,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9010,6 +9256,12 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recent evidence suggests sertraline may induce an acquired form of MADD in some patients. Discontinuation of sertraline is warranted when MADD develops in the setting of sertraline use, in addition to riboflavin treatment.
 </div>
 
@@ -9053,6 +9305,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9074,6 +9327,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9140,6 +9394,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9188,6 +9443,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9246,6 +9502,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9294,6 +9551,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9387,6 +9645,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9429,6 +9688,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9450,6 +9710,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9527,6 +9788,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9569,6 +9831,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9590,6 +9853,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9667,6 +9931,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9709,6 +9974,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9730,6 +9996,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9807,6 +10074,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9849,6 +10117,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9870,6 +10139,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9947,6 +10217,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9989,6 +10260,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10010,6 +10282,7 @@ This treatment is sertraline discontinuation, annotated with Supportive Care (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10835,10 +11108,10 @@ phenotypes:
 
     &#39;
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:38951975
     reference_title: &#34;Multiple Acyl-CoA Dehydrogenase Deficiency: Phenotypic and Genetic Features of a Malaysian Cohort.&#34;
@@ -11771,6 +12044,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11965,7 +12240,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Acyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0009282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Acyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "96a56fdad6dd"};
+        const OS_CONFIG = {"diseaseName": "Multiple Acyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0009282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Acyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "ac3c17ad360f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

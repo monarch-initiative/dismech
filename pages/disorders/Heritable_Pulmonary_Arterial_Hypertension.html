@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4146,6 +4214,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4320,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4310,6 +4380,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4375,6 +4446,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4434,6 +4506,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4499,6 +4572,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4561,6 +4635,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4582,6 +4657,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5159,6 +5235,7 @@ This readout is measured by hemodynamic assessment.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5180,6 +5257,7 @@ This readout is measured by hemodynamic assessment.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5712,6 +5790,7 @@ This readout is measured by hemodynamic assessment.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5733,6 +5812,7 @@ This readout is measured by hemodynamic assessment.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5770,6 +5850,7 @@ This readout is measured by hemodynamic assessment.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-bmp-tgf-beta-vascular-signaling" data-dismech-node="Impaired BMP/TGF-beta vascular signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired BMP/TGF-beta vascular signaling</div>
+
 
                 <div class="item-desc">Germline defects centered on BMPR2 and related pathway components reduce protective BMP/TGF-beta signaling in pulmonary vascular cells, creating the upstream disease trigger for HPAH.</div>
 
@@ -5984,6 +6065,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6005,6 +6087,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6032,6 +6115,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6054,6 +6138,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-arterial-endothelial-dysfunction-and-apoptotic-selection" data-dismech-node="Pulmonary arterial endothelial dysfunction and apoptotic selection" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary arterial endothelial dysfunction and apoptotic selection</div>
+
 
                 <div class="item-desc">Pulmonary arterial endothelial cells show early dysfunction, impaired vasodilator production, and an apoptosis-to-apoptosis-resistant transition that seeds maladaptive vascular remodeling.</div>
 
@@ -6234,6 +6319,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6256,6 +6342,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-artery-smooth-muscle-hyperproliferation-and-vasoconstrictive-bias" data-dismech-node="Pulmonary artery smooth muscle hyperproliferation and vasoconstrictive bias" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary artery smooth muscle hyperproliferation and vasoconstrictive bias</div>
+
 
                 <div class="item-desc">Pathologic signaling from dysfunctional endothelium and impaired BMP tone promotes pulmonary artery smooth muscle proliferation, narrowed vascular lumens, and increased vasoconstrictive responsiveness.</div>
 
@@ -6402,6 +6489,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6424,6 +6512,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-metabolic-reprogramming-and-mitochondrial-dysfunction" data-dismech-node="Endothelial metabolic reprogramming and mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial metabolic reprogramming and mitochondrial dysfunction</div>
+
 
                 <div class="item-desc">Pulmonary arterial endothelial cells undergo a Warburg-like shift toward glycolysis with impaired mitochondrial oxidative phosphorylation, reducing energy availability and increasing reactive oxygen species that amplify dysfunction and apoptotic loss.</div>
 
@@ -6583,6 +6672,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6605,6 +6695,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smooth-muscle-metabolic-reprogramming-and-proliferative-metabolism" data-dismech-node="Smooth muscle metabolic reprogramming and proliferative metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Smooth muscle metabolic reprogramming and proliferative metabolism</div>
+
 
                 <div class="item-desc">Pulmonary artery smooth muscle cells undergo metabolic reprogramming with increased glycolysis and mitochondrial dysfunction that supports proliferation and apoptosis resistance, driving vascular wall expansion.</div>
 
@@ -6764,6 +6855,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6785,6 +6877,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6810,6 +6903,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perivascular-inflammation-and-immune-amplification" data-dismech-node="Perivascular inflammation and immune amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Perivascular inflammation and immune amplification</div>
+
 
                 <div class="item-desc">Cytokine, chemokine, and immune-cell accumulation around pulmonary vessels amplifies remodeling and may be exaggerated in BMPR2-deficient vascular biology.</div>
 
@@ -7016,6 +7110,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7037,6 +7132,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7158,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-occlusive-pulmonary-vascular-remodeling-and-increased-resistance" data-dismech-node="Occlusive pulmonary vascular remodeling and increased resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Occlusive pulmonary vascular remodeling and increased resistance</div>
+
 
                 <div class="item-desc">The combined effects of endothelial dysfunction, smooth-muscle proliferation, fibrosis, and inflammation progressively obstruct the pulmonary vascular bed and raise pulmonary vascular resistance.</div>
 
@@ -7268,6 +7365,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7290,6 +7388,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-hypertrophy-and-failure" data-dismech-node="Right ventricular hypertrophy and failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Right ventricular hypertrophy and failure</div>
+
 
                 <div class="item-desc">Chronic right-ventricular afterload from obstructive pulmonary vascular disease causes hypertrophy, maladaptive remodeling, and eventual right heart failure.</div>
 
@@ -7346,6 +7445,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7508,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7452,6 +7553,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7561,6 +7663,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7575,6 +7680,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +7735,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7643,6 +7752,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7697,6 +7807,9 @@ This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7711,6 +7824,7 @@ This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7765,6 +7879,9 @@ This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7779,6 +7896,7 @@ This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7842,6 +7960,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7856,6 +7977,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7919,6 +8041,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7933,6 +8058,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8031,6 +8157,9 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8045,6 +8174,7 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8069,6 +8199,7 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8126,6 +8257,9 @@ This disease-associated gene is ACVRL1 (hgnc:175). hgnc:175 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8140,6 +8274,7 @@ This disease-associated gene is ACVRL1 (hgnc:175). hgnc:175 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8197,6 +8332,9 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8211,6 +8349,7 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8268,6 +8407,9 @@ This disease-associated gene is TBX4 (hgnc:11603). hgnc:11603 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8282,6 +8424,7 @@ This disease-associated gene is TBX4 (hgnc:11603). hgnc:11603 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8339,6 +8482,9 @@ This disease-associated gene is KCNK3 (hgnc:6278). hgnc:6278 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8353,6 +8499,7 @@ This disease-associated gene is KCNK3 (hgnc:6278). hgnc:6278 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8410,6 +8557,9 @@ This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8424,6 +8574,7 @@ This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8481,6 +8632,9 @@ This disease-associated gene is SMAD9 (hgnc:6774). hgnc:6774 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8495,6 +8649,7 @@ This disease-associated gene is SMAD9 (hgnc:6774). hgnc:6774 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8552,6 +8707,9 @@ This disease-associated gene is GDF2 (hgnc:4217). hgnc:4217 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8566,6 +8724,7 @@ This disease-associated gene is GDF2 (hgnc:4217). hgnc:4217 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8623,6 +8782,9 @@ This disease-associated gene is ATP13A3 (hgnc:24113). hgnc:24113 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8637,6 +8799,7 @@ This disease-associated gene is ATP13A3 (hgnc:24113). hgnc:24113 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8694,6 +8857,9 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8708,6 +8874,7 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8765,6 +8932,9 @@ This disease-associated gene is KDR (hgnc:6307). hgnc:6307 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8779,6 +8949,7 @@ This disease-associated gene is KDR (hgnc:6307). hgnc:6307 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8803,6 +8974,7 @@ This disease-associated gene is KDR (hgnc:6307). hgnc:6307 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8860,6 +9032,9 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8874,6 +9049,7 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8964,6 +9140,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Modern HPAH treatment uses combination pharmacotherapy directed at endothelin, nitric-oxide, prostacyclin, and BMP/activin signaling axes, with escalation based on risk and response.</div>
 
 
@@ -8985,6 +9167,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9078,6 +9261,12 @@ This treatment uses Sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Sotatercept is an ActRIIA-Fc ligand trap that targets dysregulated BMP/activin-family signaling and pulmonary vascular remodeling rather than acting only as a vasodilator.</div>
 
 
@@ -9102,6 +9291,7 @@ This treatment uses Sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9123,6 +9313,7 @@ This treatment uses Sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9216,6 +9407,12 @@ This treatment uses epoprostenol (NCIT:C61748). NCIT:C61748 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">More severe disease often requires parenteral prostacyclin therapy as part of maximal medical treatment.</div>
 
 
@@ -9237,6 +9434,7 @@ This treatment uses epoprostenol (NCIT:C61748). NCIT:C61748 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9304,6 +9502,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9314,6 +9515,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9341,6 +9545,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9408,6 +9613,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9456,6 +9662,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9558,6 +9765,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9645,6 +9853,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9707,6 +9916,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9781,6 +9991,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9831,6 +10042,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9932,6 +10144,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10108,6 +10321,7 @@ This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10129,6 +10343,7 @@ This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10202,6 +10417,7 @@ This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11917,6 +12133,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
