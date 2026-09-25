@@ -22,6 +22,7 @@ from scripts.check_folded_hyphens import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.ci_step_twin("scripts/check_folded_hyphens.py")
 def test_no_folded_scalar_hyphen_splits():
     found = [f"{rel}:{lineno}: {line}" for rel, lineno, line in scan_repo()]
     assert not found, (
