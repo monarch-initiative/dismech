@@ -1,8 +1,9 @@
 # Gene-to-process jumps in the pathograph
 
-**Date:** 2026-08-26
+**Date:** 2026-08-26 (figures re-measured 2026-09-25 against current `main`)
 **Metrics:** `just compliance-connectivity` (`src/dismech/qc_plugins.py`)
-**Corpus:** `kb/disorders`, 2,267 entries
+**Gate:** `just check-gene-activity-grounding` (`scripts/check_gene_activity_grounding.py`)
+**Corpus:** `kb/disorders`, 3,149 entries
 
 ## The question
 
@@ -20,35 +21,40 @@ That turns into two compliance questions, one after the other:
 
 Both are graded coverage metrics in `dismech.qc_plugins`, alongside the existing
 `phenotypes[].causal_inlink`. They compose with weighted compliance and the
-`conf/qc_config.yaml` weights like any other field, and both carry
-`min_compliance: null` — advisory, not gating, while the baseline is this low.
+`conf/qc_config.yaml` weights like any other field. Both gene metrics carry
+`min_compliance: null`: coverage is far too low for an absolute floor, so the
+second question is enforced as a **ratchet** instead — see *Gating it* below.
 
 ## Where the KB stands
 
 ```
-Phenotype connectivity:  12945/26576 nodes causally connected      (48.7%)
-Gene-to-mechanism wiring: 2400/5128  causal genes wired            (46.8%)
-Gene activity grounding:   570/2400  wired genes land on an MF     (23.8%)
+Phenotype connectivity:  21892/38839 nodes causally connected      (56.4%)
+Gene-to-mechanism wiring: 3924/6444  causal genes wired            (60.9%)
+Gene activity grounding:  1108/3924  wired genes land on an MF     (28.2%)
 ```
+
+The grounding figure is what this branch leaves behind; on `main` it is
+963/3924 (24.5%), so the tranches below move it 24.5% → 28.2% and cut the files
+carrying a gap from 1,330 to 1,201. The corpus moves several times a day, so
+read these as a dated snapshot — the recipes below print the current figures.
 
 **More than half of causal genes never reach the pathograph.** A `genetic[]`
 entry connects only when some `pathophysiology` node carries the same gene in
 its `gene:`/`genes:` descriptor — that shared CURIE is the whole edge — so a
 gene with no such node sits in the `genetic` block and is invisible in the
-graph. 936 files have at least one. This is the larger of the two gaps by a wide
-margin, and it is the prior question: an unwired gene has no landing node to
-ground.
+graph. 969 files have at least one. This is the larger of the two gaps, and it
+is the prior question: an unwired gene has no landing node to ground.
 
-Of the genes that do reach the graph, **three quarters land on a node with no
-molecular function**, across 763 files. The grounding denominator is the wired
-genes deliberately, so an unwired gene is charged once, against wiring, rather
-than twice.
+Of the genes that do reach the graph, **more than seven in ten land on a node
+with no molecular function**, across 1,201 files. The grounding denominator is
+the wired genes deliberately, so an unwired gene is charged once, against
+wiring, rather than twice.
 
-Two related counts, for scale: 645 of 2,267 disorder files use
-`molecular_functions:` anywhere, and 594 pathophysiology nodes have an
+Two related counts, for scale: 1,335 of 3,149 disorder files use
+`molecular_functions:` anywhere, and 1,068 pathophysiology nodes have an
 activity-shaped *name* (`… molecular function deficiency`, `… Loss of Function`,
-`… Channel Dysfunction`) — **355 of those, 60%, carry no MF term.** The MF enum
-cache holds 523 terms against the BP cache's 2,346.
+`… Channel Dysfunction`) — **567 of those, 53%, carry no MF term.** The MF enum
+cache holds 870 terms against the BP cache's 2,777.
 
 ## What the failures look like
 
@@ -60,15 +66,14 @@ translocase activity" — annotated `GO:0015879 carnitine transport` and nothing
 else. Same shape in `Lysosomal_Acid_Phosphatase_Deficiency` (→ `GO:0016311
 dephosphorylation`), `NAGA_Deficiency_Type_3`,
 `MGAT2-congenital_disorder_of_glycosylation`, `Spinocerebellar_Ataxia_Type_2`.
-Of the 698 single-gene landing nodes that fail the check, **262 assert the
-activity in their own prose** and 56 assert it in the node name. Nothing new has
-to be established for those.
+Of the 1,492 single-gene landing nodes that still fail the check, **388 assert
+the activity in their own prose**. Nothing new has to be established for those.
 
 **Sometimes the whole cascade is one node.**
 `Growth_Hormone_Insensitivity_Syndrome` / "GH-IGF1 Axis Disruption" spells the
 chain out in its description — GH → GHR → JAK2 → STAT5B phosphorylation →
 dimerization → nuclear translocation → IGF1 transcription — while the graph
-holds a single node with two BP terms. 49 of the 149 pathway-landing nodes carry
+holds a single node with two BP terms. 70 of the 181 pathway-landing nodes carry
 descriptions over 400 characters; the chain is often already written, one field
 away from being nodes.
 
@@ -111,7 +116,7 @@ set, each verified against OLS as a live `molecular_function`:
 | Growth_Hormone_Insensitivity_Syndrome | GH-IGF1 Axis Disruption | `GO:0004903` growth hormone receptor activity (first link of a chain) |
 
 Two (`GO:0005041`, `GO:0001227`) are already in the MF enum cache and validate
-offline. The pattern to copy exists in 404 disorder entries — the inborn-errors
+offline. The pattern to copy exists in 852 disorder entries — the inborn-errors
 files (`ornithine_aminotransferase_deficiency`, `Primary_Carnitine_Deficiency`,
 `Trimethylaminuria`) already carry MF and BP on the same node.
 
@@ -135,7 +140,32 @@ uv run python -m dismech.qc_plugins kb/disorders/Asthma.yaml   # one entry
 just compliance-connectivity --activity-fail-under 20     # gate on a threshold
 ```
 
-`compliance-connectivity` is a curator tool, not a CI gate: both gene metrics
-carry `min_compliance: null` in `conf/qc_config.yaml`, and neither runs in
-`just qc`. Raising either to a real threshold is a decision to make once the
-baseline moves — 46.8% and 23.8% are too low to gate on today.
+## Gating it
+
+An absolute threshold cannot enforce this: at 28.2% coverage, a floor high
+enough to matter fails every PR and one low enough to pass gates nothing. So
+the second question is enforced as a **ratchet**, following
+`check_environmental_evidence.py`:
+
+```bash
+just check-gene-activity-grounding                 # runs in `just qc`
+just check-gene-activity-grounding --count
+just update-gene-activity-baseline                 # only ever to SHRINK
+```
+
+CI derives the grandfather set live from the base branch via
+`GENE_ACTIVITY_BASELINE_REF`, so a PR fails only on genes it *adds* whose
+landing node names no molecular function. There is no snapshot to keep in sync
+and nothing for parallel curation PRs to race on.
+`tests/gene_activity_grounding_baseline.txt` (2,816 findings) is the local and
+shallow-checkout fallback, and is allowed to drift stale-high: a line for a gene
+since grounded grandfathers nothing.
+
+Grandfathering a *new* line stays legitimate for the two shapes above — a
+many-gene bundle, and a class whose members share no molecular function.
+Neither is a reason to bind a term that overstates the node.
+
+The `phenotypes[].causal_inlink` metric is separately gated by a corpus-level
+`min_compliance` floor (50.0, against a measured 56.4%); the two gene metrics
+stay advisory in the weighted score, with `--genes-fail-under` and
+`--activity-fail-under` for ad-hoc checks.
