@@ -8725,6 +8725,168 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Ablepharon-Macrostomia Syndrome",
+    "disease_id": "MONDO:0008693",
+    "category": "Mendelian",
+    "parents": [
+      "ectodermal dysplasia syndrome",
+      "TWIST2-related disorder"
+    ],
+    "creation_date": "2026-09-25T13:56:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ablepharon-macrostomia syndrome is a congenital ectodermal dysplasia with multiple malformations, recognisable at birth by severely shortened or apparently absent eyelids (ablepharon), a wide \"fish-like\" mouth from unfused lateral commissures, first-degree microtia, an underdeveloped or notched nose, thin, wrinkled and redundant skin, sparse or absent scalp hair, eyebrows, eyelashes and lanugo, hypoplastic or absent nipples, and genital anomalies. Cutaneous syndactyly and camptodactyly of the fingers, ventral hernia or other abdominal wall and umbilical anomalies, and absent zygomatic arches occur in a minority. Most affected individuals have normal or near-normal cognition; mild motor or speech delay is reported in some. The eyelid lesion is a deficiency of the anterior lamella rather than true absence of the lids, and it exposes the cornea from the first hours of life, so ocular surface protection and early eyelid reconstruction with skin grafts determine the visual outcome.\nIt is autosomal dominant and caused by a heterozygous substitution of lysine for the conserved glutamic acid at residue 75 (p.Glu75Lys, c.223G>A) in the basic DNA-binding domain of the bHLH transcription factor TWIST2; all seven families in the gene-discovery series carried this one allele. Most cases are de novo; mildly affected parents have transmitted the disorder to more severely affected children, and somatic mosaicism gives a milder phenotype. Glutamine or alanine at the same residue causes the allelic Barber-Say syndrome, and biallelic loss-of-function TWIST2 alleles cause Setleis syndrome.\nIn HeLa cells the Glu75 substitutions alter the genome-wide DNA-binding pattern of TWIST2. Whether the disorder results mainly from interference with the wild-type protein (dominant-negative) or from new target binding (neomorphic) is unresolved, and both models are recorded under mechanistic_hypotheses.",
+    "pathophysiology": [
+      "TWIST2 p.Glu75Lys Basic-Domain Substitution",
+      "Altered TWIST2 Genomic DNA-Binding Pattern",
+      "Dysregulated TWIST2-Dependent Mesenchymal Transcription",
+      "Dermal Extracellular Matrix Disorganization",
+      "Eyelid Anterior Lamella Underdevelopment",
+      "Hair Follicle Development Deficit",
+      "Craniofacial Soft-Tissue Patterning Defect",
+      "Incomplete Fusion of the Lateral Oral Commissures"
+    ],
+    "cell_types": [
+      "mesenchymal cell",
+      "fibroblast of dermis"
+    ],
+    "cell_type_ids": [
+      "CL:0008019",
+      "CL:0002551"
+    ],
+    "biological_processes": [
+      "skin development",
+      "eyelid development in camera-type eye",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Ablepharon",
+      "Eyelid Hypoplasia",
+      "Lagophthalmos",
+      "Exposure Keratitis",
+      "Corneal Ulceration",
+      "Corneal Opacity",
+      "Visual Impairment",
+      "Absent Eyelashes",
+      "Absent Eyebrows",
+      "Sparse Scalp Hair",
+      "Absent Lanugo",
+      "Macrostomia",
+      "Thin Upper Lip Vermilion",
+      "Cheek Pads at the Oral Commissures",
+      "First-Degree Microtia",
+      "Low-Set Ears",
+      "Hearing Impairment",
+      "Depressed Nasal Bridge",
+      "Underdeveloped Nasal Alae",
+      "Hypertelorism",
+      "Aplastic Zygomatic Arch",
+      "Malar Flattening",
+      "Redundant Skin",
+      "Thin Skin",
+      "Wrinkled Skin",
+      "Dry Skin",
+      "Hypoplastic Nipples",
+      "Absent Nipples",
+      "Ambiguous Genitalia",
+      "Cutaneous Finger Syndactyly",
+      "Camptodactyly of Finger",
+      "Ventral Hernia",
+      "Mild Developmental Delay",
+      "Growth Delay",
+      "Laryngotracheal Stenosis"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Integument",
+      "Craniofacial",
+      "Ear",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Neurodevelopmental",
+      "Growth",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011224",
+      "HP:0430009",
+      "HP:0030001",
+      "HP:0000491",
+      "HP:0012804",
+      "HP:0007957",
+      "HP:0000505",
+      "HP:0000561",
+      "HP:0002223",
+      "HP:0002209",
+      "HP:0034262",
+      "HP:0000154",
+      "HP:0000219",
+      "HP:0011266",
+      "HP:0000369",
+      "HP:0000365",
+      "HP:0005280",
+      "HP:0000430",
+      "HP:0000316",
+      "HP:0034260",
+      "HP:0000272",
+      "HP:0001582",
+      "HP:0000963",
+      "HP:0007392",
+      "HP:0000958",
+      "HP:0002557",
+      "HP:0002561",
+      "HP:0000062",
+      "HP:0010554",
+      "HP:0100490",
+      "HP:0002933",
+      "HP:0001263",
+      "HP:0001510",
+      "HP:0004894"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TWIST2"
+    ],
+    "treatments": [
+      "Ocular Surface Protection",
+      "Eyelid Reconstruction",
+      "Penetrating Keratoplasty",
+      "Reconstruction of the Mouth and Face",
+      "Multidisciplinary Care and Psychosocial Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ablepharon_Macrostomia_Syndrome.yaml",
+    "page_url": "../pages/disorders/Ablepharon-Macrostomia_Syndrome.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Acatalasia",
     "disease_id": "MONDO:0013571",
     "category": "Mendelian",
@@ -106315,6 +106477,91 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Dilated Cardiomyopathy 1II",
+    "disease_id": "MONDO:0014073",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1II (CMD1II, OMIM 615184) is the CRYAB-attributed node of the familial isolated dilated cardiomyopathy series. CRYAB encodes alpha-B crystallin (HSPB5), an ATP-independent small heat-shock protein that is abundant in the lens and in cardiac and skeletal muscle, and that binds desmin, actin and \u2014 the point on which this entry turns \u2014 the heart-specific N2B spring element of titin/connectin.\n\nThis entry is deliberately separate from myofibrillar myopathy, and the reason is mechanistic rather than nosological. MONDO gives MONDO:0014073 two parents: familial isolated dilated cardiomyopathy, and the CRYAB-related myofibrillar myopathy-cataract-cardiomyopathy spectrum. The knowledge base already curates the second of those as `Myofibrillar_Myopathy`, whose MFM2 subtype is alpha-B crystallinopathy and whose pathograph is built end to end around protein aggregation \u2014 chaperone-assisted selective autophagy failure, desmin network disruption, myofibrillar disintegration at the Z-disc, and ectopic aggregate accumulation. The founding CMD1II allele does not fit that pathograph. Inagaki and colleagues showed that p.Arg157His, found in a familial dilated cardiomyopathy patient, reduces binding to the heart-specific titin N2B domain while leaving the distribution of the protein in cardiomyocytes unchanged, whereas the myofibrillar-myopathy allele p.Arg120Gly loses binding to both N2B and the striated-muscle-specific I26/I27 domains and does form intracellular aggregates. They state explicitly that the disease-causing mechanism of Arg157His is different from that of the allele found in desmin-related myopathy. Recording CMD1II as a `has_subtypes` entry on `Myofibrillar_Myopathy` would therefore assert an aggregate-first myofibrillar mechanism that the primary literature specifically denies for the index allele, and would assert skeletal-muscle involvement that the reported cardiac-restricted patients do not have. The two entries are curated as siblings under alpha-B crystallinopathy rather than parent and child.\n\nThe allelic boundary is real but not absolute, and this entry does not pretend otherwise. p.Gly154Ser was first reported in isolated cardiomyopathy and was later found in a family with late-onset distal vacuolar myopathy with protein aggregates and no cardiac dysfunction at all \u2014 the same allele on either side of the line. A stop-loss allele, p.(Ter176TrpextTer19), was found in one of 159 sequenced dilated cardiomyopathy probands and produced dilated cardiomyopathy with bilateral congenital cataracts but no myopathy, adding a third pattern. So CRYAB alleles distribute across cardiac, skeletal-muscle and ocular presentations in a way that correlates with the allele but is not determined by it. Two mechanistic routes are curated here as explicit hypothesis groups \u2014 a titin-interaction route supported directly for p.Arg157His, and a proteotoxic aggregation route supported mainly by p.Arg120Gly model systems that are not CMD1II alleles.\n\nThe mechanistic model evidence is allele-mismatched. Essentially all of the cell and animal work on cardiac alpha-B crystallinopathy uses p.Arg120Gly, which causes desmin-related myopathy rather than isolated dilated cardiomyopathy, and does so by overexpression. No knock-in or patient-derived model of p.Arg157His or p.Gly154Ser cardiac disease has been reported. That mismatch is carried as a HUMAN_MODEL_MISMATCH discussion rather than smoothed over, and the animal-model links say which node they model and which they do not.",
+    "pathophysiology": [
+      "CRYAB Variant Altering the Cardiac Client Interface of Alpha-B Crystallin",
+      "Loss of Alpha-B Crystallin Binding to the Cardiac Titin N2B Domain",
+      "Alpha-B Crystallin and Desmin Aggregate Accumulation",
+      "Cardiomyocyte Sarcomeric Stress-Protection Deficit",
+      "Adverse Ventricular Remodeling and Myocardial Fibrosis",
+      "Left Ventricular Dilation and Systolic Dysfunction"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "intermediate filament cytoskeleton organization",
+      "sarcomere organization",
+      "cardiac muscle hypertrophy in response to stress",
+      "interstitial collagen deposition by activated cardiac fibroblasts"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Reduced left ventricular ejection fraction",
+      "Congestive heart failure",
+      "Cataract",
+      "Myocardial fibrosis",
+      "Restrictive physiology",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0000518",
+      "HP:0001685",
+      "HP:0001723",
+      "HP:0001645"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "UNKNOWN"
+    ],
+    "genes": [
+      "CRYAB"
+    ],
+    "treatments": [
+      "Guideline-Directed Medical Therapy for Heart Failure with Reduced Ejection Fraction",
+      "Implantable Cardioverter Defibrillator",
+      "Cardiac Resynchronization Therapy",
+      "Advanced Heart Failure Therapy (mechanical circulatory support and transplantation)",
+      "Genetic Counseling and Cascade Testing of First-Degree Relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1II.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1II.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1J",
     "disease_id": "MONDO:0011541",
     "category": "Genetic",
@@ -174008,6 +174255,128 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Intellectual Developmental Disorder, X-Linked 114",
+    "disease_id": "MONDO:0975828",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability",
+      "SRPK3-related disorder"
+    ],
+    "creation_date": "2026-09-25T13:56:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual developmental disorder, X-linked 114 (XLID114; OMIM 301134) is a syndromic X-linked neurodevelopmental disorder of hemizygous males caused by germline variants in SRPK3 at Xq28, which encodes serine/arginine-rich protein-specific kinase 3, a kinase that phosphorylates SR-domain splicing factors. The only defining report describes nine affected individuals from five unrelated families: eight males ascertained after birth and one male fetus. The postnatal patients share intellectual disability, usually mild to moderate, with learning difficulty, delayed speech and short attention span, together with structural brain anomalies (agenesis or dysgenesis of the corpus callosum with dilated lateral ventricles and colpocephaly in the largest family, cerebral white matter loss, and cerebellar atrophy), abnormal eye movements (impaired smooth pursuit, convergence insufficiency, strabismus) and ataxia. Presentation is variable: one proband had learning difficulty and then a rapidly progressive cerebellar ataxic syndrome from his early twenties, another had severe global delay with absent speech, axial hypotonia and dystonic-dyskinetic movements with a normal brain MRI, and the fetus with a truncating allele had hydrocephalus, polymicrogyria and cerebellar dysplasia. The one carrier mother whose clinical status is reported was unaffected.\nThe evidence base is small: five families, four missense variants and one truncating variant, with no ClinGen gene-disease validity curation. Support for causality rests on segregation, variant rarity, in silico and HeLa-cell evidence that two of the missense substitutions misfold SRPK3 and displace it from the nucleus, and an srpk3 knockout zebrafish with reduced spontaneous eye movements, a smaller valvula cerebelli and impaired social behaviour. How loss of SRPK3 disturbs brain development is not known; reduced SR-protein phosphorylation and altered pre-mRNA splicing are the presumed route but have not been measured in patient cells or in the fish.",
+    "pathophysiology": [
+      "SRPK3 Hemizygous Variant",
+      "SRPK3 Protein Misfolding",
+      "Cytoplasmic Mislocalization of SRPK3",
+      "Reduced SRPK3-Mediated SR Protein Phosphorylation",
+      "Dysregulated SR Protein-Dependent Pre-mRNA Splicing",
+      "Abnormal Cerebral Development",
+      "Cerebellar Structural Deficit",
+      "Oculomotor Control Deficit"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein localization to nucleus",
+      "regulation of mRNA splicing, via spliceosome",
+      "corpus callosum development",
+      "cerebellum development"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Delayed Speech and Language Development",
+      "Short Attention Span",
+      "Abnormal Social Behavior",
+      "Agenesis or Dysgenesis of the Corpus Callosum",
+      "Ventriculomegaly",
+      "Colpocephaly",
+      "Cerebral White Matter Loss",
+      "Macrocephaly",
+      "Ataxia",
+      "Cerebellar Atrophy",
+      "Dysarthria",
+      "Tremor",
+      "Hypotonia",
+      "Dystonia",
+      "Impaired Smooth Pursuit",
+      "Impaired Convergence",
+      "Exotropia",
+      "Long Slender Fingers",
+      "Small Joint Hypermobility",
+      "High Narrow Palate",
+      "Hydrocephalus",
+      "Polymicrogyria",
+      "Cerebellar Hypoplasia",
+      "Inner Ear Malformation"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0000736",
+      "HP:0012433",
+      "HP:0001273",
+      "HP:0002119",
+      "HP:0030048",
+      "HP:0012762",
+      "HP:0000256",
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0001260",
+      "HP:0001337",
+      "HP:0001252",
+      "HP:0001332",
+      "HP:0007772",
+      "HP:0000619",
+      "HP:0000577",
+      "HP:0100807",
+      "HP:0430046",
+      "HP:0002705",
+      "HP:0000238",
+      "HP:0002126",
+      "HP:0001321",
+      "HP:0040106"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SRPK3"
+    ],
+    "treatments": [
+      "Special Education and Developmental Support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_X-linked_114.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder,_X-Linked_114.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Intellectual Disability, Anterior Maxillary Protrusion, and Strabismus",
@@ -330869,17 +331238,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3137,
+  "total_disorder_pages": 3140,
   "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7167,
-  "total_unique_evidence_sources": 45531,
-  "total_unique_publications": 42786,
+  "total_disorders_and_subtypes": 7170,
+  "total_unique_evidence_sources": 45572,
+  "total_unique_publications": 42827,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 284,
-  "total_pathographs": 3132,
-  "total_unique_pathological_events": 19717,
+  "total_pathographs": 3135,
+  "total_unique_pathological_events": 19732,
   "total_modules": 178,
-  "total_research_reports": 3245,
+  "total_research_reports": 3248,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
