@@ -96,6 +96,40 @@ def test_only_main_yaml_pytest_step_deselects_twins():
         )
 
 
+def test_ratchet_twins_read_the_same_baseline_as_their_gate():
+    """A ratchet twin is exact only if both sides grandfather against one ref.
+
+    The gate passes ``--against-ref "origin/$BASE_REF"``. The pytest copy reads
+    the script's ``BASELINE_REF_ENV`` and, when that is unset, falls back to
+    the committed baseline file: a different, staler grandfather set.
+    """
+    steps = _main_steps()
+    gates_step = next(s for s in steps if s.get("name") == "Run whole-repo gates")
+    base_ref = str(gates_step["env"]["BASE_REF"])
+    pytest_env = next(
+        s for s in steps if str(s.get("run", "")).startswith("just test-python-code")
+    ).get("env", {})
+
+    ratchets = [
+        command
+        for _file, _name, command in _twins()
+        if any(
+            command in line and "--against-ref" in line
+            for line in _command_lines(str(gates_step["run"]))
+        )
+    ]
+    assert ratchets, "expected at least one ratchet twin (snippet length, titles)"
+    for command in ratchets:
+        source = (ROOT / command).read_text(encoding="utf-8")
+        match = re.search(r'^BASELINE_REF_ENV = "(\w+)"$', source, re.MULTILINE)
+        assert match, f"{command} no longer names its BASELINE_REF_ENV"
+        env_name = match.group(1)
+        assert str(pytest_env.get(env_name)) == f"origin/{base_ref}", (
+            f"the pytest step must set {env_name}=origin/<base> so the twin of "
+            f"{command} grandfathers against the same ref as its gate"
+        )
+
+
 def test_env_var_deselects_twins_and_nothing_else():
     target = "tests/test_folded_hyphens.py"
 

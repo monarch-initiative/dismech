@@ -183,6 +183,11 @@ def preserve_kb_cache_environment():
 # Only exact twins qualify. A test that is stricter than its step in any
 # corner (test_committed_kb_waivers_say_what_was_searched fails a thin waiver
 # that the script lets pass when real evidence supersedes it) is not a twin.
+# For a ratchet, "exact" includes the baseline: its gate passes
+# --against-ref origin/<base>, so the pytest step must set the script's
+# BASELINE_REF_ENV to the same ref, or the test would grandfather against the
+# committed baseline file instead. tests/test_ci_step_twins.py checks that too.
+# Outside that workflow the test falls back to the committed file.
 
 SKIP_CI_STEP_TWINS_ENV = "DISMECH_SKIP_CI_STEP_TWINS"
 
