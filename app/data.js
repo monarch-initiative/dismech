@@ -20317,13 +20317,34 @@ window.searchData = [
     "subtypes": [
       "Hypoplastic",
       "Hypomaturation",
-      "Hypocalcified"
+      "Hypocalcified",
+      "AI1A",
+      "AI1B",
+      "AI1C",
+      "AI1E",
+      "AI1F",
+      "AI1G",
+      "AI1H",
+      "AI1J",
+      "AI1K",
+      "AI2A1",
+      "AI2A2",
+      "AI2A3",
+      "AI2A4",
+      "AI2A5",
+      "AI2A6",
+      "AI3A",
+      "AI3C",
+      "AIHHT"
     ],
     "description": "Amelogenesis imperfecta (AI) is a clinically and genetically heterogeneous group of inherited disorders of tooth enamel formation, in which the enamel is abnormal in quantity, structure, and/or mineral content in the absence of a generalized systemic disorder. Enamel is the most highly mineralized tissue in the body and is produced by ameloblasts, epithelial cells of ectodermal origin that secrete a protein-rich enamel matrix (amelogenin, enamelin, ameloblastin) and then orchestrate its proteolytic processing and progressive mineralization during the secretory and maturation stages of amelogenesis. AI arises when mutations disrupt the genes encoding these matrix proteins (AMELX, ENAM) or the proteases that process them (MMP20, KLK4), or other regulators of the secretory/maturation program (FAM83H, WDR72, DLX3 and others). Because the dental phenotype reflects which stage of amelogenesis is disrupted, AI is conventionally classified into hypoplastic (reduced enamel thickness, a secretory-stage quantitative defect), hypomaturation (normal-thickness but soft, mottled enamel from defective maturation), and hypocalcified/hypomineralized (poorly mineralized, rapidly attriting enamel) types, with X-linked, autosomal dominant, and autosomal recessive inheritance. AI is mechanistically and clinically distinct from acquired developmental defects of enamel such as dental fluorosis (excess fluoride) and from molar-incisor hypomineralization.\n",
     "pathophysiology": [
       "Ameloblast Dysfunction and Defective Enamel Biomineralization",
       "Defective Enamel Matrix Secretion",
       "Defective Enamel Matrix Processing and Maturation",
+      "Transcriptional Control of Ameloblast Differentiation",
+      "Defective Ameloblast Cell-Matrix Adhesion",
+      "Defective Ameloblast Ion Transport and Enamel Matrix pH Regulation",
       "Enamel Structural Failure"
     ],
     "cell_types": [
@@ -20335,7 +20356,11 @@ window.searchData = [
     "biological_processes": [
       "Amelogenesis",
       "Biomineral tissue development",
-      "Enamel mineralization"
+      "Enamel mineralization",
+      "Ameloblast differentiation",
+      "Cell-matrix adhesion",
+      "Calcium ion transmembrane transport",
+      "Regulation of enamel matrix pH"
     ],
     "phenotypes": [
       "Amelogenesis imperfecta",
@@ -20363,7 +20388,18 @@ window.searchData = [
       "MMP20",
       "KLK4",
       "FAM83H",
-      "WDR72"
+      "WDR72",
+      "LAMB3",
+      "AMBN",
+      "FAM20A",
+      "ITGB6",
+      "ACP4",
+      "SP6",
+      "ODAPH",
+      "SLC24A4",
+      "GPR68",
+      "RELT",
+      "DLX3"
     ],
     "treatments": [
       "Restorative and Prosthetic Rehabilitation",
@@ -20374,11 +20410,11 @@ window.searchData = [
     "source_file": "Amelogenesis_Imperfecta.yaml",
     "page_url": "../pages/disorders/Amelogenesis_Imperfecta.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
-    "num_genes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 17,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Aminoacylase 1 Deficiency",
@@ -21047,7 +21083,25 @@ window.searchData = [
       "Familial ALS",
       "Sporadic ALS",
       "Bulbar-onset ALS",
-      "Limb-onset ALS"
+      "Limb-onset ALS",
+      "ALS6",
+      "ALS8",
+      "ALS9",
+      "ALS10",
+      "ALS11",
+      "ALS12",
+      "ALS15",
+      "ALS18",
+      "ALS19",
+      "ALS20",
+      "ALS21",
+      "ALS23",
+      "ALS26",
+      "ALS28",
+      "FTDALS1",
+      "FTDALS4",
+      "FTDALS5",
+      "FTDALS6"
     ],
     "description": "Amyotrophic lateral sclerosis (ALS), also known as Lou Gehrig's disease, is a progressive neurodegenerative disorder characterized by the selective death of upper and lower motor neurons in the brain, brainstem, and spinal cord. This leads to progressive muscle weakness, atrophy, spasticity, and ultimately respiratory failure. ALS typically presents in adulthood with a median survival of 3-5 years from symptom onset. Approximately 5-10% of cases are familial, with the remainder being sporadic. A hallmark feature is TDP-43 proteinopathy, present in approximately 97% of cases.\n",
     "pathophysiology": [
@@ -21056,6 +21110,10 @@ window.searchData = [
       "TDP-43 Proteinopathy",
       "TDP-43-Dependent Cryptic Exon Misprocessing",
       "C9orf72 Repeat Expansion Toxicity",
+      "RNA-Binding Protein Mislocalization and Stress Granule Dysfunction",
+      "Vesicular and Endolysosomal Trafficking Failure",
+      "Neuregulin-ErbB4 Signaling Failure",
+      "Angiogenin Loss of Function",
       "Glutamate Excitotoxicity",
       "Oxidative Stress",
       "Neuroinflammation",
@@ -21067,11 +21125,14 @@ window.searchData = [
     ],
     "cell_types": [
       "motor neuron",
+      "Motor neuron",
+      "Endothelial cell",
       "astrocyte",
       "microglial cell"
     ],
     "cell_type_ids": [
       "CL:0000100",
+      "CL:0000115",
       "CL:0000127",
       "CL:0000129"
     ],
@@ -21080,6 +21141,11 @@ window.searchData = [
       "RNA processing",
       "RNA splicing",
       "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
+      "Cytoplasmic stress granule assembly",
+      "Protein localization to nucleus",
+      "Vesicle-mediated transport",
+      "Endosomal transport",
+      "ERBB4 signaling pathway",
       "neurotransmitter transport",
       "response to oxidative stress",
       "microglial cell activation",
@@ -21231,7 +21297,22 @@ window.searchData = [
       "PRPH",
       "SPTLC2",
       "SS18L1",
-      "TAF15"
+      "TAF15",
+      "VAPB",
+      "ANG",
+      "FIG4",
+      "OPTN",
+      "UBQLN2",
+      "PFN1",
+      "ERBB4",
+      "HNRNPA1",
+      "MATR3",
+      "ANXA11",
+      "TBK1",
+      "CCNF",
+      "VCP",
+      "TIA1",
+      "LRP12"
     ],
     "treatments": [
       "Riluzole",
@@ -21262,10 +21343,10 @@ window.searchData = [
     "source_file": "Amyotrophic_Lateral_Sclerosis.yaml",
     "page_url": "../pages/disorders/Amyotrophic_Lateral_Sclerosis.html",
     "num_phenotypes": 46,
-    "num_pathophysiology": 13,
-    "num_genes": 22,
+    "num_pathophysiology": 17,
+    "num_genes": 37,
     "num_treatments": 11,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "51",
     "causal_graph_longest_path": "5"
   },
   {
@@ -167277,6 +167358,128 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Immunodeficiency 19",
+    "disease_id": "MONDO:0014280",
+    "category": "Mendelian",
+    "parents": [
+      "Severe combined immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-24T08:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Complete deficiency",
+      "Leaky splice allele"
+    ],
+    "description": "Immunodeficiency 19 is an ultra-rare autosomal recessive severe combined immunodeficiency caused by biallelic loss-of-function variants in CD3D, the gene encoding the CD3delta invariant chain of the T-cell receptor (TCR)/CD3 complex. CD3delta pairs with CD3epsilon in the pre-TCR and in both mature receptor isotypes, and in humans it is required early in thymopoiesis: thymocyte development arrests around entry to the CD4+CD8+ double-positive stage, and affected infants have no circulating alpha-beta or gamma-delta T cells while B and NK cells are present in normal or high numbers - the T-B+NK+ pattern. Presentation is in the first months of life with opportunistic and viral infection (Pneumocystis pneumonitis, cytomegalovirus), chronic diarrhoea, candidiasis and failure to thrive, and the disorder is fatal without allogeneic haematopoietic stem cell transplantation.\nTwo features distinguish the entry from its CD3 siblings. First, the thymus is not characteristically absent: it can be detectable on imaging and loaded with early progenitors that cannot progress, so an easily seen thymus does not argue against the diagnosis, and residual host progenitors occupying the thymic niche are a consideration in choosing transplant conditioning. Second, the disorder is not phenotypically uniform. A leaky splice-donor allele (IVS2+5G>A) reduces rather than abolishes correctly spliced CD3D transcript and blocks alpha-beta but not gamma-delta selection, giving a Talphabeta-Tgammadelta+B+NK+ SCID; the same allele accounts for the two reported patients who presented with the erythroderma, lymphadenopathy, eosinophilia and raised IgE of Omenn syndrome. Both ends are curated here as one graded entity, split as subtypes rather than as separate diseases.\nThe boundary with the neighbouring chains is mechanistic rather than a matter of degree. CD3gamma deficiency leaves thymopoiesis intact and presents with reduced surface receptor on a preserved T-cell compartment; CD3delta and CD3epsilon loss both abrogate T-cell development. The published comparison of the human deficiencies places CD3delta above CD3gamma in impact on T-cell production, and the CD3delta mouse is the standing example of a species mismatch in this complex: the knockout spares gamma-delta cells and blocks a later (double-positive to single-positive) transition than the human disorder does.",
+    "pathophysiology": [
+      "Biallelic CD3D Loss-of-Function Variants",
+      "Loss of the CD3delta Chain",
+      "Residual CD3delta from a Leaky Splice Allele",
+      "Failure of pre-TCR and TCR Complex Assembly",
+      "Arrest of Thymocyte Development",
+      "Thymus Loaded with Arrested Progenitors",
+      "Selective Block of Alpha-Beta T-Cell Selection",
+      "Absence of Circulating T Cells",
+      "Failure of Cellular Immunity",
+      "Loss of T-Cell Help to B Cells",
+      "Omenn-Like Immune Dysregulation"
+    ],
+    "cell_types": [
+      "intermediate CD4 single-positive thymocyte",
+      "alpha-beta T cell",
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000893",
+      "CL:0000789",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "T cell differentiation in thymus",
+      "alpha-beta T cell differentiation",
+      "T cell mediated immunity"
+    ],
+    "phenotypes": [
+      "Severe combined immunodeficiency",
+      "Absent circulating T cells",
+      "Decreased total T cell count with preserved gamma-delta T cells",
+      "Abnormally low T cell receptor excision circle level",
+      "Decreased mitogen-induced T-cell proliferation",
+      "Impaired specific antibody response",
+      "Pneumocystis jirovecii pneumonia",
+      "Severe cytomegalovirus infection",
+      "Chronic diarrhea",
+      "Recurrent candida infections",
+      "Failure to thrive",
+      "Erythroderma",
+      "Lymphadenopathy",
+      "Increased circulating IgE concentration",
+      "Increased total eosinophil count"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Infectious",
+      "Gastrointestinal",
+      "Growth",
+      "Dermatologic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0004430",
+      "HP:0025805",
+      "HP:0005403",
+      "HP:0031545",
+      "HP:0031381",
+      "HP:0012475",
+      "HP:0020102",
+      "HP:0031692",
+      "HP:0002028",
+      "HP:0005401",
+      "HP:0001508",
+      "HP:0001019",
+      "HP:0002716",
+      "HP:0003212",
+      "HP:0001880"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CD3D"
+    ],
+    "treatments": [
+      "Allogeneic haematopoietic stem cell transplantation",
+      "Protective isolation and anti-infectious prophylaxis",
+      "Adenine base editing of autologous haematopoietic stem and progenitor cells"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_19.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_19.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "7"
   },
   {
@@ -330280,17 +330483,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3133,
-  "total_subtypes": 3992,
-  "total_disorders_and_subtypes": 7125,
-  "total_unique_evidence_sources": 45428,
-  "total_unique_publications": 42684,
+  "total_disorder_pages": 3134,
+  "total_subtypes": 4030,
+  "total_disorders_and_subtypes": 7164,
+  "total_unique_evidence_sources": 45477,
+  "total_unique_publications": 42733,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3128,
-  "total_unique_pathological_events": 19673,
+  "total_pathographs": 3129,
+  "total_unique_pathological_events": 19687,
   "total_modules": 178,
-  "total_research_reports": 3241,
+  "total_research_reports": 3242,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
