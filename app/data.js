@@ -105928,6 +105928,103 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Dilated Cardiomyopathy 1CC",
+    "disease_id": "MONDO:0013147",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1CC (CMD1CC) is the NEXN-related form of familial isolated dilated cardiomyopathy. NEXN encodes nexilin, a cardiac and skeletal-muscle F-actin-binding protein built from two actin-binding domains flanking a coiled-coil rod and terminating in an immunoglobulin-superfamily (IGcam) domain. Nexilin was first characterised as a Z-disc protein whose loss destabilises the Z-disc under mechanical load, and later shown to be a component of the cardiomyocyte junctional membrane complex required to initiate transverse (T)-tubule invagination and to couple the T-tubule to the junctional sarcoplasmic reticulum. Which of those two lesions is primary is genuinely unsettled and is curated here as competing mechanistic hypotheses rather than resolved by assertion.\nThe clinical spectrum is strikingly dose-dependent. Heterozygous variants produce an incompletely penetrant, typically adult-onset dilated cardiomyopathy - the reported average age of presentation is near 50 years - in which affected and unaffected carriers coexist within one pedigree; a minority present in infancy, sometimes transiently. Biallelic loss-of-function variants produce a far more severe autosomal-recessive disease that begins in utero, presenting as fetal hydrops, cardiomegaly and intrauterine or neonatal death, with endocardial fibroelastosis as a characteristic autopsy finding. Recent biallelic cases show that this recessive arm is not uniformly lethal: two fetal-onset infants survived to ages 2 and 15 years with persistent but partly improved systolic dysfunction.\nCMD1CC is what distinguishes NEXN from the other curated familial dilated cardiomyopathies: its lesion is the anchoring of F-actin to the Z-disc and to the junctional membrane, not the sarcomeric motor, the thin-filament regulatory apparatus, the nuclear envelope, protein quality control, or splicing. NEXN is also a minor cause of hypertrophic cardiomyopathy, where ClinGen rates the gene-disease relationship only Limited; for dilated cardiomyopathy it is rated Strong.",
+    "pathophysiology": [
+      "Nexilin Loss of Function",
+      "Z-Disc Destabilization",
+      "Junctional Membrane Complex and T-Tubule Failure",
+      "Impaired Excitation-Contraction Coupling",
+      "Impaired Cardiomyocyte Force Generation",
+      "Left Ventricular Dilation and Systolic Dysfunction",
+      "Endocardial Fibroelastosis",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Sarcomere organization",
+      "T-tubule organization",
+      "Intracellular calcium ion homeostasis",
+      "Regulation of cardiac muscle contraction by regulation of the release of sequestered calcium ion",
+      "Striated muscle contraction",
+      "Regulation of cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Left ventricular dilatation",
+      "Reduced left ventricular ejection fraction",
+      "Congestive heart failure",
+      "Cardiomegaly",
+      "Endocardial fibroelastosis",
+      "Hydrops fetalis",
+      "Stillbirth",
+      "Neonatal death",
+      "Atrioventricular valve regurgitation",
+      "Myocardial fibrosis",
+      "Arrhythmia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Prenatal",
+      "Neonatal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:4000141",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0001640",
+      "HP:0001706",
+      "HP:0001789",
+      "HP:0034376",
+      "HP:0001685",
+      "HP:0011675"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NEXN"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Pharmacotherapy",
+      "Cardiac Resynchronization Therapy with Defibrillator",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "NT-proBNP"
+    ],
+    "source_file": "Dilated_Cardiomyopathy_1CC.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1CC.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1D",
     "disease_id": "MONDO:0011095",
     "category": "Genetic",
@@ -262857,6 +262954,98 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Progressive External Ophthalmoplegia with Mitochondrial DNA Deletions, Autosomal Recessive 4",
+    "disease_id": "MONDO:0014899",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive External Ophthalmoplegia with Mitochondrial DNA Deletions",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PEOB4 is the adult-onset, muscle-predominant end of the DGUOK allelic spectrum: biallelic variants in DGUOK presenting in adulthood as a mitochondrial myopathy, with or without progressive external ophthalmoplegia, and with multiple large-scale mitochondrial DNA deletions in skeletal muscle.\nThe gene had been known since 2001 for something almost opposite. DGUOK classically causes a hepatocerebral mitochondrial DNA *depletion* syndrome of the neonatal period - liver failure with neurological deterioration, usually fatal in infancy. PEOB4 was defined in 2012, when a MitoExome screen of adults with mitochondrial myopathy and multiple mtDNA deletions in muscle found recessive DGUOK mutations in five independent subjects, 5.6 percent of that cohort. The same enzyme deficiency therefore produces mtDNA depletion in infant liver and mtDNA deletions in adult muscle, and one patient in the 2012 series makes the continuity explicit: she had a liver transplant at nine months of age and presented decades later with recurrent rhabdomyolysis.\nThe mechanism is nucleotide supply. Deoxyguanosine kinase phosphorylates purine deoxyribonucleosides inside the mitochondrial matrix and is the rate-limiting step of the mitochondrial purine salvage pathway - the route by which post-mitotic cells, which cannot use the cytosolic replication-coupled route, obtain dNTPs for mtDNA synthesis. Losing it leaves an imbalanced matrix dNTP pool, and mtDNA replication that is both slowed and error-prone. Which failure mode dominates appears to depend on tissue and on age: an imbalanced pool in a rapidly growing infant liver gives depletion, while decades of stalled and mispaired replication in post-mitotic muscle give clonally expanded large-scale deletions. That reading is a synthesis of the two phenotypes rather than a demonstrated switch, and the entry marks it as such.\nClinically the 2012 series was heterogeneous: mitochondrial myopathy with or without PEO, recurrent rhabdomyolysis, and adult-onset lower motor neuron syndrome with mild cognitive impairment. Muscle DGUOK activity and DGUOK protein stability were both impaired. There is no disease-modifying treatment; nucleoside supplementation is a mechanistically motivated idea tested only in cells and in a dguok-null zebrafish, where the result depended on which nucleosides were given.",
+    "pathophysiology": [
+      "Biallelic DGUOK Variants",
+      "Loss of Mitochondrial Deoxyguanosine Kinase Activity",
+      "Failure of Mitochondrial Purine Deoxyribonucleoside Salvage",
+      "Imbalanced Mitochondrial dNTP Pool",
+      "Impaired and Error-Prone mtDNA Replication",
+      "Multiple Large-Scale mtDNA Deletions in Skeletal Muscle",
+      "Respiratory-Chain Deficiency in Skeletal Muscle",
+      "Selective Vulnerability of Extraocular and Levator Muscle",
+      "Mitochondrial Myopathy of Limb and Axial Muscle",
+      "Motor Neuron and Cognitive Involvement"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "purine nucleotide salvage",
+      "mitochondrial DNA replication",
+      "mitochondrial DNA metabolic process",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Mitochondrial Myopathy",
+      "Multiple Mitochondrial DNA Deletions",
+      "Progressive External Ophthalmoplegia",
+      "Rhabdomyolysis",
+      "Lower Motor Neuron Syndrome",
+      "Cognitive Impairment",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Metabolism",
+      "Ophthalmologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003737",
+      "HP:0003689",
+      "HP:0000590",
+      "HP:0003201",
+      "HP:0002366",
+      "HP:0100543",
+      "HP:0001300"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DGUOK"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Purine nucleoside supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Progressive_External_Ophthalmoplegia_With_Mitochondrial_DNA_Deletions_Autosomal_Recessive_4.yaml",
+    "page_url": "../pages/disorders/Progressive_External_Ophthalmoplegia_with_Mitochondrial_DNA_Deletions,_Autosomal_Recessive_4.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Progressive Familial Heart Block",
     "disease_id": "MONDO:0019490",
     "category": "Genetic",
@@ -327055,6 +327244,120 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "X-Linked Combined Immunodeficiency",
+    "disease_id": "MONDO:0010730",
+    "category": "Mendelian",
+    "parents": [
+      "combined immunodeficiency"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked combined immunodeficiency (XCID, also written CIDX, and in the modern literature usually \"atypical\" or \"leaky\" X-linked SCID) is the moderate, survivable end of IL2RG disease. It is allelic with X-linked severe combined immunodeficiency but is not the same clinical entity, and the difference is mechanistic rather than one of degree of luck: the alleles are hypomorphic, so the common gamma chain retains partial function instead of losing it.\nIL2RG encodes the common gamma chain, the shared signalling subunit of the receptors for IL-2, IL-4, IL-7, IL-9, IL-15 and IL-21, which transduces through JAK3 and STAT5. Null alleles abolish that signalling and give the classic T-B+NK- severe phenotype, fatal in infancy without transplantation. The alleles curated here impair signalling only partially, and by more than one route: some leave the chain on the cell surface at normal levels with partially impaired STAT5 phosphorylation, p.Pro58Ser reduces its surface expression by mislocalising it to the ER/Golgi interface, and p.Arg328Ter weakens JAK3 binding while allowing partial STAT5 phosphorylation. The consequence is a partly populated but qualitatively defective T cell compartment: reduced CD4+ and CD8+ counts with a disproportionate loss of the naive CD45RA+ subset, low T-cell receptor excision circles, a skewed T-cell receptor repertoire, poor proliferative responses, and loss of T-cell help for antibody production, so that serum immunoglobulin concentrations are normal while specific IgG responses to immunogens are not. B cell and NK cell numbers are normal.\nClinically this presents not as an infant dying of opportunistic infection but as a lifelong sinopulmonary and cutaneous viral susceptibility: recurrent sinusitis, otitis media, bronchitis and pneumonia, severe varicella, and chronic papillomavirus infection with persistent warts. The five affected males of the index American family ranged from 2.5 to 34 years old at report, which is the single fact that most clearly separates this entity from X-SCID. GeneReviews places this presentation within atypical X-SCID, a spectrum that also includes immune dysregulation, autoimmunity and Epstein-Barr virus-related lymphoproliferative complications, and that newborn screening for SCID usually does not detect.\nA second mechanism complicates the picture and is curated here explicitly: spontaneous somatic reversion of the mutant allele in the T cell lineage. In the German family carrying p.Ile153Thr, wild-type alleles were recoverable from CD3+, CD4+ and CD8+ T cells but not from monocytes, B cells or NK cells, and the authors attribute the attenuated phenotype to the combination of hypomorphic function and reversion rather than to the allele alone. Genotype therefore does not fully predict phenotype in this disorder, and it varied markedly even between brothers carrying the same variant.",
+    "pathophysiology": [
+      "Hypomorphic IL2RG Variant",
+      "Partial Loss of Common Gamma Chain Signalling",
+      "Reduced Peripheral T Cell Pool",
+      "Impaired T Cell Activation and Proliferation",
+      "Defective T Cell Help for Antibody Production",
+      "Somatic Reversion in the T Cell Lineage",
+      "Persistent Sinopulmonary and Cutaneous Viral Susceptibility"
+    ],
+    "cell_types": [
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "cytokine receptor signaling via JAK-STAT",
+      "T cell differentiation",
+      "T cell activation",
+      "immunoglobulin production"
+    ],
+    "phenotypes": [
+      "Recurrent Sinusitis",
+      "Recurrent Otitis Media",
+      "Recurrent Bronchitis",
+      "Recurrent Pneumonia",
+      "Bronchiectasis",
+      "Severe Varicella",
+      "Verrucae",
+      "Paucity of Lymphoid Tissue",
+      "Impaired Specific Antibody Response",
+      "Decreased CD4+ T Cell Count",
+      "Decreased CD8+ T Cell Count",
+      "Decreased Naive T Cell Proportion",
+      "Abnormal T Cell Proliferation",
+      "Dermatitis",
+      "Autoimmunity",
+      "EBV-Related Lymphoproliferation",
+      "Arthritis"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Respiratory",
+      "Dermatologic",
+      "Neoplasm",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011108",
+      "HP:0000403",
+      "HP:0002837",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0032170",
+      "HP:0200043",
+      "HP:0002733",
+      "HP:0012475",
+      "HP:5210418",
+      "HP:5210426",
+      "HP:0031397",
+      "HP:0031379",
+      "HP:0011123",
+      "HP:0002960",
+      "HP:0005523",
+      "HP:0001369"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IL2RG"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Antimicrobial Prophylaxis",
+      "Infection-Risk Avoidance and Blood Product Precautions",
+      "Hematopoietic Stem Cell Transplantation",
+      "Gene Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "X-Linked_Combined_Immunodeficiency.yaml",
+    "page_url": "../pages/disorders/X-Linked_Combined_Immunodeficiency.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "X-Linked Hypophosphatemia",
     "disease_id": "MONDO:0010619",
     "category": "Mendelian",
@@ -331359,17 +331662,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3141,
+  "total_disorder_pages": 3144,
   "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7171,
-  "total_unique_evidence_sources": 45584,
-  "total_unique_publications": 42839,
+  "total_disorders_and_subtypes": 7174,
+  "total_unique_evidence_sources": 45604,
+  "total_unique_publications": 42859,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 284,
-  "total_pathographs": 3136,
-  "total_unique_pathological_events": 19738,
+  "total_pathographs": 3139,
+  "total_unique_pathological_events": 19760,
   "total_modules": 178,
-  "total_research_reports": 3249,
+  "total_research_reports": 3252,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
