@@ -1613,7 +1613,7 @@ epistasis sentence), separate from the general disease evidence.
 models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
 top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
 double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
-entries: `Alport_Syndrome`, `Usher_Syndrome`,
+entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
 `MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
@@ -3531,6 +3531,13 @@ docstring says so. And `groupings.py` only *looks* like another bypass: it
 resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
 no build is involved. The test is whether the caller can do its job without the
 ontology.
+
+**When it cannot, the guard fails instead of degrading.**
+`preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
+`RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
+degradation path: an empty record would read as "MONDO records no causal gene"
+and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
+`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
