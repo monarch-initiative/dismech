@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4281,6 +4334,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biphasic-epithelial-osteofibrous-neoplastic-proliferation" data-dismech-node="Biphasic Epithelial-Osteofibrous Neoplastic Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Biphasic Epithelial-Osteofibrous Neoplastic Proliferation</div>
 
+
                 <div class="item-desc">Adamantinoma is defined by a neoplastic proliferation of keratin- and p63-positive epithelial cells, arranged in tubular, basaloid, spindle-cell, or squamoid patterns, embedded within a fibro-osseous (osteofibrous) stroma. The epithelial component shows a keratin subclass immunoreactivity pattern (widespread keratin 14 and 19, with keratin 5 in the majority of cases) that is independent of histologic growth pattern and is conserved in local recurrences and metastases, supporting a common basal epithelial cell-like histogenesis for all growth patterns. Almost all tumors arise in the tibial diaphysis or metaphysis.</div>
 
 
@@ -4505,6 +4559,13 @@ This pathophysiological event occurs in tibial diaphysis, annotated with diaphys
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-chromosomal-copy-number-gains-without-an-established-driver" data-dismech-node="Recurrent Chromosomal Copy-Number Gains Without an Established Driver" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Chromosomal Copy-Number Gains Without an Established Driver</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Cytogenetic and, more recently, genomic studies of classic adamantinoma recurrently identify extra copies of chromosomes 7, 8, 12, 19, and 21 (and, in a targeted sequencing/SNP-array series, chromosomes 7, 8, 10, 12, and/or 19), sometimes accompanied by isolated structural events (e.g., a chromosome 12q tandem duplication, an FGFR1 rearrangement, or an NRAS p.G12D variant in single cases). No single recurrent driver gene, mutation, or fusion has been established across cases: this genomic profile is what most clearly distinguishes true adamantinoma from its principal molecular mimic, &#34;adamantinoma-like Ewing sarcoma,&#34; which instead carries the canonical EWSR1::FLI1/ERG t(11;22) or t(21;22) translocations that are consistently absent from true adamantinoma. Osteofibrous dysplasia-like adamantinoma is genomically heterogeneous and, in a small paired series, could show either no detectable variants or the same chromosome 7/8/19 gain pattern as classic adamantinoma, so genomic profiling has been proposed as an aid to (but not yet a settled arbiter of) distinguishing these entities.</div>
 
 
@@ -4617,6 +4678,7 @@ This pathophysiological event occurs in tibial diaphysis, annotated with diaphys
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-cortical-bone-destruction-and-structural-compromise" data-dismech-node="Local Cortical Bone Destruction and Structural Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Cortical Bone Destruction and Structural Compromise</div>
+
 
                 <div class="item-desc">Progressive intracortical and intramedullary tumor growth within the tibial diaphysis destroys and thins cortical bone, producing anterior tibial bowing, a palpable mass, bone pain, and, in advanced or long-standing disease, structural weakening predisposing to pathologic fracture.</div>
 
@@ -4766,6 +4828,7 @@ This pathophysiological event occurs in tibial diaphysis, annotated with diaphys
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-recurrence-after-incomplete-surgical-resection" data-dismech-node="Local Recurrence After Incomplete Surgical Resection" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Recurrence After Incomplete Surgical Resection</div>
 
+
                 <div class="item-desc">Local recurrence is common and can occur late (documented beyond 15 years post-treatment). Across a synthesized literature base, local recurrence rates range from 15-31% for classic adamantinoma and 22-43% for the OFD-like variant. Wide resection with uncontaminated margins is the most consistently protective surgical variable identified across the case-series literature; intralesional or marginal margins predispose to recurrence.</div>
 
 
@@ -4893,6 +4956,7 @@ This pathophysiological event occurs in tibial diaphysis, annotated with diaphys
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-and-lymphatic-metastasis" data-dismech-node="Hematogenous and Lymphatic Metastasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous and Lymphatic Metastasis</div>
+
 
                 <div class="item-desc">Classic adamantinoma metastasizes predominantly to the lungs, in an estimated 10-27% of cases, but metastatic spread is not confined to the lung: it is also reported to regional lymph nodes (including a case with inguinal nodal recurrence and no pulmonary disease at all) and, less commonly, to abdominal/pelvic sites, liver, brain, and skeleton. In contrast, the OFD-like variant, despite a locally aggressive recurrence rate, shows no metastases in series that report it separately, indicating a biologically distinct clinical behavior from classic adamantinoma despite their morphologic overlap.</div>
 
@@ -5067,6 +5131,13 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomatoid-dedifferentiation-with-loss-of-epithelial-phenotype" data-dismech-node="Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Rarely, classic adamantinoma undergoes high-grade sarcomatoid transformation, with progressive loss of pankeratin and other epithelial marker expression in the transformed component (a &#34;revertant mesenchymal phenotype&#34;). This dedifferentiated form behaves more aggressively; the evidence base for its mechanism is limited to a small number of case reports.</div>
 
@@ -5446,7 +5517,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biphasic Epithelial-Osteofibrous Neoplastic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adamantinoma is defined by a neoplastic proliferation of keratin- and p63-positive epithelial cells, arranged in tubular, basaloid, spindle-cell, or squamoid patterns, embedded within a fibro-osseous (osteofibrous) stroma. The epithelial component shows a keratin subclass immunoreactivity pattern (widespread keratin 14 and 19, with keratin 5 in the majority of cases) that is independent of histologic growth pattern and is conserved in local recurrences and metastases, supporting a common basal epithelial cell-like histogenesis for all growth patterns. Almost all tumors arise in the tibial diaphysis or metaphysis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"basal epithelial-like tumor cell\", \"osteofibrous stromal fibroblast\"], \"biological_processes\": [\"aberrant basal epithelial differentiation of tumor cells\"], \"locations\": [\"tibial diaphysis\"]}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Local pain over the involved tibial segment, a common presenting complaint, typically accompanying a palpable mass.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002653\"}}, {\"id\": \"Hematogenous and Lymphatic Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic adamantinoma metastasizes predominantly to the lungs, in an estimated 10-27% of cases, but metastatic spread is not confined to the lung: it is also reported to regional lymph nodes (including a case with inguinal nodal recurrence and no pulmonary disease at all) and, less commonly, to abdominal/pelvic sites, liver, brain, and skeleton. In contrast, the OFD-like variant, despite a locally aggressive recurrence rate, shows no metastases in series that report it separately, indicating a biologically distinct clinical behavior from classic adamantinoma despite their morphologic overlap.\", \"meta\": {\"evidence_count\": 5, \"locations\": [\"lung\", \"lymph node\"]}}, {\"id\": \"Local Cortical Bone Destruction and Structural Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive intracortical and intramedullary tumor growth within the tibial diaphysis destroys and thins cortical bone, producing anterior tibial bowing, a palpable mass, bone pain, and, in advanced or long-standing disease, structural weakening predisposing to pathologic fracture.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"tibial diaphysis\"]}}, {\"id\": \"Local Recurrence After Incomplete Surgical Resection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Local recurrence is common and can occur late (documented beyond 15 years post-treatment). Across a synthesized literature base, local recurrence rates range from 15-31% for classic adamantinoma and 22-43% for the OFD-like variant. Wide resection with uncontaminated margins is the most consistently protective surgical variable identified across the case-series literature; intralesional or marginal margins predispose to recurrence.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Localized Extremity Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A palpable mass or swelling overlying the involved bone, typically accompanying bone pain rather than presenting painlessly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000840\"}}, {\"id\": \"Nodal Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastasis to regional lymph nodes, reported as a primary metastatic site alongside the lungs; a documented case shows nodal (inguinal) recurrence with abdominal/pelvic spread and no pulmonary involvement, so this is not simply a rarer variant of pulmonary spread.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002733\"}}, {\"id\": \"Pathologic Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fracture through bone weakened by tumor-related cortical destruction; reported at presentation in 10-21% of cases across series, and an independent predictor of local recurrence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002756\"}}, {\"id\": \"Pulmonary Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous metastasis to the lung, reported in approximately 10-27% of classic adamantinoma cases; not reported for the OFD-like variant in series reporting it separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100526\"}}, {\"id\": \"Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rarely, classic adamantinoma undergoes high-grade sarcomatoid transformation, with progressive loss of pankeratin and other epithelial marker expression in the transformed component (a \\\"revertant mesenchymal phenotype\\\"). This dedifferentiated form behaves more aggressively; the evidence base for its mechanism is limited to a small number of case reports.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tibial Bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive anterior angular deformity (bowing) of the tibia, a recognized presenting or associated finding across the OFD/adamantinoma spectrum, particularly well documented for the OFD and OFD-like end of that spectrum and in younger patients.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002982\"}}], \"edges\": [{\"source\": \"Biphasic Epithelial-Osteofibrous Neoplastic Proliferation\", \"target\": \"Local Cortical Bone Destruction and Structural Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intraosseous tumor growth destroys and remodels adjacent cortical bone in the tibial diaphysis.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Tibial Bowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical destruction and remodeling produce progressive anterior bowing of the tibia.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and cortical destruction cause chronic bone pain.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Localized Extremity Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor expansion produces a palpable soft-tissue swelling over the involved bone.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Pathologic Fracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical thinning from tumor growth predisposes to fracture through the involved bone.\"}, {\"source\": \"Local Recurrence After Incomplete Surgical Resection\", \"target\": \"Hematogenous and Lymphatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent and spindle/basaloid-pattern classic adamantinoma is disproportionately associated with subsequent metastatic disease.\"}, {\"source\": \"Hematogenous and Lymphatic Metastasis\", \"target\": \"Pulmonary Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous spread establishes secondary tumor deposits in the lung.\"}, {\"source\": \"Hematogenous and Lymphatic Metastasis\", \"target\": \"Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphatic spread establishes secondary tumor deposits in regional lymph nodes.\"}, {\"source\": \"Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype\", \"target\": \"Hematogenous and Lymphatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dedifferentiated/sarcomatoid transformation is associated with more aggressive, higher-risk clinical behavior including relapse and metastasis in reported cases.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biphasic Epithelial-Osteofibrous Neoplastic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adamantinoma is defined by a neoplastic proliferation of keratin- and p63-positive epithelial cells, arranged in tubular, basaloid, spindle-cell, or squamoid patterns, embedded within a fibro-osseous (osteofibrous) stroma. The epithelial component shows a keratin subclass immunoreactivity pattern (widespread keratin 14 and 19, with keratin 5 in the majority of cases) that is independent of histologic growth pattern and is conserved in local recurrences and metastases, supporting a common basal epithelial cell-like histogenesis for all growth patterns. Almost all tumors arise in the tibial diaphysis or metaphysis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"basal epithelial-like tumor cell\", \"osteofibrous stromal fibroblast\"], \"biological_processes\": [\"aberrant basal epithelial differentiation of tumor cells\"], \"locations\": [\"tibial diaphysis\"]}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Local pain over the involved tibial segment, a common presenting complaint, typically accompanying a palpable mass.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002653\"}}, {\"id\": \"Hematogenous and Lymphatic Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic adamantinoma metastasizes predominantly to the lungs, in an estimated 10-27% of cases, but metastatic spread is not confined to the lung: it is also reported to regional lymph nodes (including a case with inguinal nodal recurrence and no pulmonary disease at all) and, less commonly, to abdominal/pelvic sites, liver, brain, and skeleton. In contrast, the OFD-like variant, despite a locally aggressive recurrence rate, shows no metastases in series that report it separately, indicating a biologically distinct clinical behavior from classic adamantinoma despite their morphologic overlap.\", \"meta\": {\"evidence_count\": 5, \"locations\": [\"lung\", \"lymph node\"]}}, {\"id\": \"Local Cortical Bone Destruction and Structural Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive intracortical and intramedullary tumor growth within the tibial diaphysis destroys and thins cortical bone, producing anterior tibial bowing, a palpable mass, bone pain, and, in advanced or long-standing disease, structural weakening predisposing to pathologic fracture.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"tibial diaphysis\"]}}, {\"id\": \"Local Recurrence After Incomplete Surgical Resection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Local recurrence is common and can occur late (documented beyond 15 years post-treatment). Across a synthesized literature base, local recurrence rates range from 15-31% for classic adamantinoma and 22-43% for the OFD-like variant. Wide resection with uncontaminated margins is the most consistently protective surgical variable identified across the case-series literature; intralesional or marginal margins predispose to recurrence.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Localized Extremity Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A palpable mass or swelling overlying the involved bone, typically accompanying bone pain rather than presenting painlessly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000840\"}}, {\"id\": \"Nodal Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastasis to regional lymph nodes, reported as a primary metastatic site alongside the lungs; a documented case shows nodal (inguinal) recurrence with abdominal/pelvic spread and no pulmonary involvement, so this is not simply a rarer variant of pulmonary spread.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002733\"}}, {\"id\": \"Pathologic Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fracture through bone weakened by tumor-related cortical destruction; reported at presentation in 10-21% of cases across series, and an independent predictor of local recurrence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002756\"}}, {\"id\": \"Pulmonary Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous metastasis to the lung, reported in approximately 10-27% of classic adamantinoma cases; not reported for the OFD-like variant in series reporting it separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100526\"}}, {\"id\": \"Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rarely, classic adamantinoma undergoes high-grade sarcomatoid transformation, with progressive loss of pankeratin and other epithelial marker expression in the transformed component (a \\\"revertant mesenchymal phenotype\\\"). This dedifferentiated form behaves more aggressively; the evidence base for its mechanism is limited to a small number of case reports.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Tibial Bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive anterior angular deformity (bowing) of the tibia, a recognized presenting or associated finding across the OFD/adamantinoma spectrum, particularly well documented for the OFD and OFD-like end of that spectrum and in younger patients.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002982\"}}], \"edges\": [{\"source\": \"Biphasic Epithelial-Osteofibrous Neoplastic Proliferation\", \"target\": \"Local Cortical Bone Destruction and Structural Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intraosseous tumor growth destroys and remodels adjacent cortical bone in the tibial diaphysis.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Tibial Bowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical destruction and remodeling produce progressive anterior bowing of the tibia.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and cortical destruction cause chronic bone pain.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Localized Extremity Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor expansion produces a palpable soft-tissue swelling over the involved bone.\"}, {\"source\": \"Local Cortical Bone Destruction and Structural Compromise\", \"target\": \"Pathologic Fracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical thinning from tumor growth predisposes to fracture through the involved bone.\"}, {\"source\": \"Local Recurrence After Incomplete Surgical Resection\", \"target\": \"Hematogenous and Lymphatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent and spindle/basaloid-pattern classic adamantinoma is disproportionately associated with subsequent metastatic disease.\"}, {\"source\": \"Hematogenous and Lymphatic Metastasis\", \"target\": \"Pulmonary Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous spread establishes secondary tumor deposits in the lung.\"}, {\"source\": \"Hematogenous and Lymphatic Metastasis\", \"target\": \"Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphatic spread establishes secondary tumor deposits in regional lymph nodes.\"}, {\"source\": \"Sarcomatoid Dedifferentiation with Loss of Epithelial Phenotype\", \"target\": \"Hematogenous and Lymphatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dedifferentiated/sarcomatoid transformation is associated with more aggressive, higher-risk clinical behavior including relapse and metastasis in reported cases.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5511,6 +5582,9 @@ This clinical feature is Lymph node metastasis of adamantinoma, annotated with A
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5614,6 +5688,9 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5744,6 +5821,9 @@ This clinical feature is Localized soft-tissue mass of the leg, annotated with L
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5817,6 +5897,9 @@ This clinical feature is Pathologic fracture (HP:0002756). HP:0002756 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5897,6 +5980,9 @@ This clinical feature is Adamantinoma of bone, annotated with Neoplasm of the sk
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-osteolytic-bone-lesion" data-dismech-node="Osteolytic Bone Lesion" data-dismech-type="phenotype">
@@ -5924,6 +6010,9 @@ This clinical feature is Osteolytic soap-bubble lesion of the tibia, annotated w
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6007,6 +6096,9 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6082,6 +6174,9 @@ This clinical feature is Pulmonary metastasis of adamantinoma, annotated with Ne
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6225,6 +6320,12 @@ This treatment is en bloc surgical resection, annotated with En Bloc Resection (
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Complete surgical excision with uncontaminated (wide) margins is the standard, and most consistently effective, treatment for adamantinoma. Conventional chemotherapy and radiotherapy have not been shown to be reliably effective, so margin-negative surgery is the primary curative-intent modality; reconstruction (e.g., with a vascularized fibular graft) is frequently required for the resulting tibial defect.</div>
 
 
@@ -6319,6 +6420,12 @@ This treatment is limb salvage procedure (NCIT:C16042). NCIT:C16042 is a clinica
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Following wide resection of the tibial defect, limb-sparing reconstructive techniques (including vascularized or non-vascularized fibular grafts) are used to preserve limb function and avoid amputation where feasible.</div>
 
 
@@ -6388,6 +6495,12 @@ This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8419,6 +8532,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Adamantinoma</strong> · 2026-08-26T23:55:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Adamantinoma/2026-08-26T235509Z-claude-code-a53920.yaml">View source</a></p>
+                        <p class="research-review-text">Created new dismech entry for adamantinoma (MONDO:0002422), a rare low-grade malignant bone tumor of the tibial diaphysis, closing curation issue #9551. Curated as a single CURATE_ROOT entry per issue scope (no has_subtypes); classic/tubular/basaloid/spindle-cell/squamoid growth patterns and the OFD-like/dedifferentiated forms are modeled as histopathology findings, not subtypes. Sourced primarily from direct PubMed literature search (PMID esearch/esummary/efetch) rather than the deep-research report, given the issue&#39;s explicit HIGH Named-Entity-Confusion risk with ameloblastoma (MONDO:0017795, odontogenic jaw tumor) and adamantinomatous craniopharyngioma (already kb/disorders/Craniopharyngioma.yaml). A falcon (Edison Scientific) deep-research report was also run (research/Adamantinoma-deep-research-falcon.md); just preflight-dr returned SKIP because MONDO records no RO:0004003 causal gene for MONDO:0002422 (expected, since no established driver gene exists for this tumor). Manual NEC checks (runoak sqlite:obo:mondo info MONDO:0002422 -O obo) confirmed: MONDO def matches the curated clinical picture (tibial diaphysis, biphasic epithelial/osteofibrous pattern, recurrence/metastasis to lung/nodes/liver/brain/skeleton if untreated); MONDO OMIM:102660 xref matches the DR report&#39;s own OMIM citation; MONDO synonyms (adamantinoma, adamantinoma of long bones, extragnathic adamantinoma, long bone adamantinoma) do not overlap ameloblastoma/craniopharyngioma synonyms; and the DR report itself carries an explicit Scope and evidence note distinguishing adamantinoma of long bones from ameloblastoma, adamantinomatous craniopharyngioma, and adamantinoma-like Ewing sarcoma, independently converging on the same tibial/OMIM/trisomy-7,8,12,19,21/no-established-driver facts sourced directly from PubMed. Verdict: not NEC. Modeled the OFD to OFD-like-adamantinoma to classic-adamantinoma histogenetic relationship as an OPEN discussions entry (kind KNOWLEDGE_GAP, discussion_id adam_ofd_progression_sequence) with attaches_to pointing at the relevant pathophysiology/histopathology/differential_diagnoses nodes and a proposed_experiments entry, rather than asserting a settled progression chain, since the largest recent clinicopathologic series (PMID:41653544) explicitly observed a morphological continuum but no progression during follow-up, in tension with older cytogenetic common-histogenesis literature (PMID:9242211) and a newer genomic study suggesting classic adamantinoma and OFD may be genetically distinct (PMID:42379271). Recurrent trisomies/copy-number gains (chromosomes 7, 8, 12, 19, 21) are recorded with mechanism_confidence PROVISIONAL and explicit framing that no single driver gene or fusion is established, per issue guidance. Keratin/p63 epithelial immunoprofile captured as the diagnostic histopathology anchor (PMID:7694513 keratin subclass paper, PMID:21674157 p63 paper, PMID:41653544 IHC positivity rates). differential_diagnoses covers ameloblastoma, adamantinomatous craniopharyngioma, adamantinoma-like Ewing sarcoma (t(11;22)/t(21;22) negative in true adamantinoma per PMID:11592101), and osteofibrous dysplasia. Treatments cover wide en bloc resection (mainstay), limb-sparing reconstruction, and pazopanib (case-report evidence of limited standalone efficacy, PMID:38486378), with a notes-only mention of the single-case olaparib precision-oncology report (PMID:41370129) rather than a fabricated general targeted-therapy entry. Validation: just validate (schema plus terms plus references, 32/32 snippets verified), just count-verified-snippets (32/32), just validate-terms (passed), just validate-disorders (the batched CI-equivalent sweep, passed cleanly), and just check-duplicate-keys (OK, no duplicates across 4383 files) were all run and their full output observed before this record was written.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

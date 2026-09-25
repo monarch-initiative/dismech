@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4652,6 +4705,7 @@ There is also a direct negative result, from the same group that made the origin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mogs-loss-of-function-variants" data-dismech-node="Biallelic MOGS Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MOGS Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Missense, frameshift and other variants on both MOGS alleles. The gene has four exons, with exon 4 encoding the 64 kDa catalytic domain, and both original disease alleles fall in that exon. Reintroducing either into wild-type glucosidase I abolished measurable activity, and the two acted differently on the protein: one retained weak affinity-resin binding and the other did not, so they disturb folding and active-site formation by different routes.</div>
 
 
@@ -4669,6 +4723,8 @@ There is also a direct negative result, from the same group that made the origin
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4679,6 +4735,9 @@ There is also a direct negative result, from the same group that made the origin
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4772,6 +4831,7 @@ There is also a direct negative result, from the same group that made the origin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-er-alpha-glucosidase-i-activity" data-dismech-node="Loss of ER Alpha-Glucosidase I Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ER Alpha-Glucosidase I Activity</div>
+
 
                 <div class="item-desc">Residual activity in patient tissue is under 3 percent of control in liver and fibroblasts, and under 1 percent by kinetic assay in fibroblast extracts. The loss is specific: oligosaccharyltransferase, glucosidase II and Man9-mannosidase activities are unchanged, so the block is at one enzyme rather than across the pathway.</div>
 
@@ -4947,6 +5007,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-the-first-n-glycan-trimming-step" data-dismech-node="Failure of the First N-Glycan Trimming Step" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of the First N-Glycan Trimming Step</div>
+
 
                 <div class="item-desc">Glucosidase I removes the distal alpha-1,2-linked glucose from the Glc3Man9GlcNAc2 precursor immediately after it is transferred en bloc from dolichyl diphosphate to the nascent chain. Without that first cut the glycan cannot enter the maturation sequence, and a fraction of N-glycans is arrested at the Glc3Man9-7GlcNAc2 stage.</div>
 
@@ -5128,6 +5189,13 @@ This pathophysiological event involves decreased processing of protein-bound N-g
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-neuronal-glycoprotein-function" data-dismech-node="Aberrant Neuronal Glycoprotein Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Neuronal Glycoprotein Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Neuronal ion channels, adhesion molecules and receptors are N-glycosylated, and the standard account is that mishandling their glycans is what produces the encephalopathy. It is worth being clear that this is an inference from glycan biology plus a consistent clinical association, not a demonstrated step: no specific neuronal glycoprotein has been shown to be the one that matters, and no cited work measures a neuronal glycoprotein defect in a patient. It is recorded as HYPOTHETICAL for that reason, and the entry does not name a mechanism it cannot cite.
 What is well established is the clinical output. Seizures, hypotonia and developmental delay are present in essentially every reported patient, the seizures are frequently drug-resistant, and imaging shows progressive cortical and subcortical atrophy.</div>
@@ -5315,6 +5383,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-glycoprotein-dysfunction" data-dismech-node="Hepatic Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Glycoprotein Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Progressive hepatomegaly with raised transaminases, and in one reported pair coagulopathy, attributed to abnormal handling of hepatic and secreted glycoproteins including the glycosylated clotting factors. As with the neurological branch, the attribution is inference from glycan biology rather than a measured hepatic defect, and it is typed accordingly.</div>
 
 
@@ -5428,6 +5503,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-developmental-glycosylation" data-dismech-node="Disrupted Developmental Glycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Developmental Glycosylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The craniofacial and limb pattern is recognisable enough to have been proposed as a diagnostic hallmark, which is why it is modelled as a branch rather than left as an unattached list of findings. The mechanism is the least worked out of the three: glycoproteins govern developmental adhesion and signalling, and disrupting them plausibly produces this pattern, but nothing in the cited literature identifies the pathway.</div>
 
@@ -5559,6 +5641,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cumulative-multisystem-glycoprotein-dysfunction" data-dismech-node="Cumulative Multisystem Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cumulative Multisystem Glycoprotein Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The whole-organism consequence of disturbing a modification carried by most secreted and membrane glycoproteins at once. It is modelled as its own node because the features it carries - feeding failure and respiratory insufficiency - are not attributable to any single organ branch and are what determine outcome: in the index case the sequence of hepatomegaly, hypoventilation, feeding problems and seizures ended in death at 74 days, while children with more residual function survive into their second decade.</div>
 
 
@@ -5671,6 +5760,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endo-alpha-1-2-mannosidase-bypass" data-dismech-node="Endo-alpha-1,2-Mannosidase Bypass" data-dismech-type="pathophysiology">
                 <div class="item-name">Endo-alpha-1,2-Mannosidase Bypass</div>
+
 
                 <div class="item-desc">Patient fibroblasts show two- to threefold higher endo-alpha-1,2-mannosidase activity with a matching rise in its transcript. That enzyme cleaves internally to the glucose block, so it clears most glycans through an alternative route and releases the Glc3Man tetrasaccharide. This single compensation explains two otherwise puzzling observations at once: why the serum transferrin pattern is normal despite a near-complete enzyme loss, and where the diagnostic urinary tetrasaccharide comes from.</div>
 
@@ -5826,6 +5916,7 @@ This pathophysiological event involves increased alternative oligosaccharide pro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-urinary-glc3man-tetrasaccharide-excretion" data-dismech-node="Urinary Glc3Man Tetrasaccharide Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Urinary Glc3Man Tetrasaccharide Excretion</div>
 
+
                 <div class="item-desc">Glc-alpha1-3-Glc-alpha1-3-Glc-alpha1-2-Man appears in urine, and it is the one biochemical finding that has been abnormal in every affected proband tested. Quantified by liquid chromatography-mass spectrometry it ran from 34.1 to 618.0 micromol per mmol creatinine against a reference below 5.</div>
 
 
@@ -5911,6 +6002,7 @@ This pathophysiological event involves increased alternative oligosaccharide pro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilised-circulating-immunoglobulin" data-dismech-node="Destabilised Circulating Immunoglobulin" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilised Circulating Immunoglobulin</div>
+
 
                 <div class="item-desc">Immunoglobulins carry N-glycans, and glycan structure governs their stability and circulating half-life. In MOGS-CDG the hypogammaglobulinemia is a catabolic problem rather than a production one: the mechanism identified in the two studied siblings was a shortened immunoglobulin half-life.
 Serum glycomics names the specific defect behind that clearance. Patient IgG carries aberrant oligo-mannose and hybrid-type N-glycans, and its core-fucosylated complex di-antennary glycans are markedly reduced - while transferrin and alpha-1-antitrypsin move the other way, with increased sialylated species. The defect is therefore not uniform across serum glycoproteins, which is part of why transferrin-based CDG screening misses this disease.</div>
@@ -6081,6 +6173,13 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-viral-replication-and-cellular-entry" data-dismech-node="Impaired Viral Replication and Cellular Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Viral Replication and Cellular Entry</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Enveloped viruses depend on host ER glucosidases to fold their own glycoproteins and on host glycan structures for receptor engagement, so the same block that destabilises immunoglobulin also handicaps the virus. It is the observation that made ER glucosidases a broad-spectrum antiviral target.
 What this node does not claim is that patients escape infection. Recurrent infection is present in 10 of 11 reported patients; the single exception is the sibling pair in whom the reduced infectious diathesis was described, and the elder sister of a separate pair had documented cytomegalovirus infection despite CMV being an enveloped virus. The scope of the claim is reduced susceptibility to some glycosylation-dependent enveloped viruses in the patients where it was looked for, not a clinical phenotype of the disease.
 The bound GO process covers the entry half of this node only. The replication half has no equally specific GO counterpart and is deliberately left unbound rather than approximated by a broader term.</div>
@@ -6229,7 +6328,7 @@ This pathophysiological event involves decreased glycan-dependent viral entry in
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Neuronal Glycoprotein Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal ion channels, adhesion molecules and receptors are N-glycosylated, and the standard account is that mishandling their glycans is what produces the encephalopathy. It is worth being clear that this is an inference from glycan biology plus a consistent clinical association, not a demonstrated step: no specific neuronal glycoprotein has been shown to be the one that matters, and no cited work measures a neuronal glycoprotein defect in a patient. It is recorded as HYPOTHETICAL for that reason, and the entry does not name a mechanism it cannot cite.\\nWhat is well established is the clinical output. Seizures, hypotonia and developmental delay are present in essentially every reported patient, the seizures are frequently drug-resistant, and imaging shows progressive cortical and subcortical atrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Roughly six of eleven patients: atrial septal defect, patent foramen ovale, left ventricular hypertrophy, dilated cardiomyopathy, heart failure and pericardial effusion. Bound to the general abnormal-heart-morphology term because the lesions differ between patients and no single one is characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are present in essentially every reported patient and are frequently drug-resistant, so anticonvulsant treatment is the intervention these children actually receive. No agent or regimen has been shown superior in this disease, and no source recommends one; in the longest-followed patient, epileptic spasms remitted by age seven while tonic seizures persisted to nineteen. The entry records the modality without naming a drug, because the literature does not.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in five patients. It sits with the overlapping fingers and toes as the limb component of the developmental phenotype rather than as an isolated contracture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic MOGS Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense, frameshift and other variants on both MOGS alleles. The gene has four exons, with exon 4 encoding the 64 kDa catalytic domain, and both original disease alleles fall in that exon. Reintroducing either into wild-type glucosidase I abolished measurable activity, and the two acted differently on the protein: one retained weak affinity-resin binding and the other did not, so they disturb folding and active-site formation by different routes.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cortical and subcortical atrophy on MRI, documented over nineteen years of follow-up in the longest-followed patient.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The whole-organism consequence of disturbing a modification carried by most secreted and membrane glycoproteins at once. It is modelled as its own node because the features it carries - feeding failure and respiratory insufficiency - are not attributable to any single organ branch and are what determine outcome: in the index case the sequence of hepatomegaly, hypoventilation, feeding problems and seizures ended in death at 74 days, while children with more residual function survive into their second decade.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Decreased circulating IgG concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low IgG specifically is named in four of the eleven reported patients; hypogammaglobulinemia of some immunoglobulin class is present in all eleven, most often low IgA.\\nThe two cohorts disagree, and the disagreement is worth carrying. A ten-case series calls hypogammaglobulinemia a minority feature; the eleven-patient summary table shows some-class hypogammaglobulinemia in every patient. Both are quoted below. The band follows the table, since it is the larger and more explicit count, and the narrower series is retained rather than discarded.\\nThe reason this deficiency does not behave like other severe antibody deficiencies is recorded in the pathophysiology: the antibody is cleared too fast rather than not made.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004315\"}}, {\"id\": \"Destabilised Circulating Immunoglobulin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immunoglobulins carry N-glycans, and glycan structure governs their stability and circulating half-life. In MOGS-CDG the hypogammaglobulinemia is a catabolic problem rather than a production one: the mechanism identified in the two studied siblings was a shortened immunoglobulin half-life.\\nSerum glycomics names the specific defect behind that clearance. Patient IgG carries aberrant oligo-mannose and hybrid-type N-glycans, and its core-fucosylated complex di-antennary glycans are markedly reduced - while transferrin and alpha-1-antitrypsin move the other way, with increased sialylated species. The defect is therefore not uniform across serum glycoproteins, which is part of why transferrin-based CDG screening misses this disease.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"plasma cell\"]}}, {\"id\": \"Disrupted Developmental Glycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial and limb pattern is recognisable enough to have been proposed as a diagnostic hallmark, which is why it is modelled as a branch rather than left as an unattached list of findings. The mechanism is the least worked out of the three: glycoproteins govern developmental adhesion and signalling, and disrupting them plausibly produces this pattern, but nothing in the cited literature identifies the pathway.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia and a hyperkinetic movement disorder, severe enough in the reported case to limit motility, with forced posture of the head and both hands. Movement disorder is named alongside seizures as a prominent feature of the neurological phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised hepatic enzymes accompanying the hepatomegaly. Positive in all seven patients where transaminases were measured, with values reported as high as 1547 IU/L.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show two- to threefold higher endo-alpha-1,2-mannosidase activity with a matching rise in its transcript. That enzyme cleaves internally to the glucose block, so it clears most glycans through an alternative route and releases the Glc3Man tetrasaccharide. This single compensation explains two otherwise puzzling observations at once: why the serum transferrin pattern is normal despite a near-complete enzyme loss, and where the diagnostic urinary tetrasaccharide comes from.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"alternative oligosaccharide processing via endo-alpha-1,2-mannosidase\"], \"experimental_models\": [{\"name\": \"Patient skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The bypass was detected and quantified in this system, at both activity and transcript level, against control and parental cells.\"}]}}, {\"id\": \"Epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are universal, and in several reported patients take the form of early infantile epileptic encephalopathy with intractable seizures and severe developmental arrest.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200134\"}}, {\"id\": \"Failure of the First N-Glycan Trimming Step\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glucosidase I removes the distal alpha-1,2-linked glucose from the Glc3Man9GlcNAc2 precursor immediately after it is transferred en bloc from dolichyl diphosphate to the nascent chain. Without that first cut the glycan cannot enter the maturation sequence, and a fraction of N-glycans is arrested at the Glc3Man9-7GlcNAc2 stage.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"processing of protein-bound N-glycans\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding problems and failure to thrive, contributing to the fatal course in the index neonatal case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007430\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in every reported patient, and severe from the neonatal period in the fatal cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in all reported patients, ranging to profound in the more severely affected.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eight of the nine assessed patients have an abnormal auditory brainstem response, sensorineural loss or hypoacusia. The finding is reported as an electrophysiological abnormality more often than as a clinical complaint, which is what the row records.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hepatic Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive hepatomegaly with raised transaminases, and in one reported pair coagulopathy, attributed to abnormal handling of hepatic and secreted glycoproteins including the glycosylated clotting factors. As with the neurological branch, the attribution is inference from glycan biology rather than a measured hepatic defect, and it is typed accordingly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hepatomegaly with elevated hepatic enzymes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched palate in every one of the six patients where it was assessed; the remaining five columns are not-done or blank rather than negative.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001007\"}}, {\"id\": \"Hypoventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoventilation and postnatal dyspnea, contributing to the fatal outcome in the original neonatal case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002791\"}}, {\"id\": \"Impaired Viral Replication and Cellular Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enveloped viruses depend on host ER glucosidases to fold their own glycoproteins and on host glycan structures for receptor engagement, so the same block that destabilises immunoglobulin also handicaps the virus. It is the observation that made ER glucosidases a broad-spectrum antiviral target.\\nWhat this node does not claim is that patients escape infection. Recurrent infection is present in 10 of 11 reported patients; the single exception is the sibling pair in whom the reduced infectious diathesis was described, and the elder sister of a separate pair had documented cytomegalovirus infection despite CMV being an enveloped virus. The scope of the claim is reduced susceptibility to some glycosylation-dependent enveloped viruses in the patients where it was looked for, not a clinical phenotype of the disease.\\nThe bound GO process covers the entry half of this node only. The replication half has no equally specific GO counterpart and is deliberately left unbound rather than approximated by a broader term.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycan-dependent viral entry into the host cell\"]}}, {\"id\": \"Long eyelashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the recognisable dysmorphic hallmarks, alongside retrognathia, hirsutism and clenched overlapping fingers.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000527\"}}, {\"id\": \"Loss of ER Alpha-Glucosidase I Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual activity in patient tissue is under 3 percent of control in liver and fibroblasts, and under 1 percent by kinetic assay in fibroblast extracts. The loss is specific: oligosaccharyltransferase, glucosidase II and Man9-mannosidase activities are unchanged, so the block is at one enzyme rather than across the pathway.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ER alpha-glucosidase I activity\"], \"experimental_models\": [{\"name\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Deleting the homologous gene reproduces the enzymatic lesion and the resulting N-glycan profile change, which is what makes the strain usable as a readout of glucosidase I function.\"}]}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged, forwardly rotated ear lobes in six patients. Part of the same facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 10 of the 11 reported patients, with one not assessed and none negative. It is one of the most consistent features of the disease and was absent from this entry until review round 3.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Overlapping fingers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clenched hands with overlapping fingers, part of the recognisable pattern.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010557\"}}, {\"id\": \"Patient skin fibroblast culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured fibroblasts from patients and their heterozygous parents are the functional standard for this disease. They are where residual glucosidase I activity was quantified, where the specificity of the defect to that one enzyme was established, and where the compensatory endo-alpha-1,2-mannosidase increase was measured.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:12145188\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 10 of the 11 reported patients. The single negative column is the sibling pair in whom the reduced infectious diathesis was described, which is the observation this entry previously generalised to the disease. Persistent pneumonia is the recurring presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Retrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000278\"}}, {\"id\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A yeast strain lacking CWH41, the MOGS homolog, used as a functional complementation assay: the N-glycan profile of the knockout is restored when a working glucosidase I is supplied. It offers a route to testing whether a MOGS variant of uncertain significance retains activity, which is the practical difficulty this entry records in the genetic notes.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:40674822\"}}, {\"id\": \"Short palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in eight of the nine patients for whom it was assessed, and named among the previously reported dysmorphic features of the disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012745\"}}, {\"id\": \"Supportive and multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying treatment exists. Management is anticonvulsant control of the epilepsy, respiratory and feeding support, hepatic monitoring, and developmental therapies. Immunoglobulin replacement is a question rather than a recommendation here: the hypogammaglobulinemia is real but the infection burden is not what it predicts, so the usual indication for replacement does not straightforwardly apply.\"}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with cerebral atrophy and other structural brain findings on imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033725\"}}, {\"id\": \"Urinary Glc3Man Tetrasaccharide Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glc-alpha1-3-Glc-alpha1-3-Glc-alpha1-2-Man appears in urine, and it is the one biochemical finding that has been abnormal in every affected proband tested. Quantified by liquid chromatography-mass spectrometry it ran from 34.1 to 618.0 micromol per mmol creatinine against a reference below 5.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision problems in a minority of patients. Optic-nerve atrophy was reported in the two siblings assessed for the immunological phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000505\"}}, {\"id\": \"Wide nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad nose in eight of the nine patients for whom the feature was recorded. Part of the recognisable facial gestalt alongside the long eyelashes and retrognathia already curated here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000445\"}}], \"edges\": [{\"source\": \"Biallelic MOGS Loss-of-Function Variants\", \"target\": \"Loss of ER Alpha-Glucosidase I Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ER Alpha-Glucosidase I Activity\", \"target\": \"Failure of the First N-Glycan Trimming Step\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Destabilised Circulating Immunoglobulin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Impaired Viral Replication and Cellular Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurological branch. That the glycan block causes the encephalopathy is asserted in the literature at disease level; which neuronal glycoproteins carry it is not established, so the edge is typed as having unknown intermediates rather than as direct.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Hepatic Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hepatic branch. Same epistemic status as the neurological one: the association is consistent across reported patients and the intervening steps are not worked out.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Disrupted Developmental Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dysmorphogenesis branch, accounting for the recognisable craniofacial and limb pattern and the generalized edema.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic burden that is not attributable to any single organ branch, and which determines outcome in the severe cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-universal in the reported cohort, and modelled on the neuronal branch because the accompanying findings are white-matter loss, delayed myelination and cortical atrophy rather than a craniosynostosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recorded mostly as an abnormal auditory brainstem response, which places it on the neural rather than the conductive side.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Glycoprotein Dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Glycoprotein Dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Long eyelashes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Retrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Overlapping fingers\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Generalized edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Wide nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Short palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the overlapping fingers and toes as the limb component of the developmental phenotype rather than as an isolated contracture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Hypoventilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mixed group of septal defects, hypertrophy and cardiomyopathy rather than one malformation, which is why it hangs off the cumulative node instead of a dedicated cardiac branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"target\": \"Urinary Glc3Man Tetrasaccharide Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Circulating Immunoglobulin\", \"target\": \"Decreased circulating IgG concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Circulating Immunoglobulin\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Present in 10 of 11 reported patients, most often as persistent pneumonia. Typed as indirect because the entry does not establish which of the antibody defect, the complement and lymphocyte abnormalities, or the general debility carries it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive and multidisciplinary care\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and multidisciplinary care\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient skin fibroblast culture\", \"target\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The bypass was detected and quantified in this system, at both activity and transcript level, against control and parental cells.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not a tissue affected in the disease. The bypass magnitude measured here may not be the magnitude in brain or liver, which is precisely the uncertainty the severity knowledge gap in this entry turns on.\"}, {\"source\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"target\": \"Loss of ER Alpha-Glucosidase I Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Deleting the homologous gene reproduces the enzymatic lesion and the resulting N-glycan profile change, which is what makes the strain usable as a readout of glucosidase I function.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast N-glycan processing diverges from human downstream of this step, so the assay reports on the enzyme rather than on the disease. It says nothing about any phenotype and was developed to characterise a prokaryotic MOGS rather than to model MOGS-CDG.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Neuronal Glycoprotein Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal ion channels, adhesion molecules and receptors are N-glycosylated, and the standard account is that mishandling their glycans is what produces the encephalopathy. It is worth being clear that this is an inference from glycan biology plus a consistent clinical association, not a demonstrated step: no specific neuronal glycoprotein has been shown to be the one that matters, and no cited work measures a neuronal glycoprotein defect in a patient. It is recorded as HYPOTHETICAL for that reason, and the entry does not name a mechanism it cannot cite.\\nWhat is well established is the clinical output. Seizures, hypotonia and developmental delay are present in essentially every reported patient, the seizures are frequently drug-resistant, and imaging shows progressive cortical and subcortical atrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Roughly six of eleven patients: atrial septal defect, patent foramen ovale, left ventricular hypertrophy, dilated cardiomyopathy, heart failure and pericardial effusion. Bound to the general abnormal-heart-morphology term because the lesions differ between patients and no single one is characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are present in essentially every reported patient and are frequently drug-resistant, so anticonvulsant treatment is the intervention these children actually receive. No agent or regimen has been shown superior in this disease, and no source recommends one; in the longest-followed patient, epileptic spasms remitted by age seven while tonic seizures persisted to nineteen. The entry records the modality without naming a drug, because the literature does not.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in five patients. It sits with the overlapping fingers and toes as the limb component of the developmental phenotype rather than as an isolated contracture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic MOGS Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense, frameshift and other variants on both MOGS alleles. The gene has four exons, with exon 4 encoding the 64 kDa catalytic domain, and both original disease alleles fall in that exon. Reintroducing either into wild-type glucosidase I abolished measurable activity, and the two acted differently on the protein: one retained weak affinity-resin binding and the other did not, so they disturb folding and active-site formation by different routes.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cortical and subcortical atrophy on MRI, documented over nineteen years of follow-up in the longest-followed patient.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The whole-organism consequence of disturbing a modification carried by most secreted and membrane glycoproteins at once. It is modelled as its own node because the features it carries - feeding failure and respiratory insufficiency - are not attributable to any single organ branch and are what determine outcome: in the index case the sequence of hepatomegaly, hypoventilation, feeding problems and seizures ended in death at 74 days, while children with more residual function survive into their second decade.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Decreased circulating IgG concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low IgG specifically is named in four of the eleven reported patients; hypogammaglobulinemia of some immunoglobulin class is present in all eleven, most often low IgA.\\nThe two cohorts disagree, and the disagreement is worth carrying. A ten-case series calls hypogammaglobulinemia a minority feature; the eleven-patient summary table shows some-class hypogammaglobulinemia in every patient. Both are quoted below. The band follows the table, since it is the larger and more explicit count, and the narrower series is retained rather than discarded.\\nThe reason this deficiency does not behave like other severe antibody deficiencies is recorded in the pathophysiology: the antibody is cleared too fast rather than not made.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004315\"}}, {\"id\": \"Destabilised Circulating Immunoglobulin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immunoglobulins carry N-glycans, and glycan structure governs their stability and circulating half-life. In MOGS-CDG the hypogammaglobulinemia is a catabolic problem rather than a production one: the mechanism identified in the two studied siblings was a shortened immunoglobulin half-life.\\nSerum glycomics names the specific defect behind that clearance. Patient IgG carries aberrant oligo-mannose and hybrid-type N-glycans, and its core-fucosylated complex di-antennary glycans are markedly reduced - while transferrin and alpha-1-antitrypsin move the other way, with increased sialylated species. The defect is therefore not uniform across serum glycoproteins, which is part of why transferrin-based CDG screening misses this disease.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"plasma cell\"]}}, {\"id\": \"Disrupted Developmental Glycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial and limb pattern is recognisable enough to have been proposed as a diagnostic hallmark, which is why it is modelled as a branch rather than left as an unattached list of findings. The mechanism is the least worked out of the three: glycoproteins govern developmental adhesion and signalling, and disrupting them plausibly produces this pattern, but nothing in the cited literature identifies the pathway.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia and a hyperkinetic movement disorder, severe enough in the reported case to limit motility, with forced posture of the head and both hands. Movement disorder is named alongside seizures as a prominent feature of the neurological phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised hepatic enzymes accompanying the hepatomegaly. Positive in all seven patients where transaminases were measured, with values reported as high as 1547 IU/L.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show two- to threefold higher endo-alpha-1,2-mannosidase activity with a matching rise in its transcript. That enzyme cleaves internally to the glucose block, so it clears most glycans through an alternative route and releases the Glc3Man tetrasaccharide. This single compensation explains two otherwise puzzling observations at once: why the serum transferrin pattern is normal despite a near-complete enzyme loss, and where the diagnostic urinary tetrasaccharide comes from.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"alternative oligosaccharide processing via endo-alpha-1,2-mannosidase\"], \"experimental_models\": [{\"name\": \"Patient skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The bypass was detected and quantified in this system, at both activity and transcript level, against control and parental cells.\"}]}}, {\"id\": \"Epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are universal, and in several reported patients take the form of early infantile epileptic encephalopathy with intractable seizures and severe developmental arrest.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200134\"}}, {\"id\": \"Failure of the First N-Glycan Trimming Step\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glucosidase I removes the distal alpha-1,2-linked glucose from the Glc3Man9GlcNAc2 precursor immediately after it is transferred en bloc from dolichyl diphosphate to the nascent chain. Without that first cut the glycan cannot enter the maturation sequence, and a fraction of N-glycans is arrested at the Glc3Man9-7GlcNAc2 stage.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"processing of protein-bound N-glycans\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding problems and failure to thrive, contributing to the fatal course in the index neonatal case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007430\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in every reported patient, and severe from the neonatal period in the fatal cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in all reported patients, ranging to profound in the more severely affected.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eight of the nine assessed patients have an abnormal auditory brainstem response, sensorineural loss or hypoacusia. The finding is reported as an electrophysiological abnormality more often than as a clinical complaint, which is what the row records.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hepatic Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive hepatomegaly with raised transaminases, and in one reported pair coagulopathy, attributed to abnormal handling of hepatic and secreted glycoproteins including the glycosylated clotting factors. As with the neurological branch, the attribution is inference from glycan biology rather than a measured hepatic defect, and it is typed accordingly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hepatomegaly with elevated hepatic enzymes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched palate in every one of the six patients where it was assessed; the remaining five columns are not-done or blank rather than negative.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001007\"}}, {\"id\": \"Hypoventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoventilation and postnatal dyspnea, contributing to the fatal outcome in the original neonatal case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002791\"}}, {\"id\": \"Impaired Viral Replication and Cellular Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enveloped viruses depend on host ER glucosidases to fold their own glycoproteins and on host glycan structures for receptor engagement, so the same block that destabilises immunoglobulin also handicaps the virus. It is the observation that made ER glucosidases a broad-spectrum antiviral target.\\nWhat this node does not claim is that patients escape infection. Recurrent infection is present in 10 of 11 reported patients; the single exception is the sibling pair in whom the reduced infectious diathesis was described, and the elder sister of a separate pair had documented cytomegalovirus infection despite CMV being an enveloped virus. The scope of the claim is reduced susceptibility to some glycosylation-dependent enveloped viruses in the patients where it was looked for, not a clinical phenotype of the disease.\\nThe bound GO process covers the entry half of this node only. The replication half has no equally specific GO counterpart and is deliberately left unbound rather than approximated by a broader term.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycan-dependent viral entry into the host cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Long eyelashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the recognisable dysmorphic hallmarks, alongside retrognathia, hirsutism and clenched overlapping fingers.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000527\"}}, {\"id\": \"Loss of ER Alpha-Glucosidase I Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual activity in patient tissue is under 3 percent of control in liver and fibroblasts, and under 1 percent by kinetic assay in fibroblast extracts. The loss is specific: oligosaccharyltransferase, glucosidase II and Man9-mannosidase activities are unchanged, so the block is at one enzyme rather than across the pathway.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ER alpha-glucosidase I activity\"], \"experimental_models\": [{\"name\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Deleting the homologous gene reproduces the enzymatic lesion and the resulting N-glycan profile change, which is what makes the strain usable as a readout of glucosidase I function.\"}]}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged, forwardly rotated ear lobes in six patients. Part of the same facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 10 of the 11 reported patients, with one not assessed and none negative. It is one of the most consistent features of the disease and was absent from this entry until review round 3.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Overlapping fingers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clenched hands with overlapping fingers, part of the recognisable pattern.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010557\"}}, {\"id\": \"Patient skin fibroblast culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured fibroblasts from patients and their heterozygous parents are the functional standard for this disease. They are where residual glucosidase I activity was quantified, where the specificity of the defect to that one enzyme was established, and where the compensatory endo-alpha-1,2-mannosidase increase was measured.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:12145188\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 10 of the 11 reported patients. The single negative column is the sibling pair in whom the reduced infectious diathesis was described, which is the observation this entry previously generalised to the disease. Persistent pneumonia is the recurring presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Retrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000278\"}}, {\"id\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A yeast strain lacking CWH41, the MOGS homolog, used as a functional complementation assay: the N-glycan profile of the knockout is restored when a working glucosidase I is supplied. It offers a route to testing whether a MOGS variant of uncertain significance retains activity, which is the practical difficulty this entry records in the genetic notes.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:40674822\"}}, {\"id\": \"Short palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in eight of the nine patients for whom it was assessed, and named among the previously reported dysmorphic features of the disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012745\"}}, {\"id\": \"Supportive and multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying treatment exists. Management is anticonvulsant control of the epilepsy, respiratory and feeding support, hepatic monitoring, and developmental therapies. Immunoglobulin replacement is a question rather than a recommendation here: the hypogammaglobulinemia is real but the infection burden is not what it predicts, so the usual indication for replacement does not straightforwardly apply.\"}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with cerebral atrophy and other structural brain findings on imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033725\"}}, {\"id\": \"Urinary Glc3Man Tetrasaccharide Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glc-alpha1-3-Glc-alpha1-3-Glc-alpha1-2-Man appears in urine, and it is the one biochemical finding that has been abnormal in every affected proband tested. Quantified by liquid chromatography-mass spectrometry it ran from 34.1 to 618.0 micromol per mmol creatinine against a reference below 5.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision problems in a minority of patients. Optic-nerve atrophy was reported in the two siblings assessed for the immunological phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000505\"}}, {\"id\": \"Wide nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad nose in eight of the nine patients for whom the feature was recorded. Part of the recognisable facial gestalt alongside the long eyelashes and retrognathia already curated here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000445\"}}], \"edges\": [{\"source\": \"Biallelic MOGS Loss-of-Function Variants\", \"target\": \"Loss of ER Alpha-Glucosidase I Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ER Alpha-Glucosidase I Activity\", \"target\": \"Failure of the First N-Glycan Trimming Step\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Destabilised Circulating Immunoglobulin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Impaired Viral Replication and Cellular Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurological branch. That the glycan block causes the encephalopathy is asserted in the literature at disease level; which neuronal glycoproteins carry it is not established, so the edge is typed as having unknown intermediates rather than as direct.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Hepatic Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hepatic branch. Same epistemic status as the neurological one: the association is consistent across reported patients and the intervening steps are not worked out.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Disrupted Developmental Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dysmorphogenesis branch, accounting for the recognisable craniofacial and limb pattern and the generalized edema.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of the First N-Glycan Trimming Step\", \"target\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic burden that is not attributable to any single organ branch, and which determines outcome in the severe cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-universal in the reported cohort, and modelled on the neuronal branch because the accompanying findings are white-matter loss, delayed myelination and cortical atrophy rather than a craniosynostosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Neuronal Glycoprotein Function\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recorded mostly as an abnormal auditory brainstem response, which places it on the neural rather than the conductive side.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Glycoprotein Dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Glycoprotein Dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Long eyelashes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Retrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Overlapping fingers\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Generalized edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Wide nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Short palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Developmental Glycosylation\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the overlapping fingers and toes as the limb component of the developmental phenotype rather than as an isolated contracture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Hypoventilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cumulative Multisystem Glycoprotein Dysfunction\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mixed group of septal defects, hypertrophy and cardiomyopathy rather than one malformation, which is why it hangs off the cumulative node instead of a dedicated cardiac branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"target\": \"Urinary Glc3Man Tetrasaccharide Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Circulating Immunoglobulin\", \"target\": \"Decreased circulating IgG concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Circulating Immunoglobulin\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Present in 10 of 11 reported patients, most often as persistent pneumonia. Typed as indirect because the entry does not establish which of the antibody defect, the complement and lymphocyte abnormalities, or the general debility carries it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive and multidisciplinary care\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and multidisciplinary care\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Aberrant Neuronal Glycoprotein Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient skin fibroblast culture\", \"target\": \"Endo-alpha-1,2-Mannosidase Bypass\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The bypass was detected and quantified in this system, at both activity and transcript level, against control and parental cells.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not a tissue affected in the disease. The bypass magnitude measured here may not be the magnitude in brain or liver, which is precisely the uncertainty the severity knowledge gap in this entry turns on.\"}, {\"source\": \"Saccharomyces cerevisiae CWH41 knockout complementation assay\", \"target\": \"Loss of ER Alpha-Glucosidase I Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Deleting the homologous gene reproduces the enzymatic lesion and the resulting N-glycan profile change, which is what makes the strain usable as a readout of glucosidase I function.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast N-glycan processing diverges from human downstream of this step, so the assay reports on the enzyme rather than on the disease. It says nothing about any phenotype and was developed to characterise a prokaryotic MOGS rather than to model MOGS-CDG.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6312,6 +6411,9 @@ This clinical feature is Severe hypogammaglobulinemia, annotated with Decreased 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6447,6 +6549,9 @@ This clinical feature is cardiac involvement, annotated with Abnormal heart morp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6522,6 +6627,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6632,6 +6740,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6698,6 +6809,9 @@ This clinical feature is enlarged ears, annotated with Macrotia (HP:0000400). HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6783,6 +6897,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6863,6 +6980,9 @@ This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6929,6 +7049,9 @@ This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7005,6 +7128,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7071,6 +7197,9 @@ This clinical feature is broad nose, annotated with Wide nose (HP:0000445). HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7147,6 +7276,9 @@ This clinical feature is short palpebral fissures, annotated with Short palpebra
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7345,9 @@ This clinical feature is high-arched palate, annotated with High palate (HP:0000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7298,6 +7433,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7373,6 +7511,9 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7458,6 +7599,9 @@ This clinical feature is Clenched overlapped fingers, annotated with Overlapping
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7533,6 +7677,9 @@ This clinical feature is Elevated hepatic enzymes, annotated with Elevated circu
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7634,6 +7781,9 @@ This clinical feature is Generalized edema (HP:0007430). HP:0007430 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7714,6 +7864,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7780,6 +7933,9 @@ This clinical feature is arthrogryposis, annotated with Arthrogryposis multiplex
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7865,6 +8021,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7931,6 +8090,9 @@ This clinical feature is Early infantile epileptic encephalopathy, annotated wit
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8007,6 +8169,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8078,6 +8243,9 @@ This clinical feature is Progressive cortical and subcortical atrophy, annotated
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8144,6 +8312,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8254,6 +8425,9 @@ This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8329,6 +8503,9 @@ This clinical feature is Feeding problems and failure to thrive, annotated with 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8445,6 +8622,9 @@ This disease-associated gene is MOGS (hgnc:24862). hgnc:24862 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8599,6 +8779,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8609,6 +8792,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8708,6 +8894,9 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8718,6 +8907,9 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12052,6 +12244,35 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: MOGS-Congenital Disorder of Glycosylation (MONDO:0011629)</strong> · 2026-09-09T14:28:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MOGS-Congenital_Disorder_of_Glycosylation/2026-09-09T142806Z-claude-code-9159fc.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MOGS-CDG (CDG-IIb), claimed on issue #11522.
+
+Deep research: one OpenScientist run (research/MOGS-Congenital_Disorder_of_Glycosylation-deep-research-openscientist.md, 53 min, 15 citations). The report carried reference_validation and term_validation frontmatter from the generator. References: 15/15 verified, 0 not found, 0 unverifiable, 15/15 on topic, confabulation_rate 0.0. Terms: 45 checked, 43 resolved, 0 not found, 0 obsolete, 2 unverifiable (ORPHA, no resolver).
+
+needs_review is true, and it is worth saying why, because the reason is benign and the flag would otherwise read as a fabrication warning. Five entries appear under mislabelled_terms: HP:0001252, HP:0001188, HP:0002791, HP:0002720 and HP:0000505 are each &#39;named&#39; by the report as a frequency word (&#39;Nearly universal&#39;, &#39;Common&#39;, &#39;Subset&#39;, &#39;Minority&#39;). That is a column artifact of the report&#39;s phenotype frequency table, not a wrong binding. Each CURIE was checked independently and resolves to a sensible phenotype. No CURIE was taken from the report without checking it.
+
+No .citations.md sidecar was produced for this report, so the citation set was swept from the body with grep rather than read from the sidecar, per the dismech-references fallback.
+
+What the report changed. Two additions were taken from it. First, HP:0000505 Visual impairment as a phenotype: the ten-case series snippet already cited elsewhere in the entry names vision problems in a minority, and I had that only as prose. Second, the serum-glycomics mechanism behind the hypogammaglobulinemia (PMID:35137040): patient IgG carries aberrant oligo-mannose and hybrid N-glycans with reduced core-fucosylated complex species, while transferrin and alpha-1-antitrypsin move the opposite way. That both explains the increased IgG clearance and supplies a second, independent reason transferrin-based CDG screening misses this disease. The report&#39;s own ordered causal chain otherwise matched the chain already curated, which is corroboration rather than new content.
+
+Three report-only PMIDs were fetched into references_cache but not cited (PMID:33245474, PMID:40267907, PMID:40674822); they are committed because the report cites them.
+
+GeneReviews baseline: none exists for this disease. PubMed searched for &#39;MOGS-CDG GeneReviews[All Fields]&#39; (no results) and &#39;congenital disorders of glycosylation GeneReviews[All Fields]&#39; (four results: PMM2-CDG, SLC39A8-CDG, NGLY1-related congenital disorder of deglycosylation, and a retired N-linked glycosylation overview; none is this disease).
+
+Evidence discipline. The viral-resistance finding is hedged by both cited sources (&#39;may explain&#39;, &#39;at least in part&#39;) and those hedges are preserved in the evidence explanations; the node carries mechanism_confidence: PROVISIONAL. The antiviral-target proposal is filed as an EMERGING_HYPOTHESIS discussion rather than as a treatment, and immunoglobulin replacement is deliberately not recorded as a treatment because no cited source recommends it in this disease.
+
+Validation run in this worktree: just validate passes, 42/42 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

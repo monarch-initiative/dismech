@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4072,6 +4125,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-porcn-loss-impairs-wnt-palmitoleoylation-and-secretion" data-dismech-node="PORCN Loss Impairs WNT Palmitoleoylation and Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">PORCN Loss Impairs WNT Palmitoleoylation and Secretion</div>
 
+
                 <div class="item-desc">PORCN encodes a membrane-bound O-acyltransferase resident in the endoplasmic reticulum that attaches a monounsaturated fatty acid (palmitoleic acid) to a conserved serine residue of WNT ligands. This lipid modification is required for WNT engagement of the WLS/Wntless cargo receptor and for export of WNT from the ER to the cell surface. Loss-of-function PORCN variants abolish WNT acylation, trapping WNT in the ER and reducing extracellular WNT signaling. Because WNT signaling governs proliferation, patterning, and differentiation of ectodermal and mesodermal derivatives during embryogenesis, PORCN deficiency produces the multisystem mesoectodermal phenotype of FDH.
 </div>
 
@@ -4345,6 +4399,7 @@ This pathophysiological event involves decreased canonical Wnt signaling, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-linked-dominant-inheritance-with-male-lethality-and-mosaicism" data-dismech-node="X-Linked Dominant Inheritance with Male Lethality and Mosaicism" data-dismech-type="pathophysiology">
                 <div class="item-name">X-Linked Dominant Inheritance with Male Lethality and Mosaicism</div>
 
+
                 <div class="item-desc">FDH is inherited in an X-linked dominant manner. Most affected individuals are heterozygous females (~90%); non-mosaic hemizygous males are presumed non-viable, so most live-born affected males (~10%) are mosaic for a de novo PORCN variant. In affected females, random X-chromosome inactivation (lyonization) produces a functional mosaic of PORCN-expressing and PORCN-deficient cells, which underlies the patchy, segmental distribution of lesions along the lines of Blaschko.
 </div>
 
@@ -4509,6 +4564,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mesoectodermal-development" data-dismech-node="Impaired Mesoectodermal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mesoectodermal Development</div>
+
 
                 <div class="item-desc">Reduced WNT signaling during embryogenesis disrupts the development of tissues of both ectodermal and mesodermal origin, producing the pleiotropic FDH phenotype: defective dermal connective tissue with herniation of subcutaneous fat, limb reduction defects, and abnormalities of eyes, teeth, nails, hair, and skeletal and visceral structures.
 </div>
@@ -4948,6 +5004,9 @@ This clinical feature is Supernumerary nipple (HP:0002558). HP:0002558 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5022,6 +5081,9 @@ This clinical feature is Abdominal wall defect (HP:0010866). HP:0010866 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5106,6 +5168,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5180,6 +5245,9 @@ This clinical feature is Papillary thyroid carcinoma (HP:0002895). HP:0002895 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5264,6 +5332,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5329,6 +5400,9 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5415,6 +5489,9 @@ This clinical feature is Lacrimal duct anomaly, annotated with Lacrimal duct atr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5487,6 +5564,9 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5552,6 +5632,9 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5629,6 +5712,9 @@ This clinical feature is Cleft lip and palate, annotated with Orofacial cleft (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5699,6 +5785,9 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5764,6 +5853,9 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5850,6 +5942,9 @@ This clinical feature is Aplasia/Hypoplasia of the skin (HP:0008065). HP:0008065
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5915,6 +6010,9 @@ This clinical feature is Aplasia cutis congenita (HP:0001057). HP:0001057 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5992,6 +6090,9 @@ This clinical feature is Linear hypo- and hyperpigmentation along the lines of B
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6057,6 +6158,9 @@ This clinical feature is Papilloma (HP:0012740). HP:0012740 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6134,6 +6238,9 @@ This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6201,6 +6308,9 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6285,6 +6395,9 @@ This clinical feature is Split hand (HP:0001171). HP:0001171 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6350,6 +6463,9 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6422,6 +6538,9 @@ This clinical feature is Oligodactyly, annotated with Finger aplasia (HP:0009380
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6508,6 +6627,9 @@ This clinical feature is Herniation of subcutaneous fat through the dermis, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6573,6 +6695,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6659,6 +6784,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6733,6 +6861,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6848,6 +6979,9 @@ This disease-associated gene is PORCN (hgnc:17652). hgnc:17652 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7017,6 +7151,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management is supportive and multidisciplinary. Dermatologic care for painful, pruritic, erosive lesions prone to infection; laser therapy for atrophic areas and granulation tissue; hand surgery and physical/ occupational therapy for limb malformations; and standard surgical management of eye, kidney, diaphragmatic hernia, and abdominal wall structural anomalies.
 </div>
 
@@ -7099,6 +7239,12 @@ This treatment is Laser Therapy (NCIT:C15466). NCIT:C15466 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7203,6 +7349,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7213,6 +7362,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7336,6 +7488,12 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recombinant (long-acting) growth hormone for documented growth hormone deficiency with short stature; a case report described sustained catch-up growth without adverse effects.
 </div>
 
@@ -7418,6 +7576,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8600,6 +8764,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

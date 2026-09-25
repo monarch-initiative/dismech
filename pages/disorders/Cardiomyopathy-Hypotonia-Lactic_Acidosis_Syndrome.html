@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4648,6 +4701,13 @@ This experiment is of type iPSC-derived cardiomyocyte perturbation assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-specific-exon-3a-3b-alternative-splicing-of-slc25a3" data-dismech-node="Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The single SLC25A3 gene produces two mutually exclusive carrier isoforms by alternative splicing of exon 3A or exon 3B, which differ in 13 amino acids near the N-terminus. Isoform A (exon 3A) is the higher-affinity carrier expressed almost exclusively in heart, skeletal muscle, and diaphragm; isoform B (exon 3B) is ubiquitous. Because most reported pathogenic SLC25A3 alleles lie in exon 3A or its splice acceptor, the resulting carrier defect is restricted to striated muscle while other tissues retain functional isoform B. This splicing architecture is the mechanistic explanation for the cardiac-and-muscle-predominant phenotype and for the observation that patient fibroblasts, which use isoform B, have normal ATP synthesis.</div>
 
 
@@ -4888,6 +4948,13 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-mitochondrial-phosphate-carrier-function-in-heart-and-skeletal-muscle" data-dismech-node="Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic SLC25A3 variants reduce the amount and/or transport activity of the inorganic phosphate carrier in the inner mitochondrial membrane of cardiomyocytes and skeletal myofibres. The Turkish index family carried a homozygous missense allele in exon 3A (p.Gly72Glu); other families carry a homozygous splice-acceptor allele (c.158-9A&gt;G) that creates a novel splice site and eliminates more than 95% of the wild-type exon 3A transcript, and one patient is a compound heterozygote for two novel coding alleles. Muscle biopsy in affected children shows reduced carrier protein.</div>
 
@@ -5187,6 +5254,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mitochondrial-matrix-inorganic-phosphate" data-dismech-node="Reduced Mitochondrial Matrix Inorganic Phosphate" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Mitochondrial Matrix Inorganic Phosphate</div>
 
+
                 <div class="item-desc">The phosphate carrier is the principal route by which inorganic phosphate enters the mitochondrial matrix across the inner membrane, operating as a Pi/Pi antiporter and Pi/H+ symporter. When carrier capacity falls, matrix Pi concentration falls with it, depleting the pool available for matrix phosphorylation reactions.</div>
 
 
@@ -5350,6 +5418,13 @@ This pathophysiological event involves decreased mitochondrial phosphate ion tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-substrate-limitation-of-atp-synthase-and-impaired-oxidative-phosphorylation" data-dismech-node="Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Inorganic phosphate is a substrate of ATP synthase, so matrix Pi depletion limits proton-motive-force-driven ATP synthesis even when the respiratory chain complexes themselves are intact and normally assembled. This is the biochemical signature of the disorder: patient muscle mitochondria show deficient ATP synthesis while respiratory-chain enzyme activities are normal, and the defect is present in muscle but absent in fibroblasts, tracking the exon 3A/3B expression pattern.</div>
 
@@ -5531,6 +5606,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-and-skeletal-muscle-energy-deficit" data-dismech-node="Cardiomyocyte and Skeletal Muscle Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte and Skeletal Muscle Energy Deficit</div>
+
 
                 <div class="item-desc">Heart and skeletal muscle have the highest and least interruptible ATP demand, and they are also the tissues that depend on the exon 3A carrier isoform. The combination makes them the target organs of the disease: cardiomyocytes and myofibres cannot sustain contractile work on a reduced oxidative ATP supply. This is the disease-specific instance of the &#34;Primary Cardiomyocyte Insult&#34; step of the conserved cardiomyopathy maladaptive-remodeling module, with a metabolic (bioenergetic) rather than sarcomeric insult. Human iPSC-derived cardiomyocytes carrying SLC25A3 knockout or missense alleles reproduce this state, showing mitochondrial energy-metabolism dysfunction together with diastolic dysfunction and calcium-handling imbalance.</div>
 
@@ -5775,6 +5851,7 @@ This pathophysiological event involves decreased ATP metabolic process (GO:00460
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-glycolysis-and-lactate-accumulation" data-dismech-node="Compensatory Glycolysis and Lactate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Glycolysis and Lactate Accumulation</div>
 
+
                 <div class="item-desc">With oxidative ATP synthesis constrained, striated muscle shifts ATP production to anaerobic glycolysis, and the accumulating lactate spills into the circulation and produces the lactic acidosis that, together with hypertrophic cardiomyopathy, defines the classical neonatal presentation. Lactate elevation is often persistent and can remain high for decades in long-surviving patients even when they are clinically stable. Glycolytic byproduct accumulation has additionally been linked in SLC25A3-knockout cardiomyocytes to the calcium-handling imbalance that accompanies the hypertrophic phenotype.</div>
 
 
@@ -5955,6 +6032,7 @@ This pathophysiological event involves increased lactate biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy-and-ventricular-remodeling" data-dismech-node="Cardiomyocyte Hypertrophy and Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy and Ventricular Remodeling</div>
+
 
                 <div class="item-desc">The myocardial response to chronic bioenergetic insufficiency is hypertrophic remodeling. In patients this is seen as hypertrophic cardiomyopathy, usually already present in the neonatal period; in long-term survivors it can be non-progressive. Cardiac-specific deletion of Slc25a3 in mice reproduces the remodeling arm directly - profound hypertrophy with ventricular dilation and depressed cardiac function - establishing that carrier loss in cardiomyocytes is sufficient to cause the cardiomyopathy. This node is the disease-specific instance of the &#34;Ventricular Remodeling&#34; step of the conserved cardiomyopathy maladaptive-remodeling module. The module&#39;s intervening neurohormonal-activation step has not been studied in SLC25A3 deficiency and is deliberately not asserted here.</div>
 
@@ -6149,6 +6227,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-copper-delivery-and-cytochrome-c-oxidase-biogenesis" data-dismech-node="Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Beyond phosphate, SLC25A3 has been shown in cell and reconstituted systems to transport copper into the mitochondrial matrix, supplying the labile copper pool required to metalate cytochrome c oxidase (complex IV). Knockdown or deletion of SLC25A3 in cultured cells causes an isolated COX deficiency that is rescued by copper supplementation, and restoring the carrier restores matrix copper delivery. Whether this second transport function contributes to the human disease is unresolved: patient muscle biopsies have shown normal respiratory-chain enzyme activities, so the copper/COX arm is recorded here as a provisional mechanism rather than an established component of the patient phenotype (see the HUMAN_MODEL_MISMATCH discussion).</div>
 
@@ -6460,7 +6545,7 @@ This pathophysiological event involves decreased respiratory chain complex IV as
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The myocardial response to chronic bioenergetic insufficiency is hypertrophic remodeling. In patients this is seen as hypertrophic cardiomyopathy, usually already present in the neonatal period; in long-term survivors it can be non-progressive. Cardiac-specific deletion of Slc25a3 in mice reproduces the remodeling arm directly - profound hypertrophy with ventricular dilation and depressed cardiac function - establishing that carrier loss in cardiomyocytes is sufficient to cause the cardiomyopathy. This node is the disease-specific instance of the \\\"Ventricular Remodeling\\\" step of the conserved cardiomyopathy maladaptive-remodeling module. The module\u0027s intervening neurohormonal-activation step has not been studied in SLC25A3 deficiency and is deliberately not asserted here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heart and skeletal muscle have the highest and least interruptible ATP demand, and they are also the tissues that depend on the exon 3A carrier isoform. The combination makes them the target organs of the disease: cardiomyocytes and myofibres cannot sustain contractile work on a reduced oxidative ATP supply. This is the disease-specific instance of the \\\"Primary Cardiomyocyte Insult\\\" step of the conserved cardiomyopathy maladaptive-remodeling module, with a metabolic (bioenergetic) rather than sarcomeric insult. Human iPSC-derived cardiomyocytes carrying SLC25A3 knockout or missense alleles reproduce this state, showing mitochondrial energy-metabolism dysfunction together with diastolic dysfunction and calcium-handling imbalance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"ATP metabolic process\"]}}, {\"id\": \"Compensatory Glycolysis and Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative ATP synthesis constrained, striated muscle shifts ATP production to anaerobic glycolysis, and the accumulating lactate spills into the circulation and produces the lactic acidosis that, together with hypertrophic cardiomyopathy, defines the classical neonatal presentation. Lactate elevation is often persistent and can remain high for decades in long-surviving patients even when they are clinically stable. Glycolytic byproduct accumulation has additionally been linked in SLC25A3-knockout cardiomyocytes to the calcium-handling imbalance that accompanies the hypertrophic phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\", \"lactate biosynthetic process\"]}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High plasma creatine kinase reflects the skeletal- and cardiac-muscle involvement and, together with the combined heart-and-muscle presentation, can lead to an initial misdiagnosis of infantile-onset Pompe disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003236\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In patients who survive the neonatal period, exertional fatigue is a prominent residual manifestation of the skeletal-muscle bioenergetic defect, reported both in adolescents and in an adult surviving to age 32.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is the most consistent feature of the disorder and is typically present at or shortly after birth. It is the one finding shared by every reported patient, including those without skeletal myopathy or lactic acidosis. In long-term survivors it can be non-progressive.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised muscular hypotonia is part of the classical neonatal triad, with hypertrophic cardiomyopathy and lactic acidosis. It is not universal - at least one reported patient had isolated cardiomyopathy without skeletal muscle involvement.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond phosphate, SLC25A3 has been shown in cell and reconstituted systems to transport copper into the mitochondrial matrix, supplying the labile copper pool required to metalate cytochrome c oxidase (complex IV). Knockdown or deletion of SLC25A3 in cultured cells causes an isolated COX deficiency that is rescued by copper supplementation, and restoring the carrier restores matrix copper delivery. Whether this second transport function contributes to the human disease is unresolved: patient muscle biopsies have shown normal respiratory-chain enzyme activities, so the copper/COX arm is recorded here as a provisional mechanism rather than an established component of the patient phenotype (see the HUMAN_MODEL_MISMATCH discussion).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"copper ion transmembrane transport\", \"respiratory chain complex IV assembly\"]}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistently elevated blood lactate is the biochemical hallmark and can remain high for decades in stable long-term survivors, even when treated and clinically improved.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002151\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis is typically present from the neonatal period and reflects the shift to anaerobic glycolysis in energy-starved striated muscle. It is not obligatory: one reported patient with neonatal cardiomyopathy had normal lactate.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A3 variants reduce the amount and/or transport activity of the inorganic phosphate carrier in the inner mitochondrial membrane of cardiomyocytes and skeletal myofibres. The Turkish index family carried a homozygous missense allele in exon 3A (p.Gly72Glu); other families carry a homozygous splice-acceptor allele (c.158-9A\u003eG) that creates a novel splice site and eliminates more than 95% of the wild-type exon 3A transcript, and one patient is a compound heterozygote for two novel coding alleles. Muscle biopsy in affected children shows reduced carrier protein.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"molecular_functions\": [\"phosphate transmembrane transporter activity\"], \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}]}}, {\"id\": \"Mitochondrial Transplantation (investigational, preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfer of exogenous healthy mitochondria into SLC25A3-mutant human iPSC-derived cardiomyocytes was explored as a way to rescue the hypertrophic phenotype and calcium-handling imbalance. This is an exploratory in vitro finding in a disease-model cell system; no in vivo or clinical data exist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal myopathy accompanies the cardiomyopathy in most reported patients. Muscle histopathology in a long-surviving adult showed a type 1 fibre predominance with mildly increased cytochrome c oxidase and succinate dehydrogenase staining, a mitochondrial-myopathy pattern.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003737\"}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal weakness reflects the myopathic arm of the disorder and is a characteristic finding in patients who survive infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The phosphate carrier is the principal route by which inorganic phosphate enters the mitochondrial matrix across the inner membrane, operating as a Pi/Pi antiporter and Pi/H+ symporter. When carrier capacity falls, matrix Pi concentration falls with it, depleting the pool available for matrix phosphorylation reactions.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial phosphate ion transmembrane transport\"]}}, {\"id\": \"SLC25A3 biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"variant_count\": 3}}, {\"id\": \"SLC25A3 c.158-9A\u003eG (IVS2-9A\u003eG), exon 3A splice acceptor region\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent homozygous intronic variant immediately 5\u0027 of the muscle-specific exon 3A. It creates a novel splice site and abolishes more than 95% of the wild-type transcript. First reported in a family with three affected children, subsequently found in an unrelated patient with neonatal cardiomyopathy and in a woman who survived to age 32 with hypertrophic cardiomyopathy and myopathy - making it the allele most clearly associated with the milder, longer-surviving end of the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SLC25A3 c.215G\u003eA (p.Gly72Glu), exon 3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The first reported SLC25A3 disease allele: a homozygous missense variant in the muscle-specific exon 3A, identified in two sisters from a non-consanguineous Turkish family who both died within the first year of life. Pathogenicity was confirmed by yeast complementation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SLC25A3 c.599T\u003eG (p.Leu200Trp) and c.886_898delinsCAGATAC (p.Gly296_Ser300delinsGlnIlePro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Two novel coding variants found in a compound heterozygous patient with neonatal cardiomyopathy but no skeletal myopathy and no elevated lactate. Protein structure analysis indicated both are likely pathogenic. These lie outside exon 3A, so they affect both carrier isoforms; the patient nonetheless presented with isolated cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inorganic phosphate is a substrate of ATP synthase, so matrix Pi depletion limits proton-motive-force-driven ATP synthesis even when the respiratory chain complexes themselves are intact and normally assembled. This is the biochemical signature of the disorder: patient muscle mitochondria show deficient ATP synthesis while respiratory-chain enzyme activities are normal, and the defect is present in muscle but absent in fibroblasts, tracking the exon 3A/3B expression pattern.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proton motive force-driven mitochondrial ATP synthesis\", \"oxidative phosphorylation\"]}}, {\"id\": \"TAT-mPiC Protein Replacement (investigational, preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A cell-penetrating TAT-fused recombinant phosphate carrier delivered to mPiC-knockdown cells localised correctly to the inner mitochondrial membrane and restored oxygen consumption, ATP production, matrix phosphate and copper delivery, and reduced lactate secretion. This is a preclinical cell-culture result only - there are no animal efficacy data and no human studies. It is recorded here as a mechanism-directed investigational strategy, not a clinical option.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single SLC25A3 gene produces two mutually exclusive carrier isoforms by alternative splicing of exon 3A or exon 3B, which differ in 13 amino acids near the N-terminus. Isoform A (exon 3A) is the higher-affinity carrier expressed almost exclusively in heart, skeletal muscle, and diaphragm; isoform B (exon 3B) is ubiquitous. Because most reported pathogenic SLC25A3 alleles lie in exon 3A or its splice acceptor, the resulting carrier defect is restricted to striated muscle while other tissues retain functional isoform B. This splicing architecture is the mechanistic explanation for the cardiac-and-muscle-predominant phenotype and for the observation that patient fibroblasts, which use isoform B, have normal ATP synthesis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"alternative mRNA splicing, via spliceosome\"], \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"locations\": [\"heart\", \"skeletal muscle tissue\"]}}], \"edges\": [{\"source\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants in exon 3A or its splice acceptor abolish or deplete the muscle-specific isoform A carrier while sparing ubiquitous isoform B.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"target\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer functional carriers reduce inorganic phosphate flux into the matrix.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"target\": \"Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same carrier has been reported to contribute to mitochondrial copper delivery, so its loss reduces matrix copper availability in cell models. Whether this arm operates in patients is unresolved \\u2014 patient respiratory-chain enzyme measurements are normal, and muscle histopathology shows increased rather than decreased COX activity. The target node is retained as PROVISIONAL and the contradiction is recorded in the HUMAN_MODEL_MISMATCH discussion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"target\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATP synthase condenses matrix ADP with matrix Pi, so a fall in matrix Pi is a direct substrate limitation on the terminal step of oxidative phosphorylation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"target\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxidative ATP output is felt first in the tissues with the highest and most sustained ATP demand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"target\": \"Compensatory Glycolysis and Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When oxidative ATP supply falls short, ATP demand is met by anaerobic glycolysis, whose end product is lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained cardiomyocyte energy deficit drives a hypertrophic remodeling response; the intervening signalling steps have not been defined in SLC25A3 disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure contributes to generalised low muscle tone.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In longer-surviving patients the residual myopathy manifests as exertional fatigue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure presents clinically as proximal-predominant weakness alongside the low tone.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myofibre bioenergetic failure produces the structural and histochemical myopathic changes seen on muscle biopsy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myofibre injury secondary to the energy deficit releases creatine kinase into the circulation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Glycolysis and Lactate Accumulation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating lactate accumulation produces metabolic (lactic) acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Glycolysis and Lactate Accumulation\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycolytic lactate output raises the measured blood lactate concentration, the laboratory correlate of the acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial hypertrophic remodeling is the substrate of the clinical hypertrophic cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TAT-mPiC Protein Replacement (investigational, preclinical)\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Transplantation (investigational, preclinical)\", \"target\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SLC25A3 biallelic pathogenic variants\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A3 biallelic pathogenic variants\", \"target\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.215G\u003eA (p.Gly72Glu), exon 3A\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.158-9A\u003eG (IVS2-9A\u003eG), exon 3A splice acceptor region\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.599T\u003eG (p.Leu200Trp) and c.886_898delinsCAGATAC (p.Gly296_Ser300delinsGlnIlePro)\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The myocardial response to chronic bioenergetic insufficiency is hypertrophic remodeling. In patients this is seen as hypertrophic cardiomyopathy, usually already present in the neonatal period; in long-term survivors it can be non-progressive. Cardiac-specific deletion of Slc25a3 in mice reproduces the remodeling arm directly - profound hypertrophy with ventricular dilation and depressed cardiac function - establishing that carrier loss in cardiomyocytes is sufficient to cause the cardiomyopathy. This node is the disease-specific instance of the \\\"Ventricular Remodeling\\\" step of the conserved cardiomyopathy maladaptive-remodeling module. The module\u0027s intervening neurohormonal-activation step has not been studied in SLC25A3 deficiency and is deliberately not asserted here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heart and skeletal muscle have the highest and least interruptible ATP demand, and they are also the tissues that depend on the exon 3A carrier isoform. The combination makes them the target organs of the disease: cardiomyocytes and myofibres cannot sustain contractile work on a reduced oxidative ATP supply. This is the disease-specific instance of the \\\"Primary Cardiomyocyte Insult\\\" step of the conserved cardiomyopathy maladaptive-remodeling module, with a metabolic (bioenergetic) rather than sarcomeric insult. Human iPSC-derived cardiomyocytes carrying SLC25A3 knockout or missense alleles reproduce this state, showing mitochondrial energy-metabolism dysfunction together with diastolic dysfunction and calcium-handling imbalance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"ATP metabolic process\"]}}, {\"id\": \"Compensatory Glycolysis and Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative ATP synthesis constrained, striated muscle shifts ATP production to anaerobic glycolysis, and the accumulating lactate spills into the circulation and produces the lactic acidosis that, together with hypertrophic cardiomyopathy, defines the classical neonatal presentation. Lactate elevation is often persistent and can remain high for decades in long-surviving patients even when they are clinically stable. Glycolytic byproduct accumulation has additionally been linked in SLC25A3-knockout cardiomyocytes to the calcium-handling imbalance that accompanies the hypertrophic phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\", \"lactate biosynthetic process\"]}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High plasma creatine kinase reflects the skeletal- and cardiac-muscle involvement and, together with the combined heart-and-muscle presentation, can lead to an initial misdiagnosis of infantile-onset Pompe disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003236\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In patients who survive the neonatal period, exertional fatigue is a prominent residual manifestation of the skeletal-muscle bioenergetic defect, reported both in adolescents and in an adult surviving to age 32.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is the most consistent feature of the disorder and is typically present at or shortly after birth. It is the one finding shared by every reported patient, including those without skeletal myopathy or lactic acidosis. In long-term survivors it can be non-progressive.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised muscular hypotonia is part of the classical neonatal triad, with hypertrophic cardiomyopathy and lactic acidosis. It is not universal - at least one reported patient had isolated cardiomyopathy without skeletal muscle involvement.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond phosphate, SLC25A3 has been shown in cell and reconstituted systems to transport copper into the mitochondrial matrix, supplying the labile copper pool required to metalate cytochrome c oxidase (complex IV). Knockdown or deletion of SLC25A3 in cultured cells causes an isolated COX deficiency that is rescued by copper supplementation, and restoring the carrier restores matrix copper delivery. Whether this second transport function contributes to the human disease is unresolved: patient muscle biopsies have shown normal respiratory-chain enzyme activities, so the copper/COX arm is recorded here as a provisional mechanism rather than an established component of the patient phenotype (see the HUMAN_MODEL_MISMATCH discussion).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"copper ion transmembrane transport\", \"respiratory chain complex IV assembly\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistently elevated blood lactate is the biochemical hallmark and can remain high for decades in stable long-term survivors, even when treated and clinically improved.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002151\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis is typically present from the neonatal period and reflects the shift to anaerobic glycolysis in energy-starved striated muscle. It is not obligatory: one reported patient with neonatal cardiomyopathy had normal lactate.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A3 variants reduce the amount and/or transport activity of the inorganic phosphate carrier in the inner mitochondrial membrane of cardiomyocytes and skeletal myofibres. The Turkish index family carried a homozygous missense allele in exon 3A (p.Gly72Glu); other families carry a homozygous splice-acceptor allele (c.158-9A\u003eG) that creates a novel splice site and eliminates more than 95% of the wild-type exon 3A transcript, and one patient is a compound heterozygote for two novel coding alleles. Muscle biopsy in affected children shows reduced carrier protein.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"molecular_functions\": [\"phosphate transmembrane transporter activity\"], \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mitochondrial Transplantation (investigational, preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfer of exogenous healthy mitochondria into SLC25A3-mutant human iPSC-derived cardiomyocytes was explored as a way to rescue the hypertrophic phenotype and calcium-handling imbalance. This is an exploratory in vitro finding in a disease-model cell system; no in vivo or clinical data exist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal myopathy accompanies the cardiomyopathy in most reported patients. Muscle histopathology in a long-surviving adult showed a type 1 fibre predominance with mildly increased cytochrome c oxidase and succinate dehydrogenase staining, a mitochondrial-myopathy pattern.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003737\"}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal weakness reflects the myopathic arm of the disorder and is a characteristic finding in patients who survive infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The phosphate carrier is the principal route by which inorganic phosphate enters the mitochondrial matrix across the inner membrane, operating as a Pi/Pi antiporter and Pi/H+ symporter. When carrier capacity falls, matrix Pi concentration falls with it, depleting the pool available for matrix phosphorylation reactions.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial phosphate ion transmembrane transport\"]}}, {\"id\": \"SLC25A3 biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"variant_count\": 3}}, {\"id\": \"SLC25A3 c.158-9A\u003eG (IVS2-9A\u003eG), exon 3A splice acceptor region\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent homozygous intronic variant immediately 5\u0027 of the muscle-specific exon 3A. It creates a novel splice site and abolishes more than 95% of the wild-type transcript. First reported in a family with three affected children, subsequently found in an unrelated patient with neonatal cardiomyopathy and in a woman who survived to age 32 with hypertrophic cardiomyopathy and myopathy - making it the allele most clearly associated with the milder, longer-surviving end of the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SLC25A3 c.215G\u003eA (p.Gly72Glu), exon 3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The first reported SLC25A3 disease allele: a homozygous missense variant in the muscle-specific exon 3A, identified in two sisters from a non-consanguineous Turkish family who both died within the first year of life. Pathogenicity was confirmed by yeast complementation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SLC25A3 c.599T\u003eG (p.Leu200Trp) and c.886_898delinsCAGATAC (p.Gly296_Ser300delinsGlnIlePro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Two novel coding variants found in a compound heterozygous patient with neonatal cardiomyopathy but no skeletal myopathy and no elevated lactate. Protein structure analysis indicated both are likely pathogenic. These lie outside exon 3A, so they affect both carrier isoforms; the patient nonetheless presented with isolated cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inorganic phosphate is a substrate of ATP synthase, so matrix Pi depletion limits proton-motive-force-driven ATP synthesis even when the respiratory chain complexes themselves are intact and normally assembled. This is the biochemical signature of the disorder: patient muscle mitochondria show deficient ATP synthesis while respiratory-chain enzyme activities are normal, and the defect is present in muscle but absent in fibroblasts, tracking the exon 3A/3B expression pattern.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proton motive force-driven mitochondrial ATP synthesis\", \"oxidative phosphorylation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"TAT-mPiC Protein Replacement (investigational, preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A cell-penetrating TAT-fused recombinant phosphate carrier delivered to mPiC-knockdown cells localised correctly to the inner mitochondrial membrane and restored oxygen consumption, ATP production, matrix phosphate and copper delivery, and reduced lactate secretion. This is a preclinical cell-culture result only - there are no animal efficacy data and no human studies. It is recorded here as a mechanism-directed investigational strategy, not a clinical option.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single SLC25A3 gene produces two mutually exclusive carrier isoforms by alternative splicing of exon 3A or exon 3B, which differ in 13 amino acids near the N-terminus. Isoform A (exon 3A) is the higher-affinity carrier expressed almost exclusively in heart, skeletal muscle, and diaphragm; isoform B (exon 3B) is ubiquitous. Because most reported pathogenic SLC25A3 alleles lie in exon 3A or its splice acceptor, the resulting carrier defect is restricted to striated muscle while other tissues retain functional isoform B. This splicing architecture is the mechanistic explanation for the cardiac-and-muscle-predominant phenotype and for the observation that patient fibroblasts, which use isoform B, have normal ATP synthesis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"alternative mRNA splicing, via spliceosome\"], \"genes\": [\"SLC25A3\"], \"gene_terms\": [{\"label\": \"SLC25A3\", \"id\": \"hgnc:10989\"}], \"locations\": [\"heart\", \"skeletal muscle tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants in exon 3A or its splice acceptor abolish or deplete the muscle-specific isoform A carrier while sparing ubiquitous isoform B.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"target\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer functional carriers reduce inorganic phosphate flux into the matrix.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"target\": \"Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same carrier has been reported to contribute to mitochondrial copper delivery, so its loss reduces matrix copper availability in cell models. Whether this arm operates in patients is unresolved \\u2014 patient respiratory-chain enzyme measurements are normal, and muscle histopathology shows increased rather than decreased COX activity. The target node is retained as PROVISIONAL and the contradiction is recorded in the HUMAN_MODEL_MISMATCH discussion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Matrix Inorganic Phosphate\", \"target\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATP synthase condenses matrix ADP with matrix Pi, so a fall in matrix Pi is a direct substrate limitation on the terminal step of oxidative phosphorylation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"target\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxidative ATP output is felt first in the tissues with the highest and most sustained ATP demand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation\", \"target\": \"Compensatory Glycolysis and Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When oxidative ATP supply falls short, ATP demand is met by anaerobic glycolysis, whose end product is lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained cardiomyocyte energy deficit drives a hypertrophic remodeling response; the intervening signalling steps have not been defined in SLC25A3 disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure contributes to generalised low muscle tone.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In longer-surviving patients the residual myopathy manifests as exertional fatigue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure presents clinically as proximal-predominant weakness alongside the low tone.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myofibre bioenergetic failure produces the structural and histochemical myopathic changes seen on muscle biopsy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myofibre injury secondary to the energy deficit releases creatine kinase into the circulation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Glycolysis and Lactate Accumulation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating lactate accumulation produces metabolic (lactic) acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Glycolysis and Lactate Accumulation\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycolytic lactate output raises the measured blood lactate concentration, the laboratory correlate of the acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Ventricular Remodeling\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial hypertrophic remodeling is the substrate of the clinical hypertrophic cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TAT-mPiC Protein Replacement (investigational, preclinical)\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Transplantation (investigational, preclinical)\", \"target\": \"Cardiomyocyte and Skeletal Muscle Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SLC25A3 biallelic pathogenic variants\", \"target\": \"Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A3 biallelic pathogenic variants\", \"target\": \"Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.215G\u003eA (p.Gly72Glu), exon 3A\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.158-9A\u003eG (IVS2-9A\u003eG), exon 3A splice acceptor region\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC25A3 c.599T\u003eG (p.Leu200Trp) and c.886_898delinsCAGATAC (p.Gly296_Ser300delinsGlnIlePro)\", \"target\": \"SLC25A3 biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6523,6 +6608,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6658,6 +6746,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6760,6 +6851,8 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
 
 
 
@@ -6768,10 +6861,13 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6841,6 +6937,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6919,6 +7018,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7043,6 +7145,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7107,6 +7212,9 @@ This clinical feature is Mitochondrial myopathy (HP:0003737). HP:0003737 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7215,6 +7323,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7288,6 +7399,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7427,6 +7541,9 @@ This disease-associated gene is SLC25A3 (hgnc:10989). hgnc:10989 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7510,6 +7627,7 @@ This disease-associated gene is SLC25A3 (hgnc:10989). hgnc:10989 is a gene from 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7531,7 +7649,13 @@ This variant is in SLC25A3 (hgnc:10989). hgnc:10989 is a gene from the HUGO Gene
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The first reported SLC25A3 disease allele: a homozygous missense variant in the muscle-specific exon 3A, identified in two sisters from a non-consanguineous Turkish family who both died within the first year of life. Pathogenicity was confirmed by yeast complementation.</div>
@@ -7619,6 +7743,7 @@ This variant is in SLC25A3 (hgnc:10989). hgnc:10989 is a gene from the HUGO Gene
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7640,7 +7765,13 @@ This variant is in SLC25A3 (hgnc:10989). hgnc:10989 is a gene from the HUGO Gene
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent homozygous intronic variant immediately 5&#39; of the muscle-specific exon 3A. It creates a novel splice site and abolishes more than 95% of the wild-type transcript. First reported in a family with three affected children, subsequently found in an unrelated patient with neonatal cardiomyopathy and in a woman who survived to age 32 with hypertrophic cardiomyopathy and myopathy - making it the allele most clearly associated with the milder, longer-surviving end of the phenotypic spectrum.</div>
@@ -7753,6 +7884,7 @@ This variant is in SLC25A3 (hgnc:10989). hgnc:10989 is a gene from the HUGO Gene
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7774,7 +7906,13 @@ This variant is in SLC25A3 (hgnc:10989). hgnc:10989 is a gene from the HUGO Gene
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Two novel coding variants found in a compound heterozygous patient with neonatal cardiomyopathy but no skeletal myopathy and no elevated lactate. Protein structure analysis indicated both are likely pathogenic. These lie outside exon 3A, so they affect both carrier isoforms; the patient nonetheless presented with isolated cardiomyopathy.</div>
@@ -7918,6 +8056,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7928,6 +8069,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8022,6 +8166,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8032,6 +8179,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8126,6 +8276,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8136,6 +8289,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8230,6 +8386,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8240,6 +8399,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8377,6 +8539,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8387,6 +8552,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10053,10 +10221,10 @@ phenotypes:
     involvement and, together with the combined heart-and-muscle presentation, can
     lead to an initial misdiagnosis of infantile-onset Pompe disease.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:38656665
     reference_title: &#34;Mitochondrial phosphate-carrier deficiency mimicking infantile-onset Pompe disease.&#34;
@@ -10713,6 +10881,94 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome (SLC25A3)</strong> · 2026-08-01T01:49:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome/2026-08-01T014923Z-claude-code-27a4e3.yaml">View source</a></p>
+                        <p class="research-review-text">REJECTED DEEP-RESEARCH REPORT (Named Entity Confusion). The Edison/Falcon run at
+research/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome-deep-research-falcon.md is a
+confirmed NEC failure and was NOT used as a curation source. It contains zero mentions of
+SLC25A3 or &#34;phosphate carrier&#34; across 102KB and 57 mentions of MIPEP, and its executive
+summary maps the disease name to MIPEP-related combined oxidative phosphorylation deficiency
+31 (COXPD31 / Eldomery-Sutton syndrome, OMIM 617228) rather than to SLC25A3 /
+MONDO:0012557 / OMIM 610773 / ORPHA:91130. Per the CLAUDE.md NEC rule the report was
+discarded entirely rather than cherry-picked; the report, its citations sidecar, and its
+artifacts directory are still committed as DR provenance. MIPEP/COXPD31-specific features
+(left ventricular noncompaction, cataracts, seizures, Wolff-Parkinson-White) were
+deliberately NOT curated into this entry. See tracking issue #7510.
+
+Target identity was verified independently with OAK against MONDO:0012557
+(relationship RO:0004003 HGNC:10989 SLC25A3; xref OMIM:610773; xref Orphanet:91130; the
+definition names the exon 3A SLC25A3 mutation). The entry was then rebuilt from primary
+literature anchored on SLC25A3.
+
+Anchor papers (all fetched with just fetch-reference and read in full):
+PMID:17273968 Mayr 2007 AJHG - index report, two Turkish sisters, homozygous exon 3A
+c.215G&gt;A p.Gly72Glu, yeast complementation, muscle-versus-fibroblast ATP-synthesis
+dissociation; PMID:21763135 Mayr 2011 - family with three affected children, homozygous
+c.158-9A&gt;G, reduced carrier protein with NORMAL respiratory-chain enzyme activities;
+PMID:25681081 Bhoj 2015 - two new patients, phenotype expansion (isolated cardiomyopathy
+without myopathy or lactic acidosis), compound heterozygote; PMID:38656665 - infantile
+Pompe mimic; PMID:40944834 - 2026 case report plus literature review, 32-year-old survivor;
+PMID:24658400 Kwong 2014 - cardiac-specific Slc25a3-null mouse; PMID:29237729 Boulet 2018 -
+SLC25A3 as mitochondrial copper transporter required for COX biogenesis; PMID:39671292
+Li 2024 - SLC25A3 hiPSC-cardiomyocyte disease model; PMID:40362619 Zabit 2025 - TAT-mPiC
+protein replacement; PMID:8980128 Dolce 1996 and PMID:9712911 Fiermonte 1998 - exon
+IIIA/IIIB isoform tissue distribution and transport kinetics.
+
+Curated content: 8 pathophysiology nodes forming a single connected chain (tissue-specific
+exon 3A/3B splicing -&gt; carrier loss in heart/skeletal muscle -&gt; reduced matrix inorganic
+phosphate -&gt; ATP synthase substrate limitation and impaired oxidative phosphorylation -&gt;
+striated-muscle energy deficit -&gt; cardiomyocyte hypertrophy/ventricular remodeling, with a
+parallel compensatory-glycolysis/lactate branch and a PROVISIONAL copper/COX arm);
+9 phenotypes with HPO terms; 4 biochemical markers; 1 genetic block with 3 SLC25A3 variants;
+3 progression phases; 1 diagnosis and 1 differential-diagnosis entry; 5 treatments; and
+2 discussions (a HUMAN_MODEL_MISMATCH on the copper/COX arm versus normal patient
+respiratory-chain enzymes, and a KNOWLEDGE_GAP on the unexplained genotype-phenotype
+severity spectrum). 73 evidence snippets, all exact substrings of cached abstracts.
+
+Module conformance: asserted against kb/modules/cardiomyopathy_maladaptive_remodeling.yaml
+at #Primary Cardiomyocyte Insult (the metabolic/bioenergetic cardiomyocyte insult) and
+#Ventricular Remodeling (supported directly by the cardiac Slc25a3-null mouse). The module&#39;s
+intervening neurohormonal-activation step is explicitly NOT asserted because no
+disease-specific evidence exists for it.
+
+Deliberate omissions and modeling decisions: no phenotype frequency bands are asserted
+anywhere - the published cohort (fewer than about a dozen molecularly confirmed patients)
+cannot support them. Prevalence uses measure_type CASES_IN_LITERATURE with
+prevalence_class ULTRA_RARE, never the deprecated percentage field. Death in infancy is
+curated under progression rather than phenotypes because HP:0001522 sits in the HPO
+Mortality/Aging branch, outside the PhenotypeTerm dynamic enum (matching the precedent in
+Isolated_Sulfite_Oxidase_Deficiency and MOPD Type I). No GeneReviews chapter exists (PubMed
+search &#34;SLC25A3 GeneReviews&#34; returned 0 hits on 2026-07-31), so the usual GeneReviews
+phenotype baseline was unavailable; this is documented in the entry notes. ORPHA:91130 was
+NOT cited: upstream Orphadata en_product1.xml has drifted from the sha256 pinned in
+data/orphadata/MANIFEST.yaml (54026799 vs 53331679 bytes), so just refresh-orphadata fails
+its checksum gate and the ORPHA cache file could not be built reproducibly against the
+pinned snapshot. PMID:40505409 (Spanish family, Med Clin Barc 2025) was fetched but has no
+abstract in PubMed, so it could not supply a verifiable snippet and is not cited. No
+reference_ranges were added for lactate because no citable interval could be sourced.
+No clinical trials exist for this disorder. Two treatments (TAT-mPiC protein replacement,
+mitochondrial transplantation) are labelled investigational/preclinical in name, description,
+and context so they cannot be mistaken for clinical options.
+
+Validation: just validate PASS (schema + terms + references); just validate-terms PASS;
+just validate-references PASS with 73/73 snippets verified against cached references;
+just compliance 89.0% global / 89.4% weighted; just validate-graphs shows no errors for this
+entry (pre-existing failures in other files only); pytest tests/test_data.py conformance and
+foreign-key subset 6841 passed. Treatment terms initially drafted with MAXO:0000088 and
+MAXO:0000079 were switched to NCIT:C15447 (Dietary Intervention) and NCIT:C15240 (Genetic
+Counseling) because the TreatmentActionTerm dynamic enum is reachable only from NCIT:C25218
+and rejects MAXO ids, despite CLAUDE.md listing MAXO terms as usable there - worth flagging
+as a documentation/schema inconsistency.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11665,7 +11921,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome", "mondoId": "MONDO:0012557", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome", "yamlRevision": "4cd5fd201859"};
+        const OS_CONFIG = {"diseaseName": "Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome", "mondoId": "MONDO:0012557", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome", "yamlRevision": "1cf15179ac3f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

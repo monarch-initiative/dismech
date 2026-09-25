@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Senior-Loken%20Syndrome"
@@ -3990,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">15</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4320,6 +4373,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                NPHP1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7905</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">NPHP1-related Senior-Loken syndrome, caused by mutations (most often the recurrent homozygous deletion) in NPHP1 encoding nephrocystin-1. NPHP1 is the same gene whose loss causes isolated juvenile nephronophthisis; the renal-retinal SLSN1 phenotype reflects additional involvement of the photoreceptor connecting cilium.</div>
@@ -4378,6 +4450,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                IQCB1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:28949</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in IQCB1 (hgnc:28949). hgnc:28949 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4443,6 +4534,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                CEP290
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:29021</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4536,6 +4646,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SDCCAG8
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:10671</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">SDCCAG8-related Senior-Loken syndrome. SDCCAG8 encodes a centrosomal protein involved in ciliogenesis and Sonic hedgehog signaling; biallelic mutations cause a retinal-renal ciliopathy that can extend to additional Bardet-Biedl-like features.</div>
@@ -4594,6 +4723,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                WDR19
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:18340</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in WDR19 (hgnc:18340). hgnc:18340 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4668,7 +4816,8 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-transition-zone-dysfunction" data-dismech-node="Ciliary Transition Zone Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ciliary Transition Zone Dysfunction</div>
 
-                <div class="item-desc">The unifying upstream lesion of Senior-Loken syndrome is dysfunction of the ciliary base. The nephrocystin proteins encoded by the SLSN genes localize to the transition zone of renal and respiratory cilia and to the photoreceptor connecting cilium, where they gate ciliary membrane composition and bidirectional cargo transport. Loss of these proteins produces a structurally present but functionally incompetent cilium that cannot correctly compartmentalize signaling and phototransduction machinery, biasing the downstream phenotype toward the renal tubule and the photoreceptor.</div>
+
+                <div class="item-desc">The unifying upstream lesion of Senior-Loken syndrome is dysfunction of the ciliary base. The nephrocystin proteins encoded by the SLSN genes localize to the transition zone of renal and respiratory cilia and to the photoreceptor connecting cilium, where they gate ciliary membrane composition and bidirectional cargo transport. Loss of these proteins produces a structurally present but functionally incompetent cilium that cannot correctly compartmentalize signaling and phototransduction machinery, biasing the downstream phenotype toward the renal tubule and the photoreceptor. The ten genes bound here are not all transition-zone proteins in the strict sense: they span the transition zone itself, the distal appendages that anchor it (CEP164), and the intraflagellar transport machinery that moves cargo through it (WDR19 in IFT-A, TRAF3IP1 in IFT-B). They are grouped at this one node because each defect produces the same functional outcome - a structurally present cilium that cannot gate its own membrane or cargo - which is what the three biological processes recorded here describe.</div>
 
 
 
@@ -4682,11 +4831,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000064</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4708,6 +4857,400 @@ This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NPHP1
+
+
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:7905</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        IQCB1
+
+
+    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:28949</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IQCB1 (hgnc:28949). hgnc:28949 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CEP290
+
+
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:29021</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SDCCAG8
+
+
+    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:10671</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WDR19
+
+
+    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:18340</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WDR19 (hgnc:18340). hgnc:18340 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NPHP3
+
+
+    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:7907</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NPHP4
+
+
+    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:19104</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPHP4 (hgnc:19104). hgnc:19104 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        INVS
+
+
+    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:17870</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves INVS (hgnc:17870). hgnc:17870 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CEP164
+
+
+    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:29182</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CEP164 (hgnc:29182). hgnc:29182 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TRAF3IP1
+
+
+    <a href="https://bioregistry.io/hgnc:17861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:17861</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4723,11 +5266,11 @@ This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0060271</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4757,11 +5300,11 @@ This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0061512</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0061512</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal protein localization to cilium (GO:0061512). GO:0061512 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4791,11 +5334,11 @@ This pathophysiological event involves abnormal protein localization to cilium (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042073</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042073</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal intraflagellar transport, annotated with intraciliary transport (GO:0042073). GO:0042073 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4831,11 +5374,11 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035869</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0035869</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves ciliary transition zone (GO:0035869). GO:0035869 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4848,11 +5391,11 @@ This pathophysiological event involves ciliary transition zone (GO:0035869). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0005929</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4979,6 +5522,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-tubular-cystic-and-fibrotic-disease" data-dismech-node="Renal Tubular Cystic and Fibrotic Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Tubular Cystic and Fibrotic Disease</div>
 
+
                 <div class="item-desc">Renal tubular epithelial cells use the primary cilium as a flow and signaling sensor that maintains tubular architecture. Ciliary dysfunction produces the nephronophthisis phenotype: a chronic tubulointerstitial nephropathy with corticomedullary cysts, tubular basement membrane disruption, and interstitial fibrosis that progresses to end-stage renal disease, typically in childhood or adolescence. Nephronophthisis is the leading genetic cause of end-stage renal failure in children.</div>
 
 
@@ -4993,11 +5537,11 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002518</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves kidney tubule epithelial cell, annotated with kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5034,11 +5578,11 @@ This pathophysiological event involves kidney tubule epithelial cell, annotated 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0060271</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5075,11 +5619,11 @@ This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002113</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5205,6 +5749,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-connecting-cilium-degeneration" data-dismech-node="Photoreceptor Connecting Cilium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Connecting Cilium Degeneration</div>
 
+
                 <div class="item-desc">Photoreceptor outer segments are specialized non-motile sensory cilia connected to the cell body by the connecting cilium, through which all phototransduction cargo is trafficked. In Senior-Loken syndrome, nephrocystin dysfunction at the connecting cilium impairs outer-segment morphogenesis and maintenance, causing progressive photoreceptor death and a retinitis pigmentosa-like retinal dystrophy. Retinal involvement is highly penetrant and is the feature that distinguishes Senior-Loken syndrome from isolated nephronophthisis.</div>
 
 
@@ -5219,11 +5764,11 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000210</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5260,11 +5805,11 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0045494</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5301,11 +5846,11 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5420,7 +5965,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Retinal Pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal pigmentary changes typical of a retinitis pigmentosa-like dystrophy are seen on fundus examination.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007703\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia can occur in Senior-Loken syndrome, reflecting overlap with the cerebellar involvement of related ciliopathies such as Joubert syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Ciliary Transition Zone Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying upstream lesion of Senior-Loken syndrome is dysfunction of the ciliary base. The nephrocystin proteins encoded by the SLSN genes localize to the transition zone of renal and respiratory cilia and to the photoreceptor connecting cilium, where they gate ciliary membrane composition and bidirectional cargo transport. Loss of these proteins produces a structurally present but functionally incompetent cilium that cannot correctly compartmentalize signaling and phototransduction machinery, biasing the downstream phenotype toward the renal tubule and the photoreceptor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated cell\"], \"biological_processes\": [\"cilium assembly\", \"protein localization to cilium\", \"intraflagellar transport\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients, particularly those with pleiotropic transition-zone genes, show global developmental delay as part of an extended ciliopathy phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension occurs as a frequent complication of chronic kidney disease in Senior-Loken syndrome, reflecting the progressive renal impairment of nephronophthisis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Nephronophthisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephronophthisis \\u2014 a chronic tubulointerstitial cystic kidney disease \\u2014 is the obligate renal component of Senior-Loken syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000090\"}}, {\"id\": \"Photoreceptor Connecting Cilium Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Photoreceptor outer segments are specialized non-motile sensory cilia connected to the cell body by the connecting cilium, through which all phototransduction cargo is trafficked. In Senior-Loken syndrome, nephrocystin dysfunction at the connecting cilium impairs outer-segment morphogenesis and maintenance, causing progressive photoreceptor death and a retinitis pigmentosa-like retinal dystrophy. Retinal involvement is highly penetrant and is the feature that distinguishes Senior-Loken syndrome from isolated nephronophthisis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Premature Ovarian Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature ovarian insufficiency occurs as a frequent extrarenal, extra-ocular manifestation in Senior-Loken syndrome, reflecting ciliary dysfunction in ovarian follicle development.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008209\"}}, {\"id\": \"Progressive Visual Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision typically declines progressively as the retinal dystrophy advances.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000529\"}}, {\"id\": \"Renal Tubular Cystic and Fibrotic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal tubular epithelial cells use the primary cilium as a flow and signaling sensor that maintains tubular architecture. Ciliary dysfunction produces the nephronophthisis phenotype: a chronic tubulointerstitial nephropathy with corticomedullary cysts, tubular basement membrane disruption, and interstitial fibrosis that progresses to end-stage renal disease, typically in childhood or adolescence. Nephronophthisis is the leading genetic cause of end-stage renal failure in children.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"cilium assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A retinitis pigmentosa-like retinal dystrophy is the defining ocular component of Senior-Loken syndrome, reflecting photoreceptor connecting-cilium dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000556\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature occurs in many children with Senior-Loken syndrome as a consequence of pediatric chronic kidney disease and its associated growth impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Stage 5 Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephronophthisis in Senior-Loken syndrome progresses to stage 5 chronic kidney disease (end-stage renal disease), typically in childhood or adolescence, requiring renal replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Tubulointerstitial Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The nephronophthisis renal lesion includes tubular atrophy, basement membrane disruption, interstitial fibrosis, and cyst formation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005576\"}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual impairment results from progressive retinal degeneration and is a near-universal feature of Senior-Loken syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Renal Tubular Cystic and Fibrotic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transition-zone dysfunction in renal tubular monocilia drives the nephronophthisis arm of the disease.\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Photoreceptor Connecting Cilium Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connecting-cilium dysfunction impairs photoreceptor outer-segment maintenance, driving the retinal-dystrophy arm of the disease.\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pleiotropic transition-zone and centrosomal ciliopathy genes can extend the Senior-Loken phenotype to neurodevelopmental delay.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extended nephronophthisis-related ciliopathy phenotypes can include cerebellar/coordination involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Premature Ovarian Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senior-Loken syndrome can include reproductive involvement; the precise ciliary intermediate remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Nephronophthisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular ciliary dysfunction produces the nephronophthisis component of Senior-Loken syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Tubulointerstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nephronophthisis renal lesion includes interstitial fibrosis and tubular atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Stage 5 Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive nephronophthisis causes end-stage renal disease in childhood or adolescence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive chronic kidney disease in Senior-Loken syndrome can lead to hypertension.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pediatric chronic kidney disease contributes to growth impairment and short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor connecting-cilium dysfunction causes the retinitis-pigmentosa-like retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive photoreceptor degeneration results in visual impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Progressive Visual Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal dystrophy advances over time, producing progressive visual loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Abnormal Retinal Pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The retinitis-pigmentosa-like retinal dystrophy includes pigmentary retinal changes.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Retinal Pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal pigmentary changes typical of a retinitis pigmentosa-like dystrophy are seen on fundus examination.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007703\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia can occur in Senior-Loken syndrome, reflecting overlap with the cerebellar involvement of related ciliopathies such as Joubert syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"CEP164\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP164\"], \"gene_terms\": [{\"label\": \"CEP164\", \"id\": \"hgnc:29182\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CEP290\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP290\"], \"gene_terms\": [{\"label\": \"CEP290\", \"id\": \"hgnc:29021\"}], \"subtypes\": [\"SLSN6\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Ciliary Transition Zone Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying upstream lesion of Senior-Loken syndrome is dysfunction of the ciliary base. The nephrocystin proteins encoded by the SLSN genes localize to the transition zone of renal and respiratory cilia and to the photoreceptor connecting cilium, where they gate ciliary membrane composition and bidirectional cargo transport. Loss of these proteins produces a structurally present but functionally incompetent cilium that cannot correctly compartmentalize signaling and phototransduction machinery, biasing the downstream phenotype toward the renal tubule and the photoreceptor. The ten genes bound here are not all transition-zone proteins in the strict sense: they span the transition zone itself, the distal appendages that anchor it (CEP164), and the intraflagellar transport machinery that moves cargo through it (WDR19 in IFT-A, TRAF3IP1 in IFT-B). They are grouped at this one node because each defect produces the same functional outcome - a structurally present cilium that cannot gate its own membrane or cargo - which is what the three biological processes recorded here describe.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated cell\"], \"biological_processes\": [\"cilium assembly\", \"protein localization to cilium\", \"intraflagellar transport\"], \"genes\": [\"NPHP1\", \"IQCB1\", \"CEP290\", \"SDCCAG8\", \"WDR19\", \"NPHP3\", \"NPHP4\", \"INVS\", \"CEP164\", \"TRAF3IP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}, {\"label\": \"IQCB1\", \"id\": \"hgnc:28949\"}, {\"label\": \"CEP290\", \"id\": \"hgnc:29021\"}, {\"label\": \"SDCCAG8\", \"id\": \"hgnc:10671\"}, {\"label\": \"WDR19\", \"id\": \"hgnc:18340\"}, {\"label\": \"NPHP3\", \"id\": \"hgnc:7907\"}, {\"label\": \"NPHP4\", \"id\": \"hgnc:19104\"}, {\"label\": \"INVS\", \"id\": \"hgnc:17870\"}, {\"label\": \"CEP164\", \"id\": \"hgnc:29182\"}, {\"label\": \"TRAF3IP1\", \"id\": \"hgnc:17861\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients, particularly those with pleiotropic transition-zone genes, show global developmental delay as part of an extended ciliopathy phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension occurs as a frequent complication of chronic kidney disease in Senior-Loken syndrome, reflecting the progressive renal impairment of nephronophthisis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"INVS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"INVS\"], \"gene_terms\": [{\"label\": \"INVS\", \"id\": \"hgnc:17870\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"IQCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IQCB1\"], \"gene_terms\": [{\"label\": \"IQCB1\", \"id\": \"hgnc:28949\"}], \"subtypes\": [\"SLSN5\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NPHP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}], \"subtypes\": [\"SLSN1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NPHP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPHP3\"], \"gene_terms\": [{\"label\": \"NPHP3\", \"id\": \"hgnc:7907\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NPHP4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPHP4\"], \"gene_terms\": [{\"label\": \"NPHP4\", \"id\": \"hgnc:19104\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Nephronophthisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephronophthisis \\u2014 a chronic tubulointerstitial cystic kidney disease \\u2014 is the obligate renal component of Senior-Loken syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000090\"}}, {\"id\": \"Photoreceptor Connecting Cilium Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Photoreceptor outer segments are specialized non-motile sensory cilia connected to the cell body by the connecting cilium, through which all phototransduction cargo is trafficked. In Senior-Loken syndrome, nephrocystin dysfunction at the connecting cilium impairs outer-segment morphogenesis and maintenance, causing progressive photoreceptor death and a retinitis pigmentosa-like retinal dystrophy. Retinal involvement is highly penetrant and is the feature that distinguishes Senior-Loken syndrome from isolated nephronophthisis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Premature Ovarian Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature ovarian insufficiency occurs as a frequent extrarenal, extra-ocular manifestation in Senior-Loken syndrome, reflecting ciliary dysfunction in ovarian follicle development.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008209\"}}, {\"id\": \"Progressive Visual Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision typically declines progressively as the retinal dystrophy advances.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000529\"}}, {\"id\": \"Renal Tubular Cystic and Fibrotic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal tubular epithelial cells use the primary cilium as a flow and signaling sensor that maintains tubular architecture. Ciliary dysfunction produces the nephronophthisis phenotype: a chronic tubulointerstitial nephropathy with corticomedullary cysts, tubular basement membrane disruption, and interstitial fibrosis that progresses to end-stage renal disease, typically in childhood or adolescence. Nephronophthisis is the leading genetic cause of end-stage renal failure in children.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"cilium assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A retinitis pigmentosa-like retinal dystrophy is the defining ocular component of Senior-Loken syndrome, reflecting photoreceptor connecting-cilium dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000556\"}}, {\"id\": \"SDCCAG8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SDCCAG8\"], \"gene_terms\": [{\"label\": \"SDCCAG8\", \"id\": \"hgnc:10671\"}], \"subtypes\": [\"SLSN7\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature occurs in many children with Senior-Loken syndrome as a consequence of pediatric chronic kidney disease and its associated growth impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Stage 5 Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephronophthisis in Senior-Loken syndrome progresses to stage 5 chronic kidney disease (end-stage renal disease), typically in childhood or adolescence, requiring renal replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"TRAF3IP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRAF3IP1\"], \"gene_terms\": [{\"label\": \"TRAF3IP1\", \"id\": \"hgnc:17861\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Tubulointerstitial Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The nephronophthisis renal lesion includes tubular atrophy, basement membrane disruption, interstitial fibrosis, and cyst formation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005576\"}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual impairment results from progressive retinal degeneration and is a near-universal feature of Senior-Loken syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}, {\"id\": \"WDR19\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WDR19\"], \"gene_terms\": [{\"label\": \"WDR19\", \"id\": \"hgnc:18340\"}], \"subtypes\": [\"SLSN8\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Renal Tubular Cystic and Fibrotic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transition-zone dysfunction in renal tubular monocilia drives the nephronophthisis arm of the disease.\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Photoreceptor Connecting Cilium Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connecting-cilium dysfunction impairs photoreceptor outer-segment maintenance, driving the retinal-dystrophy arm of the disease.\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pleiotropic transition-zone and centrosomal ciliopathy genes can extend the Senior-Loken phenotype to neurodevelopmental delay.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extended nephronophthisis-related ciliopathy phenotypes can include cerebellar/coordination involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ciliary Transition Zone Dysfunction\", \"target\": \"Premature Ovarian Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senior-Loken syndrome can include reproductive involvement; the precise ciliary intermediate remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Nephronophthisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular ciliary dysfunction produces the nephronophthisis component of Senior-Loken syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Tubulointerstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nephronophthisis renal lesion includes interstitial fibrosis and tubular atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Stage 5 Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive nephronophthisis causes end-stage renal disease in childhood or adolescence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive chronic kidney disease in Senior-Loken syndrome can lead to hypertension.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Tubular Cystic and Fibrotic Disease\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pediatric chronic kidney disease contributes to growth impairment and short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor connecting-cilium dysfunction causes the retinitis-pigmentosa-like retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive photoreceptor degeneration results in visual impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Progressive Visual Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal dystrophy advances over time, producing progressive visual loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Connecting Cilium Degeneration\", \"target\": \"Abnormal Retinal Pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The retinitis-pigmentosa-like retinal dystrophy includes pigmentary retinal changes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NPHP1\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IQCB1\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP290\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDCCAG8\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR19\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPHP3\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPHP4\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"INVS\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP164\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAF3IP1\", \"target\": \"Ciliary Transition Zone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5476,15 +6021,18 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5554,15 +6102,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000556</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5623,15 +6174,18 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5692,15 +6246,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000529</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000529</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5761,15 +6318,18 @@ This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007703</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007703</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5839,15 +6399,18 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5908,15 +6471,18 @@ This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5975,15 +6541,18 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005576</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005576</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6046,15 +6615,18 @@ This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008209</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008209</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:0008209 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6124,15 +6696,18 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6193,15 +6768,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6271,15 +6849,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6381,17 +6962,22 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         Gene: NPHP1
 
 
-    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:7905</a>
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:7905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6451,17 +7037,22 @@ This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the 
                         Gene: IQCB1
 
 
-    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:28949</a>
+    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:28949</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6523,17 +7114,22 @@ This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from th
                         Gene: CEP290
 
 
-    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:29021</a>
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:29021</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6593,17 +7189,22 @@ This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from t
                         Gene: SDCCAG8
 
 
-    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:10671</a>
+    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:10671</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6663,17 +7264,22 @@ This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from 
                         Gene: WDR19
 
 
-    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:18340</a>
+    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:18340</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6733,17 +7339,22 @@ This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from th
                         Gene: NPHP3
 
 
-    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7907</a>
+    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:7907</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6803,17 +7414,22 @@ This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the 
                         Gene: NPHP4
 
 
-    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:19104</a>
+    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:19104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6873,17 +7489,22 @@ This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from th
                         Gene: INVS
 
 
-    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:17870</a>
+    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:17870</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6943,17 +7564,22 @@ This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the
                         Gene: CEP164
 
 
-    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:29182</a>
+    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:29182</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -7013,17 +7639,22 @@ This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from t
                         Gene: TRAF3IP1
 
 
-    <a href="https://bioregistry.io/hgnc:17861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:17861</a>
+    <a href="https://bioregistry.io/hgnc:17861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:17861</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -7091,7 +7722,7 @@ This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7127,6 +7758,9 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7137,6 +7771,9 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
     </div>
+
+
+
 
 
 
@@ -7161,7 +7798,7 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7202,6 +7839,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Ophthalmologic management is supportive, comprising low-vision rehabilitation and visual aids for the progressive retinal dystrophy; no proven therapy reverses the photoreceptor degeneration.</div>
 
 
@@ -7220,7 +7863,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7247,6 +7890,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7310,11 +7959,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7666,6 +8315,11 @@ has_subtypes:
     explanation: &gt;-
       Orphanet lists NPHP1 among the disease-causing genes of Senior-Loken
       syndrome, corresponding to the SLSN1 leaf class MONDO:0009962.
+  genes:
+  - preferred_term: NPHP1
+    term:
+      id: hgnc:7905
+      label: NPHP1
 - name: SLSN5
   display_name: Senior-Loken syndrome 5 (IQCB1/NPHP5)
   subtype_term:
@@ -7692,6 +8346,11 @@ has_subtypes:
     explanation: &gt;-
       Identifies IQCB1/NPHP5 as the most frequent cause of Senior-Loken syndrome
       (SLSN5, MONDO:0012225), with fully penetrant retinitis pigmentosa.
+  genes:
+  - preferred_term: IQCB1
+    term:
+      id: hgnc:28949
+      label: IQCB1
 - name: SLSN6
   display_name: Senior-Loken syndrome 6 (CEP290/NPHP6)
   subtype_term:
@@ -7724,6 +8383,11 @@ has_subtypes:
       Documents the pleiotropy of CEP290, which also causes Leber congenital
       amaurosis, relevant to the retinal arm and differential diagnosis of
       CEP290-related Senior-Loken syndrome.
+  genes:
+  - preferred_term: CEP290
+    term:
+      id: hgnc:29021
+      label: CEP290
 - name: SLSN7
   display_name: Senior-Loken syndrome 7 (SDCCAG8)
   subtype_term:
@@ -7744,6 +8408,11 @@ has_subtypes:
     explanation: &gt;-
       Orphanet lists SDCCAG8 among the disease-causing genes of Senior-Loken
       syndrome, corresponding to the SLSN7 leaf class MONDO:0013326.
+  genes:
+  - preferred_term: SDCCAG8
+    term:
+      id: hgnc:10671
+      label: SDCCAG8
 - name: SLSN8
   display_name: Senior-Loken syndrome 8 (WDR19)
   subtype_term:
@@ -7764,6 +8433,11 @@ has_subtypes:
     explanation: &gt;-
       Orphanet lists WDR19 among the disease-causing genes of Senior-Loken
       syndrome, corresponding to the SLSN8 leaf class MONDO:0014579.
+  genes:
+  - preferred_term: WDR19
+    term:
+      id: hgnc:18340
+      label: WDR19
 inheritance:
 - name: Autosomal Recessive
   description: &gt;-
@@ -7817,7 +8491,14 @@ pathophysiology:
     bidirectional cargo transport. Loss of these proteins produces a structurally
     present but functionally incompetent cilium that cannot correctly
     compartmentalize signaling and phototransduction machinery, biasing the
-    downstream phenotype toward the renal tubule and the photoreceptor.
+    downstream phenotype toward the renal tubule and the photoreceptor. The ten
+    genes bound here are not all transition-zone proteins in the strict sense:
+    they span the transition zone itself, the distal appendages that anchor it
+    (CEP164), and the intraflagellar transport machinery that moves cargo
+    through it (WDR19 in IFT-A, TRAF3IP1 in IFT-B). They are grouped at this one
+    node because each defect produces the same functional outcome - a
+    structurally present cilium that cannot gate its own membrane or cargo -
+    which is what the three biological processes recorded here describe.
   biological_processes:
   - preferred_term: cilium assembly
     term:
@@ -7848,6 +8529,47 @@ pathophysiology:
     term:
       id: CL:0000064
       label: ciliated cell
+  genes:
+  - preferred_term: NPHP1
+    term:
+      id: hgnc:7905
+      label: NPHP1
+  - preferred_term: IQCB1
+    term:
+      id: hgnc:28949
+      label: IQCB1
+  - preferred_term: CEP290
+    term:
+      id: hgnc:29021
+      label: CEP290
+  - preferred_term: SDCCAG8
+    term:
+      id: hgnc:10671
+      label: SDCCAG8
+  - preferred_term: WDR19
+    term:
+      id: hgnc:18340
+      label: WDR19
+  - preferred_term: NPHP3
+    term:
+      id: hgnc:7907
+      label: NPHP3
+  - preferred_term: NPHP4
+    term:
+      id: hgnc:19104
+      label: NPHP4
+  - preferred_term: INVS
+    term:
+      id: hgnc:17870
+      label: INVS
+  - preferred_term: CEP164
+    term:
+      id: hgnc:29182
+      label: CEP164
+  - preferred_term: TRAF3IP1
+    term:
+      id: hgnc:17861
+      label: TRAF3IP1
   downstream:
   - target: Renal Tubular Cystic and Fibrotic Disease
     description: &gt;-
@@ -8313,6 +9035,8 @@ phenotypes:
 genetic:
 - name: NPHP1
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SLSN1
   gene_term:
     preferred_term: NPHP1
     term:
@@ -8330,6 +9054,8 @@ genetic:
       Orphanet lists NPHP1 as a disease-causing gene of Senior-Loken syndrome.
 - name: IQCB1
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SLSN5
   gene_term:
     preferred_term: IQCB1
     term:
@@ -8354,6 +9080,8 @@ genetic:
       Senior-Loken syndrome, with fully penetrant retinitis pigmentosa.
 - name: CEP290
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SLSN6
   gene_term:
     preferred_term: CEP290
     term:
@@ -8372,6 +9100,8 @@ genetic:
       Orphanet lists CEP290 as a disease-causing gene of Senior-Loken syndrome.
 - name: SDCCAG8
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SLSN7
   gene_term:
     preferred_term: SDCCAG8
     term:
@@ -8389,6 +9119,8 @@ genetic:
       Orphanet lists SDCCAG8 as a disease-causing gene of Senior-Loken syndrome.
 - name: WDR19
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SLSN8
   gene_term:
     preferred_term: WDR19
     term:
@@ -8406,6 +9138,7 @@ genetic:
       Orphanet lists WDR19 as a disease-causing gene of Senior-Loken syndrome.
 - name: NPHP3
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: NPHP3
     term:
@@ -8423,6 +9156,7 @@ genetic:
       Orphanet lists NPHP3 as a disease-causing gene of Senior-Loken syndrome.
 - name: NPHP4
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: NPHP4
     term:
@@ -8440,6 +9174,7 @@ genetic:
       Orphanet lists NPHP4 as a disease-causing gene of Senior-Loken syndrome.
 - name: INVS
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: INVS
     term:
@@ -8458,6 +9193,7 @@ genetic:
       Orphanet lists INVS as a disease-causing gene of Senior-Loken syndrome.
 - name: CEP164
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: CEP164
     term:
@@ -8475,6 +9211,7 @@ genetic:
       Orphanet lists CEP164 as a disease-causing gene of Senior-Loken syndrome.
 - name: TRAF3IP1
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: TRAF3IP1
     term:
@@ -8795,7 +9532,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Senior-Loken Syndrome", "mondoId": "MONDO:0017842", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Senior-Loken_Syndrome", "yamlRevision": "aa5cc5d97e92"};
+        const OS_CONFIG = {"diseaseName": "Senior-Loken Syndrome", "mondoId": "MONDO:0017842", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Senior-Loken_Syndrome", "yamlRevision": "0dddc202af61"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

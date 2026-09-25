@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4979,6 +5032,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-abcc9-loss-of-function" data-dismech-node="Biallelic ABCC9 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ABCC9 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in ABCC9 - splice-site alleles causing in-frame exon skipping, and nonsense or frameshift alleles causing nonsense-mediated decay or drastic truncation - abolish production of functional SUR2 protein. This is the root lesion of AIMS and is the opposite direction of effect to the gain-of-function ABCC9 variants that cause Cantu syndrome.</div>
 
 
@@ -5153,6 +5207,7 @@ This pathophysiological event involves decreased ABCC9 (hgnc:60). hgnc:60 is a g
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-functional-sur2-containing-katp-channels" data-dismech-node="Non-Functional SUR2-Containing KATP Channels" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Functional SUR2-Containing KATP Channels</div>
+
 
                 <div class="item-desc">SUR2 is the regulatory subunit that confers ATP/ADP sensitivity and trafficking competence on Kir6.x pore subunits in skeletal muscle, cardiac muscle and vascular smooth muscle. Without functional SUR2, the SUR2-containing KATP channels of those tissues are absent or non-conducting, so cellular metabolic state can no longer be translated into membrane potassium conductance.</div>
 
@@ -5518,6 +5573,7 @@ This pathophysiological event involves decreased ATP-activated inward rectifier 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sarcolemmal-katp-conductance-in-skeletal-muscle" data-dismech-node="Loss of Sarcolemmal KATP Conductance in Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Sarcolemmal KATP Conductance in Skeletal Muscle</div>
 
+
                 <div class="item-desc">In healthy skeletal muscle the sarcolemmal KATP channel is closed at rest and opens as intracellular ATP falls during metabolic stress or fatigue. In AIMS muscle this metabolically gated conductance is absent.</div>
 
 
@@ -5665,6 +5721,7 @@ This pathophysiological event involves abnormal response to muscle activity (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-membrane-potential-stabilization-during-fatigue" data-dismech-node="Failure of Membrane Potential Stabilization During Fatigue" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Membrane Potential Stabilization During Fatigue</div>
+
 
                 <div class="item-desc">Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, impairing recovery from fatigue and predisposing the fibre to contraction without stimulation.</div>
 
@@ -5814,6 +5871,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unstimulated-force-generation" data-dismech-node="Unstimulated Force Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unstimulated Force Generation</div>
 
+
                 <div class="item-desc">SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. The downstream effector remains unresolved; CaV1.1-mediated calcium influx was tested directly and did not explain the myopathy.</div>
 
 
@@ -5923,6 +5981,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-delimited-myopathy" data-dismech-node="Skeletal-Muscle-Delimited Myopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal-Muscle-Delimited Myopathy</div>
+
 
                 <div class="item-desc">A myopathy that is clinically prominent but histologically and electrophysiologically bland: patients have generalised hypotonia, reduced strength, fatigability and exercise-induced pain, with normal serum creatine kinase, normal nerve conduction and essentially normal electromyography.</div>
 
@@ -6107,6 +6166,7 @@ This pathophysiological event involves abnormal skeletal muscle contraction (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cardiomyocyte-katp-conductance" data-dismech-node="Loss of Cardiomyocyte KATP Conductance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cardiomyocyte KATP Conductance</div>
 
+
                 <div class="item-desc">SUR2-containing KATP channels in cardiomyocytes couple cellular metabolism to membrane excitability. Loss of functional SUR2 removes that metabolically responsive conductance.</div>
 
 
@@ -6255,6 +6315,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-systolic-dysfunction" data-dismech-node="Cardiac Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Systolic Dysfunction</div>
 
+
                 <div class="item-desc">Reduced systolic function, documented in the two oldest patients of the index cohort and reproduced in SUR2-null mice and zebrafish. It is an age-related feature rather than a presenting one.</div>
 
 
@@ -6340,6 +6401,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-vascular-smooth-muscle-differentiation-and-neurovascular-coupling" data-dismech-node="Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling</div>
+
 
                 <div class="item-desc">KCNJ8/ABCC9-containing KATP channels are expressed on brain mural cell progenitors and are required cell-autonomously for arterial and arteriolar smooth muscle differentiation. Loss of channel function suppresses that differentiation and, in the corresponding knockout, degrades vasoconstrictive capacity and neuronally evoked vasodilation - the machinery that fine-tunes cerebral blood flow.</div>
 
@@ -6595,6 +6657,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-white-matter-injury" data-dismech-node="Cerebral White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral White Matter Injury</div>
 
+
                 <div class="item-desc">Cerebral white matter hyperintensities were present in every patient of the index cohort and white matter abnormalities, often with corpus callosum involvement, recur across the later cohorts. In the most recent series the pattern resembles periventricular leukomalacia or small vessel disease and is described as a key hallmark of the disorder. Lesions can progress over time.</div>
 
 
@@ -6731,6 +6794,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intellectual-disability-and-developmental-delay" data-dismech-node="Intellectual Disability and Developmental Delay" data-dismech-type="pathophysiology">
                 <div class="item-name">Intellectual Disability and Developmental Delay</div>
 
+
                 <div class="item-desc">Psychomotor delay followed by intellectual disability, mild in the index Norwegian families and of variable severity across the expanded cohorts. Motor and cognitive decline has now been documented in older individuals, including a sexagenarian presenting with signs of dementia.</div>
 
 
@@ -6817,6 +6881,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyramidal-tract-dysfunction" data-dismech-node="Pyramidal Tract Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyramidal Tract Dysfunction</div>
 
+
                 <div class="item-desc">Lower-limb hyperreflexia and spasticity, appearing in the older patients of the index cohort and recorded as spasticity across the expanded cohort.</div>
 
 
@@ -6902,6 +6967,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-seizure-susceptibility" data-dismech-node="Increased Seizure Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Seizure Susceptibility</div>
+
 
                 <div class="item-desc">Seizures occur in a proportion of AIMS patients, and abcc9 loss of function lowers the chemoconvulsant threshold in zebrafish. In the index cohort one patient had clinical tonic-clonic episodes without EEG correlate, so the epileptic phenotype is not uniform.</div>
 
@@ -7084,6 +7150,9 @@ This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports cardiac systolic dysfunction in the two oldest of six index patients (2/6 = 33%), which falls just inside the FREQUENT band (30-79%). The band is age-confounded - both affected individuals were in their thirties and the unaffected four were 11-21 - so it should be read as a cross-sectional cohort proportion, not a lifetime risk.</div>
 
 
@@ -7220,6 +7289,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as childho
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports childhood feeding difficulties in all six index patients (6/6 = 100%), supporting VERY_FREQUENT (80-100%). The exact snippet retains the source PDF&#39;s &#34;fi&#34; ligature.</div>
 
 
@@ -7303,6 +7375,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7378,6 +7453,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">The evidence snippet begins at &#34;bismus&#34; because the source PDF extracts &#34;Strabismus&#34; across a line break as &#34;Stra-&#34; plus &#34;bismus&#34;. The retained span is the longest byte-exact text that carries the cohort qualifier.</div>
 
 
@@ -7447,6 +7525,9 @@ This clinical feature is Hypotelorism (HP:0000601). HP:0000601 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is recorded. The source states only that &#34;some of the individuals&#34; have hypotelorism, and the per-patient table that would supply a denominator is a PDF-extracted grid of plus/minus marks rather than quotable prose. The OMIM:619719 HPO annotation set records 4/6, but that is not a claim this entry can source from its own cited references, so the band is omitted rather than asserted.</div>
@@ -7557,6 +7638,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7621,6 +7705,9 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7695,6 +7782,9 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7759,6 +7849,9 @@ This clinical feature is Incisor macrodontia (HP:0011081). HP:0011081 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The evidence snippet begins at &#34;dontia&#34; because the source PDF extracts &#34;macrodontia&#34; across a line break as &#34;macro-&#34; plus &#34;dontia&#34;.</div>
@@ -7835,6 +7928,9 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7904,6 +8000,9 @@ This clinical feature is Widely-spaced maxillary central incisors (HP:0001566). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7968,6 +8067,9 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8048,6 +8150,9 @@ This clinical feature is Easy fatigability (HP:0003388). HP:0003388 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: PMID:31575858 states that all patients report fatigability (6/6 = 100%). PMID:38217872 lists muscle fatigability among the conserved features of its nine-patient cohort without a per-feature count. The 6/6 denominator supports VERY_FREQUENT (80-100%).</div>
@@ -8173,6 +8278,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports muscle strength below normal in all but one of six index patients (5/6 = 83%), which falls in the VERY_FREQUENT band (80-100%). PMID:38217872 and PMID:42290677 both list muscle weakness among the conserved features without their own per-feature denominators.</div>
 
 
@@ -8271,6 +8379,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 states that all six index patients present with generalized hypotonia (6/6 = 100%), supporting VERY_FREQUENT (80-100%). No later cohort supplies its own hypotonia denominator.</div>
 
 
@@ -8340,6 +8451,9 @@ This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8439,6 +8553,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8505,6 +8622,9 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports lumbar lordosis in all but one of six index patients (5/6 = 83%), inside the VERY_FREQUENT band (80-100%). This is a single-cohort denominator from one founder population and has not been replicated in the later cohorts.</div>
@@ -8587,6 +8707,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports mild-to-moderate intellectual disability in all six index patients (6/6 = 100%), and PMID:38217872 reports intellectual disability of variable severity in all nine patients of the expanded cohort. Both denominators are cohort-wide, so VERY_FREQUENT (80-100%) is the band supported by published counts.</div>
@@ -8688,6 +8811,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8781,6 +8907,9 @@ This clinical feature is Balance impairment, annotated with Postural instability
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports miniBESTest balance deficits in all six index patients (6/6 = 100%), which is the VERY_FREQUENT band (80-100%). The quoted span begins mid-sentence because the preceding words (&#34;moderate to severe deficits&#34;) are broken across a PDF ligature in the cached full text and cannot be quoted byte-exactly; the severity grading is recorded here instead. Neither expanded cohort reports its own balance denominator.</div>
 
 
@@ -8852,6 +8981,9 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: PMID:31575858 states that all six index patients have cerebral white matter hyperintensities (6/6 = 100%). PMID:38217872 and PMID:42290677 both describe white matter abnormalities as conserved or hallmark features without per-feature counts. VERY_FREQUENT (80-100%) rests on the 6/6 denominator.</div>
@@ -8978,6 +9110,9 @@ This clinical feature is Periventricular leukomalacia (HP:0006970). HP:0006970 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9072,6 +9207,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9136,6 +9274,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9234,6 +9375,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: PMID:31575858 reports hyperreflexia in the oldest four of six index patients (4/6 = 67%), supporting FREQUENT (30-79%). The exact snippet below retains the source PDF&#39;s &#34;fl&#34; ligature.</div>
 
 
@@ -9308,6 +9452,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9372,6 +9519,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9475,6 +9625,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9589,6 +9742,9 @@ This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9756,6 +9912,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No AIMS-specific disease-modifying treatment is reported in the cited cohorts. The most recent cohort recommends monitoring older individuals for motor and cognitive decline and highlights deterioration following surgical procedures; manifestation-directed treatments reported elsewhere in this entry remain case-based rather than AIMS-specific protocols.</div>
 
 
@@ -9889,6 +10051,12 @@ This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeu
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Calcium channel blockers warrant strong caution on current preclinical evidence. Verapamil was tested in SUR2 loss-of-function mice on the hypothesis that excess CaV1.1-mediated calcium entry drove the myopathy; instead of rescuing the phenotype it caused premature death, and genetically rendering CaV1.1 non-permeable also failed to reverse the pathology. The authors state explicitly that this cautions against calcium channel blockers in AIMS. This is a model-organism safety signal, not a human trial result, and is recorded here because it is the only actionable drug-safety statement in the AIMS literature.</div>
 
 
@@ -9994,6 +10162,12 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10140,6 +10314,12 @@ This treatment uses beta-blocker, annotated with Beta-Adrenergic Antagonist (NCI
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Standard heart-failure pharmacotherapy for the reduced systolic function that emerges in older individuals: an ACE inhibitor plus a beta-blocker was started in the index patient found to have biventricular systolic dysfunction with an ejection fraction of 35-40%. This is a single reported case managed by conventional heart-failure practice, not an AIMS-specific regimen, and no outcome is reported. Note the direction-of-effect contrast with Cantu syndrome, where ACE inhibitors appear on the GeneReviews agents-to-avoid list because they open KATP channels that are already overactive; in AIMS the channels carry no measurable current, so that rationale does not transfer.</div>
 
 
@@ -10269,6 +10449,12 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -14510,6 +14696,39 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope, named-entity and provenance notes for this entry.
+(1) Named-entity confusion is the central curation risk here, and the discriminator is direction of effect, not gene identity. ABCC9 causes two mechanistically opposite diseases. Cantu syndrome (MONDO:0009406, hypertrichotic osteochondrodysplasia Cantu type) is autosomal dominant and caused by GAIN-of-function ABCC9 variants; AIMS is autosomal recessive and caused by LOSS-of-function variants. Cantu dominates the ABCC9 literature by volume, so every citation used in this entry was checked to confirm the reported variants are loss-of-function and, where the paper reports patients, that the patients are biallelic. Papers that say only &#34;ABCC9 variant&#34; without stating direction of effect were not used. Cantu-specific citations appear in this entry only inside the Cantu differential-diagnosis entry and in the contrast sentences of AIMS papers themselves, and are labelled as such.
+(2) ABCC8 versus ABCC9. ABCC8 (SUR1) is one character away from ABCC9 (SUR2) and is the other sulfonylurea-receptor KATP subunit. ABCC8 loss of function causes congenital hyperinsulinism and ABCC8 gain of function causes neonatal diabetes and DEND syndrome; none of these is an ABCC9 disorder. Both are curated here as bound differentials so the distinction is machine-readable. No snippet in this entry that is attributed to ABCC9 comes from an ABCC8-only paper.
+(3) No GeneReviews chapter exists for AIMS. PubMed searches on 2026-08-01 for &#34;ABCC9 GeneReviews[All Fields]&#34;, &#34;\&#34;intellectual disability and myopathy syndrome\&#34;[TI] AND GeneReviews[All Fields]&#34; and &#34;GeneReviews[TI] AND (SUR2 OR AIMS)&#34; returned no AIMS chapter; the only GeneReviews chapter returned by the ABCC9 search is Cantu Syndrome (PMID:25275207), which is the gain-of-function disease and is therefore cited here only as the differential baseline, never as the AIMS phenotype baseline. The AIMS phenotype baseline used instead is the union of the three primary human cohorts: PMID:31575858 (6 patients, 2 families), PMID:38217872 (9 patients, 7 families) and PMID:42290677 (5 patients). Cantu&#39;s GeneReviews &#34;Agents/circumstances to avoid&#34; list (minoxidil, diazoxide, ACE inhibitors) is a Cantu recommendation and is deliberately NOT transferred to AIMS - those are KATP openers whose rationale is the opposite direction of effect.
+(4) Phenotype frequency bands are derived only where a published denominator exists and the derivation is recorded on each phenotype. The three cohorts above give 20 reported patients in total, but they do not report a uniform feature-by-feature table, so bands are given only for features that a paper explicitly quantifies over its own cohort (&#34;all patients&#34;, &#34;all but one&#34;, &#34;the two oldest patients&#34;, &#34;the oldest four&#34;). Where a feature is listed in a narrative series without a denominator (for example anxiety, hearing loss, dementia), the frequency slot is omitted rather than guessed.
+(5) Heterozygous ABCC9 loss-of-function is a separate question from AIMS and is not curated as an AIMS phenotype. Heterozygous carriers in the AIMS families &#34;do not show any conserved clinical pathology&#34; (PMID:38217872), and the separately reported heterozygous ABCC9 loss-of-function cardiac associations (dilated cardiomyopathy, Brugada/early repolarization syndrome, ventricular fibrillation) are recorded here as differentials rather than as features of the recessive syndrome. Two existing KB entries (Dilated_Cardiomyopathy, Familial_Atrial_Fibrillation) already mention ABCC9 in that heterozygous-cardiac context; neither is an ABCC9-specific entry and there is no Cantu syndrome entry in the KB to cross-reference, so the Cantu differential below carries its own bound MONDO term instead.
+(6) The excess of intra-uterine fetal death reported in AIMS families (PMID:38217872) is recorded as a reproductive observation in the genetic section rather than as a patient phenotype, because the paper reports it in heterozygous parents and does not establish the fetal genotypes.
+(7) No ORPHA, ClinGen (CGGV) or ClinGen Dosage (CGDS) structured-source citation is used in this entry. Both structured-source pins are stale and un-refreshable (tracked in GitHub issue 7622), and bumping data/*/MANIFEST.yaml is out of scope for a curation PR, so any row that would have needed a manifest refresh was skipped rather than cited from a stale snapshot. The deep-research run additionally reports that no Orphanet code exists for AIMS at all, so no ORPHA prevalence class would have been citable even with a fresh pin.
+(8) Provenance. Deep research was run with the claude_code provider; the report is at research/ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome-deep-research-claude_code.md. A substantial part of that report is flagged by its own author as &#34;[FULL-TEXT - RE-VERIFY]&#34; because it came through a summarising intermediary rather than a cached abstract. None of those flagged claims are asserted here as evidence. Specifically NOT curated for that reason: the full published allelic series (per-family variant tables for the 2024 and 2026 cohorts); the pooled per-feature frequency table attributed to the 2024 paper; the phenytoin/fosphenytoin, propofol and lacosamide drug hazards; the perioperative decompensation detail; and the reported death of the oldest patient. PMID:38217872 and PMID:42290677 are cached abstract-only, so those full-text details cannot be quoted verbatim from the cache. The verapamil / calcium-channel-blocker hazard IS curated because it is stated in the PMID:37154692 abstract and verifies byte-exact.
+(9) A KATP-opener therapy (diazoxide, pinacidil, minoxidil, nicorandil) is deliberately NOT listed as a candidate treatment, despite being the inviting inference from &#34;loss of KATP function&#34;. The recombinant data show the disease alleles produce channels with no measurable current at all, so there is no channel left for an opener to open. No published source proposes this in AIMS, so recording it as a treatment would be curator inference rather than evidence.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review ABCC9-related intellectual disability and myopathy syndrome for publication completeness and claim-evidence alignment</strong> · 2026-08-04T22:53:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome/2026-08-04T225343Z-codex-2cc465.yaml">View source</a></p>
+                        <p class="research-review-text">Publication-readiness review against the matching deep-research artifact, all three reported cohorts, and repository design decisions. Corrected the central myopathy mechanism so the deprecated CaV1.1 calcium-influx hypothesis is explicitly represented as refuted rather than asserted, narrowed claims and recommendations to their quoted evidence, added clean cohort-supported phenotypes and corrected hyperreflexia frequency, and clarified diagnostic and differential evidence. Full-text-only 2026 drug hazards remain intentionally deferred because the sanctioned PMID fetch provides abstract-only content; no syndrome-specific GeneReviews chapter or interventional trial was identified. Targeted reference validation verifies 153 of 153 snippets; broad validation-induced reference-cache normalization was discarded.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome</strong> · 2026-08-01T14:43:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome/2026-08-01T144355Z-claude-code-7a2d2d.yaml">View source</a></p>
+                        <p class="research-review-text">Created the AIMS entry (ABCC9, hgnc:60; MONDO:0859224 intellectual disability and myopathy syndrome) from scratch. Deep research provider: claude_code (report at research/ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome-deep-research-claude_code.md, 13 min, 4 web searches, 13 citations). No GeneReviews chapter exists for AIMS; PubMed searches on 2026-08-01 returned only the Cantu Syndrome chapter (PMID:25275207), which is the gain-of-function disease and is used here solely as the differential baseline, tagged GeneReviews together with the Permanent Neonatal Diabetes Mellitus chapter (PMID:20301620) used for the DEND differential. Curated: 13 atomic pathophysiology nodes forming one connected DAG with a single root (Biallelic ABCC9 Loss of Function) fanning into a skeletal-muscle arm, a cerebrovascular/white-matter arm and a cardiac arm; 20 HPO-bound phenotypes with frequency bands derived only from published cohort denominators; genetic, biochemical, diagnosis, treatment, animal-model, prevalence and inheritance sections; a mechanistic_hypotheses entry (aims_cerebrovascular_white_matter, EMERGING) with hypothesis_groups on the two edges it covers; a HUMAN_MODEL_MISMATCH discussion for the intellectual disability/anxiety phenotype against the formally negative SUR2-STOP mouse behavioural battery; a REFUTE evidence item against the CaV1.1 calcium-influx sub-hypothesis; and 7 differential diagnoses of which 5 carry bound MONDO terms (Cantu MONDO:0009406, ABCC8/SUR1 recessive hyperinsulinism MONDO:0019333, DEND MONDO:0019207, tuberous sclerosis MONDO:0001734, mitochondrial disease MONDO:0044970). Named-entity-confusion discipline: direction of effect is the discriminator, so every citation was checked to be biallelic loss-of-function ABCC9 material; Cantu (gain-of-function, dominant) and the ABCC8 paralogue diseases are curated as differentials rather than mixed in. Validation: just validate clean (schema + terms + references), 133/133 snippets verified by scripts/check_snippets_verbatim.py with 0 failures, check_folded_hyphens.py clean, compliance 96.7 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

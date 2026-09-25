@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4889,6 +4942,7 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polg-catalytic-and-proofreading-deficiency" data-dismech-node="POLG Catalytic and Proofreading Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">POLG Catalytic and Proofreading Deficiency</div>
 
+
                 <div class="item-desc">Biallelic pathogenic POLG variants impair the catalytic A subunit of mitochondrial DNA polymerase gamma, the only polymerase that replicates the mitochondrial genome. Depending on the domain affected, the consequence is reduced 5&#39;-3&#39; polymerase activity (polymerase-domain variants such as p.T914P, which is catalytically inactive), reduced 3&#39;-5&#39; exonuclease proofreading fidelity (exonuclease-domain variants such as p.F197S), or loss of the linker-domain interaction with the POLG2 accessory subunit that confers processivity (the common p.A467T allele). In autosomal recessive disease two such hypomorphic or null alleles are required; the residual activity of the less severe allele largely determines how much mtDNA replication capacity survives.
 </div>
 
@@ -5161,6 +5215,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-dna-replication" data-dismech-node="Impaired Mitochondrial DNA Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial DNA Replication</div>
 
+
                 <div class="item-desc">Reduced polymerase gamma activity slows and destabilises mtDNA replication. Stalled or aborted replication forks are resolved by illegitimate recombination or slipped-strand mispairing between the direct repeats that flank the mitochondrial major arc, generating large-scale deletions; the simultaneous shortfall in completed replication events lowers mtDNA copy number (depletion) in the most replication-demanding tissues.
 </div>
 
@@ -5332,6 +5387,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiple-large-scale-mtdna-deletions-and-depletion" data-dismech-node="Multiple Large-Scale mtDNA Deletions and Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiple Large-Scale mtDNA Deletions and Depletion</div>
 
+
                 <div class="item-desc">The molecular hallmark of PEOB1 is the accumulation, in post-mitotic tissue (especially skeletal and extraocular muscle), of multiple different large-scale mtDNA deletions, frequently accompanied by a variable degree of mtDNA depletion. Unlike the single, clonal, sporadic deletion of Kearns-Sayre syndrome, these deletions are heterogeneous in breakpoint and are generated continuously throughout life because the nuclear replication defect persists. Deep sequencing of muscle mtDNA in arPEO allows the rearrangements to be mapped and their load quantified.
 </div>
 
@@ -5499,6 +5555,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-above-the-biochemical-threshold" data-dismech-node="Clonal Expansion Above the Biochemical Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion Above the Biochemical Threshold</div>
 
+
                 <div class="item-desc">Deleted mtDNA genomes are shorter and are amplified preferentially within individual long-lived post-mitotic cells (muscle fibre segments, neurons). Because mtDNA is polyploid, a cell remains biochemically normal until the mutant fraction crosses a threshold, after which mtDNA-encoded respiratory chain subunits become limiting. This threshold effect explains the characteristic mosaic (fibre-to-fibre) pattern of the defect rather than a uniform tissue-wide deficiency.
 </div>
 
@@ -5648,6 +5705,7 @@ This pathophysiological event involves abnormal mitochondrial DNA replication (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mosaic-respiratory-chain-oxphos-deficiency" data-dismech-node="Mosaic Respiratory-Chain (OXPHOS) Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Mosaic Respiratory-Chain (OXPHOS) Deficiency</div>
+
 
                 <div class="item-desc">Loss of intact mtDNA templates reduces the supply of the thirteen mtDNA-encoded respiratory-chain polypeptides. Complex IV (cytochrome c oxidase) is the most sensitive readout because three of its catalytic subunits are mtDNA-encoded and none are supplied by the nuclear genome, so affected cells become COX-negative on histochemistry while succinate dehydrogenase (entirely nuclear-encoded, complex II) is preserved or upregulated. The bioenergetic deficit affects the most oxidative, highest-demand post-mitotic cells first.
 </div>
@@ -5887,6 +5945,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ragged-red-and-cox-negative-fibre-pathology" data-dismech-node="Ragged-Red and COX-Negative Fibre Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Ragged-Red and COX-Negative Fibre Pathology</div>
 
+
                 <div class="item-desc">In respiratory-chain-deficient fibre segments, a retrograde signalling response drives compensatory mitochondrial biogenesis. The resulting subsarcolemmal and intermyofibrillar accumulation of structurally abnormal mitochondria produces the ragged-red fibre on modified Gomori trichrome and the COX-negative / SDH-hyperreactive fibre on sequential COX-SDH histochemistry. Fibre atrophy, increased fibre-size variability, and endomysial fibrosis accompany the change.
 </div>
 
@@ -6070,6 +6129,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-extraocular-and-levator-muscle-vulnerability" data-dismech-node="Selective Extraocular and Levator Muscle Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Extraocular and Levator Muscle Vulnerability</div>
 
+
                 <div class="item-desc">Extraocular muscles are the earliest and most severely affected tissue in all forms of PEO. They are tonically active with the fastest shortening velocities and highest firing rates of any skeletal muscle, they carry a mitochondrial content several-fold higher than limb muscle, and - critically - they show a lower mtDNA mutational threshold for COX deficiency together with a higher rate of somatic mtDNA deletion accumulation than limb muscle. The levator palpebrae superioris shares this vulnerability, which is why ptosis is typically the first sign. The reason this selective vulnerability exists is still only partly explained.
 </div>
 
@@ -6229,6 +6289,7 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-ptosis-and-external-ophthalmoplegia" data-dismech-node="Progressive Ptosis and External Ophthalmoplegia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Ptosis and External Ophthalmoplegia</div>
 
+
                 <div class="item-desc">The defining clinical expression of PEOB1: bilateral, usually symmetric, slowly progressive ptosis followed by restriction of horizontal and vertical gaze. Because the deficit is symmetric and evolves over years, diplopia is often absent or late, and patients may adopt a chin-up head posture and frontalis overaction rather than complain of eye-movement limitation.
 </div>
 
@@ -6335,6 +6396,7 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-myopathy-and-exercise-intolerance" data-dismech-node="Mitochondrial Myopathy and Exercise Intolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Myopathy and Exercise Intolerance</div>
+
 
                 <div class="item-desc">Beyond the eye, PEOB1 produces a generalised mitochondrial myopathy with proximal limb weakness, fatigability, exercise intolerance, and in some patients bulbar involvement with dysphagia. Myopathy is a consistent accompaniment of POLG-related PEO rather than an optional extra.
 </div>
@@ -6484,6 +6546,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurological-extension-of-the-polg-phenotype" data-dismech-node="Neurological Extension of the POLG Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurological Extension of the POLG Phenotype</div>
+
 
                 <div class="item-desc">Most patients with POLG-related recessive PEO develop a &#34;PEO-plus&#34; phenotype because the mtDNA maintenance defect is systemic. The commonest extensions are a length-dependent sensory ataxic axonal neuropathy (from dorsal root ganglion neuron loss), cerebellar and sensory ataxia, dysarthria and/or dysphagia, and sensorineural hearing loss. In a subset, epilepsy, migraine, myoclonus, parkinsonism, or hepatic involvement appear, blurring the boundary with the SANDO, MIRAS/ataxia-neuropathy and Alpers ends of the POLG spectrum.
 </div>
@@ -6688,6 +6751,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valproate-precipitated-hepatic-decompensation" data-dismech-node="Valproate-Precipitated Hepatic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Valproate-Precipitated Hepatic Decompensation</div>
+
 
                 <div class="item-desc">Exposure to valproic acid on a POLG-deficient background can precipitate or accelerate hepatotoxicity and fulminant liver failure. This is a gene-drug interaction rather than a spontaneous feature of PEOB1: valproate impairs hepatocyte proliferation and regeneration, which a liver already limited by defective mtDNA maintenance cannot compensate for. It is the single most important actionable contraindication in the POLG-related disorders and is most often encountered when valproate is chosen to treat POLG-related epilepsy before the genetic diagnosis is known.
 </div>
@@ -7200,6 +7264,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7265,6 +7332,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7344,6 +7414,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7441,6 +7514,9 @@ This clinical feature is Progressive external ophthalmoplegia (HP:0000590), qual
 
 
                     </div>
+
+
+
 
 
 
@@ -7557,6 +7633,9 @@ This clinical feature is Ptosis (HP:0000508), qualified as course progressive. H
                     </div>
 
 
+
+
+
                     <div class="item-desc">GeneReviews names ptosis only in its late-onset paragraph, which its Genetic Counseling section says may be caused by a heterozygous POLG variant (i.e. the dominant PEOA1). That paragraph is therefore not cited here; the ptosis claim rests on the biallelic, biochemically confirmed arPEO case instead.
 </div>
 
@@ -7637,6 +7716,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7725,6 +7807,9 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
                     </div>
+
+
+
 
 
 
@@ -7826,6 +7911,9 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7896,6 +7984,9 @@ This clinical feature is Cytochrome C oxidase-negative muscle fibers (HP:0003688
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7961,6 +8052,9 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8058,6 +8152,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
                     </div>
+
+
+
 
 
 
@@ -8177,6 +8274,9 @@ This clinical feature is Sensory ataxia (HP:0010871), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8265,6 +8365,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8335,6 +8438,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8400,6 +8506,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8484,6 +8593,9 @@ This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8558,6 +8670,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8677,6 +8792,9 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8787,6 +8905,12 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The most frequent recessive POLG allele in populations of European descent. It lies in the linker domain and acts through two distinct defects: the purified enzyme retains only ~4% of wild-type polymerase activity (a ~6-fold fall in kcat with essentially intact exonuclease function), and it fails entirely to bind and be stimulated by the POLG2 accessory subunit, so processivity collapses. It is carried by essentially all patients in the original Belgian recessive PEO cohort and occurs at a frequency of 0.6% in the Belgian population. Homozygotes span the entire POLG phenotypic continuum from Alpers-Huttenlocher to adult sensory ataxic neuropathy with ophthalmoparesis, so genotype alone does not predict presentation.
@@ -8904,6 +9028,12 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The second common recessive European founder allele, almost always carried in cis with p.Glu1143Gly. It is the commonest cause of mitochondrial recessive ataxia syndrome (MIRAS) and, in compound heterozygosity with p.A467T or a polymerase-domain variant, contributes to the recessive PEO/ataxia-neuropathy end of the spectrum. Haplotype analysis shows a single ancient European founder chromosome shared across Finland, Norway, the UK and Belgium; the carrier frequency reaches 1 in 125 in Finland.
 </div>
 
@@ -9019,6 +9149,12 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Trans-compound heterozygosity for the two common founder alleles is a recurrent recessive genotype. In a 26-patient series, compound heterozygotes had significantly shorter survival than homozygotes for either allele, raising the possibility of a dominant-negative interaction between the two mutant subunits rather than simple additive loss of function.
 </div>
 
@@ -9106,6 +9242,12 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A worked late-onset arPEO genotype illustrating the general recessive architecture: one allele carries a novel exonuclease-domain variant (c.590T&gt;C; p.F197S) with reduced exonuclease AND polymerase activity, while the other carries a catalytically inactive polymerase-domain null (c.2740A&gt;C; p.T914P). Residual activity is supplied entirely by the hypomorphic allele, and the resulting replication deficit produces the multiple large-scale mtDNA deletions found in the patient&#39;s muscle.
@@ -9256,6 +9398,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy for PEOB1. Management is supportive and multidisciplinary: occupational, physical and speech therapy for the myopathy, ataxia and dysarthria; nutritional and swallowing support; respiratory support where needed; and standard treatment of any epilepsy, movement, vision and hearing complications - subject to the valproate contraindication below.
 </div>
 
@@ -9346,6 +9494,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9356,6 +9507,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -9548,6 +9702,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9558,6 +9715,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -9711,6 +9871,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Liver enzymes should be monitored every three months or as clinically indicated, and liver function retested after introduction of any new anti-seizure medication - the surveillance counterpart of the valproate contraindication.
 </div>
 
@@ -9840,6 +10006,9 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9850,6 +10019,9 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
 
 
     </div>
+
+
+
 
 
 
@@ -10007,6 +10179,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12877,6 +13055,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: connect PEOB1 mechanisms to clinical findings</strong> · 2026-08-05T23:38:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Progressive_External_Ophthalmoplegia_1/2026-08-05T233849Z-codex-93f1f5.yaml">View source</a></p>
+                        <p class="research-review-text">Completed a publication-readiness review against the Claude Code and Falcon deep-research artifacts and the GeneReviews baseline. Added the structured POLG descriptor to the proximal polymerase-deficiency node; connected the mtDNA-deletion, respiratory-chain, muscle-pathology, ocular, myopathy, neurologic, and valproate-hepatotoxicity branches to their curated distal findings; added exercise intolerance as a disease-specific, PMID-backed phenotype; and added a POLG review citation supporting extension from extraocular to proximal/generalized myopathy. Schema, ontology-term, and reference validation passed with 98/98 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

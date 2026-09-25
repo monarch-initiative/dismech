@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ritscher-Schinzel%20Syndrome"
@@ -3984,7 +4037,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4496,6 +4549,7 @@ This subtype is caused by variation in CCDC93 (hgnc:25611). hgnc:25611 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-commander-wash-complex-deficiency" data-dismech-node="Commander/WASH complex deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Commander/WASH complex deficiency</div>
 
+
                 <div class="item-desc">Pathogenic variants in Commander and WASH complex genes (WASHC5, CCDC22, VPS35L, COMMD4, COMMD9, CCDC93) destabilize or disrupt assembly of the 16-subunit Commander assembly (Retriever: VPS35L/VPS26C/VPS29 plus the CCC complex: COMMD1-10 with CCDC22 and CCDC93) and the functionally coupled WASH complex. Most variants are loss-of-function or complex-destabilizing, reducing endosomal recycling capacity.</div>
 
 
@@ -4536,6 +4590,244 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WASHC5
+
+
+    <a href="https://bioregistry.io/hgnc:28984" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:28984</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WASHC5 (hgnc:28984). hgnc:28984 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CCDC22
+
+
+    <a href="https://bioregistry.io/hgnc:28909" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:28909</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCDC22 (hgnc:28909). hgnc:28909 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        VPS35L
+
+
+    <a href="https://bioregistry.io/hgnc:24641" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:24641</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS35L (hgnc:24641). hgnc:24641 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COMMD4
+
+
+    <a href="https://bioregistry.io/hgnc:26027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:26027</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COMMD4 (hgnc:26027). hgnc:26027 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COMMD9
+
+
+    <a href="https://bioregistry.io/hgnc:25014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:25014</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COMMD9 (hgnc:25014). hgnc:25014 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CCDC93
+
+
+    <a href="https://bioregistry.io/hgnc:25611" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:25611</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCDC93 (hgnc:25611). hgnc:25611 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4551,11 +4843,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0032456</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased endocytic recycling (GO:0032456). GO:0032456 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4669,6 +4961,7 @@ This pathophysiological event involves decreased endocytic recycling (GO:0032456
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-snx17-dependent-endosomal-recycling" data-dismech-node="Impaired SNX17-dependent endosomal recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SNX17-dependent endosomal recycling</div>
 
+
                 <div class="item-desc">Commander organizes the sorting nexin-17 (SNX17)-dependent recycling of hundreds of integral membrane proteins through the endosomal network. Commander dysfunction reduces cell-surface presentation of cargos bearing SNX17-recognized ΦxNPxY/F or ΦxNxxY/F sorting motifs, including integrins and lipoprotein receptors, in a tissue-specific manner.</div>
 
 
@@ -4683,11 +4976,11 @@ This pathophysiological event involves decreased endocytic recycling (GO:0032456
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4713,11 +5006,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002306</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4754,11 +5047,11 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0099638" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0099638</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0099638" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0099638</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased endosome to plasma membrane protein transport (GO:0099638). GO:0099638 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4788,11 +5081,11 @@ This pathophysiological event involves decreased endosome to plasma membrane pro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001881" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001881</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001881" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001881</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased receptor recycling (GO:0001881). GO:0001881 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4906,6 +5199,7 @@ This pathophysiological event involves decreased receptor recycling (GO:0001881)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cell-surface-receptor-density" data-dismech-node="Reduced cell-surface receptor density" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced cell-surface receptor density</div>
 
+
                 <div class="item-desc">Defective recycling lowers steady-state cell-surface levels of receptors and adhesion molecules. In VPS35L-associated RSS, ablation decreases surface LRP1 and LDLR, reducing LDL uptake and providing a mechanism for hypercholesterolemia. Reduced tissue-specific surface cargo presentation drives the multisystem (cerebellar, cardiac, craniofacial, renal, skeletal) developmental defects.</div>
 
 
@@ -4920,11 +5214,11 @@ This pathophysiological event involves decreased receptor recycling (GO:0001881)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4961,11 +5255,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006898</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased receptor-mediated endocytosis (GO:0006898). GO:0006898 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5085,6 +5379,7 @@ This pathophysiological event involves decreased receptor-mediated endocytosis (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-malformation" data-dismech-node="Multisystem developmental malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem developmental malformation</div>
 
+
                 <div class="item-desc">The convergent consequence of impaired Commander-dependent recycling is a congenital multiple-organ malformation syndrome affecting the cerebellum (Dandy-Walker malformation, vermis hypoplasia), heart (septal and atrioventricular canal defects, tetralogy of Fallot), craniofacial structures, kidney (proteinuria), liver, and skeleton, together with neurodevelopmental impairment.</div>
 
 
@@ -5099,11 +5394,11 @@ This pathophysiological event involves decreased receptor-mediated endocytosis (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5129,11 +5424,11 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5335,7 +5630,7 @@ This pathophysiological event involves migratory cranial neural crest cell (CL:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is among the recurrent congenital heart defects in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the cerebellar vermis is part of the posterior fossa anomaly spectrum in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched or cleft palate is a recurrent craniofacial feature in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Commander/WASH complex deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in Commander and WASH complex genes (WASHC5, CCDC22, VPS35L, COMMD4, COMMD9, CCDC93) destabilize or disrupt assembly of the 16-subunit Commander assembly (Retriever: VPS35L/VPS26C/VPS29 plus the CCC complex: COMMD1-10 with CCDC22 and CCDC93) and the functionally coupled WASH complex. Most variants are loss-of-function or complex-destabilizing, reducing endosomal recycling capacity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"endocytic recycling\"]}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cardiac malformations, including atrial and ventricular septal defects, atrioventricular canal defects, and tetralogy of Fallot, are the cardiac component of the 3C triad and are reported in the majority of cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Craniofacial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic craniofacial features include brachycephaly, hypotonic face with protruding tongue, short midface, widely spaced eyes, downslanted palpebral fissures, low-set ears, smooth or short philtrum, and high or cleft palate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dandy-Walker malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar malformation characteristic of the RSS triad, part of the spectrum of cerebellar/posterior fossa anomalies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001305\"}}, {\"id\": \"Downslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downslanted palpebral fissures are part of the characteristic facial gestalt of RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Eye anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular anomalies (including coloboma per Orphanet) may be variably present in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000478\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a near-universal feature; in a WASHC5-associated cohort it was reported in all assessed cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercholesterolemia may be variably present and is a confirmed complication of VPS35L-associated RSS, mechanistically linked to reduced surface lipoprotein receptors.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced eyes (hypertelorism) is a recurrent craniofacial feature of RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating immunoglobulin (hypogammaglobulinemia) is a novel complication confirmed in VPS35L-associated RSS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0004313\"}}, {\"id\": \"Impaired SNX17-dependent endosomal recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Commander organizes the sorting nexin-17 (SNX17)-dependent recycling of hundreds of integral membrane proteins through the endosomal network. Commander dysfunction reduces cell-surface presentation of cargos bearing SNX17-recognized \\u03a6xNPxY/F or \\u03a6xNxxY/F sorting motifs, including integrins and lipoprotein receptors, in a tissue-specific manner.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"epithelial cell of proximal tubule\"], \"biological_processes\": [\"endosome to plasma membrane protein transport\", \"receptor recycling\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RSS is associated with variable degrees of developmental delay and intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intestinal lymphangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal lymphangiectasia is a novel complication confirmed in VPS35L-associated RSS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0002593\"}}, {\"id\": \"Multisystem developmental malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent consequence of impaired Commander-dependent recycling is a congenital multiple-organ malformation syndrome affecting the cerebellum (Dandy-Walker malformation, vermis hypoplasia), heart (septal and atrioventricular canal defects, tetralogy of Fallot), craniofacial structures, kidney (proteinuria), liver, and skeleton, together with neurodevelopmental impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\", \"migratory cranial neural crest cell\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity is a recognized manifestation of RSS addressed in clinical management per GeneReviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001513\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a recognized manifestation of RSS addressed in clinical management per GeneReviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria reflects renal involvement in RSS and is recapitulated in mouse models of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Reduced cell-surface receptor density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective recycling lowers steady-state cell-surface levels of receptors and adhesion molecules. In VPS35L-associated RSS, ablation decreases surface LRP1 and LDLR, reducing LDL uptake and providing a mechanism for hypercholesterolemia. Reduced tissue-specific surface cargo presentation drives the multisystem (cerebellar, cardiac, craniofacial, renal, skeletal) developmental defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}], \"edges\": [{\"source\": \"Commander/WASH complex deficiency\", \"target\": \"Impaired SNX17-dependent endosomal recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disruption of Commander assembly impairs the SNX17-dependent retrieval and recycling of integral membrane cargo proteins from endosomes to the cell surface.\"}, {\"source\": \"Impaired SNX17-dependent endosomal recycling\", \"target\": \"Reduced cell-surface receptor density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired recycling reduces tissue-specific presentation of cell-surface integral membrane proteins essential for kidney, bone, and brain development, and reduces surface lipoprotein receptors.\"}, {\"source\": \"Reduced cell-surface receptor density\", \"target\": \"Multisystem developmental malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue-specific loss of surface cargo during organogenesis produces cerebellar, cardiac, craniofacial, renal, and skeletal malformations.\"}, {\"source\": \"Reduced cell-surface receptor density\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Dandy-Walker malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Craniofacial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Downslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Intestinal lymphangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Eye anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is among the recurrent congenital heart defects in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"CCDC22\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC22\"], \"gene_terms\": [{\"label\": \"CCDC22\", \"id\": \"hgnc:28909\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"CCDC93\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC93\"], \"gene_terms\": [{\"label\": \"CCDC93\", \"id\": \"hgnc:25611\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"COMMD4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COMMD4\"], \"gene_terms\": [{\"label\": \"COMMD4\", \"id\": \"hgnc:26027\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"COMMD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COMMD9\"], \"gene_terms\": [{\"label\": \"COMMD9\", \"id\": \"hgnc:25014\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the cerebellar vermis is part of the posterior fossa anomaly spectrum in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched or cleft palate is a recurrent craniofacial feature in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Commander/WASH complex deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in Commander and WASH complex genes (WASHC5, CCDC22, VPS35L, COMMD4, COMMD9, CCDC93) destabilize or disrupt assembly of the 16-subunit Commander assembly (Retriever: VPS35L/VPS26C/VPS29 plus the CCC complex: COMMD1-10 with CCDC22 and CCDC93) and the functionally coupled WASH complex. Most variants are loss-of-function or complex-destabilizing, reducing endosomal recycling capacity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"endocytic recycling\"], \"genes\": [\"WASHC5\", \"CCDC22\", \"VPS35L\", \"COMMD4\", \"COMMD9\", \"CCDC93\"], \"gene_terms\": [{\"label\": \"WASHC5\", \"id\": \"hgnc:28984\"}, {\"label\": \"CCDC22\", \"id\": \"hgnc:28909\"}, {\"label\": \"VPS35L\", \"id\": \"hgnc:24641\"}, {\"label\": \"COMMD4\", \"id\": \"hgnc:26027\"}, {\"label\": \"COMMD9\", \"id\": \"hgnc:25014\"}, {\"label\": \"CCDC93\", \"id\": \"hgnc:25611\"}]}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cardiac malformations, including atrial and ventricular septal defects, atrioventricular canal defects, and tetralogy of Fallot, are the cardiac component of the 3C triad and are reported in the majority of cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Craniofacial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic craniofacial features include brachycephaly, hypotonic face with protruding tongue, short midface, widely spaced eyes, downslanted palpebral fissures, low-set ears, smooth or short philtrum, and high or cleft palate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dandy-Walker malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar malformation characteristic of the RSS triad, part of the spectrum of cerebellar/posterior fossa anomalies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001305\"}}, {\"id\": \"Downslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downslanted palpebral fissures are part of the characteristic facial gestalt of RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Eye anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular anomalies (including coloboma per Orphanet) may be variably present in RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000478\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a near-universal feature; in a WASHC5-associated cohort it was reported in all assessed cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercholesterolemia may be variably present and is a confirmed complication of VPS35L-associated RSS, mechanistically linked to reduced surface lipoprotein receptors.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced eyes (hypertelorism) is a recurrent craniofacial feature of RSS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating immunoglobulin (hypogammaglobulinemia) is a novel complication confirmed in VPS35L-associated RSS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0004313\"}}, {\"id\": \"Impaired SNX17-dependent endosomal recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Commander organizes the sorting nexin-17 (SNX17)-dependent recycling of hundreds of integral membrane proteins through the endosomal network. Commander dysfunction reduces cell-surface presentation of cargos bearing SNX17-recognized \\u03a6xNPxY/F or \\u03a6xNxxY/F sorting motifs, including integrins and lipoprotein receptors, in a tissue-specific manner.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"epithelial cell of proximal tubule\"], \"biological_processes\": [\"endosome to plasma membrane protein transport\", \"receptor recycling\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RSS is associated with variable degrees of developmental delay and intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intestinal lymphangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal lymphangiectasia is a novel complication confirmed in VPS35L-associated RSS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RSS3\"], \"term_id\": \"HP:0002593\"}}, {\"id\": \"Multisystem developmental malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent consequence of impaired Commander-dependent recycling is a congenital multiple-organ malformation syndrome affecting the cerebellum (Dandy-Walker malformation, vermis hypoplasia), heart (septal and atrioventricular canal defects, tetralogy of Fallot), craniofacial structures, kidney (proteinuria), liver, and skeleton, together with neurodevelopmental impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\", \"migratory cranial neural crest cell\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity is a recognized manifestation of RSS addressed in clinical management per GeneReviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001513\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a recognized manifestation of RSS addressed in clinical management per GeneReviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria reflects renal involvement in RSS and is recapitulated in mouse models of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Reduced cell-surface receptor density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective recycling lowers steady-state cell-surface levels of receptors and adhesion molecules. In VPS35L-associated RSS, ablation decreases surface LRP1 and LDLR, reducing LDL uptake and providing a mechanism for hypercholesterolemia. Reduced tissue-specific surface cargo presentation drives the multisystem (cerebellar, cardiac, craniofacial, renal, skeletal) developmental defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}, {\"id\": \"VPS35L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VPS35L\"], \"gene_terms\": [{\"label\": \"VPS35L\", \"id\": \"hgnc:24641\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"WASHC5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WASHC5\"], \"gene_terms\": [{\"label\": \"WASHC5\", \"id\": \"hgnc:28984\"}], \"association\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Commander/WASH complex deficiency\", \"target\": \"Impaired SNX17-dependent endosomal recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disruption of Commander assembly impairs the SNX17-dependent retrieval and recycling of integral membrane cargo proteins from endosomes to the cell surface.\"}, {\"source\": \"Impaired SNX17-dependent endosomal recycling\", \"target\": \"Reduced cell-surface receptor density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired recycling reduces tissue-specific presentation of cell-surface integral membrane proteins essential for kidney, bone, and brain development, and reduces surface lipoprotein receptors.\"}, {\"source\": \"Reduced cell-surface receptor density\", \"target\": \"Multisystem developmental malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue-specific loss of surface cargo during organogenesis produces cerebellar, cardiac, craniofacial, renal, and skeletal malformations.\"}, {\"source\": \"Reduced cell-surface receptor density\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Dandy-Walker malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Craniofacial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Downslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Intestinal lymphangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Eye anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem developmental malformation\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WASHC5\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC22\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VPS35L\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COMMD4\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COMMD9\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC93\", \"target\": \"Commander/WASH complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5397,15 +5692,18 @@ This pathophysiological event involves migratory cranial neural crest cell (CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004313</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5479,15 +5777,18 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5548,15 +5849,18 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5617,15 +5921,18 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002593</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5695,15 +6002,18 @@ This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5766,15 +6076,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000478</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000478</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eye anomalies, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5844,15 +6157,18 @@ This clinical feature is Eye anomalies, annotated with Abnormality of the eye (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5922,15 +6238,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001305</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5993,15 +6312,18 @@ This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6062,15 +6384,18 @@ This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000494</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000494</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6131,15 +6456,18 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6209,15 +6537,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003124</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003124</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6287,15 +6618,18 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6356,15 +6690,18 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6425,15 +6762,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6494,15 +6834,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002870</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002870</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6572,15 +6915,18 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6684,10 +7030,10 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                         Gene: WASHC5
 
 
-    <a href="https://bioregistry.io/hgnc:28984" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:28984</a>
+    <a href="https://bioregistry.io/hgnc:28984" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:28984</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is WASHC5 (hgnc:28984). hgnc:28984 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6695,6 +7041,9 @@ This disease-associated gene is WASHC5 (hgnc:28984). hgnc:28984 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6762,10 +7111,10 @@ This disease-associated gene is WASHC5 (hgnc:28984). hgnc:28984 is a gene from t
                         Gene: CCDC22
 
 
-    <a href="https://bioregistry.io/hgnc:28909" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:28909</a>
+    <a href="https://bioregistry.io/hgnc:28909" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:28909</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CCDC22 (hgnc:28909). hgnc:28909 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6773,6 +7122,9 @@ This disease-associated gene is CCDC22 (hgnc:28909). hgnc:28909 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6840,10 +7192,10 @@ This disease-associated gene is CCDC22 (hgnc:28909). hgnc:28909 is a gene from t
                         Gene: VPS35L
 
 
-    <a href="https://bioregistry.io/hgnc:24641" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:24641</a>
+    <a href="https://bioregistry.io/hgnc:24641" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:24641</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is VPS35L (hgnc:24641). hgnc:24641 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6851,6 +7203,9 @@ This disease-associated gene is VPS35L (hgnc:24641). hgnc:24641 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6918,10 +7273,10 @@ This disease-associated gene is VPS35L (hgnc:24641). hgnc:24641 is a gene from t
                         Gene: COMMD4
 
 
-    <a href="https://bioregistry.io/hgnc:26027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:26027</a>
+    <a href="https://bioregistry.io/hgnc:26027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:26027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COMMD4 (hgnc:26027). hgnc:26027 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6929,6 +7284,9 @@ This disease-associated gene is COMMD4 (hgnc:26027). hgnc:26027 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6996,10 +7354,10 @@ This disease-associated gene is COMMD4 (hgnc:26027). hgnc:26027 is a gene from t
                         Gene: COMMD9
 
 
-    <a href="https://bioregistry.io/hgnc:25014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:25014</a>
+    <a href="https://bioregistry.io/hgnc:25014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:25014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COMMD9 (hgnc:25014). hgnc:25014 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7007,6 +7365,9 @@ This disease-associated gene is COMMD9 (hgnc:25014). hgnc:25014 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7074,10 +7435,10 @@ This disease-associated gene is COMMD9 (hgnc:25014). hgnc:25014 is a gene from t
                         Gene: CCDC93
 
 
-    <a href="https://bioregistry.io/hgnc:25611" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:25611</a>
+    <a href="https://bioregistry.io/hgnc:25611" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:25611</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CCDC93 (hgnc:25611). hgnc:25611 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7085,6 +7446,9 @@ This disease-associated gene is CCDC93 (hgnc:25611). hgnc:25611 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7160,7 +7524,7 @@ This disease-associated gene is CCDC93 (hgnc:25611). hgnc:25611 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7188,6 +7552,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7254,7 +7624,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7290,6 +7660,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7300,6 +7673,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7359,7 +7735,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunoglobulin replacement therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7387,6 +7763,12 @@ This treatment is immunoglobulin replacement therapy, annotated with Pharmacothe
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7453,7 +7835,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Pharmacothe
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7480,6 +7862,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7804,6 +8192,31 @@ pathophysiology:
     complex: COMMD1-10 with CCDC22 and CCDC93) and the functionally coupled WASH
     complex. Most variants are loss-of-function or complex-destabilizing,
     reducing endosomal recycling capacity.
+  genes:
+  - preferred_term: WASHC5
+    term:
+      id: hgnc:28984
+      label: WASHC5
+  - preferred_term: CCDC22
+    term:
+      id: hgnc:28909
+      label: CCDC22
+  - preferred_term: VPS35L
+    term:
+      id: hgnc:24641
+      label: VPS35L
+  - preferred_term: COMMD4
+    term:
+      id: hgnc:26027
+      label: COMMD4
+  - preferred_term: COMMD9
+    term:
+      id: hgnc:25014
+      label: COMMD9
+  - preferred_term: CCDC93
+    term:
+      id: hgnc:25611
+      label: CCDC93
   cell_types:
   - preferred_term: neuron
     term:
@@ -8739,6 +9152,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9251,7 +9666,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ritscher-Schinzel Syndrome", "mondoId": "MONDO:0019078", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ritscher-Schinzel_Syndrome", "yamlRevision": "a85571c646f8"};
+        const OS_CONFIG = {"diseaseName": "Ritscher-Schinzel Syndrome", "mondoId": "MONDO:0019078", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ritscher-Schinzel_Syndrome", "yamlRevision": "8ea52ce763e1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

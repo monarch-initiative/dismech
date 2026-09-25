@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5162,6 +5215,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-garp-loss-of-function" data-dismech-node="GARP Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GARP Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic LRRC32 variants remove or destabilise GARP, a type I transmembrane leucine-rich-repeat protein whose large ectodomain docks latent TGF-beta at the cell surface. The discovery families carry a homozygous stop-gain, p.(Arg544Ter), which truncates the protein before the transmembrane domain; the fourth patient carries a homozygous missense substitution, p.Ile327Thr, predicted on the GARP:latent-TGF-beta1 crystal structure to destabilise the leucine-rich-repeat solenoid. Neither allele has been shown biochemically to abolish GARP function, so loss of function is inferred from genotype, structure, and phenotype rather than demonstrated directly.</div>
 
 
@@ -5257,6 +5311,8 @@ This genetic context concerns LRRC32 (hgnc:4161). hgnc:4161 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5269,6 +5325,9 @@ This genetic context concerns LRRC32 (hgnc:4161). hgnc:4161 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline LRRC32 alleles: the nonsense p.(Arg544Ter) in the discovery families and the missense p.Ile327Thr in the fourth patient.</div>
 
@@ -5404,6 +5463,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-latent-tgf-beta-tethering-at-the-cell-surface" data-dismech-node="Failure of Latent TGF-beta Tethering at the Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Latent TGF-beta Tethering at the Cell Surface</div>
+
 
                 <div class="item-desc">GARP binds the latency-associated peptide of pro-TGF-beta through intermolecular disulphide bonds and holds the resulting latent complex on the plasma membrane. Without GARP the latent complex is not presented at the cell surface. This step was worked out in regulatory T cells and platelets; the same requirement was later shown for membrane-associated latent TGF-beta3 in the palatal epithelium.</div>
 
@@ -5582,6 +5642,7 @@ This pathophysiological event involves decreased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-local-activation-of-tgf-beta" data-dismech-node="Deficient Local Activation of TGF-beta" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Local Activation of TGF-beta</div>
 
+
                 <div class="item-desc">With latent TGF-beta no longer presented at the cell surface, the integrin alphaVbeta6/alphaVbeta8-dependent release of active cytokine cannot proceed where GARP-expressing cells would normally supply it. The defect is in local, cell-contact-dependent availability of active TGF-beta rather than in synthesis of the cytokine or in the receptor-SMAD machinery itself.</div>
 
 
@@ -5736,6 +5797,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-smad2-phosphorylation-in-palatal-medial-edge-epithelium" data-dismech-node="Reduced SMAD2 Phosphorylation in Palatal Medial Edge Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SMAD2 Phosphorylation in Palatal Medial Edge Epithelium</div>
+
 
                 <div class="item-desc">Fusion of the secondary palate requires TGF-beta3 signalling in the medial edge epithelium, whose cells normally undergo programmed cell death and epithelial-mesenchymal transformation to remove the midline epithelial seam. In GARP-null mouse embryos both SMAD2 phosphorylation and apoptosis in this cell population are reduced at embryonic day 14.5. This node is characterised entirely in the mouse; no human palatal tissue has been examined.</div>
 
@@ -5939,6 +6001,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-palatal-shelf-fusion" data-dismech-node="Failure of Palatal Shelf Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Palatal Shelf Fusion</div>
 
+
                 <div class="item-desc">The secondary palatal shelves grow out from the maxillary prominences, elevate above the tongue, appose at the midline, and fuse. Loss of the TGF-beta signal in the medial edge epithelium leaves the midline seam intact and the shelves unfused, producing an isolated cleft of the secondary palate without cleft lip.</div>
 
 
@@ -6097,6 +6160,7 @@ This pathophysiological event involves decreased secondary palate development (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-vitreoretinal-development" data-dismech-node="Disordered Vitreoretinal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Vitreoretinal Development</div>
+
 
                 <div class="item-desc">TGF-beta isoforms are expressed in the developing retina and are required for normal retinal morphogenesis; combined Tgfb2/Tgfb3 deficiency in mice produces gross retinal, lens, and corneal abnormality with retinal detachment. In CPPRDD the ocular disease is a progressive, childhood-onset vitreoretinopathy with a persistent hyaloid remnant, straightened retinal vessels, a thickened vitreous adherent to the peripheral retina, and traction with secondary retinal tears. How deficient GARP-dependent TGF-beta activation produces this specific vitreoretinal picture is not established.</div>
 
@@ -6281,6 +6345,7 @@ This pathophysiological event involves decreased retina development in camera-ty
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-central-nervous-system-development" data-dismech-node="Impaired Central Nervous System Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Central Nervous System Development</div>
+
 
                 <div class="item-desc">Developmental delay is present in every published patient, and brain imaging in the discovery series showed ventriculomegaly and corpus callosum abnormalities. No GARP-dependent step in brain development has been identified, in mouse or in human tissue; the Garp-null mouse dies within a day of birth and no neurodevelopmental phenotype has been reported in it.</div>
 
@@ -6488,6 +6553,9 @@ This clinical feature is Straightened retinal vessels, annotated with Abnormal r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6566,6 +6634,9 @@ This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6639,6 +6710,9 @@ This clinical feature is Progressive proliferative vitreoretinopathy, annotated 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6745,6 +6819,9 @@ This clinical feature is Secondary retinal tear from vitreoretinal traction, ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6809,6 +6886,9 @@ This clinical feature is Bergmeister papilla, annotated with Vascular remnant ar
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6887,6 +6967,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6986,6 +7069,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7050,6 +7136,9 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7124,6 +7213,9 @@ This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7193,6 +7285,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7257,6 +7352,9 @@ This clinical feature is High protruding nasal bridge, annotated with Prominent 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7335,6 +7433,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7434,6 +7535,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7498,6 +7602,9 @@ This clinical feature is Corpus callosum abnormality, annotated with Abnormal co
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7581,6 +7688,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7645,6 +7755,9 @@ This clinical feature is Severe failure to thrive, annotated with Failure to thr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7788,6 +7901,9 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7887,6 +8003,12 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous stop-gain in LRRC32 identified in two families in the discovery series.</div>
 
 
@@ -7909,6 +8031,12 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
         c.980T&gt;C p.Ile327Thr
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense in LRRC32 in the fourth patient, substituting a conserved isoleucine between leucine-rich repeats R11 and R12; classified a variant of uncertain significance.</div>
@@ -7994,6 +8122,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8004,6 +8135,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
     </div>
+
+
+
 
 
 
@@ -8123,6 +8257,9 @@ This treatment is argon laser photocoagulation, annotated with Laser Photocoagul
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8133,6 +8270,9 @@ This treatment is argon laser photocoagulation, annotated with Laser Photocoagul
 
 
     </div>
+
+
+
 
 
 
@@ -8300,6 +8440,12 @@ This treatment is fundus examination and optical coherence tomography, annotated
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Repeated fundus examination and optical coherence tomography. The one patient followed in detail developed a new peripheral vitreoretinal traction within a year of his first laser treatment, which is the observation that motivates surveillance rather than one-off assessment. No screening interval has been established for this syndrome.</div>
 
 
@@ -8391,6 +8537,9 @@ This treatment is developmental rehabilitation, annotated with Rehabilitation (N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8401,6 +8550,9 @@ This treatment is developmental rehabilitation, annotated with Rehabilitation (N
 
 
     </div>
+
+
+
 
 
 
@@ -8476,6 +8628,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11634,6 +11792,27 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">SCOPE AND CONFOUNDING. The fourth published patient carries two recessive diseases: alongside the LRRC32 genotype he is homozygous for SLC22A5 p.Glu452Lys and has primary carnitine deficiency, which the authors identify as the cause of his severe dilated cardiomyopathy and which responded to carnitine supplementation. Cardiomyopathy is therefore deliberately not curated as a phenotype of this syndrome. The same patient was born at 34 weeks with grade I intraventricular haemorrhage and necrotising enterocolitis, so his reduced cerebral white matter volume is confounded by the documented perinatal haemorrhage and is likewise left out of the phenotype list; the ventriculomegaly and corpus callosum abnormalities attributed to the earlier patients are curated instead.
+NO MODULE CONFORMANCE. Three candidate modules were checked and rejected. norrin_fzd4_retinal_vascular_development scopes itself to lesions in the Norrin-FZD4 system and explicitly excludes retinal neovascularization reached by other routes. aortopathy_tgfbeta_dysregulation models increased TGF-beta signalling in the aortic media, the opposite direction of change in a different organ. pharyngeal_arch_patterning_serial_homology models cleft palate arising from cranial neural crest and arch patterning, whereas the lesion here is a failure of TGF-beta signalling in the medial edge epithelium at the fusion step. A GARP/latent-TGF-beta-presentation module would be the natural home if the handful of diseases in that class ever justifies one.
+EVIDENCE LIMITS. There is no GeneReviews chapter for this disease (a PubMed search for one returned no result), no Orphanet record in the local structured cache, and no ClinGen gene-disease validity assertion found for LRRC32. Every claim about the syndrome itself traces to two primary reports and their accompanying commentary. Mechanistic evidence for the GARP-latent-TGF-beta step comes from regulatory T cell and platelet cell biology and is graded IN_VITRO accordingly; LRRC32/GARP has a large tumour-immunology and regulatory T cell literature that concerns the same protein but not this disease, and none of it is cited here as human disease evidence. The deep-research report for this entry additionally supplied gnomAD v4 constraint metrics and allele frequencies for LRRC32 and for p.(Arg544Ter). Those are not curated here: the numbers were not independently checked against gnomAD, and this repository has no reference-cache path for a gnomAD record, so citing them would have meant asserting them without a verifiable source.
+MANAGEMENT NOT SEPARATELY CURATED. Speech therapy and feeding support are standard care after palatoplasty and are listed in the deep-research report&#39;s management table, but nothing in the four-patient literature evaluates them in this syndrome specifically, and a snippet supporting them would have to come from generic cleft palate care rather than from a source about these patients. They are recorded here rather than entered as treatments with borrowed evidence. The ocular course is described as progressive - new vitreoretinal traction appeared a year after the first laser treatment in the 2022 patient - but with one patient followed over one interval there is nothing to phase, so no progression: block is modelled; the progression is stated in the Diagnostic Ophthalmologic Evaluation and Serial Ophthalmologic Surveillance records instead.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Cleft_Palate_Proliferative_Retinopathy_And_Developmental_Delay</strong> · 2026-09-07T17:23:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cleft_Palate_Proliferative_Retinopathy_And_Developmental_Delay/2026-09-07T172322Z-claude-code-fd11c4.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for cleft palate, proliferative retinopathy, and developmental delay (CPPRDD, MONDO:0033641, OMIM:619074), an ultra-rare autosomal recessive LRRC32/GARP syndrome. LUMP/SPLIT: DISEASE. The stub recorded one causal gene and no MONDO descendants; OLS confirmed MONDO:0033641 is a leaf with an equivalentTo OMIM:619074 xref and the CPPRDD synonym, so it is a single Mendelian entity, not a grouping. DEEP RESEARCH: falcon was requested but the Edison account returned HTTP 402 (out of credits) on two attempts; the run was re-launched with --fallback and openscientist produced the report (research/Cleft_Palate_Proliferative_Retinopathy_And_Developmental_Delay-deep-research-openscientist.md, fell_back: true, requested_provider: falcon). Report reference_validation 8/8 verified, confabulation_rate 0.0, needs_review true solely because PMID:35898500 (a GARP/Treg immuno-oncology review) was flagged off topic; nothing under unresolved_references. term_validation 20/22 resolved with 2 mislabelled (HP:0000175 and HP:0001999 named generically), 2 unverifiable Taxon prefixes; no CURIE was copied from the report - every ontology binding here was looked up independently through OLS. just preflight-dr returned WARN because SMAD2 is mentioned at 41 percent of LRRC32&#39;s rate; SMAD2 is the downstream effector in the curated mechanism, not a second disease, and the report&#39;s OMIM and gene identity match MONDO, so the WARN was resolved rather than acted on. NAMED ENTITY CONFUSION: LRRC32/GARP carries a large regulatory T cell and tumour-immunology literature that is about the same protein and not about this disease. The three Treg/cancer papers the report cited (PMID:35898500, PMID:36928178, PMID:39288764) and the two acquired-PVR RPE EMT papers (PMID:40466854, PMID:42285191) are deliberately not cited in the entry. The Treg cell-biology work that IS cited (PMID:19651619 Tran 2009, PMID:30361387 Lienart 2018) is graded IN_VITRO and used only for the GARP-latent-TGF-beta tethering and integrin-activation steps, never as human disease evidence. CONTENT: a seven-node causal chain - GARP loss of function, failure of latent TGF-beta tethering at the cell surface, deficient local TGF-beta activation, then three arms (reduced SMAD2 phosphorylation in palatal medial edge epithelium to failure of palatal shelf fusion to cleft palate; disordered vitreoretinal development to vitreoretinopathy; impaired CNS development to global developmental delay). The palatal arm is DIRECT and mouse-demonstrated; the retinal and CNS arms are INDIRECT_UNKNOWN_INTERMEDIATES because the sources themselves hedge. 16 phenotypes with HP bindings, genetic block with both published alleles and genetic_context LOSS_OF_FUNCTION/HOMOZYGOUS/GERMLINE, structured prevalence (CASES_IN_LITERATURE, ULTRA_RARE, four published patients), five treatments (palatoplasty, argon laser photocoagulation, serial ophthalmologic surveillance, developmental support, genetic counselling), three differential diagnoses (Stickler syndrome, familial exudative vitreoretinopathy, retinopathy of prematurity), and four discussions. ANIMAL MODEL: the Garp knockout mouse (PMID:28912269) with three modeled_mechanisms - RECAPITULATES the palatal signalling node (two readouts) and the fusion failure, and FAILS_TO_RECAPITULATE disordered vitreoretinal development, with limitations recording that 24-hour neonatal lethality censors the observation. That negative is paired with a HUMAN_MODEL_MISMATCH discussion that also records the reverse half of the mismatch - the mouse null dies and the patients do not. SCOPE DECISIONS. Cardiomyopathy is NOT curated: the fourth patient&#39;s dilated cardiomyopathy is attributed by the authors to a second recessive disease, primary carnitine deficiency from homozygous SLC22A5 p.Glu452Lys, and it responded to carnitine. His reduced cerebral white matter volume is likewise excluded as confounded by a documented grade I intraventricular haemorrhage of prematurity. No conforms_to: norrin_fzd4_retinal_vascular_development scopes itself to Norrin-FZD4 lesions, aortopathy_tgfbeta_dysregulation models INCREASED aortic TGF-beta, and pharyngeal_arch_patterning_serial_homology models a neural-crest arch-patterning cleft rather than a medial-edge-epithelium fusion failure; all three rejections are recorded in notes. gnomAD constraint metrics supplied by the report are deliberately not curated - they were not independently checked and this repository has no reference-cache path for a gnomAD record. No GeneReviews chapter exists for this disease (PubMed search returned nothing); the Stickler syndrome GeneReviews chapter PMID:20301479 is cited for the differential only and is not tagged as this entry&#39;s GeneReviews baseline. No Orphanet record and no ClinGen validity assertion for LRRC32 were found in the local structured cache. VALIDATION: just validate passed (schema, terms, references); just validate-disorders (the batched --no-full-text sweep CI runs) passed with 70/70 snippets verified; check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values all OK on the file; whole-KB check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence and check-reference-titles all OK; normalize-cache, check-term-cache-integrity and check-cache-order clean. Weighted compliance 90.6 percent. Every references_cache file was produced by just fetch-reference; none was hand-written.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

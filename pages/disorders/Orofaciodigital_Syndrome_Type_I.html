@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4332,6 +4385,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-cilia-dysfunction" data-dismech-node="Primary Cilia Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Primary Cilia Dysfunction</div>
 
+
                 <div class="item-desc">OFD1 encodes a centrosomal and basal body protein required for primary cilium formation. OFD1 is involved in centriole distal appendage assembly and ciliogenesis. Loss of function disrupts Hedgehog and WNT signaling pathways dependent on primary cilia, leading to defects in craniofacial, limb, brain, and kidney development.
 </div>
 
@@ -4684,6 +4738,7 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-cystogenesis" data-dismech-node="Renal Cystogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Cystogenesis</div>
 
+
                 <div class="item-desc">Disruption of primary cilia function in renal tubular epithelium leads to polycystic kidney disease, similar to other ciliopathies. Renal involvement is progressive and may lead to renal failure.
 </div>
 
@@ -4929,6 +4984,9 @@ This clinical feature is Tongue hamartoma, annotated with Hamartoma of tongue (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5002,6 +5060,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5082,6 +5143,9 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5209,6 +5273,9 @@ This clinical feature is Lobulated tongue (HP:0000180). HP:0000180 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5301,6 +5368,9 @@ This clinical feature is Accessory oral frenulum (HP:0000191). HP:0000191 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5368,6 +5438,9 @@ This clinical feature is Median cleft upper lip (HP:0000161). HP:0000161 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5430,6 +5503,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5504,6 +5580,9 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5568,6 +5647,9 @@ This clinical feature is Hypoplasia of the alae nasi, annotated with Underdevelo
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5642,6 +5724,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5706,6 +5791,9 @@ This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5784,6 +5872,9 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5879,6 +5970,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5943,6 +6037,9 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6019,6 +6116,9 @@ This clinical feature is Clinodactyly of the fifth finger, annotated with Clinod
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6085,6 +6185,9 @@ This clinical feature is Duplicated great toe, annotated with Duplication of pha
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6163,6 +6266,9 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6258,6 +6364,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6348,6 +6457,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6417,6 +6529,9 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6481,6 +6596,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6573,6 +6691,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
 
                 </div>
+
+
+
 
 
 
@@ -6693,6 +6814,9 @@ This disease-associated gene is OFD1 (hgnc:2567). hgnc:2567 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6848,6 +6972,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6858,6 +6985,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6946,6 +7076,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7079,6 +7215,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Early intervention, individualized education plans, and behavioral assessment for intellectual disability, developmental delay, and autistic/ADHD features.
 </div>
 
@@ -7125,6 +7267,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8473,6 +8621,64 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Orofaciodigital Syndrome Type I (Changes required)</strong> · 2026-05-30T02:48:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Orofaciodigital_Syndrome_Type_I/2026-05-30T024839Z-github-review-3394.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3394
+Issue state: OPEN
+Issue created: 2026-05-30T02:48:39Z
+Issue updated: 2026-05-30T02:51:03Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Orofaciodigital Syndrome Type I**
+- Entry: `kb/disorders/Orofaciodigital_Syndrome_Type_I.yaml`
+- Selection basis: #7 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **GeneReviews is available but not represented as a tagged baseline.** GeneReviews has a current OFD1 article and describes OFD1 as usually male-lethal, predominantly affecting females, with oral, facial, digital, renal, brain MRI, and intellectual-disability manifestations. The current YAML has no tagged GeneReviews reference and should use it as the clinical baseline. Source: https://www.ncbi.nlm.nih.gov/books/NBK1188/
+2. **The X-linked inheritance model needs male-lethality/sex-specific nuance.** The YAML has `X-linked Dominant`, but the entry should state that most affected individuals are female, affected males are uncommon/usually fetal or exceptional, and recurrence counseling depends on whether the variant is inherited from an affected female or de novo.
+3. **Phenotype coverage misses several baseline features.** The entry captures lobulated tongue, accessory frenula, median cleft upper lip, polydactyly, polycystic kidneys, corpus-callosum agenesis, and intellectual disability. GeneReviews also emphasizes tongue nodules, cleft hard/soft palate, hypodontia/other dental anomalies, hypertelorism/telecanthus/alar hypoplasia/micrognathia, brachydactyly/syndactyly/clinodactyly/duplicated hallux, milia, intracerebral cysts, cerebellar agenesis/Dandy-Walker malformation, and renal disease that may present later.
+4. **Renal surveillance is under-modeled.** `Renal Management` is present, but a clinical review should add surveillance for polycystic kidney disease / renal function over time. In OFD1, renal disease may be recognized later than the craniofacial/digital anomalies.
+5. **Mechanism is too narrow for the research artifacts.** The YAML has primary cilia dysfunction and renal cystogenesis. The research artifacts also support centrosome/centriolar satellite biology, OFD1 roles in ciliogenesis, actin/Arp2/3 and basal-body organization, and tissue-specific consequences for brain, kidney, oral-facial, and digital development.
+
+## Research-artifact cross-check
+
+Checked `research/Orofaciodigital_Syndrome_Type_I-deep-research-falcon.md`, `.citations.md`, `research/Orofaciodigital_Syndrome_Type_I-deep-research-cyberian-codex.md`, and `.citations.md`. The YAML consumes the high-level ciliopathy model but under-consumes the clinical GeneReviews baseline and the broader OFD1 centrosome/ciliogenesis/actin biology surfaced in research.
+
+## Content-completeness summary
+
+- **Phenotypes:** gaps noted for oral/dental, facial, digital, brain MRI, skin/milia, and later renal disease.
+- **Subtype/lumping:** appropriate as OFD1/OFD syndrome type I, but the X-linked male-lethal boundary should be explicit.
+- **Pathophysiology:** needs more atomic OFD1 centrosome/cilium/basal-body mechanisms.
+- **Management/diagnosis:** add renal, neurologic, dental/oral, and molecular diagnostic/surveillance content.
+- **References:** add/tag GeneReviews if the YAML is updated.
+
+## Suggested remediation
+
+Fetch/tag GeneReviews through the normal reference workflow, expand sex-specific inheritance and clinical features, add renal/brain/oral-dental surveillance, and refine pathophysiology beyond generic primary-cilia dysfunction.
+
+## Sources used
+
+- GeneReviews, Oral-Facial-Digital Syndrome Type I: https://www.ncbi.nlm.nih.gov/books/NBK1188/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

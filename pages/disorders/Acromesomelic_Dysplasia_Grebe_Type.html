@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4314,6 +4367,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                GDF5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4220</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">The severe classical form, with marked micromelia and a proximodistal severity gradient in which the distal parts are the most affected. It carries no `subtype_term` deliberately: this entry&#39;s own `disease_term` is MONDO:0008703, the Grebe concept, so binding the same class again here would make the disease a subtype of itself and duplicate the identifier on export. The subtype is listed as a named clinical presentation so that it and Hunter-Thompson can be referred to symmetrically.</div>
@@ -4324,9 +4396,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26275437" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26275437" target="_blank">PMID:26275437</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Homozygous mutations in the mature domain of GDF5 result in severe limb malformations such as the Grebe type or the Hunter-Thompson type of acromesomelic chondrodysplasia."</div>
+
+
+                <div class="evidence-explanation">Attributes the Grebe presentation specifically to biallelic mature-domain GDF5 variants, which is what the gene binding on this row asserts.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:26275437" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4374,6 +4473,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GDF5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4220</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -5009,6 +5127,7 @@ A refinement worth noting is that the sequestration may not be a simple property
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-gdf5-mature-domain-variants" data-dismech-node="Biallelic GDF5 Mature-Domain Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GDF5 Mature-Domain Variants</div>
 
+
                 <div class="item-desc">Pathogenic variants on both GDF5 alleles disrupt the mature, secreted domain of the ligand. Truncating variants abolish the protein, while missense variants in the mature active domain or at the RRKRR processing motif yield a full-length but functionally defective product.</div>
 
 
@@ -5056,11 +5175,11 @@ A refinement worth noting is that the sequestration may not be a simple property
         GDF5
 
 
-    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4220</a>
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4220</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5098,11 +5217,11 @@ This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016485" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016485</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016485" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016485</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Proteolytic maturation of the GDF5 precursor, annotated with protein processing (GO:0016485). GO:0016485 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5204,6 +5323,8 @@ This pathophysiological event involves abnormal Proteolytic maturation of the GD
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
@@ -5228,11 +5349,55 @@ This pathophysiological event involves abnormal Proteolytic maturation of the GD
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-secretion-of-gdf5-and-dominant-negative-sequestration-of-bmp-partners" data-dismech-node="Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners</div>
 
+
                 <div class="item-desc">The archetypal Grebe allele substitutes a tyrosine for the first of seven conserved cysteines of the mature active domain. The resulting protein is retained inside the cell, and because BMP family members dimerise, it drags related BMPs out of the secretory pathway with it. This is why the Grebe allele is more than a null: heterozygotes carry a brachydactyly phenotype that a simple loss-of-function allele would not produce.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GDF5
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:4220</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5249,11 +5414,11 @@ This pathophysiological event involves abnormal Proteolytic maturation of the GD
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0009306</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0009306</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5288,11 +5453,11 @@ This pathophysiological event involves decreased Protein secretion (GO:0009306).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0070700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070700</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased BMP receptor binding (GO:0070700). GO:0070700 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5322,11 +5487,11 @@ This pathophysiological event involves decreased BMP receptor binding (GO:007070
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046982" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046982</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046982" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0046982</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves abnormal Heterodimerization with partner BMP ligands, annotated with protein heterodimerization activity (GO:0046982). GO:0046982 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5439,6 +5604,7 @@ This pathophysiological event involves abnormal Heterodimerization with partner 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gdf5-bmpr1b-signaling-in-the-developing-limb" data-dismech-node="Loss of GDF5-BMPR1B Signaling in the Developing Limb" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GDF5-BMPR1B Signaling in the Developing Limb</div>
 
+
                 <div class="item-desc">GDF5 is a BMP-family ligand with high affinity for the type I receptor BMPR1B. This node is the shared central effector of the whole acromesomelic GDF5/BMPR1B spectrum: disabling the ligand and disabling the receptor produce overlapping disease, and the severity of the resulting phenotype tracks the degree of functional impairment of the ligand-receptor pair.</div>
 
 
@@ -5453,11 +5619,11 @@ This pathophysiological event involves abnormal Heterodimerization with partner 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5479,6 +5645,88 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GDF5
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:4220</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BMPR1B
+
+
+    <a href="https://bioregistry.io/hgnc:1077" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:1077</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BMPR1B (hgnc:1077). hgnc:1077 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5494,11 +5742,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030509</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5528,11 +5776,11 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007178" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007178</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007178" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Cell surface receptor protein serine/threonine kinase signaling pathway (GO:0007178). GO:0007178 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5562,11 +5810,11 @@ This pathophysiological event involves decreased Cell surface receptor protein s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060395</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0060395</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased SMAD protein signal transduction (GO:0060395). GO:0060395 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5601,11 +5849,11 @@ This pathophysiological event involves decreased SMAD protein signal transductio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098821" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0098821</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098821" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0098821</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased BMP receptor activity (GO:0098821). GO:0098821 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5743,6 +5991,7 @@ This pathophysiological event involves decreased BMP receptor activity (GO:00988
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-chondrogenic-condensation-and-joint-specification-in-the-distal-limb" data-dismech-node="Failed Chondrogenic Condensation and Joint Specification in the Distal Limb" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Chondrogenic Condensation and Joint Specification in the Distal Limb</div>
 
+
                 <div class="item-desc">GDF5 is expressed at sites of skeletal morphogenesis, particularly in the interzones that prefigure joints and in the condensations that prefigure individual skeletal elements. Without GDF5-BMPR1B signalling these condensations fail to form, segment, or separate correctly, which is why the phenotype is one of missing, fused and malformed elements rather than of uniformly short but well-formed bones.</div>
 
 
@@ -5757,11 +6006,11 @@ This pathophysiological event involves decreased BMP receptor activity (GO:00988
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5787,11 +6036,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000134</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000134</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Condensing limb mesenchyme, annotated with mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5828,11 +6077,11 @@ This pathophysiological event involves Condensing limb mesenchyme, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001502</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Cartilage condensation (GO:0001502). GO:0001502 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5862,11 +6111,11 @@ This pathophysiological event involves abnormal Cartilage condensation (GO:00015
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060272" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0060272</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060272" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0060272</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Embryonic skeletal joint morphogenesis (GO:0060272). GO:0060272 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5896,11 +6145,11 @@ This pathophysiological event involves abnormal Embryonic skeletal joint morphog
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0002062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5930,11 +6179,11 @@ This pathophysiological event involves decreased Chondrocyte differentiation (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0051216</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Cartilage development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5964,11 +6213,11 @@ This pathophysiological event involves abnormal Cartilage development (GO:005121
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6107,6 +6356,7 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximodistally-graded-appendicular-skeletal-malformation" data-dismech-node="Proximodistally Graded Appendicular Skeletal Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximodistally Graded Appendicular Skeletal Malformation</div>
 
+
                 <div class="item-desc">The malformation is graded along the proximodistal axis and is repeated in both fore- and hindlimb autopods, the hallmark of a lesion in a limb patterning signal that is serially reused. Distal elements are the most severely affected, the axial and craniofacial skeleton is spared, and the graded pattern is the feature that separates this spectrum from generalised chondrodysplasias.</div>
 
 
@@ -6121,11 +6371,11 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6162,11 +6412,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0035108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6196,11 +6446,11 @@ This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0060173</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0060173</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb development (GO:0060173). GO:0060173 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6230,11 +6480,11 @@ This pathophysiological event involves abnormal Limb development (GO:0060173). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0001958</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6355,7 +6605,7 @@ This pathophysiological event involves abnormal Endochondral ossification (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GDF5 Mature-Domain Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants on both GDF5 alleles disrupt the mature, secreted domain of the ligand. Truncating variants abolish the protein, while missense variants in the mature active domain or at the RRKRR processing motif yield a full-length but functionally defective product.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Proteolytic maturation of the GDF5 precursor\"], \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"role\": \"trigger\"}}, {\"id\": \"Biallelic GDF5 Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is expressed at sites of skeletal morphogenesis, particularly in the interzones that prefigure joints and in the condensations that prefigure individual skeletal elements. Without GDF5-BMPR1B signalling these condensations fail to form, segment, or separate correctly, which is why the phenotype is one of missing, fused and malformed elements rather than of uniformly short but well-formed bones.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\", \"Condensing limb mesenchyme\"], \"biological_processes\": [\"Cartilage condensation\", \"Embryonic skeletal joint morphogenesis\", \"Chondrocyte differentiation\", \"Cartilage development\", \"Extracellular matrix organization\"], \"role\": \"intermediate\"}}, {\"id\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The archetypal Grebe allele substitutes a tyrosine for the first of seven conserved cysteines of the mature active domain. The resulting protein is retained inside the cell, and because BMP family members dimerise, it drags related BMPs out of the secretory pathway with it. This is why the Grebe allele is more than a null: heterozygotes carry a brachydactyly phenotype that a simple loss-of-function allele would not produce.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein secretion\"], \"molecular_functions\": [\"BMP receptor binding\", \"Heterodimerization with partner BMP ligands\"], \"role\": \"intermediate\"}}, {\"id\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is a BMP-family ligand with high affinity for the type I receptor BMPR1B. This node is the shared central effector of the whole acromesomelic GDF5/BMPR1B spectrum: disabling the ligand and disabling the receptor produce overlapping disease, and the severity of the resulting phenotype tracks the degree of functional impairment of the ligand-receptor pair.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"BMP signaling pathway\", \"Cell surface receptor protein serine/threonine kinase signaling pathway\", \"SMAD protein signal transduction\"], \"molecular_functions\": [\"BMP receptor activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Proximodistally Graded Appendicular Skeletal Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malformation is graded along the proximodistal axis and is repeated in both fore- and hindlimb autopods, the hallmark of a lesion in a limb patterning signal that is serially reused. Distal elements are the most severely affected, the axial and craniofacial skeleton is spared, and the graded pattern is the feature that separates this spectrum from generalised chondrodysplasias.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb morphogenesis\", \"Limb development\", \"Endochondral ossification\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Biallelic GDF5 Mature-Domain Variants\", \"target\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The classic Grebe missense allele directly produces an unsecreted, inactive protein that also traps other BMP family members.\", \"hypothesis_groups\": [\"dominant_negative_bmp_sequestration\", \"processing_failure_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic GDF5 Mature-Domain Variants\", \"target\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating alleles remove the ligand outright, directly eliminating GDF5 input to its receptor without any dominant-negative intermediate.\", \"hypothesis_groups\": [\"gdf5_null_loss_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"target\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Withdrawal of GDF5 and of its co-sequestered BMP partners from the extracellular space directly deprives BMPR1B of ligand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"target\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GDF5-BMPR1B signalling directly governs the condensation, differentiation and maturation steps that build appendicular skeletal elements and their joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"target\": \"Proximodistally Graded Appendicular Skeletal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of condensation and segmentation directly yields absent, fused and rudimentary appendicular elements, most severely at the distal end of the limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic GDF5 Variants\", \"target\": \"Biallelic GDF5 Mature-Domain Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GDF5 Mature-Domain Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants on both GDF5 alleles disrupt the mature, secreted domain of the ligand. Truncating variants abolish the protein, while missense variants in the mature active domain or at the RRKRR processing motif yield a full-length but functionally defective product.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Proteolytic maturation of the GDF5 precursor\"], \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"role\": \"trigger\"}}, {\"id\": \"Biallelic GDF5 Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is expressed at sites of skeletal morphogenesis, particularly in the interzones that prefigure joints and in the condensations that prefigure individual skeletal elements. Without GDF5-BMPR1B signalling these condensations fail to form, segment, or separate correctly, which is why the phenotype is one of missing, fused and malformed elements rather than of uniformly short but well-formed bones.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\", \"Condensing limb mesenchyme\"], \"biological_processes\": [\"Cartilage condensation\", \"Embryonic skeletal joint morphogenesis\", \"Chondrocyte differentiation\", \"Cartilage development\", \"Extracellular matrix organization\"], \"role\": \"intermediate\"}}, {\"id\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The archetypal Grebe allele substitutes a tyrosine for the first of seven conserved cysteines of the mature active domain. The resulting protein is retained inside the cell, and because BMP family members dimerise, it drags related BMPs out of the secretory pathway with it. This is why the Grebe allele is more than a null: heterozygotes carry a brachydactyly phenotype that a simple loss-of-function allele would not produce.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein secretion\"], \"molecular_functions\": [\"BMP receptor binding\", \"Heterodimerization with partner BMP ligands\"], \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"role\": \"intermediate\"}}, {\"id\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is a BMP-family ligand with high affinity for the type I receptor BMPR1B. This node is the shared central effector of the whole acromesomelic GDF5/BMPR1B spectrum: disabling the ligand and disabling the receptor produce overlapping disease, and the severity of the resulting phenotype tracks the degree of functional impairment of the ligand-receptor pair.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"BMP signaling pathway\", \"Cell surface receptor protein serine/threonine kinase signaling pathway\", \"SMAD protein signal transduction\"], \"molecular_functions\": [\"BMP receptor activity\"], \"genes\": [\"GDF5\", \"BMPR1B\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}, {\"label\": \"BMPR1B\", \"id\": \"hgnc:1077\"}], \"role\": \"central_effector\"}}, {\"id\": \"Proximodistally Graded Appendicular Skeletal Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malformation is graded along the proximodistal axis and is repeated in both fore- and hindlimb autopods, the hallmark of a lesion in a limb patterning signal that is serially reused. Distal elements are the most severely affected, the axial and craniofacial skeleton is spared, and the graded pattern is the feature that separates this spectrum from generalised chondrodysplasias.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb morphogenesis\", \"Limb development\", \"Endochondral ossification\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Biallelic GDF5 Mature-Domain Variants\", \"target\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The classic Grebe missense allele directly produces an unsecreted, inactive protein that also traps other BMP family members.\", \"hypothesis_groups\": [\"dominant_negative_bmp_sequestration\", \"processing_failure_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic GDF5 Mature-Domain Variants\", \"target\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating alleles remove the ligand outright, directly eliminating GDF5 input to its receptor without any dominant-negative intermediate.\", \"hypothesis_groups\": [\"gdf5_null_loss_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"target\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Withdrawal of GDF5 and of its co-sequestered BMP partners from the extracellular space directly deprives BMPR1B of ligand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"target\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GDF5-BMPR1B signalling directly governs the condensation, differentiation and maturation steps that build appendicular skeletal elements and their joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Chondrogenic Condensation and Joint Specification in the Distal Limb\", \"target\": \"Proximodistally Graded Appendicular Skeletal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of condensation and segmentation directly yields absent, fused and rudimentary appendicular elements, most severely at the distal end of the limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic GDF5 Variants\", \"target\": \"Biallelic GDF5 Mature-Domain Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic GDF5 Variants\", \"target\": \"Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic GDF5 Variants\", \"target\": \"Loss of GDF5-BMPR1B Signaling in the Developing Limb\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6405,15 +6655,18 @@ This pathophysiological event involves abnormal Endochondral ossification (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002983</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002983</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6526,15 +6779,18 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005927</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005927</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/hypoplasia involving bones of the hand (HP:0005927). HP:0005927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6645,15 +6901,18 @@ This clinical feature is Aplasia/hypoplasia involving bones of the hand (HP:0005
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0009702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0009702</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6714,15 +6973,18 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100259</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6810,15 +7072,18 @@ This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6906,15 +7171,18 @@ This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003022</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003022</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the ulna (HP:0003022). HP:0003022 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6984,15 +7252,18 @@ This clinical feature is Hypoplasia of the ulna (HP:0003022). HP:0003022 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7062,15 +7333,18 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7174,10 +7448,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         Gene: GDF5
 
 
-    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:4220</a>
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:4220</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7189,6 +7463,9 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7308,7 +7585,7 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7335,6 +7612,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8195,7 +8478,24 @@ has_subtypes:
     make the disease a subtype of itself and duplicate the identifier on export.
     The subtype is listed as a named clinical presentation so that it and
     Hunter-Thompson can be referred to symmetrically.
+  genes:
+  - preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
   evidence:
+  - reference: PMID:26275437
+    reference_title: &#34;Characterization of an acromesomelic dysplasia, Grebe type case: novel mutation affecting the recognition motif at the processing site of GDF5.&#34;
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Homozygous mutations in the mature domain of GDF5 result in severe limb
+      malformations such as the Grebe type or the Hunter-Thompson type of
+      acromesomelic chondrodysplasia.
+    explanation: &gt;-
+      Attributes the Grebe presentation specifically to biallelic mature-domain
+      GDF5 variants, which is what the gene binding on this row asserts.
   - reference: PMID:26275437
     reference_title: &#34;Characterization of an acromesomelic dysplasia, Grebe type case: novel mutation affecting the recognition motif at the processing site of GDF5.&#34;
     supports: SUPPORT
@@ -8212,6 +8512,11 @@ has_subtypes:
     term:
       id: MONDO:0008717
       label: acromesomelic dysplasia 2C, Hunter-Thompson type
+  genes:
+  - preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
   description: &gt;-
     The allelic form in which the lower limbs are more severely affected than the
     upper, phalanges tend to be square, and joint dislocation is prominent. The
@@ -8409,6 +8714,7 @@ pathophysiology:
   - reference: PMID:26275437
     reference_title: &#34;Characterization of an acromesomelic dysplasia, Grebe type case: novel mutation affecting the recognition motif at the processing site of GDF5.&#34;
     supports: SUPPORT
+    quote_role: BACKGROUND
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Homozygous mutations in the mature domain of GDF5 result in severe limb
@@ -8452,6 +8758,11 @@ pathophysiology:
 - name: Failed Secretion of GDF5 and Dominant-Negative Sequestration of BMP Partners
   role: intermediate
   biological_scale: MOLECULAR
+  genes:
+  - preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
   description: &gt;-
     The archetypal Grebe allele substitutes a tyrosine for the first of seven
     conserved cysteines of the mature active domain. The resulting protein is
@@ -8512,6 +8823,21 @@ pathophysiology:
 - name: Loss of GDF5-BMPR1B Signaling in the Developing Limb
   role: central_effector
   biological_scale: MOLECULAR
+  genes:
+  - preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
+  - preferred_term: BMPR1B
+    description: &gt;-
+      The type I receptor at this node. It is bound here as the other half of
+      the ligand-receptor pair the node describes, not as a cause of Grebe
+      dysplasia: biallelic BMPR1B variants cause a separate acromesomelic
+      dysplasia, which is why BMPR1B carries no entry-level `genetic:` record
+      here.
+    term:
+      id: hgnc:1077
+      label: BMPR1B
   description: &gt;-
     GDF5 is a BMP-family ligand with high affinity for the type I receptor
     BMPR1B. This node is the shared central effector of the whole acromesomelic
@@ -9414,7 +9740,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acromesomelic Dysplasia Grebe Type", "mondoId": "MONDO:0008703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acromesomelic_Dysplasia_Grebe_Type", "yamlRevision": "46e7f44c5c5c"};
+        const OS_CONFIG = {"diseaseName": "Acromesomelic Dysplasia Grebe Type", "mondoId": "MONDO:0008703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acromesomelic_Dysplasia_Grebe_Type", "yamlRevision": "0d6c06fcf915"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5209,6 +5262,7 @@ MAGMAS expression in mouse hypertrophic chondrocytes and primary spongiosa suppo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pam16-dysfunction" data-dismech-node="PAM16 Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">PAM16 Dysfunction</div>
 
+
                 <div class="item-desc">Biallelic PAM16 missense variants cause SMDMDM. For the founder p.Asn76Asp allele, yeast complementation demonstrates conditional loss of MAGMAS stability, matrix-protein import and viability. The p.Gln74Pro allele is associated with a milder clinical course and has structural predictions, but equivalent allele-specific functional measurements are not reported in the reviewed sources. The yeast permissive-temperature phenotype supports residual function in that assay, without defining a human physiological threshold.</div>
 
 
@@ -5301,6 +5355,8 @@ This genetic context concerns PAM16 (hgnc:29679). hgnc:29679 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -5316,6 +5372,9 @@ This genetic context concerns PAM16 (hgnc:29679). hgnc:29679 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline NM_016069:c.226A&gt;G (p.Asn76Asp). Graded as a partial rather than a complete loss of function because the allele complements a pam16-null yeast strain at permissive temperature and only fails as temperature rises.</div>
 
@@ -5515,6 +5574,7 @@ This pathophysiological event occurs in trabecular bone tissue (UBERON:0002483).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tim23-pam-dependent-import-of-matrix-preproteins" data-dismech-node="Impaired TIM23/PAM-Dependent Import of Matrix Preproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TIM23/PAM-Dependent Import of Matrix Preproteins</div>
+
 
                 <div class="item-desc">MAGMAS regulates the mitochondrial import motor. In yeast expressing p.Asn76Asp, unprocessed Hsp60 accumulates under nonpermissive conditions, demonstrating a preprotein-import defect. Hsp60 precursor is an experimental reporter, not a clinical phenotype or evidence that every cargo is affected identically.</div>
 
@@ -5718,6 +5778,7 @@ This pathophysiological event involves TIM23 presequence translocase-associated 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-network-fragmentation" data-dismech-node="Mitochondrial Network Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Network Fragmentation</div>
 
+
                 <div class="item-desc">Yeast expressing p.Asn76Asp show punctate, fragmented mitochondria; enhanced pexophagy is detected at nonpermissive temperature. These observations accompany cellular injury. Their co-occurrence does not establish fragmentation as the cause of ATP loss or prove the same morphology in patients.</div>
 
 
@@ -5914,6 +5975,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-and-cell-death" data-dismech-node="Bioenergetic Failure and Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure and Cell Death</div>
 
+
                 <div class="item-desc">The p.Asn76Asp allele induces cell death in yeast. In separate experiments, loss of the fly ortholog Blp impairs respiration, lowers ATP and increases reactive oxygen species in Schneider cells, with antioxidant rescue also observed in hypomorphic larvae. These experiments support conserved roles in cell integrity and viability, but do not measure patient growth-plate or myocardial bioenergetics. Yeast temperature dependence does not explain the age at death in children.</div>
 
 
@@ -6072,6 +6134,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-ossification-and-modeling" data-dismech-node="Impaired Skeletal Ossification and Modeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Ossification and Modeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PAM16-associated dysplasia impairs skeletal ossification and modeling, producing short and abnormally shaped bones. Wild-type mouse expression in hypertrophic cartilage and primary spongiosa supports an endochondral ossification role; it does not prove that human pathology is confined to these compartments or excludes other skeletal mechanisms. The observed epiphyseal delay, metaphyseal remodeling and vertebral abnormalities are the clinical manifestations represented here. Molecular and tissue links upstream of this node remain provisional.</div>
 
@@ -6546,6 +6615,13 @@ This pathophysiological event occurs in vertebra (UBERON:0002412). UBERON:000241
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-energetic-failure" data-dismech-node="Myocardial Energetic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Energetic Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A proposed cardiac consequence of impaired MAGMAS-dependent cellular function. Cardiomyopathy, severe cardiomegaly and fatal heart failure occurred in the second founder family. Mouse cardiac expression and conserved cellular bioenergetic functions support a myocardial hypothesis; ATP deficiency has not been measured in affected human myocardium, and the DNAJC19 cardiomyopathy analogy does not establish a dilated subtype in PAM16 disease.</div>
 
 
@@ -6704,6 +6780,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrictive-thoracic-insufficiency" data-dismech-node="Restrictive Thoracic Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrictive Thoracic Insufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Small thoracic dimensions and short ribs provide a plausible mechanical contribution to respiratory insufficiency in the first founder family. The primary study also considers MAGMAS function in lung tissue. Restriction has not been demonstrated as the exclusive respiratory mechanism, and no human thermal or metabolic threshold is inferred.</div>
 
 
@@ -6848,7 +6931,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axial hypotonia persisted on follow-up in the surviving sib of the first family. In the separate surgical report, hypotonia decreased before cervical surgery and remained present at thirteen years. The authors describe central hypotonia without distinguishing spinal from other central contributions; this does not establish the original families\\u2019 cause.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Bell-shaped thorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bell-shaped thoracic configuration on neonatal radiographs in the first founder family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001591\"}}, {\"id\": \"Bioenergetic Failure and Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele induces cell death in yeast. In separate experiments, loss of the fly ortholog Blp impairs respiration, lowers ATP and increases reactive oxygen species in Schneider cells, with antioxidant rescue also observed in hypomorphic larvae. These experiments support conserved roles in cell integrity and viability, but do not measure patient growth-plate or myocardial bioenergetics. Yeast temperature dependence does not explain the age at death in children.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apoptotic process\"], \"animal_models\": [{\"name\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"blp hypomorphic allele; blp RNAi knockdown in Schneider cells\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Loss of the ortholog reproduces the bioenergetic and viability collapse this node describes, and quantifies it with the ATP, ROS and cytochrome c oxidase measurements the yeast work does not provide.\"}]}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe cardiomegaly progressing to fatal heart failure, in the second family only. It was not reported in the first family despite the identical homozygous genotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001640\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the second founder family; no specific cardiomyopathy subtype is established by these sources.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cervical spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper cervical canal narrowing was explicitly attributed to C1-C2 subluxation in one survivor.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008445\"}}, {\"id\": \"Cervical spine instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"C1-C2 subluxation caused C0-C1 canal narrowing in the surgical survivor. Progressive instability and cord compression prompted decompression and C0-C3 fusion at three years ten months. The article does not state the allele.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003414\"}}, {\"id\": \"Cupped ribs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cupped rib ends in both original families. The quoted radiographs establish rib cupping, without establishing cupping of the long-bone metaphyses.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000887\"}}, {\"id\": \"Death in childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Death at about 2 years in three of the four originally reported children, from respiratory insufficiency in one family and heart failure in the other.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Death in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Death at 9 months in one child. The remaining three of the four originally reported children died at about 2 years, within the childhood rather than the infancy band.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed epiphyseal ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or delayed appearance of the epiphyseal ossification centres, described as absence of epiphyseal ossification of the knees in the first family. This is the radiographic signature of the tissue node: failure at the point where cartilage is converted to bone.\", \"meta\": {\"evidence_count\": 2, \"reports_on\": [{\"target\": \"Impaired Skeletal Ossification and Modeling\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Delayed appearance of epiphyseal ossification centers is the radiographic observation underlying the proposed ossification defect. It does not independently prove the PAM16-to-growth-plate mechanism.\"}], \"term_id\": \"HP:0002663\"}}, {\"id\": \"Disproportionate short-limb short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with short, rhizomelic limbs. In the surviving boy of the first family short stature persisted even as the bone abnormalities improved.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008873\"}}, {\"id\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo animal work on this gene family that bears on the disease mechanism. Black-pearl is the Drosophila ortholog of MAGMAS/Pam16. Depleting it depolarises mitochondria, drops ATP by 60 per cent, raises reactive oxygen species 3.5-fold and selectively cuts cytochrome c oxidase activity by 65 per cent; in hypomorphic larvae, plasmatocyte number and mitochondrial staining fall and N-acetylcysteine doubles viability, which is the strongest evidence that ROS is a causal effector rather than a bystander. It is not a model of the disease: the allele is a knockdown or hypomorph rather than the human missense change, and flies have no endochondral skeleton.\"}, {\"id\": \"Flat acetabular roof\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontal acetabula, described with medial and lateral spurs in the first family and as horizontal and trident acetabula in the second.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003180\"}}, {\"id\": \"Heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatal heart failure around 24 months in the second founder family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hypoplastic ischia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic ischia, reported in both families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003175\"}}, {\"id\": \"Impaired Skeletal Ossification and Modeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAM16-associated dysplasia impairs skeletal ossification and modeling, producing short and abnormally shaped bones. Wild-type mouse expression in hypertrophic cartilage and primary spongiosa supports an endochondral ossification role; it does not prove that human pathology is confined to these compartments or excludes other skeletal mechanisms. The observed epiphyseal delay, metaphyseal remodeling and vertebral abnormalities are the clinical manifestations represented here. Molecular and tissue links upstream of this node remain provisional.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hypertrophic chondrocyte\", \"osteoblast\"], \"biological_processes\": [\"endochondral ossification\", \"growth plate cartilage development\", \"ossification\"], \"locations\": [\"hypertrophic zone of the long bone growth plate\", \"primary spongiosa of trabecular bone\", \"vertebra\"]}}, {\"id\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGMAS regulates the mitochondrial import motor. In yeast expressing p.Asn76Asp, unprocessed Hsp60 accumulates under nonpermissive conditions, demonstrating a preprotein-import defect. Hsp60 precursor is an experimental reporter, not a clinical phenotype or evidence that every cargo is affected identically.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into the mitochondrial matrix\"], \"experimental_models\": [{\"name\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The human disease allele, expressed in place of the yeast ortholog, reproduces the import block that this node asserts.\"}]}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive kyphoscoliosis led to staged growth-friendly surgery at 11 years in one survivor.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Lumbar interpedicular narrowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased interpedicular distance at the lumbar vertebrae, reported in the second family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008486\"}}, {\"id\": \"Mitochondrial Network Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Yeast expressing p.Asn76Asp show punctate, fragmented mitochondria; enhanced pexophagy is detected at nonpermissive temperature. These observations accompany cellular injury. Their co-occurrence does not establish fragmentation as the cause of ATP loss or prove the same morphology in patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial network fragmentation\", \"pexophagy\"], \"experimental_models\": [{\"name\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same strains show the organellar fragmentation and pexophagy that this node asserts.\"}]}}, {\"id\": \"Myocardial Energetic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed cardiac consequence of impaired MAGMAS-dependent cellular function. Cardiomyopathy, severe cardiomegaly and fatal heart failure occurred in the second founder family. Mouse cardiac expression and conserved cellular bioenergetic functions support a myocardial hypothesis; ATP deficiency has not been measured in affected human myocardium, and the DNAJC19 cardiomyopathy analogy does not establish a dilated subtype in PAM16 disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"heart\"]}}, {\"id\": \"NM_016069:c.226A\u003eG (p.Asn76Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founder allele. Homozygous in all four children of the two unrelated consanguineous Lebanese families, absent from 550 Lebanese control chromosomes, and carried on a 1.9 Mb shared ancestral haplotype at 16p13.3. It substitutes a residue conserved across mammals and vertebrates in helix II of the J-like domain.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Narrow chest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow, bell-shaped thorax, the mechanical basis of the respiratory branch.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000774\"}}, {\"id\": \"PAM16\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"PAM16 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PAM16 missense variants cause SMDMDM. For the founder p.Asn76Asp allele, yeast complementation demonstrates conditional loss of MAGMAS stability, matrix-protein import and viability. The p.Gln74Pro allele is associated with a milder clinical course and has structural predictions, but equivalent allele-specific functional measurements are not reported in the reviewed sources. The yeast permissive-temperature phenotype supports residual function in that assay, without defining a human physiological threshold.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"J-like negative regulation of the mtHsp70 import-motor ATPase\"], \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous germline NM_016069:c.226A\u003eG (p.Asn76Asp). Graded as a partial rather than a complete loss of function because the allele complements a pam16-null yeast strain at permissive temperature and only fails as temperature rises.\", \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}]}, \"locations\": [\"trabecular bone tissue\"]}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008897\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused death in the two siblings of the first founder family. Thoracic restriction is a plausible contributor, but an intrinsic pulmonary defect is not excluded.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Restrictive Thoracic Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small thoracic dimensions and short ribs provide a plausible mechanical contribution to respiratory insufficiency in the first founder family. The primary study also considers MAGMAS function in lung tissue. Restriction has not been demonstrated as the exclusive respiratory mechanism, and no human thermal or metabolic threshold is inferred.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"thoracic cavity\"]}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the proximal limb segments, recorded by Orphanet. The primary reports describe short limbs without consistently specifying the segment, so this binding rests on the Orphanet characterisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Severe platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked flattening of the vertebral bodies, present at birth. In survivors it improved somewhat with age, which is unusual for a spondylodysplastic dysplasia and is one of the more distinctive features of this entity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004565\"}}, {\"id\": \"Short long bone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short long bones with abnormal modelling, giving disproportionate short limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003026\"}}, {\"id\": \"Short ribs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short ribs, contributing with the narrow thorax to restrictive respiratory failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000773\"}}, {\"id\": \"Spastic diplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pyramidal signs and increasing spasticity preceded cervical surgery. Spastic diparesis persisted at thirteen years despite an intervening MRI at six years ten months showing no compression or instability; earlier cord injury and other central causes were not separately assessed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001264\"}}, {\"id\": \"Spinal cord compression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cervical instability and stenosis were accompanied by cord compression requiring surgery. The earlier MRI showed no cord signal abnormality; that finding does not exclude clinical myelopathy. Repeat MRI at six years ten months, after cervical fusion and revision, showed no compression or instability. Spastic diparesis and hypotonia were still documented at thirteen years; the report does not establish ongoing compression as their sole cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002176\"}}, {\"id\": \"Squared iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003177\"}}, {\"id\": \"Staged spinal surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"One survivor underwent occipital decompression, C1 laminectomy and noninstrumented C0-C3 fusion at three years ten months for progressive instability and cord compression. Vertebral-artery injury, postoperative bleeding requiring re-exploration, and nonunion requiring revision complicated that cervical course. Later kyphoscoliosis correction at eleven years used staged anchors and graft, ten weeks of halo-gravity traction and growing rods; completion of that later construct was reported without complications. Spastic diparesis persisted at age thirteen. This single case does not establish general safety, effectiveness or neurological recovery.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Trident acetabulum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trident acetabula were described in the second founder family, alongside horizontal acetabular roofs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034374\"}}, {\"id\": \"Wide distal femoral metaphysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening of the distal femoral metaphyses, the metaphyseal component that makes this a spondylometaphyseal rather than a purely spondylo- dysplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006387\"}}, {\"id\": \"p.Gln74Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second reported disease allele, homozygous in a single later patient with a milder course and longer survival than the four Lebanese children. It lies two residues from the founder allele in the same helix. The primary report of this patient is a paywalled letter with no retrievable abstract, so the allele and its milder phenotype are curated from two reviews that describe it rather than from the primary source.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Saccharomyces cerevisiae pam16-delta strains were complemented with wild-type or p.Asn76Asp human MAGMAS. Mutant growth was preserved at 28 degrees, slowed at 34 and absent at 36, particularly on non-fermentable medium. Nonpermissive conditions revealed Hsp60 precursor accumulation, reduced mutant protein, fragmented mitochondria and pexophagy. This establishes a conditional allele effect in yeast, without explaining human survival or predicting clinical responses to temperature.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:24786642\"}}], \"edges\": [{\"source\": \"PAM16 Dysfunction\", \"target\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele impairs matrix-preprotein import in yeast. A weakened MAGMAS/Pam18 regulatory subcomplex provides a mechanistic interpretation; extension to p.Gln74Pro and human tissues remains untested.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAM16 Dysfunction\", \"target\": \"Mitochondrial Network Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele disrupts mitochondrial network morphology in yeast. This is a parallel model consequence of PAM16 dysfunction; the experiment does not isolate an import-mediated route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PAM16 Dysfunction\", \"target\": \"Bioenergetic Failure and Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The founder allele induces yeast cell death; depletion of the fly ortholog impairs respiration and ATP production. These support a conserved cellular-injury branch, with different perturbations and assay systems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"target\": \"Impaired Skeletal Ossification and Modeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAM16 links mitochondrial import to skeletal development, but the human tissue intermediates and any additional MAGMAS functions remain unresolved. Mouse expression and the human genetic skeletal phenotype support an ossification hypothesis, not a directly measured growth-plate import lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bioenergetic Failure and Cell Death\", \"target\": \"Myocardial Energetic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conserved MAGMAS effects on cellular respiration provide a proposed myocardial injury route. The human cardiac phenotype and mouse cardiac expression support tissue relevance, but patient myocardial ATP loss has not been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Severe platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced vertebral-body ossification and growth is a proposed explanation for the marked vertebral flattening. No patient vertebral histology establishes the responsible cellular lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Wide distal femoral metaphysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth and modeling is proposed to produce the widened distal femoral contour. The radiograph establishes widening, while the link to the proposed ossification defect remains indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Short long bone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endochondral bone formation is proposed to reduce longitudinal growth of the long bones. The authors support an ossification role, but do not measure growth-plate dynamics in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Short ribs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired skeletal growth is proposed to limit rib elongation. The specific rib growth-plate lesion has not been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Restrictive Thoracic Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted growth of the short-ribbed, narrow thorax could limit lung expansion. This is a proposed mechanical contribution; the clinical series does not exclude intrinsic lung disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Cupped ribs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal modeling of the rib ends is proposed to produce the cupped contour. The clinical rib appearance does not establish a specific chondrocyte or osteoblast defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Narrow chest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thoracic skeletal growth is proposed to limit chest width. The sources do not partition the contributions of rib length, rib orientation and vertebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Bell-shaped thorax\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uneven thoracic skeletal growth is a candidate explanation for the bell-shaped contour. The authors\\u2019 broad ossification hypothesis does not establish the regional growth pattern responsible.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Squared iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered pelvic bone growth and modeling is proposed to alter iliac proportions. No patient tissue study identifies how the squared contour develops.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Flat acetabular roof\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal pelvic growth and modeling is proposed to alter acetabular roof orientation. The horizontal roof is documented radiographically; its cellular origin remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Trident acetabulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered acetabular modeling is proposed to generate the trident configuration. This extrapolates the authors\\u2019 skeletal hypothesis and does not establish a specific developmental intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Hypoplastic ischia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pelvic bone development is proposed to impair ischial growth. The available sources establish hypoplasia but not its cellular mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Lumbar interpedicular narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal vertebral growth and modeling is proposed to reduce lumbar pedicle spacing. The source does not establish whether reduced ossification or another developmental process determines that spacing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered longitudinal skeletal growth is proposed to contribute to proximal limb shortening. The reason for disproportionate proximal involvement remains unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Disproportionate short-limb short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired longitudinal skeletal growth is proposed to reduce limb length disproportionately. This qualified skeletal route does not account for every component of systemic growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired bone elongation is proposed to contribute to reduced linear growth after birth. The broader growth phenotype could also reflect nutrition, systemic illness or other mitochondrial functions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial Energetic Failure\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed myocardial energetic injury could produce cardiomyopathy; its occurrence is established clinically, but the specific energetic attribution is not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Restrictive Thoracic Insufficiency\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic restriction can compromise ventilation; its contribution to the reported respiratory insufficiency is inferred from the skeletal anatomy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Respiratory insufficiency\", \"target\": \"Death in infancy\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused the first-family girl\u0027s death at nine months.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory insufficiency\", \"target\": \"Death in childhood\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused the first-family boy\u0027s death around age two.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Cardiomegaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Myocardial disease was associated with severe cardiac enlargement in the affected siblings; enlargement is a manifestation of the cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Heart failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinically reported cardiomyopathy culminated in fatal pump failure in the second family.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heart failure\", \"target\": \"Death in childhood\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Heart failure caused death around age two in both second-family siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical spine instability\", \"target\": \"Cervical spinal canal stenosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation narrowed the upper cervical canal in this patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal cord compression\", \"target\": \"Axial hypotonia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The authors associate this patient\\u2019s cervical instability and myelopathy with hypotonia, supporting a possible contribution from cord compromise. Hypotonia decreased during follow-up before cervical surgery, while spasticity increased. The authors also call the hypotonia central without localizing it further; central includes the spinal cord. The relation does not establish ongoing compression, exclude other central or developmental contributors, or explain hypotonia in the earlier founder families.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal cord compression\", \"target\": \"Spastic diplegia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Cervical myelopathy is a qualified contributor to the survivor\\u2019s spastic diparesis. Pyramidal signs preceded cervical surgery; repeat MRI at six years ten months showed no compression or instability, but spastic diparesis was still present at thirteen years. This is not a demonstrated continuously reversible effect of ongoing compression. Residual injury from earlier cord compromise and other central contributors remain possible; the report does not distinguish their contributions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cervical spinal canal stenosis\", \"target\": \"Spinal cord compression\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Upper cervical canal narrowing provides the anatomical route to the subsequently reported cord compression; progression and dynamic instability are not separately quantified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Staged spinal surgery\", \"target\": \"Cervical spine instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Staged spinal surgery\", \"target\": \"Spinal cord compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Staged spinal surgery\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"target\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The human disease allele, expressed in place of the yeast ortholog, reproduces the import block that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast has no growth plate, no cardiomyocyte and no vertebral column, so the model speaks only to the conserved import chemistry and can say nothing about how that chemistry becomes a skeletal disease. The defect is also only expressed at non-physiological temperatures, so the assay reports a conditional phenotype rather than the constitutive one patients carry at 37 degrees.\"}, {\"source\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"target\": \"Mitochondrial Network Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same strains show the organellar fragmentation and pexophagy that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast mitochondrial dynamics and pexophagy are not identical to the human processes, and the phenotype again requires a temperature shift. Nothing here demonstrates that the same collapse occurs in a patient chondrocyte.\"}, {\"source\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"target\": \"Bioenergetic Failure and Cell Death\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of the ortholog reproduces the bioenergetic and viability collapse this node describes, and quantifies it with the ATP, ROS and cytochrome c oxidase measurements the yeast work does not provide.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The perturbation is a knockdown or hypomorphic allele of the fly ortholog, not the human p.Asn76Asp missense allele, so it models loss of the gene rather than the disease genotype, and it cannot address dosage. The readouts are in haemocytes and cultured Schneider cells, tissues with no relationship to the growth plate. Fidelity is graded LOW for those reasons rather than because any result is in doubt.\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Delayed epiphyseal ossification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Delayed appearance of epiphyseal ossification centers is the radiographic observation underlying the proposed ossification defect. It does not independently prove the PAM16-to-growth-plate mechanism.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"PAM16\", \"target\": \"PAM16 Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_016069:c.226A\u003eG (p.Asn76Asp)\", \"target\": \"PAM16\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gln74Pro\", \"target\": \"PAM16\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axial hypotonia persisted on follow-up in the surviving sib of the first family. In the separate surgical report, hypotonia decreased before cervical surgery and remained present at thirteen years. The authors describe central hypotonia without distinguishing spinal from other central contributions; this does not establish the original families\\u2019 cause.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Bell-shaped thorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bell-shaped thoracic configuration on neonatal radiographs in the first founder family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001591\"}}, {\"id\": \"Bioenergetic Failure and Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele induces cell death in yeast. In separate experiments, loss of the fly ortholog Blp impairs respiration, lowers ATP and increases reactive oxygen species in Schneider cells, with antioxidant rescue also observed in hypomorphic larvae. These experiments support conserved roles in cell integrity and viability, but do not measure patient growth-plate or myocardial bioenergetics. Yeast temperature dependence does not explain the age at death in children.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apoptotic process\"], \"animal_models\": [{\"name\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"blp hypomorphic allele; blp RNAi knockdown in Schneider cells\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Loss of the ortholog reproduces the bioenergetic and viability collapse this node describes, and quantifies it with the ATP, ROS and cytochrome c oxidase measurements the yeast work does not provide.\"}]}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe cardiomegaly progressing to fatal heart failure, in the second family only. It was not reported in the first family despite the identical homozygous genotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001640\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the second founder family; no specific cardiomyopathy subtype is established by these sources.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cervical spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper cervical canal narrowing was explicitly attributed to C1-C2 subluxation in one survivor.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008445\"}}, {\"id\": \"Cervical spine instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"C1-C2 subluxation caused C0-C1 canal narrowing in the surgical survivor. Progressive instability and cord compression prompted decompression and C0-C3 fusion at three years ten months. The article does not state the allele.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003414\"}}, {\"id\": \"Cupped ribs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cupped rib ends in both original families. The quoted radiographs establish rib cupping, without establishing cupping of the long-bone metaphyses.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000887\"}}, {\"id\": \"Death in childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Death at about 2 years in three of the four originally reported children, from respiratory insufficiency in one family and heart failure in the other.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Death in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Death at 9 months in one child. The remaining three of the four originally reported children died at about 2 years, within the childhood rather than the infancy band.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed epiphyseal ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or delayed appearance of the epiphyseal ossification centres, described as absence of epiphyseal ossification of the knees in the first family. This is the radiographic signature of the tissue node: failure at the point where cartilage is converted to bone.\", \"meta\": {\"evidence_count\": 2, \"reports_on\": [{\"target\": \"Impaired Skeletal Ossification and Modeling\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Delayed appearance of epiphyseal ossification centers is the radiographic observation underlying the proposed ossification defect. It does not independently prove the PAM16-to-growth-plate mechanism.\"}], \"term_id\": \"HP:0002663\"}}, {\"id\": \"Disproportionate short-limb short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with short, rhizomelic limbs. In the surviving boy of the first family short stature persisted even as the bone abnormalities improved.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008873\"}}, {\"id\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo animal work on this gene family that bears on the disease mechanism. Black-pearl is the Drosophila ortholog of MAGMAS/Pam16. Depleting it depolarises mitochondria, drops ATP by 60 per cent, raises reactive oxygen species 3.5-fold and selectively cuts cytochrome c oxidase activity by 65 per cent; in hypomorphic larvae, plasmatocyte number and mitochondrial staining fall and N-acetylcysteine doubles viability, which is the strongest evidence that ROS is a causal effector rather than a bystander. It is not a model of the disease: the allele is a knockdown or hypomorph rather than the human missense change, and flies have no endochondral skeleton.\"}, {\"id\": \"Flat acetabular roof\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontal acetabula, described with medial and lateral spurs in the first family and as horizontal and trident acetabula in the second.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003180\"}}, {\"id\": \"Heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatal heart failure around 24 months in the second founder family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hypoplastic ischia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic ischia, reported in both families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003175\"}}, {\"id\": \"Impaired Skeletal Ossification and Modeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAM16-associated dysplasia impairs skeletal ossification and modeling, producing short and abnormally shaped bones. Wild-type mouse expression in hypertrophic cartilage and primary spongiosa supports an endochondral ossification role; it does not prove that human pathology is confined to these compartments or excludes other skeletal mechanisms. The observed epiphyseal delay, metaphyseal remodeling and vertebral abnormalities are the clinical manifestations represented here. Molecular and tissue links upstream of this node remain provisional.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hypertrophic chondrocyte\", \"osteoblast\"], \"biological_processes\": [\"endochondral ossification\", \"growth plate cartilage development\", \"ossification\"], \"locations\": [\"hypertrophic zone of the long bone growth plate\", \"primary spongiosa of trabecular bone\", \"vertebra\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGMAS regulates the mitochondrial import motor. In yeast expressing p.Asn76Asp, unprocessed Hsp60 accumulates under nonpermissive conditions, demonstrating a preprotein-import defect. Hsp60 precursor is an experimental reporter, not a clinical phenotype or evidence that every cargo is affected identically.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into the mitochondrial matrix\"], \"experimental_models\": [{\"name\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The human disease allele, expressed in place of the yeast ortholog, reproduces the import block that this node asserts.\"}]}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive kyphoscoliosis led to staged growth-friendly surgery at 11 years in one survivor.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Lumbar interpedicular narrowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased interpedicular distance at the lumbar vertebrae, reported in the second family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008486\"}}, {\"id\": \"Mitochondrial Network Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Yeast expressing p.Asn76Asp show punctate, fragmented mitochondria; enhanced pexophagy is detected at nonpermissive temperature. These observations accompany cellular injury. Their co-occurrence does not establish fragmentation as the cause of ATP loss or prove the same morphology in patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial network fragmentation\", \"pexophagy\"], \"experimental_models\": [{\"name\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"model_type\": \"OTHER\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same strains show the organellar fragmentation and pexophagy that this node asserts.\"}]}}, {\"id\": \"Myocardial Energetic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed cardiac consequence of impaired MAGMAS-dependent cellular function. Cardiomyopathy, severe cardiomegaly and fatal heart failure occurred in the second founder family. Mouse cardiac expression and conserved cellular bioenergetic functions support a myocardial hypothesis; ATP deficiency has not been measured in affected human myocardium, and the DNAJC19 cardiomyopathy analogy does not establish a dilated subtype in PAM16 disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"NM_016069:c.226A\u003eG (p.Asn76Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founder allele. Homozygous in all four children of the two unrelated consanguineous Lebanese families, absent from 550 Lebanese control chromosomes, and carried on a 1.9 Mb shared ancestral haplotype at 16p13.3. It substitutes a residue conserved across mammals and vertebrates in helix II of the J-like domain.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Narrow chest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow, bell-shaped thorax, the mechanical basis of the respiratory branch.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000774\"}}, {\"id\": \"PAM16\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"PAM16 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PAM16 missense variants cause SMDMDM. For the founder p.Asn76Asp allele, yeast complementation demonstrates conditional loss of MAGMAS stability, matrix-protein import and viability. The p.Gln74Pro allele is associated with a milder clinical course and has structural predictions, but equivalent allele-specific functional measurements are not reported in the reviewed sources. The yeast permissive-temperature phenotype supports residual function in that assay, without defining a human physiological threshold.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"J-like negative regulation of the mtHsp70 import-motor ATPase\"], \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous germline NM_016069:c.226A\u003eG (p.Asn76Asp). Graded as a partial rather than a complete loss of function because the allele complements a pam16-null yeast strain at permissive temperature and only fails as temperature rises.\", \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}]}, \"locations\": [\"trabecular bone tissue\"]}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008897\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused death in the two siblings of the first founder family. Thoracic restriction is a plausible contributor, but an intrinsic pulmonary defect is not excluded.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Restrictive Thoracic Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small thoracic dimensions and short ribs provide a plausible mechanical contribution to respiratory insufficiency in the first founder family. The primary study also considers MAGMAS function in lung tissue. Restriction has not been demonstrated as the exclusive respiratory mechanism, and no human thermal or metabolic threshold is inferred.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"thoracic cavity\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the proximal limb segments, recorded by Orphanet. The primary reports describe short limbs without consistently specifying the segment, so this binding rests on the Orphanet characterisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Severe platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked flattening of the vertebral bodies, present at birth. In survivors it improved somewhat with age, which is unusual for a spondylodysplastic dysplasia and is one of the more distinctive features of this entity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004565\"}}, {\"id\": \"Short long bone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short long bones with abnormal modelling, giving disproportionate short limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003026\"}}, {\"id\": \"Short ribs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short ribs, contributing with the narrow thorax to restrictive respiratory failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000773\"}}, {\"id\": \"Spastic diplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pyramidal signs and increasing spasticity preceded cervical surgery. Spastic diparesis persisted at thirteen years despite an intervening MRI at six years ten months showing no compression or instability; earlier cord injury and other central causes were not separately assessed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001264\"}}, {\"id\": \"Spinal cord compression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cervical instability and stenosis were accompanied by cord compression requiring surgery. The earlier MRI showed no cord signal abnormality; that finding does not exclude clinical myelopathy. Repeat MRI at six years ten months, after cervical fusion and revision, showed no compression or instability. Spastic diparesis and hypotonia were still documented at thirteen years; the report does not establish ongoing compression as their sole cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002176\"}}, {\"id\": \"Squared iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003177\"}}, {\"id\": \"Staged spinal surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"One survivor underwent occipital decompression, C1 laminectomy and noninstrumented C0-C3 fusion at three years ten months for progressive instability and cord compression. Vertebral-artery injury, postoperative bleeding requiring re-exploration, and nonunion requiring revision complicated that cervical course. Later kyphoscoliosis correction at eleven years used staged anchors and graft, ten weeks of halo-gravity traction and growing rods; completion of that later construct was reported without complications. Spastic diparesis persisted at age thirteen. This single case does not establish general safety, effectiveness or neurological recovery.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Trident acetabulum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trident acetabula were described in the second founder family, alongside horizontal acetabular roofs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034374\"}}, {\"id\": \"Wide distal femoral metaphysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening of the distal femoral metaphyses, the metaphyseal component that makes this a spondylometaphyseal rather than a purely spondylo- dysplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006387\"}}, {\"id\": \"p.Gln74Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second reported disease allele, homozygous in a single later patient with a milder course and longer survival than the four Lebanese children. It lies two residues from the founder allele in the same helix. The primary report of this patient is a paywalled letter with no retrievable abstract, so the allele and its milder phenotype are curated from two reviews that describe it rather than from the primary source.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAM16\"], \"gene_terms\": [{\"label\": \"PAM16\", \"id\": \"hgnc:29679\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Saccharomyces cerevisiae pam16-delta strains were complemented with wild-type or p.Asn76Asp human MAGMAS. Mutant growth was preserved at 28 degrees, slowed at 34 and absent at 36, particularly on non-fermentable medium. Nonpermissive conditions revealed Hsp60 precursor accumulation, reduced mutant protein, fragmented mitochondria and pexophagy. This establishes a conditional allele effect in yeast, without explaining human survival or predicting clinical responses to temperature.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:24786642\"}}], \"edges\": [{\"source\": \"PAM16 Dysfunction\", \"target\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele impairs matrix-preprotein import in yeast. A weakened MAGMAS/Pam18 regulatory subcomplex provides a mechanistic interpretation; extension to p.Gln74Pro and human tissues remains untested.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAM16 Dysfunction\", \"target\": \"Mitochondrial Network Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Asn76Asp allele disrupts mitochondrial network morphology in yeast. This is a parallel model consequence of PAM16 dysfunction; the experiment does not isolate an import-mediated route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PAM16 Dysfunction\", \"target\": \"Bioenergetic Failure and Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The founder allele induces yeast cell death; depletion of the fly ortholog impairs respiration and ATP production. These support a conserved cellular-injury branch, with different perturbations and assay systems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"target\": \"Impaired Skeletal Ossification and Modeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAM16 links mitochondrial import to skeletal development, but the human tissue intermediates and any additional MAGMAS functions remain unresolved. Mouse expression and the human genetic skeletal phenotype support an ossification hypothesis, not a directly measured growth-plate import lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bioenergetic Failure and Cell Death\", \"target\": \"Myocardial Energetic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conserved MAGMAS effects on cellular respiration provide a proposed myocardial injury route. The human cardiac phenotype and mouse cardiac expression support tissue relevance, but patient myocardial ATP loss has not been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Severe platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced vertebral-body ossification and growth is a proposed explanation for the marked vertebral flattening. No patient vertebral histology establishes the responsible cellular lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Wide distal femoral metaphysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth and modeling is proposed to produce the widened distal femoral contour. The radiograph establishes widening, while the link to the proposed ossification defect remains indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Short long bone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endochondral bone formation is proposed to reduce longitudinal growth of the long bones. The authors support an ossification role, but do not measure growth-plate dynamics in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Short ribs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired skeletal growth is proposed to limit rib elongation. The specific rib growth-plate lesion has not been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Restrictive Thoracic Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted growth of the short-ribbed, narrow thorax could limit lung expansion. This is a proposed mechanical contribution; the clinical series does not exclude intrinsic lung disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Cupped ribs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal modeling of the rib ends is proposed to produce the cupped contour. The clinical rib appearance does not establish a specific chondrocyte or osteoblast defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Narrow chest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thoracic skeletal growth is proposed to limit chest width. The sources do not partition the contributions of rib length, rib orientation and vertebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Bell-shaped thorax\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uneven thoracic skeletal growth is a candidate explanation for the bell-shaped contour. The authors\\u2019 broad ossification hypothesis does not establish the regional growth pattern responsible.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Squared iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered pelvic bone growth and modeling is proposed to alter iliac proportions. No patient tissue study identifies how the squared contour develops.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Flat acetabular roof\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal pelvic growth and modeling is proposed to alter acetabular roof orientation. The horizontal roof is documented radiographically; its cellular origin remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Trident acetabulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered acetabular modeling is proposed to generate the trident configuration. This extrapolates the authors\\u2019 skeletal hypothesis and does not establish a specific developmental intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Hypoplastic ischia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pelvic bone development is proposed to impair ischial growth. The available sources establish hypoplasia but not its cellular mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Lumbar interpedicular narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal vertebral growth and modeling is proposed to reduce lumbar pedicle spacing. The source does not establish whether reduced ossification or another developmental process determines that spacing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered longitudinal skeletal growth is proposed to contribute to proximal limb shortening. The reason for disproportionate proximal involvement remains unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Disproportionate short-limb short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired longitudinal skeletal growth is proposed to reduce limb length disproportionately. This qualified skeletal route does not account for every component of systemic growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired bone elongation is proposed to contribute to reduced linear growth after birth. The broader growth phenotype could also reflect nutrition, systemic illness or other mitochondrial functions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial Energetic Failure\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed myocardial energetic injury could produce cardiomyopathy; its occurrence is established clinically, but the specific energetic attribution is not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Restrictive Thoracic Insufficiency\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic restriction can compromise ventilation; its contribution to the reported respiratory insufficiency is inferred from the skeletal anatomy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Respiratory insufficiency\", \"target\": \"Death in infancy\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused the first-family girl\u0027s death at nine months.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory insufficiency\", \"target\": \"Death in childhood\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency caused the first-family boy\u0027s death around age two.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Cardiomegaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Myocardial disease was associated with severe cardiac enlargement in the affected siblings; enlargement is a manifestation of the cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Heart failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinically reported cardiomyopathy culminated in fatal pump failure in the second family.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heart failure\", \"target\": \"Death in childhood\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Heart failure caused death around age two in both second-family siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical spine instability\", \"target\": \"Cervical spinal canal stenosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation narrowed the upper cervical canal in this patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal cord compression\", \"target\": \"Axial hypotonia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The authors associate this patient\\u2019s cervical instability and myelopathy with hypotonia, supporting a possible contribution from cord compromise. Hypotonia decreased during follow-up before cervical surgery, while spasticity increased. The authors also call the hypotonia central without localizing it further; central includes the spinal cord. The relation does not establish ongoing compression, exclude other central or developmental contributors, or explain hypotonia in the earlier founder families.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal cord compression\", \"target\": \"Spastic diplegia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Cervical myelopathy is a qualified contributor to the survivor\\u2019s spastic diparesis. Pyramidal signs preceded cervical surgery; repeat MRI at six years ten months showed no compression or instability, but spastic diparesis was still present at thirteen years. This is not a demonstrated continuously reversible effect of ongoing compression. Residual injury from earlier cord compromise and other central contributors remain possible; the report does not distinguish their contributions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cervical spinal canal stenosis\", \"target\": \"Spinal cord compression\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Upper cervical canal narrowing provides the anatomical route to the subsequently reported cord compression; progression and dynamic instability are not separately quantified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Staged spinal surgery\", \"target\": \"Cervical spine instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Staged spinal surgery\", \"target\": \"Spinal cord compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Staged spinal surgery\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"target\": \"Impaired TIM23/PAM-Dependent Import of Matrix Preproteins\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The human disease allele, expressed in place of the yeast ortholog, reproduces the import block that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast has no growth plate, no cardiomyocyte and no vertebral column, so the model speaks only to the conserved import chemistry and can say nothing about how that chemistry becomes a skeletal disease. The defect is also only expressed at non-physiological temperatures, so the assay reports a conditional phenotype rather than the constitutive one patients carry at 37 degrees.\"}, {\"source\": \"pam16-null yeast complemented with human wild-type or p.Asn76Asp MAGMAS\", \"target\": \"Mitochondrial Network Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same strains show the organellar fragmentation and pexophagy that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Yeast mitochondrial dynamics and pexophagy are not identical to the human processes, and the phenotype again requires a temperature shift. Nothing here demonstrates that the same collapse occurs in a patient chondrocyte.\"}, {\"source\": \"Drosophila black-pearl (blp) hypomorph and RNAi knockdown\", \"target\": \"Bioenergetic Failure and Cell Death\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of the ortholog reproduces the bioenergetic and viability collapse this node describes, and quantifies it with the ATP, ROS and cytochrome c oxidase measurements the yeast work does not provide.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The perturbation is a knockdown or hypomorphic allele of the fly ortholog, not the human p.Asn76Asp missense allele, so it models loss of the gene rather than the disease genotype, and it cannot address dosage. The readouts are in haemocytes and cultured Schneider cells, tissues with no relationship to the growth plate. Fidelity is graded LOW for those reasons rather than because any result is in doubt.\"}, {\"source\": \"Impaired Skeletal Ossification and Modeling\", \"target\": \"Delayed epiphyseal ossification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Delayed appearance of epiphyseal ossification centers is the radiographic observation underlying the proposed ossification defect. It does not independently prove the PAM16-to-growth-plate mechanism.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"PAM16\", \"target\": \"PAM16 Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_016069:c.226A\u003eG (p.Asn76Asp)\", \"target\": \"PAM16\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gln74Pro\", \"target\": \"PAM16\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6926,6 +7009,9 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6990,6 +7076,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7070,6 +7159,9 @@ This clinical feature is Heart failure, annotated with Congestive heart failure 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7160,6 +7252,9 @@ This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7233,6 +7328,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7316,6 +7414,9 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7380,6 +7481,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7479,6 +7583,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7543,6 +7650,9 @@ This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7617,6 +7727,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7681,6 +7794,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7755,6 +7871,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7819,6 +7938,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7890,6 +8012,9 @@ This clinical feature is Broad nose, annotated with Wide nose (HP:0000445). HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7973,6 +8098,9 @@ This clinical feature is Wide distal femoral metaphysis (HP:0006387). HP:0006387
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8042,6 +8170,9 @@ This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8106,6 +8237,9 @@ This clinical feature is Trident acetabulum (HP:0034374). HP:0034374 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8189,6 +8323,9 @@ This clinical feature is Severe platyspondyly (HP:0004565). HP:0004565 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8253,6 +8390,9 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8352,6 +8492,9 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8416,6 +8559,9 @@ This clinical feature is Cupped ribs (HP:0000887). HP:0000887 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8490,6 +8636,9 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8554,6 +8703,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8628,6 +8780,9 @@ This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8692,6 +8847,9 @@ This clinical feature is Hypoplastic ischia (HP:0003175). HP:0003175 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8766,6 +8924,9 @@ This clinical feature is Lumbar interpedicular narrowing (HP:0008486). HP:000848
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8835,6 +8996,9 @@ This clinical feature is Aplasia/Hypoplasia of the sacrum (HP:0008517). HP:00085
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8899,6 +9063,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8998,6 +9165,9 @@ This clinical feature is Bell-shaped thorax (HP:0001591). HP:0001591 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9064,6 +9234,9 @@ This clinical feature is Atlantoaxial subluxation, annotated with Atlantoaxial d
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9145,6 +9318,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9209,6 +9385,9 @@ This clinical feature is Cervical spinal canal stenosis (HP:0008445). HP:0008445
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9285,6 +9464,9 @@ This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9368,6 +9550,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9432,6 +9617,9 @@ This clinical feature is Spinal cord compression (HP:0002176). HP:0002176 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9515,6 +9703,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9588,6 +9779,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9671,6 +9865,9 @@ This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9749,6 +9946,9 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9813,6 +10013,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9887,6 +10090,9 @@ This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9951,6 +10157,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10042,6 +10251,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10089,6 +10301,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
                     </div>
+
+
+
 
 
 
@@ -10207,6 +10422,9 @@ This disease-associated gene is PAM16 (hgnc:29679). hgnc:29679 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10282,6 +10500,7 @@ This disease-associated gene is PAM16 (hgnc:29679). hgnc:29679 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10301,11 +10520,17 @@ This variant is in PAM16 (hgnc:29679). hgnc:29679 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founder allele. Homozygous in all four children of the two unrelated consanguineous Lebanese families, absent from 550 Lebanese control chromosomes, and carried on a 1.9 Mb shared ancestral haplotype at 16p13.3. It substitutes a residue conserved across mammals and vertebrates in helix II of the J-like domain.</div>
@@ -10393,6 +10618,7 @@ This variant is in PAM16 (hgnc:29679). hgnc:29679 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10412,11 +10638,17 @@ This variant is in PAM16 (hgnc:29679). hgnc:29679 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second reported disease allele, homozygous in a single later patient with a milder course and longer survival than the four Lebanese children. It lies two residues from the founder allele in the same helix. The primary report of this patient is a paywalled letter with no retrievable abstract, so the allele and its milder phenotype are curated from two reviews that describe it rather than from the primary source.</div>
@@ -10665,6 +10897,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10675,6 +10910,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10795,6 +11033,9 @@ This treatment is cervical decompression and fusion with staged growing-rod corr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10805,6 +11046,9 @@ This treatment is cervical decompression and fusion with staged growing-rod corr
 
 
     </div>
+
+
+
 
 
 
@@ -15369,6 +15613,23 @@ notes: &#39;Entity verification. `runoak -i sqlite:obo:mondo info MONDO:0013223 
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity verification. `runoak -i sqlite:obo:mondo info MONDO:0013223 -O obo`, run 2026-08-31, returns the label &#34;autosomal recessive spondylometaphyseal dysplasia, Megarbane type&#34;, the definition &#34;Any spondylodysplastic dysplasia in which the cause of the disease is a mutation in the PAM16 gene&#34;, xrefs OMIM:613320, Orphanet:401979, UMLS:C2750075, MEDGEN:413221, MESH:C567644, DOID:0112304 and GARD:0017667, the single relationship `RO:0004003 HGNC:29679 ! PAM16`, and the two superclasses MONDO:0016763 and MONDO:0800080 that the stub recorded. `runoak -i sqlite:obo:mondo relationships --direction down -p RO:0004003 HGNC:29679` returns exactly one disease, this one, so unlike the SDHA or HMGCR situations there is no second PAM16 disease entity to separate.
+Named Entity Confusion. The gene has two names and only one of them is safe to search on. &#34;MAGMAS&#34; as a free-text query returns volcanology and a substantial cancer literature that uses MAGMAS as a chemoresistance drug target in glioblastoma, ovarian carcinoma and pituitary adenoma; none of it concerns this disease, and none of it is cited here. &#34;PAM16&#34; as free text additionally collides with PAM4 / PAM16 pulse amplitude modulation in optical communications engineering. Every reference in this entry was therefore selected from a PAM16 search combined with a skeletal, Megarbane or mitochondrial-import qualifier, and each was read before use. The deep-research report was run against MONDO:0013223 and preflighted with `just preflight-dr`, which returned PAM16 mentioned 38 times against a top rival of &#34;PAM&#34; at 11 - that rival is the PAM complex acronym from this disease&#39;s own mechanism, not a competing gene - and matched the report&#39;s OMIM identifier 613320 to MONDO&#39;s. One transcription error in that report was caught and not propagated: it gives the PROVEAN score for p.Asn76Asp as -24.021 where the primary paper reports -4.021.
+Allelic series, and what is not a separate disease. Two PAM16 disease alleles are published, p.Asn76Asp and p.Gln74Pro, two residues apart in the same helix of the J-like domain. Both reviews that discuss the second allele describe its patient as having SMDMDM with a milder course, not a different entity, and MONDO carries no second PAM16 disease term, so this is curated as one disease with an allelic series rather than as two entries or as parent-and-subtype. A search for a PAM16-related spastic paraplegia or other neurological entity was run and returned nothing: `PAM16 AND (spastic OR paraplegia)` in PubMed returns zero records, Europe PMC&#39;s `&#34;PAM16&#34; AND (&#34;spastic&#34; OR &#34;paraplegia&#34; OR &#34;neurodegener&#34;)` returns only reviews of the import machinery, and MONDO links no such disease to HGNC:29679. The cardiomyopathy-plus-ataxia phenotype that does exist in this part of the machinery belongs to DNAJC19, not PAM16, and is curated here as a differential.
+Provenance limits. The 2016 p.Gln74Pro primary report remains unavailable through the fetched PMID record, so its allelic interpretation relies on the two accessible reviews. The 2026 PMID and DOI records lack an abstract, but the fetched publisher HTML contains the full article. It cites the 2016 Moosa report at molecular diagnosis and shares Fano V as an author, suggesting possible longitudinal follow-up without explicitly identifying the allele or establishing a distinct patient. Clinical details and episode-specific surgical outcomes are curated from that full text. The 2023 nosology cache omits group tables; the existing ontology-based classification note is retained.
+
+Module conformance. No `conforms_to` is declared. There is at present no mitochondrial protein-import module in `kb/modules/`, and the closest candidates are not appropriate: `mitochondrial_dysfunction` is framed around age-related accumulation rather than a germline hypomorph, `loss_of_proteostasis` is likewise an ageing module, and `defective_skeletal_mineralization` concerns calciopenic and phosphopenic rickets and mineralisation-inhibitor excess, which is a different mechanism from the one curated here. A `mitochondrial_protein_import_failure` module would have several conformers already present or implied in the literature - PAM16 here, HSPA9 in EVEN-PLUS, DNAJC19 in DCMA and TIMM50 - and is proposed as follow-up work rather than created in this PR.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

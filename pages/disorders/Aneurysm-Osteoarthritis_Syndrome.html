@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4559,6 +4612,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smad3-loss-of-function" data-dismech-node="SMAD3 Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SMAD3 Loss-of-Function</div>
 
+
                 <div class="item-desc">Heterozygous pathogenic variants in SMAD3 disrupt the receptor-regulated SMAD that transduces TGF-beta signals from activated TGF-beta receptors to the nucleus. SMAD3 forms a complex with the co-SMAD SMAD4 and regulates transcription of TGF-beta target genes. Loss of normal SMAD3 function is the conserved genetic trigger for the syndrome.</div>
 
 
@@ -4654,6 +4708,8 @@ This genetic context concerns SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4666,6 +4722,9 @@ This genetic context concerns SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous SMAD3 alleles (haploinsufficiency alleles and MH2-domain missense). Recorded as LOSS_OF_FUNCTION; the paradoxical increase in TGF-beta signalling in aortic tissue is a downstream consequence, not the variant&#39;s effect on SMAD3 itself.</div>
 
@@ -4949,6 +5008,7 @@ This pathophysiological event involves abnormal SMAD protein signal transduction
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-prrx2-dependent-aortic-microfibril-expression" data-dismech-node="Reduced PRRX2-Dependent Aortic Microfibril Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced PRRX2-Dependent Aortic Microfibril Expression</div>
 
+
                 <div class="item-desc">In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells showed reduced expression of microfibril genes and downregulation of PRRX2, a promoter-occupying regulator of five microfibril genes. SMAD3 overexpression rescued both PRRX2 and microfibril expression, defining a directly tested SMAD3-PRRX2-microfibril axis.</div>
 
 
@@ -5204,6 +5264,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-smooth-muscle-to-elastic-lamella-disconnection" data-dismech-node="Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection</div>
 
+
                 <div class="item-desc">Early human aortic pathology in SMAD3 variant carriers consists of smooth muscle cells separated from elastic lamellae by glycosaminoglycans and elastic fibers that are poorly decorated by multiple microfibril proteins, even while lamellar structure and SMC content remain relatively intact.</div>
 
 
@@ -5351,6 +5412,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-signaling-dysregulation" data-dismech-node="TGF-beta Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Signaling Dysregulation</div>
+
 
                 <div class="item-desc">Despite SMAD3 being a positive transducer of TGF-beta signaling, SMAD3 mutations lead to paradoxically increased expression of key TGF-beta pathway components in the aortic wall, the same dysregulated-TGF-beta signature seen across the heritable thoracic aortic disease syndromes.</div>
 
@@ -5524,6 +5586,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-medial-degeneration-and-wall-weakening" data-dismech-node="Aortic Medial Degeneration and Wall Weakening" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Medial Degeneration and Wall Weakening</div>
+
 
                 <div class="item-desc">Dysregulated TGF-beta signaling together with the underlying connective tissue defect produces medial degeneration of the aortic wall. In the Smad3-null model the dominant findings are medial elastin (elastic fiber) disruption and adventitial inflammation with matrix metalloproteinase activation concentrated in inflammatory areas, progressively weakening the wall; this inflammatory, MMP-driven route is a notable AOS-specific feature.</div>
 
@@ -5770,6 +5833,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-arterial-aneurysm-and-tortuosity" data-dismech-node="Progressive Arterial Aneurysm and Tortuosity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Arterial Aneurysm and Tortuosity</div>
 
+
                 <div class="item-desc">Progressive weakening of the arterial wall produces aneurysms and marked tortuosity that, unlike Marfan syndrome, are distributed widely throughout the arterial tree rather than confined to the aortic root.</div>
 
 
@@ -5915,6 +5979,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-dissection-and-rupture" data-dismech-node="Aortic Dissection and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Dissection and Rupture</div>
+
 
                 <div class="item-desc">The weakened, aneurysmal arterial wall is prone to dissection and rupture. A clinically critical feature shared with other Loeys-Dietz subtypes is that dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, and vascular disease is not limited to the aortic root.</div>
 
@@ -6077,6 +6142,7 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-tgf-beta-dysregulation-and-early-onset-osteoarthritis" data-dismech-node="Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis</div>
+
 
                 <div class="item-desc">A hallmark that distinguishes aneurysm-osteoarthritis syndrome from other aneurysm syndromes is prominent early-onset osteoarthritis, frequently with osteochondritis dissecans. SMAD3 is essential for TGF-beta-mediated regulation of chondrocyte differentiation and cartilage homeostasis, so its disruption promotes cartilage degeneration.</div>
 
@@ -6435,6 +6501,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6512,6 +6581,9 @@ This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6611,6 +6683,9 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6677,6 +6752,9 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6773,6 +6851,9 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6899,6 +6980,9 @@ This clinical feature is Iliac artery aneurysm (HP:4000067). HP:4000067 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6995,6 +7079,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7066,6 +7153,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7132,6 +7222,9 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7265,6 +7358,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7338,6 +7434,9 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7423,6 +7522,9 @@ This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7487,6 +7589,9 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7570,6 +7675,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7634,6 +7742,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7748,6 +7859,9 @@ This clinical feature is Osteoarthritis (HP:0002758), qualified as juvenile onse
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7842,6 +7956,9 @@ This clinical feature is Osteochondritis dissecans (HP:0010886). HP:0010886 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7906,6 +8023,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7982,6 +8102,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8053,6 +8176,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8117,6 +8243,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8233,6 +8362,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8411,6 +8543,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8421,6 +8556,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -8555,6 +8693,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8565,6 +8706,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
     </div>
+
+
+
 
 
 
@@ -8660,6 +8804,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8670,6 +8817,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8790,6 +8940,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8800,6 +8953,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8895,6 +9051,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8905,6 +9064,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11981,6 +12143,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Aneurysm-Osteoarthritis Syndrome</strong> · 2026-07-29T23:13:29Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Aneurysm-Osteoarthritis_Syndrome/2026-07-29T231329Z-claude-code-805ccc.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of Aneurysm-Osteoarthritis Syndrome, SMAD3-related Loeys-Dietz syndrome type 3, MONDO:0013426. Deep research provider: falcon/Edison. GeneReviews baseline PMID:20301312 fetched and tagged. Curated SMAD3/TGF-beta pathophysiology with conforms_to links to the aortopathy_tgfbeta_dysregulation module; TGF-beta paradox refined with Smad3-null mouse data PMID:27688095 and the iNOS/MMP inflammatory arm PMID:23782924, plus a cartilage early-onset-osteoarthritis mechanism node. Phenotypes with quantified human frequencies from the van der Linde 2012 AOS cohort PMID:22633655 and van de Laar PMID:21217753/PMID:22167769; genotype-phenotype and natural history from the Montalcino Aortic Consortium PMID:30661052. Treatments: ARB/beta-blocker, prophylactic surgery, whole-arterial-tree surveillance. Validated with schema+terms+references and 92.6 percent weighted compliance.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4268,6 +4321,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbx5-haploinsufficiency-and-enhancer-dysfunction" data-dismech-node="TBX5 Haploinsufficiency and Enhancer Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">TBX5 Haploinsufficiency and Enhancer Dysfunction</div>
 
+
                 <div class="item-desc">Holt-Oram syndrome is caused by heterozygous loss-of-function mutations in TBX5, a T-box transcription factor that acts as a dosage-sensitive regulator of cardiac and forelimb development. TBX5 haploinsufficiency disrupts enhancer accessibility and 3D chromatin architecture at regulatory regions controlling genes essential for atrial identity, chamber septation, and conduction system development. In the limb, TBX5 is critical for forelimb bud initiation and radial patterning in the lateral plate mesoderm. TBX5 cooperates with cardiac transcription factors GATA4 and NKX2-5 at conserved enhancers and requires chromatin remodeling partners (BAF/SWI-SNF and NuRD/CHD4) to maintain cell-type-specific gene expression programs.
 </div>
 
@@ -4764,6 +4818,7 @@ This pathophysiological event occurs in Atrial conduction system, annotated with
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cofactor-and-chromatin-remodeling-dysfunction" data-dismech-node="Cofactor and Chromatin Remodeling Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cofactor and Chromatin Remodeling Dysfunction</div>
 
+
                 <div class="item-desc">TBX5 function depends critically on physical interactions with cardiac transcription factor GATA4 and the chromatin modulating protein ZFPM2/FOG2, which together co-occupy atrial-specific enhancers controlling genes required for atrial conduction and calcium handling. Additionally, TBX5 directly interacts with chromatin remodeling complexes including CHD4 (NuRD) and SMARCA4/BRG1 (BAF/SWI-SNF) to maintain accessible chromatin at cardiac enhancers. Reduced TBX5 dosage impairs the formation and maintenance of these enhancer-promoter loops and topologically associating domains (TADs), leading to widespread transcriptional dysregulation of conduction and chamber specification genes.
 </div>
 
@@ -5219,6 +5274,7 @@ This pathophysiological event involves Cardiac conduction (GO:0061337). GO:00613
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-septation-and-conduction-defects" data-dismech-node="Cardiac Septation and Conduction Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Septation and Conduction Defects</div>
 
+
                 <div class="item-desc">The classical molecular mechanism by which TBX5 haploinsufficiency produces structural and electrical heart disease in HOS. TBX5 cooperates with the homeodomain transcription factor NKX2-5 to activate cardiac target genes including atrial natriuretic factor (ANF/NPPA) and connexin 40 (GJA5/Cx40), which are required for chamber septation and atrioventricular conduction. A 50% reduction in TBX5 dosage markedly decreases ANF and Cx40 transcription, impairing endocardial cushion contributions to atrial/ventricular septation and reducing conduction-system gap junction coupling. Missense TBX5 mutations additionally disrupt protein-protein interactions with NKX2-5 and impair nuclear localization of the mutant protein, providing a complementary loss-of-function mechanism alongside truncating haploinsufficiency.
 </div>
 
@@ -5592,6 +5648,7 @@ This pathophysiological event occurs in Cardiac conduction system, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-limb-morphogenesis-disruption" data-dismech-node="Upper Limb Morphogenesis Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Limb Morphogenesis Disruption</div>
 
+
                 <div class="item-desc">TBX5 is required cell-autonomously in the lateral plate mesoderm of the prospective forelimb field for forelimb bud initiation and for preaxial (radial) ray patterning. Heterozygous loss-of-function variants reduce TBX5 dosage below the threshold required for normal radial ray morphogenesis, producing the dosage-sensitive HOS limb spectrum that ranges from triphalangeal thumb and thumb hypoplasia to absent thumb, radial hypoplasia and phocomelia. Limb defects in HOS are bilateral but characteristically asymmetric and can occur independently of the severity of the cardiac phenotype.
 </div>
 
@@ -5863,6 +5920,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5950,6 +6010,9 @@ This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6049,6 +6112,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6120,6 +6186,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6184,6 +6253,9 @@ This clinical feature is Proarrhythmic activity in iPSC-derived cardiomyocytes, 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6268,6 +6340,9 @@ This clinical feature is Upper limb abnormality, annotated with Abnormality of t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Upper limb abnormalities are a cardinal feature of Holt-Oram syndrome, occurring in nearly 100% of affected individuals.</div>
 
 
@@ -6344,6 +6419,9 @@ This clinical feature is Radial bowing (HP:0002986). HP:0002986 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6408,6 +6486,9 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Triphalangeal thumb is the mildest end of the preaxial radial-ray spectrum produced by TBX5 haploinsufficiency. No HOS-specific PMID in this entry&#39;s reference set quotes triphalangeal thumb directly; support comes via the parent radial-ray defect phenotype and the dosage-sensitive limb-patterning mechanism described under &#34;Upper Limb Morphogenesis Disruption&#34;.</div>
@@ -6481,6 +6562,9 @@ This clinical feature is Hypoplasia of the radius (HP:0002984). HP:0002984 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6595,6 +6679,9 @@ This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6742,6 +6829,12 @@ This treatment is cardiac electrophysiologist evaluation, annotated with Cardiac
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6926,6 +7019,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6936,6 +7032,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7069,6 +7168,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7079,6 +7181,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7179,6 +7284,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7189,6 +7297,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9026,6 +9137,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

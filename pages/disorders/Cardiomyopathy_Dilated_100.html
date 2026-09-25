@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4668,6 +4721,13 @@ Two cautions belong up front. First, the name is a trap. The OMIM designation is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vezf1-nonsense-variant-abolishes-transcriptional-transactivation" data-dismech-node="VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous nonsense variant, c.490A&gt;T p.(Lys164*), truncating vascular endothelial zinc finger 1 partway through the protein. VEZF1 is a zinc-finger transcription factor, so the functional consequence is measured as a loss of transactivation rather than as a structural defect: in a dual-luciferase reporter system the mutant protein failed to drive the promoters of MYH7 and ET1, both of which are already implicated in dilated cardiomyopathy. This is why the entity sits apart mechanistically from the sarcomeric members of the numbered series, where the lesion is in the contractile machinery itself.</div>
 
 
@@ -4797,6 +4857,8 @@ This genetic context concerns VEZF1 (hgnc:12949). hgnc:12949 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4809,6 +4871,9 @@ This genetic context concerns VEZF1 (hgnc:12949). hgnc:12949 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline nonsense allele. Only one such allele has been reported, in a single family.</div>
 
@@ -4944,6 +5009,13 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-transcription-of-cardiomyocyte-contractile-and-growth-targets" data-dismech-node="Reduced Transcription of Cardiomyocyte Contractile and Growth Targets" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Transcription of Cardiomyocyte Contractile and Growth Targets</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">VEZF1 target genes in the cardiomyocyte include the contractile gene programme. Gene ontology enrichment on Vezf1 knockdown implicates cardiac muscle contraction and dilated-cardiomyopathy genes, and the study identifies cardiomyocyte Myh7 (beta-MHC) as the key target, acting through an MCAT binding site in the Myh7 promoter with TEAD-1 as a VEZF1 binding partner. The same regulation is visible in acquired disease: Vezf1 expression is reduced in diseased human and mouse myocardium, which is what makes this transcription factor plausible as a general node rather than just the site of one family&#39;s mutation.</div>
 
@@ -5159,6 +5231,13 @@ This pathophysiological event involves decreased positive regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiomyocyte-contractile-function-and-compensatory-growth" data-dismech-node="Impaired Cardiomyocyte Contractile Function and Compensatory Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiomyocyte Contractile Function and Compensatory Growth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of Vezf1 reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation. The negative result recorded alongside it is what makes this node specific: calcium transient kinetics are unchanged, so the failure is not in excitation-contraction coupling but downstream of it, at the contractile apparatus and the transcriptional supply that builds it. Blunted inotropic reserve also means the deficit shows up first under load rather than at rest.</div>
 
@@ -5412,6 +5491,13 @@ This pathophysiological event involves decreased cardiac muscle tissue growth (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-dilation-and-systolic-dysfunction" data-dismech-node="Left Ventricular Dilation and Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Dilation and Systolic Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint and the definition of the disease class: left ventricular or biventricular dilation with systolic dysfunction, leading to heart failure and, in some, sudden cardiac death. This node is what the entity shares with every other dilated cardiomyopathy, and it is why the entry conforms to the conserved maladaptive-remodeling module here rather than re-deriving the neurohormonal and remodeling chain that produces it.</div>
 
 
@@ -5533,7 +5619,7 @@ This pathophysiological event involves abnormal heart contraction (GO:0060047). 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cascade Genetic Testing and Surveillance of At-Risk Relatives\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield action this entity supports, and the one most specific to it. Once the familial variant is known, first-degree relatives can be tested directly; a relative of a carrier has a 50% prior, and on the single available pedigree penetrance was complete, so a genotype-positive relative should be assumed to be at risk rather than reassured. Genotype-positive relatives then need longitudinal cardiac surveillance so that ventricular dysfunction is caught before it presents as heart failure or sudden death, and genotype-negative relatives can be released from it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The clinical syndrome the ventricular dysfunction produces, and the usual reason a family with this entity comes to attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: enlargement of the left or both ventricles with impaired systolic function. It is what puts the entity in the numbered familial dilated cardiomyopathy series, and there is nothing about the echocardiographic picture that distinguishes the VEZF1 form from the rest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is the standard treatment of dilated cardiomyopathy and heart failure with reduced ejection fraction. There is nothing VEZF1-specific: no disease-modifying therapy exists for the transcriptional defect, and no treatment study has been reported in a carrier.\"}, {\"id\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Vezf1 reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation. The negative result recorded alongside it is what makes this node specific: calcium transient kinetics are unchanged, so the failure is not in excitation-contraction coupling but downstream of it, at the contractile apparatus and the transcriptional supply that builds it. Blunted inotropic reserve also means the deficit shows up first under load rather than at rest.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\", \"cardiac muscle tissue growth\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"vezf1 knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"vezf1 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces both halves of the cellular node, the contractile deficit and the failure of compensatory growth, and localizes the lesion by showing calcium handling is spared.\"}]}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint and the definition of the disease class: left ventricular or biventricular dilation with systolic dysfunction, leading to heart failure and, in some, sudden cardiac death. This node is what the entity shares with every other dilated cardiomyopathy, and it is why the entry conforms to the conserved maladaptive-remodeling module here rather than re-deriving the neurohormonal and remodeling chain that produces it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart contraction\"], \"role\": \"consequence\"}}, {\"id\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The cell system in which the transcriptional mechanism was worked out. Silencing Vezf1 in primary cardiomyocytes is what identified Myh7 as the key target, located the MCAT binding site in the Myh7 promoter that mediates the response, and showed TEAD-1 to be a VEZF1 binding partner. It is also the one system in this entry that speaks directly to whether the cardiac phenotype is cardiomyocyte-autonomous, because it removes the endothelium from the question.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:31911272\"}}, {\"id\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEZF1 target genes in the cardiomyocyte include the contractile gene programme. Gene ontology enrichment on Vezf1 knockdown implicates cardiac muscle contraction and dilated-cardiomyopathy genes, and the study identifies cardiomyocyte Myh7 (beta-MHC) as the key target, acting through an MCAT binding site in the Myh7 promoter with TEAD-1 as a VEZF1 binding partner. The same regulation is visible in acquired disease: Vezf1 expression is reduced in diseased human and mouse myocardium, which is what makes this transcription factor plausible as a general node rather than just the site of one family\u0027s mutation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the transcriptional step directly: loss of VEZF1 in a cardiomyocyte lowers Myh7 promoter activity through a defined cis-element and a defined partner.\"}]}}, {\"id\": \"VEZF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VEZF1 (vascular endothelial zinc finger 1)\"], \"gene_terms\": [{\"label\": \"VEZF1 (vascular endothelial zinc finger 1)\", \"id\": \"hgnc:12949\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous nonsense variant, c.490A\u003eT p.(Lys164*), truncating vascular endothelial zinc finger 1 partway through the protein. VEZF1 is a zinc-finger transcription factor, so the functional consequence is measured as a loss of transactivation rather than as a structural defect: in a dual-luciferase reporter system the mutant protein failed to drive the promoters of MYH7 and ET1, both of which are already implicated in dilated cardiomyopathy. This is why the entity sits apart mechanistically from the sarcomeric members of the numbered series, where the lesion is in the contractile machinery itself.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"molecular_functions\": [\"DNA-binding transcription factor activity of VEZF1\"], \"genes\": [\"VEZF1\"], \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline nonsense allele. Only one such allele has been reported, in a single family.\", \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}]}, \"role\": \"trigger\"}}, {\"id\": \"VEZF1 c.490A\u003eT p.(Lys164*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only reported disease allele. A nonsense change truncating the protein at codon 164, heterozygous, segregating with dominant DCM through one family at complete penetrance. It was absent from 200 unrelated DCM patients, 400 unrelated healthy individuals, dbSNP, HGMD and gnomAD, which is a stronger absence argument than most single-family alleles carry.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"VEZF1\"], \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"vezf1 knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo model bearing on the cardiac phenotype. Knocking down the zebrafish ortholog reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation, while leaving cardiomyocyte calcium transient kinetics intact.\"}], \"edges\": [{\"source\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"target\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VEZF1 transactivation lowers expression of its cardiomyocyte target genes, of which MYH7 is the identified key one.\"}, {\"source\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"target\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced contractile-gene transcription degrades how hard the myocyte can contract and how well it can grow in response to load.\"}, {\"source\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A myocardium that contracts less well and cannot grow adaptively dilates and loses ejection fraction.\"}, {\"source\": \"Cascade Genetic Testing and Surveillance of At-Risk Relatives\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"target\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the transcriptional step directly: loss of VEZF1 in a cardiomyocyte lowers Myh7 promoter activity through a defined cis-element and a defined partner.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Neonatal rat cells, not human, and knockdown of the wild-type protein rather than expression of the human p.(Lys164*) allele, so it models loss of VEZF1 rather than this disease\u0027s specific lesion. The cells are also neonatal, whereas the reported human disease is adult-onset.\"}, {\"source\": \"vezf1 knockdown zebrafish\", \"target\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces both halves of the cellular node, the contractile deficit and the failure of compensatory growth, and localizes the lesion by showing calcium handling is spared.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A knockdown in a fish, not the human nonsense allele in a mammal, and the readout is larval cardiac function rather than the adult-onset dilated cardiomyopathy of the reported family. Morpholino knockdown also depletes the protein globally, so a cardiomyocyte-autonomous interpretation is not established: VEZF1 is primarily a vascular-development factor and an endothelial contribution to the cardiac phenotype has not been excluded.\"}, {\"source\": \"VEZF1\", \"target\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VEZF1 c.490A\u003eT p.(Lys164*)\", \"target\": \"VEZF1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cascade Genetic Testing and Surveillance of At-Risk Relatives\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield action this entity supports, and the one most specific to it. Once the familial variant is known, first-degree relatives can be tested directly; a relative of a carrier has a 50% prior, and on the single available pedigree penetrance was complete, so a genotype-positive relative should be assumed to be at risk rather than reassured. Genotype-positive relatives then need longitudinal cardiac surveillance so that ventricular dysfunction is caught before it presents as heart failure or sudden death, and genotype-negative relatives can be released from it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The clinical syndrome the ventricular dysfunction produces, and the usual reason a family with this entity comes to attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: enlargement of the left or both ventricles with impaired systolic function. It is what puts the entity in the numbered familial dilated cardiomyopathy series, and there is nothing about the echocardiographic picture that distinguishes the VEZF1 form from the rest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is the standard treatment of dilated cardiomyopathy and heart failure with reduced ejection fraction. There is nothing VEZF1-specific: no disease-modifying therapy exists for the transcriptional defect, and no treatment study has been reported in a carrier.\"}, {\"id\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Vezf1 reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation. The negative result recorded alongside it is what makes this node specific: calcium transient kinetics are unchanged, so the failure is not in excitation-contraction coupling but downstream of it, at the contractile apparatus and the transcriptional supply that builds it. Blunted inotropic reserve also means the deficit shows up first under load rather than at rest.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\", \"cardiac muscle tissue growth\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"vezf1 knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"vezf1 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces both halves of the cellular node, the contractile deficit and the failure of compensatory growth, and localizes the lesion by showing calcium handling is spared.\"}]}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint and the definition of the disease class: left ventricular or biventricular dilation with systolic dysfunction, leading to heart failure and, in some, sudden cardiac death. This node is what the entity shares with every other dilated cardiomyopathy, and it is why the entry conforms to the conserved maladaptive-remodeling module here rather than re-deriving the neurohormonal and remodeling chain that produces it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart contraction\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The cell system in which the transcriptional mechanism was worked out. Silencing Vezf1 in primary cardiomyocytes is what identified Myh7 as the key target, located the MCAT binding site in the Myh7 promoter that mediates the response, and showed TEAD-1 to be a VEZF1 binding partner. It is also the one system in this entry that speaks directly to whether the cardiac phenotype is cardiomyocyte-autonomous, because it removes the endothelium from the question.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:31911272\"}}, {\"id\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEZF1 target genes in the cardiomyocyte include the contractile gene programme. Gene ontology enrichment on Vezf1 knockdown implicates cardiac muscle contraction and dilated-cardiomyopathy genes, and the study identifies cardiomyocyte Myh7 (beta-MHC) as the key target, acting through an MCAT binding site in the Myh7 promoter with TEAD-1 as a VEZF1 binding partner. The same regulation is visible in acquired disease: Vezf1 expression is reduced in diseased human and mouse myocardium, which is what makes this transcription factor plausible as a general node rather than just the site of one family\u0027s mutation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the transcriptional step directly: loss of VEZF1 in a cardiomyocyte lowers Myh7 promoter activity through a defined cis-element and a defined partner.\"}]}}, {\"id\": \"VEZF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VEZF1 (vascular endothelial zinc finger 1)\"], \"gene_terms\": [{\"label\": \"VEZF1 (vascular endothelial zinc finger 1)\", \"id\": \"hgnc:12949\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous nonsense variant, c.490A\u003eT p.(Lys164*), truncating vascular endothelial zinc finger 1 partway through the protein. VEZF1 is a zinc-finger transcription factor, so the functional consequence is measured as a loss of transactivation rather than as a structural defect: in a dual-luciferase reporter system the mutant protein failed to drive the promoters of MYH7 and ET1, both of which are already implicated in dilated cardiomyopathy. This is why the entity sits apart mechanistically from the sarcomeric members of the numbered series, where the lesion is in the contractile machinery itself.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"molecular_functions\": [\"DNA-binding transcription factor activity of VEZF1\"], \"genes\": [\"VEZF1\"], \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline nonsense allele. Only one such allele has been reported, in a single family.\", \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"VEZF1 c.490A\u003eT p.(Lys164*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only reported disease allele. A nonsense change truncating the protein at codon 164, heterozygous, segregating with dominant DCM through one family at complete penetrance. It was absent from 200 unrelated DCM patients, 400 unrelated healthy individuals, dbSNP, HGMD and gnomAD, which is a stronger absence argument than most single-family alleles carry.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"VEZF1\"], \"gene_terms\": [{\"label\": \"VEZF1\", \"id\": \"hgnc:12949\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"vezf1 knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo model bearing on the cardiac phenotype. Knocking down the zebrafish ortholog reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation, while leaving cardiomyocyte calcium transient kinetics intact.\"}], \"edges\": [{\"source\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"target\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VEZF1 transactivation lowers expression of its cardiomyocyte target genes, of which MYH7 is the identified key one.\"}, {\"source\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"target\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced contractile-gene transcription degrades how hard the myocyte can contract and how well it can grow in response to load.\"}, {\"source\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A myocardium that contracts less well and cannot grow adaptively dilates and loses ejection fraction.\"}, {\"source\": \"Cascade Genetic Testing and Surveillance of At-Risk Relatives\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal rat primary cardiomyocytes with Vezf1 silencing\", \"target\": \"Reduced Transcription of Cardiomyocyte Contractile and Growth Targets\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the transcriptional step directly: loss of VEZF1 in a cardiomyocyte lowers Myh7 promoter activity through a defined cis-element and a defined partner.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Neonatal rat cells, not human, and knockdown of the wild-type protein rather than expression of the human p.(Lys164*) allele, so it models loss of VEZF1 rather than this disease\u0027s specific lesion. The cells are also neonatal, whereas the reported human disease is adult-onset.\"}, {\"source\": \"vezf1 knockdown zebrafish\", \"target\": \"Impaired Cardiomyocyte Contractile Function and Compensatory Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces both halves of the cellular node, the contractile deficit and the failure of compensatory growth, and localizes the lesion by showing calcium handling is spared.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A knockdown in a fish, not the human nonsense allele in a mammal, and the readout is larval cardiac function rather than the adult-onset dilated cardiomyopathy of the reported family. Morpholino knockdown also depletes the protein globally, so a cardiomyocyte-autonomous interpretation is not established: VEZF1 is primarily a vascular-development factor and an endothelial contribution to the cardiac phenotype has not been excluded.\"}, {\"source\": \"VEZF1\", \"target\": \"VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VEZF1 c.490A\u003eT p.(Lys164*)\", \"target\": \"VEZF1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5574,6 +5660,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5648,6 +5737,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5712,6 +5804,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5808,6 +5903,9 @@ This disease-associated gene is VEZF1 (vascular endothelial zinc finger 1), anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5883,6 +5981,7 @@ This disease-associated gene is VEZF1 (vascular endothelial zinc finger 1), anno
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5902,11 +6001,17 @@ This variant is in VEZF1 (hgnc:12949). hgnc:12949 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The only reported disease allele. A nonsense change truncating the protein at codon 164, heterozygous, segregating with dominant DCM through one family at complete penetrance. It was absent from 200 unrelated DCM patients, 400 unrelated healthy individuals, dbSNP, HGMD and gnomAD, which is a stronger absence argument than most single-family alleles carry.</div>
@@ -6017,6 +6122,12 @@ This treatment is cascade genetic testing and genetic counseling, annotated with
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6165,6 +6276,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6175,6 +6289,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6257,6 +6374,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6267,6 +6387,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7984,6 +8107,132 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entry-type decision: DISEASE. MONDO:0859381 is a leaf with no descendants. Unusually for this queue, the stub carries NO `genes:` block, because MONDO records no causal-gene relationship for this term. Identity was therefore resolved through the stub&#39;s MONDO xrefs rather than by asking MONDO for a gene: MONDO:0859381 carries `OMIM:620247` and `MEDGEN:1840927`, and the MedGen record supplies the gene (VEZF1, 17q22), the OMIM designation, the disease definition and the source citation (Shi et al., 2023, PMID:36657711).
+
+THE NAME IS A TRAP. The OMIM designation is CMD1OO, with two capital letter Os continuing the alphabetical suffix series (CMD1A, CMD1B, ... CMD1NN, CMD1OO). The MONDO and MedGen labels render it &#34;cardiomyopathy, dilated, 100&#34;, reading the letters as digits. This is NOT the hundredth numbered dilated cardiomyopathy locus. Both spellings are recorded in `synonyms` so a search on either finds this entry, and the disease_term keeps the MONDO label unchanged.
+
+Named-entity check: `just preflight-dr` returns SKIP for this MONDO term because MONDO records no causal gene, so the automated gene-frequency check cannot discriminate. The manual check specified for a SKIP verdict was performed instead: the OMIM xref on the MONDO term (620247) matches the OMIM identifier in the MedGen record, and the gene named there (VEZF1) is the gene of the deep-research report and of every reference cited here. The report&#39;s own gene tally, which the SKIP verdict still prints, is consistent (VEZF1=49, then MYH7=10 and TEAD1=8, which are the two mechanism partners curated here rather than rival disease genes).
+
+Deep research provenance: the falcon report reached the same causal chain independently but could NOT recover the variant details, listing HGVS nomenclature, variant class and functional effect of the human allele as fields to leave null pending inspection of the original article. Those details are curated here because they are in the abstract of PMID:36657711, which was fetched directly. This is worth recording because it is the opposite of the usual failure mode: the report under-claimed rather than over-claimed.
+
+OMIM&#39;s clinical synopsis, as surfaced through MedGen, additionally lists atrial septal defect, second-degree atrioventricular block, premature ventricular contraction and reduced left ventricular ejection fraction. None of these is curated as a phenotype here, because the only primary source is abstract-only and its abstract does not mention them, and MedGen and OMIM are not citable reference prefixes in this repository. They are recorded here so a later curator with full-text access knows what to look for rather than re-deriving the gap.
+
+Module conformance: three nodes declare `conforms_to` against `cardiomyopathy_maladaptive_remodeling` (Primary Cardiomyocyte Insult, Progressive Contractile Dysfunction, Structural Cardiac Impairment and Heart Failure). Conformance is not inheritance, so the disease-specific content is duplicated in full. The module&#39;s Neurohormonal Activation and Ventricular Remodeling nodes are deliberately NOT conformed to: nothing in the VEZF1 literature measures either in this disease, and asserting conformance on the strength of the general DCM pathway would be inheriting the module rather than declaring agreement with it.
+
+No frequency values are asserted on any phenotype. The entity is one family and no denominator exists.
+
+GeneReviews has no VEZF1-specific chapter, but the disease-level &#34;Dilated Cardiomyopathy Overview&#34; (PMID:20301486) does apply and is tagged and mined here, on both the cascade-testing treatment and the echocardiography diagnosis entry. This follows the precedent set by the numbered-series peers `Dilated_Cardiomyopathy_1AA` and `Dilated_Cardiomyopathy_1EE`, which are in the same position of having no gene-specific chapter. An earlier draft of this entry asserted that no GeneReviews baseline existed at all, which was true only of a gene-specific chapter and is corrected here. Orphanet has no entry keyed to this concept, so no ORPHA reference is cited. `just refresh-orphadata` is currently failing on a drifted sha256 in this repository and was not run.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Cardiomyopathy Dilated 100 (CMD1OO, VEZF1, MONDO:0859381)</strong> · 2026-08-27T17:50:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cardiomyopathy_Dilated_100/2026-08-27T175027Z-claude-code-d65b8d.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the VEZF1-attributed leaf entity CMD1OO (MONDO:0859381,
+OMIM 620247), with module conformance rather than a re-derived remodeling chain.
+
+Entry-type decision: DISEASE. MONDO:0859381 is a leaf with no descendants.
+
+IDENTITY RESOLUTION WITHOUT A GENE IN THE STUB. This stub is unusual: it
+carries no genes: block, because MONDO records no causal-gene relationship
+(RO:0004003) for the term. Identity was therefore resolved through the stub&#39;s
+MONDO xrefs rather than by asking MONDO for a gene. MONDO:0859381 carries
+OMIM:620247 and MEDGEN:1840927; the MedGen record supplied the gene (VEZF1,
+17q22), the OMIM designation, the disease definition and the source citation
+(Shi et al. 2023 = PMID:36657711), from which the primary literature was
+located directly on PubMed.
+
+THE NAME IS A TRAP, and it is recorded in the entry description, synonyms and
+notes. The OMIM designation is CMD1OO with two capital letter Os, continuing
+the alphabetical suffix series; MONDO and MedGen render it &#34;cardiomyopathy,
+dilated, 100&#34;, reading the letters as digits. This is not the hundredth
+numbered DCM locus. Both spellings are in synonyms so a search on either finds
+the entry; disease_term keeps the MONDO label unchanged.
+
+NEC preflight returned SKIP as expected, since MONDO records no causal gene.
+The manual check specified for SKIP was performed: the MONDO term&#39;s OMIM xref
+(620247) matches the OMIM identifier in the MedGen record, and the gene named
+there (VEZF1) is the report&#39;s dominant gene (VEZF1=49 mentions, then MYH7=10
+and TEAD1=8, which are the mechanism partners curated here rather than rival
+disease genes).
+
+Deep research: falcon. Its reference_validation reported 4/4 resolved, 0
+unresolved, 0 unverifiable, 0 off topic. Notably the report reached the same
+causal chain independently but could NOT recover the variant details, listing
+HGVS nomenclature, variant class and functional effect as fields to leave null
+pending inspection of the original article. Those are curated here because they
+are in the abstract of PMID:36657711, fetched directly. Recorded in the entry
+notes because it is the opposite of the usual DR failure mode.
+
+Pathophysiology: 4 atomic nodes, 3 edges, single root, all reachable. VEZF1
+nonsense variant abolishes transcriptional transactivation (MOLECULAR) -&gt;
+reduced transcription of cardiomyocyte contractile and growth targets
+(MOLECULAR) -&gt; impaired cardiomyocyte contractile function and compensatory
+growth (CELLULAR) -&gt; left ventricular dilation and systolic dysfunction
+(ORGANISM).
+
+Module conformance: three nodes declare conforms_to against
+cardiomyopathy_maladaptive_remodeling (Primary Cardiomyocyte Insult,
+Progressive Contractile Dysfunction, Structural Cardiac Impairment and Heart
+Failure). Conformance is not inheritance, so the disease-specific content is
+duplicated in full. The module&#39;s Neurohormonal Activation and Ventricular
+Remodeling nodes are deliberately NOT conformed to: nothing in the VEZF1
+literature measures either in this disease, and asserting conformance on the
+strength of the general DCM pathway would be inheriting the module rather than
+declaring agreement with it.
+
+Confidence: the trigger and its two downstream nodes carry
+mechanism_confidence: PROVISIONAL, because the whole entity rests on one family
+with one nonsense allele plus one reporter assay, and there is no ClinGen
+gene-disease validity assertion for VEZF1 in any cardiomyopathy (checked
+against the 494 CGGV records in references_cache: zero mention VEZF1). The
+final structural node is generic dilated cardiomyopathy and is ESTABLISHED. The
+variant is recorded LIKELY_PATHOGENIC rather than PATHOGENIC for the same
+reason, with the reasoning in its evidence explanation.
+
+The zebrafish model carries two readouts including a genuine negative one:
+calcium transient kinetics are UNCHANGED, which is what localizes the lesion
+downstream of excitation-contraction coupling.
+
+Two discussions: gene-disease validity (one family, no ClinGen assertion, with
+a replication experiment proposed and the observation that VEZF1 is absent from
+most cardiomyopathy panels so absence of further reports may mean nobody
+looked); and whether the cardiac phenotype is cardiomyocyte-autonomous or
+partly vascular, since VEZF1 is better characterized as a vascular-development
+factor and the zebrafish experiment is a global knockdown.
+
+Scope note: OMIM&#39;s clinical synopsis, via MedGen, additionally lists atrial
+septal defect, second-degree atrioventricular block, premature ventricular
+contraction and reduced left ventricular ejection fraction. None is curated as
+a phenotype, because the only primary source is abstract-only and does not
+mention them, and MedGen/OMIM are not citable reference prefixes here. Recorded
+in notes so a curator with full-text access knows what to look for. No
+frequency values are asserted anywhere; the entity is one family.
+
+Validation actually run and read, on this file: just validate (passed);
+just count-verified-snippets (Snippets checked: 26/26 verified against cached
+references); just validate-terms (Validation passed); just validate-disorders
+(batched sweep); just check-duplicate-keys, check_folded_hyphens,
+check_snippet_length --against-ref origin/main, just check-title-snippets,
+just check-reference-titles, just check-snippet-grading, just check-cache-order,
+just check-term-cache-integrity all OK. All 3 distinct evidence
+reference_title values checked programmatically against cached frontmatter
+titles; 0 mismatches. One snippet drafted from memory of a paper&#39;s framing
+rather than its text failed validation and was replaced with the cached
+sentence.
+
+Known tooling gap: just refresh-orphadata fails on a drifted sha256 in this
+checkout. Orphanet has no entry for this concept and none is cited.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

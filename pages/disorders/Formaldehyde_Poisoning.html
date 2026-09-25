@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5304,6 +5357,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-formaldehyde-delivery-at-the-portal-of-entry" data-dismech-node="Formaldehyde delivery at the portal of entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Formaldehyde delivery at the portal of entry</div>
 
+
                 <div class="item-desc">Formaldehyde is small, highly water-soluble, and reacts essentially on contact, so the delivered dose is deposited and consumed in the first tissue it meets: the ocular surface and upper respiratory mucosa on inhalation, the oropharyngeal and gastric mucosa on ingestion, the epidermis on skin contact. More than 90% of inhaled formaldehyde is retained in the upper airway. This scrubbing at the portal of entry is the single organizing principle of the disease - it is why injury is concentration-driven rather than cumulative-dose-driven, and why the toxicology of a systemic route is so different from that of a local one.</div>
 
 
@@ -5446,6 +5500,7 @@ This pathophysiological event involves respiratory tract epithelial cell (CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schiff-base-adduction-and-methylene-crosslinking-of-biomolecules" data-dismech-node="Schiff-base adduction and methylene crosslinking of biomolecules" data-dismech-type="pathophysiology">
                 <div class="item-name">Schiff-base adduction and methylene crosslinking of biomolecules</div>
+
 
                 <div class="item-desc">The single chemical event underlying every arm of the disease. The aldehyde carbon is electrophilic and attacks nucleophilic sites - lysine epsilon-amino and N-terminal amines, cysteine thiols, and the exocyclic amines of DNA bases - forming methylol adducts that condense into stable methylene bridges. No metabolic activation is required. The same reaction that fixes a histology specimen denatures a gastric mucosa, haptenates a self protein, and crosslinks DNA to protein.</div>
 
@@ -5602,6 +5657,7 @@ This pathophysiological event involves increased peptide cross-linking (GO:00181
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigeminal-sensory-irritation" data-dismech-node="Trigeminal sensory irritation" data-dismech-type="pathophysiology">
                 <div class="item-name">Trigeminal sensory irritation</div>
 
+
                 <div class="item-desc">Formaldehyde at the ocular and upper-airway surface activates trigeminal nerve endings, triggering a reflex cascade of eyeblink, lacrimation, rhinorrhoea, and cough. This is the lowest-threshold effect of formaldehyde and the endpoint on which most occupational exposure limits are set. The early stages are fully reversible; sustained or high exposure carries the pathway into neurogenic inflammation and then tissue damage, which is where it converges with the cytotoxic arm.</div>
 
 
@@ -5740,6 +5796,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-coagulation-and-tissue-fixation" data-dismech-node="Protein coagulation and tissue fixation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein coagulation and tissue fixation</div>
+
 
                 <div class="item-desc">Extensive crosslinking of structural and enzymatic proteins denatures and coagulates them in situ. In the gastrointestinal tract after formalin ingestion this is visible at autopsy as literal tissue fixation - the mucosa and adjacent organs acquire the rigid, preserved morphology of a specimen. Coagulated cellular protein cannot carry out its normal function, so the tissue is killed rather than merely injured.</div>
 
@@ -5906,6 +5963,7 @@ This pathophysiological event involves epithelial cell of alimentary canal (CL:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulative-mucosal-necrosis-and-ulceration" data-dismech-node="Coagulative mucosal necrosis and ulceration" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulative mucosal necrosis and ulceration</div>
 
+
                 <div class="item-desc">Killed mucosa sloughs, producing ulceration, haemorrhage, and - with full-thickness injury - perforation and peritonitis. The stomach bears the worst of it after ingestion. Loss of the mucosal barrier is also the route by which formaldehyde and its metabolites enter the circulation in quantity.</div>
 
 
@@ -5990,6 +6048,7 @@ This pathophysiological event involves epithelial cell of alimentary canal (CL:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrotic-stricture-formation" data-dismech-node="Fibrotic stricture formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrotic stricture formation</div>
 
+
                 <div class="item-desc">Corrosive injury that reaches beyond the mucosa does not regenerate; it heals by granulation and collagen deposition, and the scar contracts. Weeks after the acute episode this presents as oesophageal stricture and gastric outlet obstruction, often requiring repeated endoscopic dilation. This is the arm of the disease that persists in survivors, and it follows the conserved fibrotic-response pattern of injury to architectural distortion rather than anything formaldehyde-specific.</div>
 
 
@@ -6065,6 +6124,7 @@ This pathophysiological event involves epithelial cell of alimentary canal (CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-absorption-and-glutathione-dependent-oxidation-to-formate" data-dismech-node="Systemic absorption and glutathione-dependent oxidation to formate" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic absorption and glutathione-dependent oxidation to formate</div>
+
 
                 <div class="item-desc">Absorbed formaldehyde conjugates spontaneously with glutathione to S-hydroxymethylglutathione, which ADH5 (alcohol dehydrogenase 5, also called formaldehyde dehydrogenase or GSNOR) oxidizes to S-formylglutathione; hydrolysis then releases formate. ALDH2 provides a mitochondrial backup arm. This is a normal, high-capacity clearance route, not a bioactivation step - formaldehyde&#39;s blood half-life is very short and the pathway even feeds one-carbon metabolism. Toxicity is a capacity-overflow phenomenon: the problem is the size of the bolus, not the existence of the pathway. Note the contrast with methanol poisoning, where formaldehyde is the intermediate being made rather than the poison being cleared.</div>
 
@@ -6373,6 +6433,7 @@ This pathophysiological event involves increased S-(hydroxymethyl)glutathione de
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-formate-accumulation-and-high-anion-gap-metabolic-acidosis" data-dismech-node="Formate accumulation and high anion gap metabolic acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Formate accumulation and high anion gap metabolic acidosis</div>
 
+
                 <div class="item-desc">Formate is eliminated slowly, by a saturable folate-dependent route, so a large formaldehyde load produces formate faster than it can be disposed of. Accumulated formate is an unmeasured anion and drives a severe high-anion-gap metabolic acidosis; it also inhibits mitochondrial cytochrome c oxidase, producing histotoxic hypoxia and lactate that widens the gap further. This is the same terminal chemistry as methanol poisoning, which matters clinically because commercial formalin is stabilized with methanol and the two toxidromes arrive together.</div>
 
 
@@ -6525,6 +6586,7 @@ This pathophysiological event involves decreased cytochrome-c oxidase activity (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-circulatory-collapse-and-multiorgan-failure" data-dismech-node="Acute circulatory collapse and multiorgan failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute circulatory collapse and multiorgan failure</div>
 
+
                 <div class="item-desc">The terminal common pathway of substantial ingestion: distributive and hypovolaemic shock from massive mucosal injury, compounded by refractory acidosis and histotoxic hypoxia, producing cardiovascular collapse, CNS depression, acute kidney injury, hepatic injury, and acute respiratory distress syndrome. Death typically follows within hours to days.</div>
 
 
@@ -6585,6 +6647,7 @@ This pathophysiological event involves decreased cytochrome-c oxidase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nasal-and-upper-airway-epithelial-cytotoxicity" data-dismech-node="Nasal and upper airway epithelial cytotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Nasal and upper airway epithelial cytotoxicity</div>
+
 
                 <div class="item-desc">Above the irritant threshold, formaldehyde kills the epithelium it contacts. In the chronic rodent inhalation bioassay this appears as rhinitis, epithelial dysplasia, and squamous metaplasia, strictly confined to the nasal cavity and proximal trachea and graded by concentration. There is a sharp transition rather than a smooth ramp: at or below about 2 ppm the changes are minimal and reversible, while at 6 ppm and above there is persistent epithelial necrosis.</div>
 
@@ -6804,6 +6867,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-protein-and-interstrand-crosslink-formation" data-dismech-node="DNA-protein and interstrand crosslink formation" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA-protein and interstrand crosslink formation</div>
 
+
                 <div class="item-desc">Formaldehyde reacting with DNA yields N2-hydroxymethyl-deoxyguanosine mono-adducts, DNA-DNA interstrand crosslinks, and - characteristically - covalent DNA-protein crosslinks. These lesions block replication fork progression and transcription, and they are the reason formaldehyde is genotoxic without requiring metabolic activation. This is also the point at which exogenous exposure joins a substantial endogenous background: formaldehyde is a normal product of histone and nucleic acid demethylation, so every cell already carries these adducts.</div>
 
 
@@ -7010,6 +7074,7 @@ This pathophysiological event involves increased interstrand cross-link repair (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-saturation-of-crosslink-repair-capacity" data-dismech-node="Saturation of crosslink repair capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Saturation of crosslink repair capacity</div>
 
+
                 <div class="item-desc">Formaldehyde-induced crosslinks are resolved by the Fanconi anaemia interstrand-crosslink pathway, with FANCD2 as a central node, and by DNA-protein-crosslink proteolysis. These systems have finite throughput. When the aldehyde burden outruns them, damage persists into replication - the injury is not a poisoned enzyme but an exceeded repair budget. This is the mechanistic hinge on which both the local carcinogenesis arm and the contested haematopoietic arm turn.</div>
 
 
@@ -7197,6 +7262,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regenerative-epithelial-proliferation-and-dysplasia" data-dismech-node="Regenerative epithelial proliferation and dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Regenerative epithelial proliferation and dysplasia</div>
 
+
                 <div class="item-desc">Sustained cytotoxicity forces the surviving basal epithelium into continuous replacement proliferation. A proliferating field is exactly where unrepaired crosslink damage becomes fixed mutation, and the combination of chronic cell killing, regenerative division, and local genotoxicity is the accepted mode of action for formaldehyde&#39;s nasal carcinogenicity. Crucially, the non-neoplastic changes regress when exposure stops - it is only the carcinoma that does not.</div>
 
 
@@ -7357,6 +7423,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-airway-squamous-cell-carcinoma" data-dismech-node="Upper airway squamous cell carcinoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper airway squamous cell carcinoma</div>
+
 
                 <div class="item-desc">The best-anchored malignant endpoint. Squamous cell carcinoma arises at the site of maximal vapour flux - the anterior nasal cavity in the rat, the nasopharynx in exposed humans - and only in the setting of long-term exposure at concentrations that produce sustained cytotoxicity. Human epidemiology is not unanimous: the large NCI industrial cohort continues to show a nasopharyngeal cancer excess, while an equally large British chemical worker cohort found none.</div>
 
@@ -7522,6 +7589,7 @@ This pathophysiological event involves nasopharyngeal epithelial cell (CL:100157
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haematopoietic-stem-cell-genotoxic-attrition" data-dismech-node="Haematopoietic stem cell genotoxic attrition" data-dismech-type="pathophysiology">
                 <div class="item-name">Haematopoietic stem cell genotoxic attrition</div>
+
 
                 <div class="item-desc">Persistent formaldehyde-crosslink damage in haematopoietic stem cells impairs their differentiation and self-renewal and depletes the pool, ultimately producing marrow failure and leukaemic clonal evolution. This is firmly established for endogenous formaldehyde, in mice lacking clearance or repair and in humans with inherited clearance failure. Whether inhaled formaldehyde reaches the marrow in sufficient quantity to do the same is the contested question behind the IARC leukaemia classification, and is deliberately curated here under the alternative hypothesis rather than asserted.</div>
 
@@ -7726,6 +7794,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haptenation-and-type-iv-sensitization" data-dismech-node="Haptenation and type IV sensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Haptenation and type IV sensitization</div>
 
+
                 <div class="item-desc">Formaldehyde penetrating skin or airway epithelium covalently modifies self proteins, creating hapten-carrier complexes that dendritic cells take up and present. Hapten-specific T cells are primed, and on re-exposure mount a delayed-type hypersensitivity response - allergic contact dermatitis in skin. Sensitization is durable: it does not remit with exposure reduction, only with avoidance. Formaldehyde-releasing preservatives are a major and often unrecognized source, since a product need not list formaldehyde to deliver it.</div>
 
 
@@ -7913,6 +7982,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythrocyte-oxidant-injury" data-dismech-node="Erythrocyte oxidant injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythrocyte oxidant injury</div>
+
 
                 <div class="item-desc">A route-specific arm seen when formaldehyde reaches erythrocytes directly in the circulation rather than at a mucosal surface - classically iatrogenic contamination of dialysate, where residual formalin sterilant is delivered intravascularly. Formalin acts as a direct oxidant on red cells, producing acute intravascular haemolysis. The route matters: this does not follow from inhalational exposure.</div>
 
@@ -8158,6 +8228,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239), qualified as 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8247,6 +8320,9 @@ This clinical feature is Acute intravascular hemolysis, annotated with Hemolytic
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8311,6 +8387,9 @@ This clinical feature is Myeloid leukemia (HP:0012324). HP:0012324 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8439,6 +8518,9 @@ This clinical feature is Ocular irritation and conjunctival injection, annotated
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8521,6 +8603,9 @@ This clinical feature is Shock (HP:0031273), qualified as temporality acute. HP:
 
 
                     </div>
+
+
+
 
 
 
@@ -8622,6 +8707,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8706,6 +8794,9 @@ This clinical feature is Esophageal stricture (HP:0002043), qualified as course 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated on the general corrosive-ingestion literature and the depth of formaldehyde mucosal injury; no formaldehyde-specific series quantifies stricture incidence, so no frequency band is recorded.</div>
 
 
@@ -8775,6 +8866,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8876,6 +8970,9 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8949,6 +9046,9 @@ This clinical feature is Rhinitis (HP:0012384). HP:0012384 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9074,6 +9174,9 @@ This clinical feature is Eczematous allergic contact dermatitis, annotated with 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately carries no `frequency:` band. The best available number - a 2.88% pooled prevalence of formaldehyde contact allergy across 158 studies and over 1.3 million patients - has a denominator of *dermatitis patients undergoing patch testing*, not of formaldehyde-exposed people, so mapping it onto a FrequencyEnum band would silently change what the number means. It is recorded as evidence with its denominator stated instead. Regional variation is large (highest in North America at 6.8%), which is a further reason not to collapse it to a single band.</div>
 
 
@@ -9173,6 +9276,9 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9264,6 +9370,9 @@ This clinical feature is Nasopharyngeal squamous cell carcinoma, annotated with 
 
 
                     </div>
+
+
+
 
 
 
@@ -9392,6 +9501,9 @@ This clinical feature is Pulmonary edema in acute respiratory distress syndrome,
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9481,6 +9593,9 @@ This clinical feature is High anion gap metabolic acidosis, annotated with Metab
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9565,6 +9680,9 @@ This clinical feature is Elevated hepatic transaminases, annotated with Elevated
 
 
                     </div>
+
+
+
 
 
 
@@ -9666,6 +9784,9 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9748,6 +9869,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality acute. H
 
 
                     </div>
+
+
+
 
 
 
@@ -9849,6 +9973,9 @@ This clinical feature is Cough (HP:0012735), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9938,6 +10065,9 @@ This clinical feature is Throat irritation, annotated with Pharyngitis (HP:00254
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10007,6 +10137,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10071,6 +10204,9 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10169,6 +10305,9 @@ This clinical feature is Epigastric pain from corrosive gastric injury, annotate
 
 
                     </div>
+
+
+
 
 
 
@@ -10287,6 +10426,9 @@ This disease-associated gene is ADH5 (hgnc:253). hgnc:253 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10384,6 +10526,9 @@ This disease-associated gene is ALDH2 (hgnc:404). hgnc:404 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10456,6 +10601,12 @@ This disease-associated gene is ALDH2 (hgnc:404). hgnc:404 is a gene from the HU
         ALDH2 rs671 (NM_000690.4:c.1510G&gt;A, p.Glu504Lys)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The East Asian alcohol-flushing allele, also written ALDH2*2 and, in the mature protein numbering, E487K. It acts as a dominant negative on the ALDH2 tetramer, so heterozygotes lose most enzyme activity and carry reduced backup capacity for formaldehyde clearance.</div>
@@ -10541,6 +10692,9 @@ This disease-associated gene is FANCD2 (hgnc:3585). hgnc:3585 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10646,6 +10800,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10656,6 +10813,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10769,6 +10929,9 @@ This treatment is hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10779,6 +10942,9 @@ This treatment is hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -10878,6 +11044,9 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10888,6 +11057,9 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
     </div>
+
+
+
 
 
 
@@ -10987,6 +11159,9 @@ This treatment uses folinic acid, annotated with (6S)-5-formyltetrahydrofolic ac
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10997,6 +11172,9 @@ This treatment uses folinic acid, annotated with (6S)-5-formyltetrahydrofolic ac
 
 
     </div>
+
+
+
 
 
 
@@ -11131,6 +11309,9 @@ This treatment uses fomepizole (CHEBI:5141). CHEBI:5141 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11141,6 +11322,9 @@ This treatment uses fomepizole (CHEBI:5141). CHEBI:5141 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -11200,6 +11384,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11210,6 +11397,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -11344,6 +11534,9 @@ This treatment uses albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11354,6 +11547,9 @@ This treatment uses albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -11414,6 +11610,9 @@ This treatment is endoscopic esophageal dilation, annotated with Esophageal Dila
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11424,6 +11623,9 @@ This treatment is endoscopic esophageal dilation, annotated with Esophageal Dila
 
 
     </div>
+
+
+
 
 
 
@@ -16545,6 +16747,35 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Edit: Formaldehyde Poisoning - add diagnosis section and correct evidence_source tags</strong> · 2026-08-14T01:41:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Formaldehyde_Poisoning/2026-08-14T014122Z-claude-code-f03a7c.yaml">View source</a></p>
+                        <p class="research-review-text">Two rounds of changes on PR #8443, on top of the CREATE record for this entry.
+
+Round 1 (self-review, pushed before the reviewer verdict landed): corrected three evidence_source tags on PMID:42101931, a Crit Rev Toxicol review. They had been classified by the paper&#39;s overall character rather than by what the quoted sentence reports, which is the rule in CLAUDE.md. The portal-of-entry node went HUMAN_CLINICAL -&gt; OTHER (the sentence is the review&#39;s synthesis across human, animal, and mechanistic studies); the nasal epithelial cytotoxicity node went OTHER -&gt; MODEL_ORGANISM (the quoted finding is explicitly from the rat nasal cavity); the regenerative proliferation node went OTHER -&gt; COMPUTATIONAL (the inference comes from dosimetry and BBDR modelling). Each explanation now states why the tag was chosen. No snippets changed.
+
+Round 2 (response to ai4c-reviewer CHANGES_REQUESTED). The blocking item was a missing diagnosis: section, correctly identified - the deep-research report devotes a section to the diagnostic workup and none of it had been curated. Added three diagnosis entries, all with NCIT terms confirmed reachable from NCIT:C25218 via runoak ancestors: acid-base and osmolal gap workup (NCIT:C217391 Diagnostic Blood Gas Testing), upper GI endoscopy with injury grading (NCIT:C78144 Esophagogastroduodenoscopy), and patch testing for formaldehyde and its releasers (NCIT:C17137 Skin Test). The endoscopy entry cites PMID:31643028 twice - once for the prognostic value of the injury grade, once for the finding that symptoms and oral burns do not predict the depth of gastrointestinal injury, which is the actual argument for scoping - and carries a note that the evidence is from the general corrosive-ingestion literature rather than a formaldehyde-specific series.
+
+Also accepted three of the reviewer&#39;s optional suggestions: located_in UBERON:0001728 nasopharynx on the nasopharyngeal SCC phenotype (HP:0002860 carries histology but not site); NCIT:C70908 Esophageal Dilation replacing the generic NCIT:C15329 Surgical Procedure on the dilation treatment; and PMID:42035787 now cited on the allergic contact dermatitis phenotype.
+
+Two reviewer suggestions were declined with stated reasons rather than silently skipped, and both are recorded in the entry itself. First, the reviewer suggested PMID:42035787 would let the contact-dermatitis phenotype carry an evidence-backed frequency:. It would not: the 2.88% pooled prevalence has a denominator of dermatitis patients undergoing patch testing, not of formaldehyde-exposed people, so mapping it to a FrequencyEnum band would silently change what the number means. The figure is cited as evidence with its denominator stated, and a notes: on the phenotype explains why no band was set. Second, conformance to tumor_promoting_inflammation#Pro-Tumorigenic Inflammatory Microenvironment was not added: that module node requires an immune infiltrate (TAMs, neutrophils, mast cells) secreting growth and pro-angiogenic factors, and the regenerative-proliferation node here is epithelial replacement proliferation driven by cytotoxicity, with no curated immune-cell content and no evidence gathered for one. Declaring conformance would assert content this entry does not have.
+
+Validation run and read after these changes: just validate (schema + terms) passed; just validate-disorders (the batched check CI runs) passed with 114/114 snippets verified against cached references, up from 108/108 at the CREATE commit; just check-title-snippets passed; just check-folded-hyphens passed; just compliance now reports 85.6% weighted, up from 85.0%. CI on the prior commit was fully green (test (3.13) pass, claude-review pass) before these changes.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Formaldehyde Poisoning</strong> · 2026-08-13T22:14:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Formaldehyde_Poisoning/2026-08-13T221408Z-claude-code-ba9e55.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Formaldehyde_Poisoning.yaml (MONDO:0023176) de novo. Deep research: claude_code provider (just research-disorder claude_code Formaldehyde_Poisoning), report committed at research/Formaldehyde_Poisoning-deep-research-claude_code.md; its Reference Validation section reports 20/20 references resolved, 0 unresolved. NEC preflight (just preflight-dr against MONDO:0023176) returned SKIP because MONDO records no causal gene for a chemical poisoning; the manual OMIM/synonym fallback was applied and cleared - the report&#39;s top gene mentions (ALDH2, ADH5) belong to its clearance-genetics section, and the OMIM it cites (619151) is AMeD syndrome, which the report itself flags as a separate entity and which this entry curates only as a differential. Scope: this entry covers the EXPOSURE disease. AMeD syndrome (inherited endogenous formaldehyde clearance failure) is deliberately NOT curated here; its phenotypes are excluded and it appears only under differential_diagnoses, while ADH5/ALDH2/FANCD2 are recorded as susceptibility/modifier loci. Pathograph: 17 nodes across four arms (portal-of-entry delivery, corrosive protein fixation, systemic formate acidosis, genotoxic crosslinking) with biological_scale tags; conforms_to fibrotic_response#Architectural Distortion and Organ Dysfunction (stricture arm) and genome_instability_mutation#Failure of DNA Damage Surveillance and Repair (crosslink arm). Contested claims are curated as competing mechanistic_hypotheses rather than asserted: portal_of_entry_genotoxicity (CANONICAL) vs systemic_haematopoietic_genotoxicity (ALTERNATIVE) for the IARC leukaemia endpoint, plus intravascular_blood_fixation (EMERGING) for a single forensic case&#39;s proposed mechanism of death. Conflicting cohorts are both retained with opposite supports tags (PMID:23788167 SUPPORT vs PMID:24714728 REFUTE for nasopharyngeal carcinoma), and the formaldehyde-asthma association carries a REFUTE item. Five discussions: KNOWLEDGE_GAP on the leukaemia route, HUMAN_MODEL_MISMATCH on rodent-vs-human nasal dosimetry, EMERGING_HYPOTHESIS on blood fixation, KNOWLEDGE_GAP on ALDH2 rs671 exposure interaction, OPEN_QUESTION on the folate paradox. Validation run and read: just validate (schema + terms) passed; just count-verified-snippets reported 108/108 verified against cached references; just check-title-snippets passed (no new title-quoting snippets); just check-folded-hyphens passed; just compliance reported 85.0% weighted. Full tests/test_data.py run: 32331 passed, 2 failed - both in Urticaria.yaml and WAPL-Related_Developmental_Disorder.yaml, files not touched by this work, so inherited from main. The slow batched pre-PR sweep (just validate-disorders) is run separately before the PR.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

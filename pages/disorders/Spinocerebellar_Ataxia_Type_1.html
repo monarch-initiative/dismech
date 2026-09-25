@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4387,6 +4440,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atxn1-cag-repeat-expansion" data-dismech-node="ATXN1 CAG Repeat Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">ATXN1 CAG Repeat Expansion</div>
 
+
                 <div class="item-desc">The initiating lesion is expansion of an unstable, translated CAG trinucleotide repeat in the coding region of ATXN1 on chromosome 6p22.3. Affected individuals usually carry 39 or more repeats, which encode a correspondingly elongated polyglutamine tract in ataxin-1. Because the repeat is translated, the established pathogenic mechanism operates at the protein level, through the expanded ataxin-1 protein itself. This does not exclude a parallel RNA-level contribution: repeat-associated non-AUG translation of the same locus is curated as its own branch below.</div>
 
 
@@ -4397,6 +4451,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4416,6 +4472,9 @@
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4539,6 +4598,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-localization-of-polyglutamine-expanded-ataxin-1" data-dismech-node="Nuclear Localization of Polyglutamine-Expanded Ataxin-1" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Localization of Polyglutamine-Expanded Ataxin-1</div>
+
 
                 <div class="item-desc">Pathogenesis requires the expanded protein to reach the Purkinje cell nucleus. Transgenic mice expressing ataxin-1[82Q] with a mutated nuclear localization signal do not develop disease. Critically, visible nuclear aggregation is dissociable from toxicity: mice expressing a self-association-deficient ataxin-1[77Q] that forms no detectable nuclear inclusions still develop ataxia and Purkinje cell pathology. SCA1 is therefore not driven by inclusion formation per se, which distinguishes it from a simple aggregation model of polyglutamine disease.</div>
 
@@ -4744,6 +4804,7 @@ This pathophysiological event involves protein localization to nucleus (GO:00345
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ser776-dependent-assembly-of-mutant-ataxin-1-into-native-complexes" data-dismech-node="Ser776-Dependent Assembly of Mutant Ataxin-1 into Native Complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Ser776-Dependent Assembly of Mutant Ataxin-1 into Native Complexes</div>
+
 
                 <div class="item-desc">Phosphorylation of ataxin-1 at serine 776 gates its incorporation into large soluble protein complexes. Transgenic mice expressing ataxin-1[82Q]-A776, which cannot be phosphorylated at this residue, place the expanded protein in Purkinje cell nuclei yet are substantially protected from disease. The same S776A substitution markedly reduces the association of mutant ataxin-1 with Capicua in vivo, linking this phosphorylation site directly to the pathogenic complex. The kinases that place this mark are region-specific: MSK1 in cerebellum and RSK3 in brainstem. This is the clearest available answer to why a brain-wide protein kills only select populations, and it predicts that rescuing the whole disease requires targeting more than one regulator.</div>
 
@@ -4966,6 +5027,7 @@ This pathophysiological event involves protein-containing complex assembly (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-ataxin-1-capicua-transcriptional-repressor-activity" data-dismech-node="Aberrant Ataxin-1-Capicua Transcriptional Repressor Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Ataxin-1-Capicua Transcriptional Repressor Activity</div>
+
 
                 <div class="item-desc">Both wild-type and expanded ataxin-1 assemble into large stable cerebellar complexes containing the transcriptional repressor Capicua (CIC), and ataxin-1 modulates Capicua repressor activity. SCA1 toxicity depends on this native interaction rather than on a novel one acquired by the expanded protein. The genetic test is decisive: duplicating the ataxin-1 paralog Atxn1l, which displaces mutant ataxin-1 from the Capicua complex, suppresses neuropathology in a knock-in SCA1 model. Ataxin-1 also both gains and partially loses interactions, so SCA1 combines a dominant gain of function with partial loss of normal ataxin-1 activity. Capicua is not the whole mechanism: abolishing the ATXN1-CIC interaction globally in knock-in mice normalized genome-wide CIC binding but only partially corrected transcriptional and behavioural phenotypes, and further ataxin-1 transcription-factor partners (RFX1, ZBTB5, ZKSCAN1) have since been identified.</div>
 
@@ -5211,6 +5273,7 @@ This pathophysiological event involves negative regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-roralpha-destabilization-and-loss-of-the-purkinje-gene-expression-program" data-dismech-node="RORalpha Destabilization and Loss of the Purkinje Gene Expression Program" data-dismech-type="pathophysiology">
                 <div class="item-name">RORalpha Destabilization and Loss of the Purkinje Gene Expression Program</div>
 
+
                 <div class="item-desc">Mutant ataxin-1 depletes RORalpha, a transcription factor critical for cerebellar development, and reduces expression of RORalpha-controlled genes; partial loss of RORalpha enhances mutant ataxin-1 pathogenicity. Because RORalpha acts developmentally, the timing of mutant ataxin-1 expression matters: delaying its postnatal expression until cerebellar development is complete substantially reduces adult disease severity. This gives SCA1 a developmental component on top of its adult-onset degeneration.</div>
 
 
@@ -5381,6 +5444,7 @@ This pathophysiological event involves decreased cerebellar Purkinje cell layer 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-dysfunction-and-dendritic-atrophy" data-dismech-node="Purkinje Cell Dysfunction and Dendritic Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Dysfunction and Dendritic Atrophy</div>
+
 
                 <div class="item-desc">Purkinje cells expressing expanded ataxin-1 show functional and morphological deterioration preceding cell loss, with dendritic atrophy and neurochemical abnormalities detectable in vivo. This stage is reversible in principle: halting expression of mutant ataxin-1 in a conditional model restores cerebellar morphology and motor function, and the earlier expression is stopped the greater the recovery.</div>
 
@@ -5667,6 +5731,7 @@ This pathophysiological event involves decreased signal transduction (GO:0007165
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-neuron-degeneration" data-dismech-node="Purkinje Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Neuron Degeneration</div>
 
+
                 <div class="item-desc">Cerebellar Purkinje cells are the principal vulnerable population in SCA1, and their loss is the defining neuropathological feature. Expression of an expanded CAG repeat restricted to Purkinje cells is sufficient to produce both the degeneration and the ataxic phenotype in mice.</div>
 
 
@@ -5876,6 +5941,7 @@ This pathophysiological event involves increased neuron death.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-olivary-and-spinal-neuron-degeneration" data-dismech-node="Brainstem, Olivary and Spinal Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem, Olivary and Spinal Neuron Degeneration</div>
+
 
                 <div class="item-desc">Beyond the cerebellar cortex, SCA1 involves brainstem neurons, spinocerebellar tracts, medullary cranial nerve nuclei, and anterior horn neurons, with variable damage to basal ganglia and spinal cord. This extracerebellar burden explains the pyramidal, extrapyramidal, sensory-neuropathic, and bulbar features that place SCA1 in the ADCA-I class, and it is what ultimately kills. The brainstem branch is not simply the cerebellar mechanism spilling over: it is governed by a different Ser776 kinase, RSK3, whose reduction rescues brainstem pathology specifically, and the brainstem is the region whose pathology is most closely tied to premature death.</div>
 
@@ -6091,6 +6157,7 @@ This pathophysiological event involves increased neuron death.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cerebellar-cortical-output" data-dismech-node="Loss of Cerebellar Cortical Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Cortical Output</div>
 
+
                 <div class="item-desc">Purkinje cells are the sole output neurons of the cerebellar cortex. Their loss removes the inhibitory cortical control normally delivered to the deep cerebellar nuclei, degrading the feedforward coordination of limb, gait, speech, and eye movement. Cerebellar and brainstem atrophy is visible on imaging.</div>
 
 
@@ -6198,6 +6265,7 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebellar-and-bulbar-syndrome" data-dismech-node="Progressive Cerebellar and Bulbar Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebellar and Bulbar Syndrome</div>
+
 
                 <div class="item-desc">The convergent clinical manifestation of lost cerebellar coordination. The individual signs it produces are curated as phenotypes and reached by the edges below.</div>
 
@@ -6326,6 +6394,7 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repeat-associated-non-aug-translation-of-the-atxn1-repeat" data-dismech-node="Repeat-Associated Non-AUG Translation of the ATXN1 Repeat" data-dismech-type="pathophysiology">
                 <div class="item-name">Repeat-Associated Non-AUG Translation of the ATXN1 Repeat</div>
+
 
                 <div class="item-desc">The expanded repeat is translated in non-canonical reading frames as well as the polyglutamine frame, yielding sense polyserine and antisense polyleucine RAN proteins. These accumulate through cerebellum and pons in SCA1 autopsy brain, are prominent in cerebellar white matter where polyglutamine is minimal, and impair autophagy in neural cells. This is a protein-level consequence of the repeat that is nonetheless separate from ataxin-1 itself, which is why the entry does not claim the polyglutamine protein is the only toxic species.</div>
 
@@ -6491,6 +6560,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbfox1-mediated-alternative-splicing-dysregulation" data-dismech-node="RBFOX1-Mediated Alternative Splicing Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">RBFOX1-Mediated Alternative Splicing Dysregulation</div>
 
+
                 <div class="item-desc">Mutant ataxin-1 misregulates alternative splicing in the cerebellum, largely cell-autonomously, affecting biological pathways distinct from those hit by differential gene expression. The splicing factor RBFOX1 mediates this effect, and manipulating it modifies neurodegeneration in a Drosophila SCA1 model. This is a second transcript-level mechanism alongside the Capicua-dependent transcriptional one.</div>
 
 
@@ -6652,6 +6722,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-cell-autonomous-oligodendrocyte-dysfunction" data-dismech-node="Non-Cell-Autonomous Oligodendrocyte Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Cell-Autonomous Oligodendrocyte Dysfunction</div>
+
 
                 <div class="item-desc">Mutant ataxin-1 expressed in oligodendrocytes alone is sufficient to produce dysregulated myelination, Purkinje cell axonal shrinkage and torpedo formation, and impaired motor coordination. This is the entry&#39;s answer to why a Purkinje-centred account is incomplete: a substantial part of Purkinje pathology is driven from outside the Purkinje cell, by a glial population, with TCF7L2 and huntingtin identified as upstream regulators of the oligodendroglial program.</div>
 
@@ -6934,6 +7005,9 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7039,6 +7113,9 @@ This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7105,6 +7182,9 @@ This clinical feature is Slow saccadic eye movements (HP:0000514). HP:0000514 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7181,6 +7261,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7247,6 +7330,9 @@ This clinical feature is Upgaze palsy (HP:0025331). HP:0025331 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7332,6 +7418,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7398,6 +7487,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7499,6 +7591,9 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7597,6 +7692,9 @@ This clinical feature is Dysarthria (HP:0001260), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7663,6 +7761,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7739,6 +7840,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7805,6 +7909,9 @@ This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7881,6 +7988,9 @@ This clinical feature is Dysdiadochokinesis (HP:0002075). HP:0002075 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7947,6 +8057,9 @@ This clinical feature is Sensory axonal neuropathy (HP:0003390). HP:0003390 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8023,6 +8136,9 @@ This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8089,6 +8205,9 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8165,6 +8284,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8231,6 +8353,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8307,6 +8432,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8375,6 +8503,9 @@ This clinical feature is Atrophy/Degeneration affecting the brainstem (HP:000736
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8493,6 +8624,9 @@ This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8623,6 +8757,9 @@ This disease-associated gene is TGM5 (hgnc:11781). hgnc:11781 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8718,6 +8855,9 @@ This disease-associated gene is RBFOX1 (hgnc:18222). hgnc:18222 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -8823,6 +8963,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8833,6 +8976,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8946,6 +9092,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8956,6 +9105,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9051,6 +9203,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9061,6 +9216,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -9174,6 +9332,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9184,6 +9345,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9297,6 +9461,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9307,6 +9474,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9402,6 +9572,9 @@ This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9412,6 +9585,9 @@ This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
     </div>
+
+
+
 
 
 
@@ -9549,6 +9725,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9559,6 +9738,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9654,6 +9836,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9664,6 +9849,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -9759,6 +9947,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9769,6 +9960,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9919,6 +10113,9 @@ This treatment uses varenicline (CHEBI:84500). CHEBI:84500 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9929,6 +10126,9 @@ This treatment uses varenicline (CHEBI:84500). CHEBI:84500 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10066,6 +10266,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10076,6 +10279,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10196,6 +10402,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10206,6 +10415,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -10340,6 +10552,9 @@ This treatment uses antisense oligonucleotide, annotated with Antisense Oligonuc
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10352,6 +10567,9 @@ This treatment uses antisense oligonucleotide, annotated with Antisense Oligonuc
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -14678,6 +14896,235 @@ mappings:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">SCA1 is curated at the histologic/molecular entity level as one genotype within the ADCA-I umbrella already represented by Autosomal_Dominant_Cerebellar_Ataxia_Type_I (MONDO:0019792); that entry covers the Harding phenotype class and this one covers the ATXN1 genotype.
+Two mechanistic points are deliberately stated against the intuitive reading of a polyglutamine disease, and both are modelled as mechanistic_hypotheses rather than left as prose. First, visible nuclear aggregation is not the toxic event: a self-association-deficient ataxin-1 that forms no detectable inclusions still causes ataxia and Purkinje pathology, while blocking nuclear entry abolishes disease. That dissociation rests specifically on the 77Q self-association-deletion experiment; the S776A experiment does not establish it, since ataxin-1 82Q-A776 also failed to form nuclear inclusions in culture. Second, toxicity works through ataxin-1&#39;s native, Ser776 phosphorylation-dependent complexes, principally with Capicua, rather than through a novel interaction acquired by the expanded protein, and it is accompanied by partial loss of other normal ataxin-1 interactions. The Atxn1l duplication rescue is the genetic evidence for this.
+Sources appear to disagree on survival, and the disagreement resolves. GeneReviews gives ten to 30 years from onset to death; PMID:32818920&#39;s introduction says 10 to 15 years. PMID:37238658 reconciles them: the span is 10 to 30 years with an average of 15. The GeneReviews range is used here.
+Selectivity is now curated from three directions rather than left open. Region-specific Ser776 kinases (MSK1 cerebellum, RSK3 brainstem) explain why a brain-wide protein kills select regions; a sub-regional gradient within the cerebellum, with the posterior vermis affected earlier and more severely, is recorded on the Purkinje degeneration node; and the oligodendrocyte branch shows part of the Purkinje phenotype is driven non-cell-autonomously, so a purely neuron-intrinsic account of selectivity would be incomplete. What remains genuinely unresolved is why these particular neuronal populations, among the many expressing ataxin-1, are the vulnerable ones.
+Toxicity is not attributed to a single species. Four routes out of the expanded locus are curated in parallel: the polyglutamine ataxin-1 protein acting through native Ser776/Capicua complexes, RAN translation of the same repeat in non-canonical frames, RBFOX1-mediated splicing dysregulation, and non-cell-autonomous oligodendrocyte dysfunction. The RAN branch is why the initiating node no longer says the mechanism is protein-level rather than RNA-level.
+One binding is worth flagging: the neuron apoptotic process annotation on the two degeneration nodes is copied from the conformance targets rather than independently evidenced for SCA1, where Purkinje cell death is substantially non-classically apoptotic.
+Regional selectivity is curated rather than left open. A brain-wide protein kills select populations because the Ser776 mark that stabilizes toxic ataxin-1 is placed by region-specific kinases, MSK1 in cerebellum and RSK3 in brainstem, and lowering each rescues its own region. That is why the cerebellar and extracerebellar branches are separate edges out of the Ser776 node rather than one chain feeding the other.
+Two prevalence records are carried, and they answer different questions. The first is SCA1-specific: 1-2 per 100,000, from a review whose own caveat that SCA1 epidemiology rests on few studies is quoted alongside it. That is the entry&#39;s headline figure. The second is explicitly class-level, the pooled rate for dominant hereditary cerebellar ataxia as a whole, and is retained as context for how large that class is; a cohort figure putting SCA1 at roughly 6% of ADCA patients sits beside it so the class rate cannot be misread as a SCA1 rate. No population-based study of SCA1 alone was identified, which is why the SCA1-specific figure comes from a review rather than a prevalence survey.
+Phenotype curation uses the GeneReviews chapter (PMID:20301363) as the mandatory baseline; every phenotype in its Clinical Characteristics section is represented here. Frequencies are mapped from that chapter&#39;s narrative language and are therefore coarse. Hyperreflexia and hyporeflexia both appear because the chapter describes brisk reflexes early and decreased reflexes in advanced disease; they are stage-dependent, not contradictory.
+No disease-modifying therapy exists. The ATXN1-lowering antisense oligonucleotide is recorded as investigational on the strength of preclinical rodent data only. The symptomatic agents (riluzole, 4-aminopyridine, varenicline) are recorded from a class-level review of adult-onset cerebellar ataxias that states benefit is subtype-specific, so no SCA1 efficacy is claimed. Troriluzole is recorded only as an existing development programme: the one citation available for it is a rat opioid-addiction study that mentions the ataxia trials in passing, which is why that item is graded OTHER and says so.
+Nine further committed caches are the deep-research report&#39;s own citations, retained because the report is committed alongside them, and are not cited by this entry: they cover other ataxias (SCA27B, multiple system atrophy), regional cohort genotyping in China and Brazil, and candidate compounds in Drosophila and mouse screens that have no SCA1 clinical standing. Two further references are deliberately not used. PMID:31523939 reports depression and parkinsonism rates in a Taiwanese SCA2/SCA3 cohort; attributing those figures to SCA1 would be named-entity confusion. PMID:19429075 concerns repeat-length and onset correlation in SCA2 rather than SCA1, and the SCA1 correlation is already carried by PMID:19049837.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Second main-merge round on the SCA1 curation branch</strong> · 2026-09-06T08:37:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_1/2026-09-06T083739Z-claude-code-9f6272.yaml">View source</a></p>
+                        <p class="research-review-text">Second branch-maintenance round on PR #11197. No change to the SCA1 entry
+itself; this record exists because the branch history changed again.
+
+main advanced another 3 commits and the PR conflicted on the same file as
+the first round, cache/enums/diseaseterm_f618932bb23f.csv. This is now a
+recurring pattern rather than a one-off: every merged curation PR appends
+its disease-term CURIE to that one shared enum cache, so any curation branch
+left open across a few merges will keep colliding there. The collision is
+benign in content, since the two sides append different CURIEs, but it does
+require a merge each time.
+
+Resolved the same way as the first round: merged origin/main rather than
+rebasing, because PR #11197 is authored by another account and a force-push
+would invalidate that checkout. git auto-merged the enum cache with no
+conflict hunk and MONDO:0008119 survives. No cache row was hand-written,
+reordered, or regenerated by hand.
+
+Post-merge review: the diff against the new origin/main is exactly this PR&#39;s
+own 49 files (the entry, three history records including this one, 39
+reference caches, the deep-research report plus citations and two artifacts,
+the enum cache line, and the deleted stub). No unrelated deletions, no stale
+reversions, no protected-path churn.
+
+Re-validated: just validate passes, snippets 95/95 verified, and the full
+twelve-gate set was re-run against the new origin/main in CI&#39;s exact command
+form rather than the more permissive just recipes.
+
+Unrelated to this merge and still outstanding: claude-review has now failed
+three times on three different commits (04178c1d8, 490db5b3c, 0e1df57b3),
+each time erroring after 0s with num_turns=1 and cost=$0, meaning the review
+agent never read the diff. The first two runs named an ai4c-reviewer usage
+limit resetting at 02:30 UTC; the third failed after that reset, so the
+reset was not the fix and a re-run alone does not help. This session lacks
+actions:write and cannot re-run the job (403 on both rerun-failed-jobs and
+workflow dispatch). All of this is recorded on the PR, including a
+correction to the earlier &#34;just re-run it&#34; advice. It needs a human to look
+at the reviewer bot&#39;s credentials or account.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Merge main into SCA1 curation branch</strong> · 2026-09-06T04:12:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_1/2026-09-06T041249Z-claude-code-b0e35e.yaml">View source</a></p>
+                        <p class="research-review-text">Branch maintenance round on PR #11197. No change to the SCA1 entry itself;
+this record exists because the branch history changed.
+
+main advanced 22 commits after the PR was opened and GitHub reported the PR
+as conflicted (mergeable_state went from &#34;blocked&#34; to &#34;unknown&#34;, and a local
+merge-tree against the new main reported one file changed on both sides).
+The conflict was cache/enums/diseaseterm_f618932bb23f.csv: this branch
+appended MONDO:0008119 to the disease-term enum cache, and curation PRs that
+merged to main in the meantime appended their own CURIEs to the same file.
+
+Resolved by merging origin/main into the branch rather than rebasing. The
+branch was created in this session, but PR #11197 is authored by another
+account, so a merge commit keeps that checkout valid where a rebase and
+force-push would not. git auto-merged the enum cache without a conflict
+hunk, because the two sides appended in different regions of the sorted
+file; MONDO:0008119 survives in the merged result. No cache row was
+hand-written, reordered, or regenerated by hand.
+
+Post-merge review per the repo&#39;s refresh guidance: the diff against the new
+origin/main is exactly this PR&#39;s own 48 files (the entry, two prior history
+records, 40 reference caches, the deep-research report plus citations and
+two artifacts, the enum cache line, and the deleted stub). No unrelated
+deletions, no stale reversions, no protected-path churn. Every PMID cited by
+the entry was confirmed to have its cache file present in the commit.
+
+Re-validated against the new main, which matters because the merged commits
+include a title-snippet baseline refresh (#11208) and a page/app-data
+regeneration (#11211). just validate passes; snippets 95/95 verified. The
+ref-based gates were re-run in CI&#39;s exact form against the new origin/main
+rather than the more permissive just recipes: check_snippet_length,
+check_title_snippets, check_reference_titles, check_folded_hyphens. The
+whole-KB gates were re-run too: check_duplicate_yaml_keys, check_enum_values,
+check_entity_refs, check_causal_targets, check_qualifier_terms,
+reference_cache_frontmatter, term_cache_integrity, dismech-stubs check.
+
+Unrelated to this merge, claude-review remains red on PR #11197 from a
+pre-reset ai4c-reviewer usage-limit error (&#34;You&#39;ve hit your limit · resets
+2:30am (UTC)&#34;, num_turns=1, cost=$0, so the agent never read the diff). It
+failed identically on two commits. This session lacks actions:write and
+cannot re-run it; both rerun-failed-jobs and workflow dispatch return 403.
+That is recorded on the PR and needs a human with that permission.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Spinocerebellar Ataxia Type 1</strong> · 2026-09-05T23:17:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_1/2026-09-05T231711Z-claude-code-d7ede0.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of SCA1 (MONDO:0008119, ATXN1) from the stubs queue. The
+request was for &#34;cerebellar ataxia&#34;; the bare concept is a grouping and is
+already covered by kb/groupings/Cerebellar_Ataxias.yaml, so this curates the
+prototypical uncurated genotype instead. SCA2, SCA8, SCA17, SCA23, SCA31,
+SCA36, SCA43, SCA48 and SCA27B were already curated; SCA1 was not. Curated
+at genotype level under the existing ADCA-I umbrella entry
+(Autosomal_Dominant_Cerebellar_Ataxia_Type_I, MONDO:0019792). Duplicate
+preflight ran against origin/main plus PR and issue search: no existing
+entry, PR or claim issue for MONDO:0008119. stubs/Spinocerebellar_Ataxia_Type_1.yaml
+deleted in the same change.
+
+DEEP RESEARCH. falcon was requested and is unavailable in this environment:
+EDISON_API_KEY is present but rejected with HTTP 403 ProviderAuthError, and
+`deep-research-client providers --check` reports falcon UNREACHABLE. The run
+was re-issued with --fallback rather than substituting a provider by hand, so
+the substitution is recorded in the report itself (fell_back: true,
+requested_provider: falcon, provider_attempts listing the 403). openscientist
+produced the report and the recipe renamed it accordingly. Report used:
+research/Spinocerebellar_Ataxia_Type_1-deep-research-openscientist.md
+(26 citations, 1037s). A first openscientist attempt died mid-run on an
+httpx ReadError after ~30 minutes with no report; the agent proxy showed no
+relay failures, so this was treated as an upstream long-poll drop and retried
+once, which succeeded.
+
+REPORT VALIDATION (skill step 3a). Both sections were retro-fitted, since the
+provider emitted neither. References: 26/26 resolved, 0 unresolved, 0 off
+topic, 1/1 quoted claim verified - no confabulation. Terms: 28 checked,
+26 resolved, 0 unresolved, 0 obsolete. The section reports 8 terms &#34;named as
+a different term&#34;; all 8 are parsing artifacts of the report&#39;s phenotype
+table, where the validator read the Type column (&#34;Clinical sign&#34;, &#34;Imaging
+finding&#34;, &#34;Behavioral&#34;) as the label beside the CURIE. Each identifier is in
+fact the right one for its row (HP:0001251 Ataxia, HP:0001260 Dysarthria,
+HP:0001272 Cerebellar atrophy, HP:0002015 Dysphagia, HP:0009830 Peripheral
+neuropathy, HP:0000716 Depression, HP:0001300 Parkinsonism, MONDO:0008119).
+No CURIE was bound from the report without independent checking.
+
+GENEREVIEWS BASELINE (skill step 3b). PMID:20301363 fetched, cached, and
+tagged GeneReviews in the top-level references block. Every phenotype in its
+Clinical Characteristics section is represented. Management is curated
+including the Agents/Circumstances to Avoid section (alcohol, isoniazid,
+large-dose vitamin B6, hazardous activity), which is carried as its own
+treatment entry with the warning quoted verbatim. Frequencies are mapped from
+the chapter&#39;s narrative language using the skill&#39;s table and are deliberately
+coarse; where two phenotypes come from one sentence they carry the same
+frequency rather than an invented gradient.
+
+MECHANISM. Built as a connected causal chain, not a bucket list: ATXN1 CAG
+expansion -&gt; nuclear localization -&gt; Ser776-dependent assembly into native
+complexes -&gt; (a) aberrant ATXN1-Capicua transcriptional repression -&gt;
+RORalpha destabilization -&gt; Purkinje dysfunction -&gt; Purkinje degeneration -&gt;
+loss of cerebellar cortical output, and (b) a separate Ser776 branch to
+brainstem/olivary/spinal degeneration. Both converge on the clinical
+syndrome, which fans out to the curated phenotypes. Conformance declared
+against polyglutamine_expansion_proteotoxicity (4 nodes) and
+cerebellar_purkinje_degeneration (4 nodes).
+
+Two non-obvious positions are curated as mechanistic_hypotheses with edges
+opted in via hypothesis_groups, rather than left as prose: nuclear
+aggregation is not the toxic species (PMID:9778246, the 77Q
+self-association-deletion line), and toxicity runs through native rather
+than novel ataxin-1 interactions (PMID:17190598, PMID:17322884). The Capicua
+claim is deliberately qualified by a REFUTE item on PMID:36577402, which
+found that abolishing the ATXN1-CIC interaction globally only partially
+corrected phenotypes.
+
+Regional selectivity is curated rather than left as a gap: PMID:33709453
+supplies region-specific Ser776 kinases (MSK1 cerebellum, RSK3 brainstem)
+with region-specific rescue, which is why the brainstem branch leaves the
+Ser776 node instead of being inferred from the cerebellar chain.
+
+EVIDENCE. 19 distinct PMIDs, 96 evidence items, every snippet an exact
+substring of a committed cache file. All PMID-keyed, no DOI-only items, so
+nothing bypasses the gating validator. evidence_source classifies the cited
+study: five items quoting human-disease background from the introductions of
+two preclinical mouse papers (PMID:32818920, PMID:7553854) are graded OTHER
+rather than HUMAN_CLINICAL, with the reason stated in each explanation.
+
+Three snippets initially failed validation because the source text carries
+square brackets (ataxin-1[82Q], SE values in the EUROSCA abstract) which the
+reference validator strips. They were replaced with bracket-free spans from
+the same abstracts rather than reworded. The repeat-length/progression claim
+could not quote the EUROSCA clause for this reason and is instead evidenced
+by PMID:19049837 on age at onset, marked directness: INDIRECT.
+
+PREVALENCE. A SCA1-specific estimate (1-2 per 100,000, PMID:37238658) is the
+primary record, with the source&#39;s own caveat that SCA1 epidemiology rests on
+few studies quoted alongside it. A second, explicitly class-level record
+(pooled dominant hereditary cerebellar ataxia, 2.7 per 100,000,
+PMID:24603320) is retained and labelled as such in both population and notes,
+with PMID:9106530 quantifying SCA1 at roughly 6% of ADCA so the class rate
+cannot be misread as a SCA1 rate.
+
+RED-TEAM PASS. A fresh-context subagent reviewed the entry against the
+dismech-pr-review skill before any PR. It found and this change fixes: a
+prevalence_class off by a factor of ten against its own rate_per_100000;
+five evidence_source misgrades; an uncaused brainstem node; a phenotype layer
+disconnected from the pathograph; GO:0006355 on the wrong node (moved to a
+genetic_context functional_impact_category); an unsupported claim excluding
+repeat RNA toxicity; a conforms_to promising calcium/proteostasis content the
+node lacked (closed with PMID:10649571); a node named for accumulation while
+arguing accumulation is not toxic; and missing GeneReviews management items
+(psychotherapy, pain management, vitamin supplementation, onset, the
+late-onset pure cerebellar presentation). Its suggestion to quote the EUROSCA
+repeat-length clause was not taken, for the bracket reason above. Its note
+that the neuron apoptotic process binding is copied from the conformance
+targets rather than independently evidenced for SCA1 is recorded in notes
+rather than silently changed.
+
+VALIDATION RUN. just validate (schema + terms + references) passes.
+just validate-disorders passes, snippets 95/95 verified against cached
+references. check-entity-refs, check-causal-targets, check-duplicate-keys,
+check-enum-values, check-qualifier-terms, check-folded-hyphens,
+check-snippet-length, check-title-snippets and check-snippet-grading all
+clean, with no baseline modified. just validate-history passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

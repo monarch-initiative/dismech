@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4199,6 +4252,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-hyperactivation" data-dismech-node="JAK-STAT Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">Driver mutations in JAK2, CALR, or MPL all converge on constitutive activation of JAK-STAT signaling. JAK2 V617F directly activates the kinase; CALR and MPL mutations lead to activation of MPL receptor signaling.</div>
 
 
@@ -4371,6 +4425,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-megakaryopoiesis" data-dismech-node="Abnormal Megakaryopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Megakaryopoiesis</div>
 
+
                 <div class="item-desc">Driver mutations cause aberrant megakaryocyte proliferation and maturation. Megakaryocytes show characteristic atypia with clustering, abnormal lobation, and defective platelet production.</div>
 
 
@@ -4434,6 +4489,7 @@ This pathophysiological event involves abnormal megakaryocyte differentiation (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-mediated-marrow-fibrosis" data-dismech-node="Cytokine-Mediated Marrow Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Mediated Marrow Fibrosis</div>
+
 
                 <div class="item-desc">Atypical megakaryocytes release profibrotic cytokines including TGF-beta, PDGF, and bFGF, stimulating marrow stromal cells to deposit reticulin and collagen fibers. Progressive fibrosis replaces normal hematopoietic tissue.</div>
 
@@ -4546,6 +4602,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extramedullary-hematopoiesis" data-dismech-node="Extramedullary Hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Extramedullary Hematopoiesis</div>
+
 
                 <div class="item-desc">As bone marrow function declines due to fibrosis, hematopoiesis shifts to spleen, liver, and other sites. This causes massive splenomegaly and hepatomegaly with associated symptoms.</div>
 
@@ -4785,6 +4842,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4879,6 +4939,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4943,6 +5006,9 @@ This clinical feature is Abnormal megakaryocyte morphology (HP:0012143). HP:0012
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5042,6 +5108,9 @@ This clinical feature is Abnormal bone marrow cell morphology (HP:0005561). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5106,6 +5175,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5180,6 +5252,9 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5246,6 +5321,9 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5345,6 +5423,9 @@ This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5439,6 +5520,9 @@ This clinical feature is Poikilocytosis (HP:0004447). HP:0004447 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5503,6 +5587,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5602,6 +5689,9 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5691,6 +5781,9 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5790,6 +5883,9 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5854,6 +5950,9 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5928,6 +6027,9 @@ This clinical feature is Ecchymosis (HP:0031364). HP:0031364 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5992,6 +6094,9 @@ This clinical feature is Bone marrow hypercellularity (HP:0031020). HP:0031020 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6100,6 +6205,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6189,6 +6297,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6288,6 +6399,9 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6382,6 +6496,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6460,6 +6577,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6524,6 +6644,9 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6607,6 +6730,9 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6680,6 +6806,9 @@ This clinical feature is Low-grade fever (HP:0011134). HP:0011134 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6779,6 +6908,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6868,6 +7000,9 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies LDH elevation as very rare, but it is a WHO minor diagnostic criterion for PMF. The Orphanet frequency likely reflects population-level reporting rather than clinical prevalence among diagnosed patients, where LDH elevation is common.</div>
@@ -6978,6 +7113,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7072,6 +7210,9 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7145,6 +7286,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7286,6 +7430,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7352,6 +7499,9 @@ This disease-associated gene is CALR (hgnc:1455). hgnc:1455 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7426,6 +7576,9 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7496,6 +7649,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7562,6 +7718,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7640,6 +7799,9 @@ This disease-associated gene is EZH2 (hgnc:3527). hgnc:3527 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-srsf2" data-dismech-node="SRSF2" data-dismech-type="genetic">
@@ -7671,6 +7833,9 @@ This disease-associated gene is SRSF2 (hgnc:10783). hgnc:10783 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7743,6 +7908,9 @@ This disease-associated gene is U2AF1 (hgnc:12453). hgnc:12453 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7875,6 +8043,12 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">JAK1/JAK2 inhibitor approved for intermediate-2 and high-risk PMF. Provides marked reduction in spleen size and constitutional symptoms but does not significantly alter disease course or prevent leukemic transformation.</div>
 
 
@@ -7956,6 +8130,12 @@ This treatment uses fedratinib (NCIT:C88293). NCIT:C88293 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">JAK2 inhibitor approved for intermediate-2 and high-risk PMF, including patients previously treated with ruxolitinib. Selective JAK2 inhibition with similar efficacy profile.</div>
 
 
@@ -8001,6 +8181,12 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8095,6 +8281,12 @@ This treatment uses hydroxyurea (CHEBI:44423). CHEBI:44423 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Cytoreductive therapy for symptomatic splenomegaly or thrombocytosis. Provides modest benefit but does not address constitutional symptoms as effectively as JAK inhibitors.</div>
 
 
@@ -8176,6 +8368,12 @@ This treatment uses anagrelide (CHEBI:142290). CHEBI:142290 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Platelet-lowering agent used for thrombocytosis when present. Selective megakaryocyte inhibitor.</div>
 
 
@@ -8245,6 +8443,12 @@ This treatment uses momelotinib (CHEBI:91407). CHEBI:91407 is a therapeutic agen
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8360,6 +8564,12 @@ This treatment uses pacritinib (CHEBI:231350). CHEBI:231350 is a therapeutic age
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -11443,6 +11653,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

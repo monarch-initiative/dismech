@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4459,6 +4512,7 @@ The pathology is correspondingly focal: severe, vermis-predominant Purkinje cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cacna1a-cag-repeat-expansion" data-dismech-node="CACNA1A CAG Repeat Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">CACNA1A CAG Repeat Expansion</div>
 
+
                 <div class="item-desc">A small CAG expansion (19-33 repeats) in the last exon of the longest CACNA1A isoform. The expansion is unusually short for a polyglutamine disease and is transmitted with high stability, so anticipation is not a feature and repeat length is a weak predictor of onset age.</div>
 
 
@@ -4469,6 +4523,8 @@ The pathology is correspondingly focal: severe, vermis-predominant Purkinje cell
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4490,6 +4546,9 @@ The pathology is correspondingly focal: severe, vermis-predominant Purkinje cell
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4589,6 +4648,7 @@ The pathology is correspondingly focal: severe, vermis-predominant Purkinje cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expanded-polyglutamine-alpha1act-transcription-factor" data-dismech-node="Expanded Polyglutamine alpha1ACT Transcription Factor" data-dismech-type="pathophysiology">
                 <div class="item-name">Expanded Polyglutamine alpha1ACT Transcription Factor</div>
+
 
                 <div class="item-desc">CACNA1A is bicistronic: an internal ribosome entry site in the same mRNA yields alpha1ACT, a transcription factor that coordinates a programme of neural and Purkinje-cell developmental genes. The polyglutamine tract sits on alpha1ACT, and expansion abolishes its transcription-factor and neurite-outgrowth activity. This is what separates SCA6 from the rest of the CACNA1A allelic series, in which the channel protein itself is altered.</div>
 
@@ -4779,6 +4839,7 @@ This pathophysiological event involves alpha1ACT DNA-binding transcription facto
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytoplasmic-alpha1a-aggregation-in-purkinje-cells" data-dismech-node="Cytoplasmic alpha1A Aggregation in Purkinje Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytoplasmic alpha1A Aggregation in Purkinje Cells</div>
 
+
                 <div class="item-desc">SCA6 brains show oval or rod-shaped alpha1A aggregates confined to the cytoplasm of Purkinje cells. Two features set this apart from the other polyglutamine ataxias: the inclusions are cytoplasmic rather than nuclear, and they are not ubiquitinated. The channel mRNA and protein bearing the repeat are most intensely expressed in Purkinje cells, which is the simplest available explanation for why those cells are the ones that die.</div>
 
 
@@ -4965,6 +5026,7 @@ This pathophysiological event involves increased cytoplasmic inclusion body, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-degeneration" data-dismech-node="Purkinje Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Degeneration</div>
+
 
                 <div class="item-desc">Severe Purkinje cell loss, most marked in the vermis, with dendritic and axonal abnormalities in the surviving cells — heterotopic irregular nuclei, somatic sprouts, increased spine-like protrusions, and axonal torpedoes. The pathology is largely restricted to the cerebellar cortex, with a normal brainstem in most patients within the first decade of symptoms.</div>
 
@@ -5173,6 +5235,7 @@ This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-cortical-atrophy" data-dismech-node="Cerebellar Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Cortical Atrophy</div>
 
+
                 <div class="item-desc">Selective cerebellar atrophy with a normal brainstem in most patients, especially early. This is the anatomical basis of the &#34;pure cerebellar&#34; phenotype that places SCA6 in Harding&#39;s ADCA type III class.</div>
 
 
@@ -5368,6 +5431,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5450,6 +5516,9 @@ This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5516,6 +5585,9 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5596,6 +5668,9 @@ This clinical feature is Blepharospasm (HP:0000643). HP:0000643 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5699,6 +5774,9 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073), qualified a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5797,6 +5875,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5863,6 +5944,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5986,6 +6070,9 @@ This clinical feature is Upper-limb incoordination, annotated with Limb ataxia (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6057,6 +6144,9 @@ This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6123,6 +6213,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6201,6 +6294,9 @@ This clinical feature is Extensor plantar response, annotated with Babinski sign
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6267,6 +6363,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6385,6 +6484,9 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6569,6 +6671,9 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6579,6 +6684,9 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -6719,6 +6827,9 @@ This treatment uses 4-aminopyridine (CHEBI:34385). CHEBI:34385 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6729,6 +6840,9 @@ This treatment uses 4-aminopyridine (CHEBI:34385). CHEBI:34385 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6902,6 +7016,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6912,6 +7029,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7035,6 +7155,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7045,6 +7168,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -7155,6 +7281,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8989,6 +9121,49 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 1: mine the cached GeneReviews chapter into SCA6</strong> · 2026-09-08T23:46:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_6/2026-09-08T234604Z-claude-code-cd8ab6.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses all five blocking findings and all six IMPORTANT findings from the automated review of PR #11444, in one push.
+
+The central finding was correct and is the one worth recording: references_cache/PMID_20301319.md, the GeneReviews chapter for SCA6, was ALREADY in the repository and the entry cited it nowhere. I hand-assembled the mechanism literature because the deep-research report cited only two PMIDs in its body and missed the alpha1ACT primary source -- that part was right -- but the same report quoted GeneReviews eight times for the clinical content, and that half did not make it across. No fetch was needed; the abstract was on disk.
+
+Blocking findings, all fixed: a top-level references block tagging PMID:20301319 with tags [GeneReviews]; a diagnosis section quoting the confirmatory-test sentence; a treatments section (acetazolamide, 4-aminopyridine, physical therapy and mobility support, speech therapy, surveillance and agents-to-avoid) with NCIT treatment_term and CHEBI therapeutic_agent bindings; nine new GeneReviews phenotypes with their frequency figures (upper-limb incoordination, intention tremor, dysphagia, hyperreflexia, extensor plantar response, dystonia, blepharospasm, diplopia, plus the reworked dysarthria); and the 50% transmission risk and prenatal/PGT availability in the inheritance block.
+
+The repeat-range divergence the reviewer flagged is recorded rather than resolved: GeneReviews says 20-33, PMID:29427102 says 19-33, both are now quoted, and the diagnosis notes say alleles at 19 are the disputed boundary.
+
+IMPORTANT findings. The onset range in description was a single-kindred figure (24-63) presented as the disease&#39;s range; it now gives the literature-wide 19-73, mean 43-52, and keeps the kindred figure where it belongs -- as the within-kindred anomaly. The onset_age_variance_unexplained discussion overstated its premise: Durr et al. (PMID:9436730) found onset age correlates inversely with repeat length, so the prompt was recalibrated from &#39;repeat length does not&#39; to the defensible claim about residual variance, and that paper is now cited for both what repeat length predicts and what it does not. Dysarthria was a disconnected node: it now carries reports_on into Cerebellar Cortical Atrophy and quotes the whole GeneReviews sentence rather than the mid-sentence fragment it had. The alpha1ACT node now declares conforms_to polyglutamine_expansion_proteotoxicity#Transcriptional Dysregulation. An animal_models entry was added for the alpha1ACT transgenic mouse already cited in the pathograph, with a modeled_mechanisms link graded PARTIALLY_RECAPITULATES / MODERATE and limitations noting it cannot speak to IRES regulation or model the aggregation arm. Prevalence gained the German cohort figure and its misdiagnosis caveat; the notes prose that claimed the 12% figure was &#39;the only quantitative frequency statement available&#39; was revised, since it described repository state and the reviewer was right that it would rot. Orphanet&#39;s sub-1/100,000 estimate is NOT asserted: ORPHA:98757 does not fetch, so no citable record exists here, and the notes now say so instead.
+
+Suggestions taken: a classifications block (NEUROLOGIC, matching sibling Spinocerebellar_Ataxia_Type_31) and age-dependent penetrance context via the Durr evidence. The redundant clinical_course: PROGRESSIVE on HP:0002073 was left alone, as the reviewer judged it harmless.
+
+One defect of my own, caught by a gate rather than by review: I initially gave PMID:9436730 the reference_title of PMID:9371902 (&#39;Frequency of the mutation and genotype-phenotype correlations&#39;), a sibling paper. check_reference_titles flagged all six occurrences at similarity 0.65; the real title is &#39;Spinocerebellar ataxia type 6: genotype and phenotype in German kindreds.&#39; This is exactly the failure mode issue #9713 describes, and it is the same class of defect this PR&#39;s description criticises the deep-research report for.
+
+Validation: linkml-validate clean; linkml-term-validator --labels clean; reference_snippet_audit 54/54 (up from 25/25); check_duplicate_yaml_keys, check_entity_refs, check_causal_targets, check_enum_values, check_qualifier_terms, check_folded_hyphens, check_snippet_grading and check_reference_titles all clean. check_snippet_length and check_title_snippets report three findings, all in ZNF407-Related_Neurodevelopmental_Disorder.yaml, which merged to main after this branch point -- baseline staleness, not introduced here.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Spinocerebellar Ataxia Type 6 (MONDO:0008457, CACNA1A)</strong> · 2026-09-08T08:20:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_6/2026-09-08T082000Z-claude-code-5fda34.yaml">View source</a></p>
+                        <p class="research-review-text">Curated de novo from a Perplexity sonar-deep-research report (research/Spinocerebellar_Ataxia_Type_6-deep-research-perplexity.md). 25 evidence snippets, all verified by dismech.reference_snippet_audit against references_cache/.
+
+Lump/split decision: standalone DISEASE entry, following the KB&#39;s established pattern for numbered SCAs. Spinocerebellar_Ataxia_Type_1, _23 and _31 are all standalone entries even though the Harding-class entries list them as has_subtypes; SCA6 is treated the same way and remains a has_subtypes entry on Autosomal_Dominant_Cerebellar_Ataxia_Type_III. The boundary with CACNA1A_Related_Disorder, Episodic_Ataxia (EA2) and Familial_Hemiplegic_Migraine (FHM1) is recorded in notes: those are channel loss-of-function and missense disorders, SCA6 is a repeat expansion acting on the alpha1ACT transcription factor.
+
+The report&#39;s own validation sections were read first, as the skill requires, and both flagged items mattered. It reported quotes_unsupported: 2 for PMID:10985694 and PMID:29427102. The first was a genuinely invented quote -- text that appears nowhere in the abstract. The second differed from the source by one word: the report wrote &#39;internal ribosomal entry site (IRES) within the mRNA&#39; where the paper says &#39;with the mRNA&#39;. The report had silently corrected a typo in the source. Both were re-derived from the cached abstract rather than copied, so the entry&#39;s versions verify. Term validation flagged HP:0000007 being used with the reported label &#39;No intellectual disability&#39;; HP:0000007 is Autosomal recessive inheritance, which would have been doubly wrong in a dominant disease. It was not used.
+
+The report cited only two PMIDs in its body. The primary literature for this entry was assembled by hand: PMID:8988170 (Zhuchenko, original expansion), PMID:23827678 (Du, Cell 2013, the bicistronic alpha1ACT mechanism), PMID:10369863 (cytoplasmic non-ubiquitinated aggregates), PMID:10985694, PMID:9403487, PMID:9371902.
+
+Mechanistic stance: the two candidate proximal mechanisms -- loss of alpha1ACT transcription-factor function, and cytoplasmic aggregation -- are documented in different systems and have never been tested against each other, so the edge between them is INDIRECT_UNKNOWN_INTERMEDIATES and a discussion records the open question rather than picking one. Conformance to polyglutamine_expansion_proteotoxicity is declared but qualified in prose: SCA6&#39;s inclusions are cytoplasmic and non-ubiquitinated, unlike the rest of the family, and that contrast is carried as its own evidence item.
+
+Validation run in the worktree: linkml-validate (Disease) clean; linkml-term-validator validate-data --labels clean; reference_snippet_audit 25/25; check_duplicate_yaml_keys, check_entity_refs, check_causal_targets, check_enum_values all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

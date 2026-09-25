@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4326,6 +4379,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-piezo1-loss-of-function" data-dismech-node="PIEZO1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PIEZO1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic nonsense, frameshift, splice-site, and missense variants in PIEZO1 abolish or severely reduce the activity of a mechanically activated, calcium-permeable cation channel. Two mechanistically distinct routes to loss of function are documented: reduced or absent PIEZO1 protein (truncating and splice variants, shown by western blot to eliminate or reduce PIEZO1 expression) and reduced channel mechanical sensitivity despite surface expression (cap and sub-cap missense variants that are mechanically insensitive yet partly rescuable with the chemical agonist Yoda1).</div>
 
 
@@ -4534,6 +4588,7 @@ This pathophysiological event involves mechanically activated cation channel act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lymphatic-endothelial-mechanotransduction" data-dismech-node="Impaired Lymphatic Endothelial Mechanotransduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lymphatic Endothelial Mechanotransduction</div>
+
 
                 <div class="item-desc">PIEZO1 is abundantly expressed in lymphatic endothelial cells, where it transduces oscillatory shear stress and membrane stretch into calcium entry. Loss of PIEZO1 abrogates flow-induced calcium influx and the downstream ORAI1/KLF2/Notch transcriptional programme that drives lymphatic sprouting, and it removes the mechanical cue required for valve-forming cell behaviour.</div>
 
@@ -4770,6 +4825,7 @@ This pathophysiological event involves decreased response to mechanical stimulus
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-angpt2-tie-foxo1-signaling" data-dismech-node="Disrupted ANGPT2-TIE-FOXO1 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted ANGPT2-TIE-FOXO1 Signaling</div>
 
+
                 <div class="item-desc">PIEZO1 activation in lymphatic endothelial cells triggers rapid exocytosis of the TIE ligand ANGPT2, ADAM17-mediated ectodomain shedding of TIE1, increased TIE/PI3K/AKT signaling, and nuclear export of the transcription factor FOXO1. Loss of PIEZO1 function therefore silences a signaling network whose other members (ANGPT2, TIE1) are themselves mutated in primary lymphedema, providing a molecular bridge between channel function and lymphatic gene expression.</div>
 
 
@@ -4985,6 +5041,7 @@ This pathophysiological event involves decreased FOXO1 nuclear export, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-lymphatic-valve-formation-and-lymphangiogenesis" data-dismech-node="Defective Lymphatic Valve Formation and Lymphangiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Lymphatic Valve Formation and Lymphangiogenesis</div>
+
 
                 <div class="item-desc">Endothelial-specific Piezo1 deletion in mice dramatically reduces the number of lymphatic valves and impairs the collective cell migration, actin polymerization, and cell-cell junction remodeling that produce the valve leaflet, while lymphatic-specific deletion phenocopies the sprouting defects of Orai1 and Klf2 knockouts and postnatal deletion causes lymphatic regression. Lymphatic valves are essential for unidirectional lymph flow, so their loss renders the collecting lymphatics incompetent.</div>
 
@@ -5274,6 +5331,7 @@ This pathophysiological event involves decreased lymph vessel morphogenesis (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-lymphatic-dysplasia-and-lymph-transport-failure" data-dismech-node="Generalized Lymphatic Dysplasia and Lymph Transport Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Lymphatic Dysplasia and Lymph Transport Failure</div>
 
+
                 <div class="item-desc">The resulting disorder is a uniform, widespread lymphatic dysplasia affecting all body segments, with systemic involvement of the thoracic, pericardial, and intestinal lymphatics. Lymphoscintigraphy in affected individuals shows a strikingly consistent and symmetric pattern of deep and superficial rerouting, indicating failure of superficial lymphatic collector function rather than simple aplasia.</div>
 
 
@@ -5383,6 +5441,7 @@ This pathophysiological event involves decreased lymph vessel morphogenesis (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chylous-effusion-and-fetal-fluid-accumulation" data-dismech-node="Chylous Effusion and Fetal Fluid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chylous Effusion and Fetal Fluid Accumulation</div>
 
+
                 <div class="item-desc">In utero, lymphatic transport failure produces non-immune hydrops fetalis with pleural and pericardial effusions and ascites. This may be lethal in the perinatal period; in survivors the neonatal edema often resolves completely, but chylothorax may persist or recur.</div>
 
 
@@ -5468,6 +5527,7 @@ This pathophysiological event involves decreased lymph vessel morphogenesis (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-peripheral-and-facial-lymphedema" data-dismech-node="Chronic Peripheral and Facial Lymphedema" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Peripheral and Facial Lymphedema</div>
+
 
                 <div class="item-desc">Survivors typically re-present in childhood with lymphedema of the lower limbs, arms, face, and genitalia, with or without chylothoraces and intestinal lymphangiectasia. Recurrent severe facial cellulitis complicates the facial lymphedema and is a major source of morbidity.</div>
 
@@ -5626,6 +5686,9 @@ This clinical feature is Stomatocytosis (HP:0004446). HP:0004446 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5722,6 +5785,9 @@ This clinical feature is Spherocytosis (HP:0004444). HP:0004444 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5802,6 +5868,9 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5868,6 +5937,9 @@ This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5948,6 +6020,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6051,6 +6126,9 @@ This clinical feature is Facial edema (HP:0000282), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6126,6 +6204,9 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6247,6 +6328,9 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6361,6 +6445,9 @@ This clinical feature is Chylothorax (HP:0010310), qualified as temporality recu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6452,6 +6539,9 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6557,6 +6647,9 @@ This clinical feature is Cellulitis (HP:0100658), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6632,6 +6725,9 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency is banded OCCASIONAL from the reported case detail (2 of 3 families in this series, but not systematically ascertained across the whole reported LMPHM6 cohort); no cohort-level frequency figure has been published.</div>
@@ -6781,6 +6877,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6881,7 +6980,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
@@ -6889,6 +6990,11 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent nonsense PIEZO1 allele observed in two unrelated families in the founding cohort; no truncated protein is detectable by western blot, consistent with a null allele.</div>
@@ -6951,7 +7057,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice donor site</span>
@@ -6959,6 +7067,11 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-donor variant causing skipping of exon 26 and a measurable reduction in PIEZO1 protein.</div>
@@ -7046,7 +7159,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7054,6 +7169,11 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense PIEZO1 variant reported as a cause of LMPHM6 in a family with three adverse pregnancy outcomes from non-immune fetal hydrops.</div>
@@ -7116,7 +7236,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
@@ -7124,6 +7246,11 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense PIEZO1 allele reported in trans with a splice-acceptor deletion in a child with persistent chylothorax; both were classified as likely pathogenic.</div>
@@ -7184,7 +7311,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7192,6 +7321,11 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense PIEZO1 allele reported homozygously in family GLD08 - the adolescent-onset pedigree - and in trans with E829V in GLD09. The reporting authors interpreted the GLD07-09 variants collectively as likely pathogenic or of uncertain significance, so no per-variant classification is asserted here; the functional work in the same paper shows reduced channel mechanical sensitivity rather than reduced expression.</div>
@@ -7335,6 +7469,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7345,6 +7482,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -7479,6 +7619,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7489,6 +7632,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7602,6 +7748,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7612,6 +7761,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7729,6 +7881,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling covers autosomal recessive inheritance and the 25% sibling recurrence risk, carrier testing, and prenatal or preimplantation genetic testing options once the familial biallelic PIEZO1 genotype is known. Recurrent adverse pregnancy outcomes are a recognized presentation.</div>
 
 
@@ -7817,6 +7975,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7827,6 +7988,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7965,6 +8129,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7975,6 +8142,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -10625,6 +10795,52 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response for PR 8856: fix evidence_source mis-tag; address non-blocking suggestions</strong> · 2026-08-18T23:06:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Lymphatic_Malformation_6/2026-08-18T230650Z-claude-code-28594e.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR 8856.
+
+BLOCKING FIX (IMPORTANT): the PMID:38747287 (Du et al., J Clin Invest 2024) evidence item on the &#34;Impaired Lymphatic Endothelial Mechanotransduction&#34; pathophysiology node was tagged evidence_source: HUMAN_CLINICAL. The paper reports mouse and cultured HDLEC experiments only, and the quoted sentence was an introduction/background statement citing prior work rather than a finding of the study. Replaced the snippet with an actual result of the study - the ex vivo Yoda1 / endothelial-Piezo1-null mouse mesentery experiment showing PIEZO1-dependent FOXO1 shuttling - and retagged it MODEL_ORGANISM. This addresses both the mis-tag and the CLAUDE.md section 6 &#34;a background sentence is not a finding&#34; concern.
+
+NON-BLOCKING SUGGESTIONS ADDRESSED:
+- Added treatment_effect to all four target_mechanisms blocks: RESTORES for the investigational PIEZO1 agonism against the PIEZO1 Loss of Function node, MODULATES for dietary fat restriction, octreotide, and decongestive supportive care. (The fifth treatment, genetic counseling, has no target_mechanisms block and correctly remains without one.)
+- Added type and clinical_significance to the four existing PIEZO1 variants (nonsense / splice donor site / missense; PATHOGENIC, except p.Trp1287Ter which the source paper itself classifies as likely pathogenic). Did not add functional_impact_category, which is not reachable from Genetic.
+- Added a Polyhydramnios phenotype. NOTE: the review and the deep-research report both cite HP:0002023 for polyhydramnios; that CURIE is Anal atresia. Verified with OAK and curated HP:0001561 (Polyhydramnios) instead. Two independent case quotes from PMID:40792030 (GLD07 and GLD09).
+- Added a progression block modeling two onset arms: the classical prenatal / early-childhood course and the adolescent / adult-onset arm from family GLD08 (homozygous I2270T), which the entry previously did not represent at all.
+- Recorded the pseudo-dominant pedigree pattern in the inheritance description with two supporting quotes (homozygous I2270T segregating in three members of one consanguineous family; the proband&#39;s father independently affected from age 30). The source paper does not use the phrase &#34;pseudo-dominant&#34;, so that term appears only in curator prose, not in a snippet or an evidence explanation of the paper&#39;s wording.
+- Added the I2270T variant to the genetic section. Deliberately left clinical_significance unset: the source paper interprets the GLD07-09 variants collectively as &#34;LP or VUS&#34; and gives no per-variant classification.
+- Added a pleurodesis / thoracic-duct ligation / pleuro-peritoneal shunting treatment, evidenced from PMID:40792030 with the caveat carried in the description and both explanations: the source documents these interventions being used and effusion control proving difficult, not efficacy. supports: PARTIAL on both items.
+
+NOT DONE, with reasons: pulmonary lymphangiectasia (no quotable snippet found in any cached reference for this entry); consumption of the five cached-but-uncited references (no claim in this entry needs them, and the reviewer noted no action was required); ORAI1/KLF2/NOTCH and FOXC2/GATA2/GJA4/ITGA9 pathophysiology nodes (enrichment beyond the review&#39;s scope, and the reviewer rated the existing six-node backbone correct and atomic).
+
+Validation actually run: just validate (schema + terms + references) passed with 70/70 snippets verified against cached references (was 59/59 before this session); just count-verified-snippets 70/70; just validate-terms passed; just check-duplicate-keys OK; just validate-disorders batched sweep run as the reviewer requested.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Lymphatic malformation 6 (PIEZO1)</strong> · 2026-08-18T20:51:34Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Lymphatic_Malformation_6/2026-08-18T205134Z-claude-code-249624.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Lymphatic_Malformation_6.yaml for MONDO:0014797 (OMIM:616843, Orphanet:568062) - PIEZO1-related generalized lymphatic dysplasia of Fotiou, also called hereditary lymphedema type III.
+
+Identity anchoring: MONDO:0014797 carries no textual definition, so identity was anchored on the OMIM:616843 / Orphanet:568062 xrefs and on the MONDO RO:0004003 causal-gene relationship to hgnc:28993 PIEZO1, verified with OAK (sqlite:obo:mondo, -O obo). Deliberately kept distinct from the unrelated Lymphatic_Filariasis entry and from the Hennekam lymphangiectasia-lymphedema entries (the latter is curated as a differential diagnosis).
+
+Deep research: falcon, research/Lymphatic_Malformation_6-deep-research-falcon.md. The report&#39;s own Reference Validation section reported 10/10 references resolved, 0 unresolved, 0 off topic. NEC preflight (just preflight-dr research/Lymphatic_Malformation_6-deep-research-falcon.md MONDO:0014797) returned PASS: canonical gene PIEZO1 mentioned 54 times, next-ranked genes ANGPT2=7, FOXO1=6, TIE1=4, PIK3CA=4. The report was used as a lead source only; every snippet in the entry was taken from the cached reference file for the cited PMID, not from the report.
+
+Content curated: a six-node pathograph with causal edges (PIEZO1 loss of function -&gt; impaired lymphatic endothelial mechanotransduction -&gt; disrupted ANGPT2-TIE-FOXO1 signaling and defective lymphatic valve formation/lymphangiogenesis -&gt; generalized lymphatic dysplasia and lymph transport failure -&gt; chylous effusion/fetal fluid accumulation and chronic peripheral and facial lymphedema); 11 phenotypes bound to HPO terms with frequency bands justified from reported counts in the founding cohort; a PIEZO1 genetic block (relationship_type CAUSATIVE, germline) with four curated variants; two mouse conditional-knockout animal models wired into the pathograph via modeled_mechanisms with readouts and limitations; diagnosis (molecular testing, lymphoscintigraphy); treatments (dietary fat restriction/MCT, octreotide, decongestive supportive care, genetic counseling, investigational PIEZO1 agonism recorded as PARTIAL/preclinical); two differential diagnoses; and prevalence recorded as ULTRA_RARE / CASES_IN_LITERATURE with an explicit note that the widely quoted 1-in-6000 GLD figure must not be used as an LMPHM6 prevalence.
+
+Deliberate omissions: no GeneReviews chapter exists for this disorder (PubMed searched 2026-08-18; the lymphatic GeneReviews chapters retrieved are Milroy disease (FLT4) and lymphedema-distichiasis syndrome (FOXC2), which are different disorders) - recorded in the entry notes. No ORPHA:568062 structured citation was added: that record is absent from the committed references_cache and just refresh-orphadata failed on a network error (ChunkedEncodingError) at curation time; this is recorded in the entry notes rather than worked around.
+
+Two ontology IDs drafted from model recall were caught and corrected by term validation before commit: NCIT:C17057 (actually Radioimmunoassay) was replaced with the verified NCIT:C67262 Lymphoscintigraphy, and MONDO:0008164 (actually otosclerosis 1) was replaced with MONDO:0008689 dehydrated hereditary stomatocytosis with or without pseudohyperkalemia and/or perinatal edema.
+
+Validation actually run: just validate kb/disorders/Lymphatic_Malformation_6.yaml (schema: no issues found; term validation: passed; reference validation: passed) and just count-verified-snippets kb/disorders/Lymphatic_Malformation_6.yaml reporting 59/59 snippets verified against cached references, plus just validate-disorders kb/disorders/Lymphatic_Malformation_6.yaml as the batched pre-PR sweep. All 59 evidence references are PMID-prefixed; the entry cites no DOI, ORPHA, or dataset accessions, so nothing was skipped by the reference validator&#39;s skip_prefixes list and the 59/59 covers every evidence snippet in the file.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4458,6 +4511,7 @@ This subtype is caused by variation in MAT1A (hgnc:6903). hgnc:6903 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-methionine-cycle-and-sulfur-amino-acid-disease-group" data-dismech-node="Methionine-Cycle and Sulfur Amino Acid Disease Group" data-dismech-type="pathophysiology">
                 <div class="item-name">Methionine-Cycle and Sulfur Amino Acid Disease Group</div>
 
+
                 <div class="item-desc">This MONDO class represents a genetically heterogeneous pathway group whose component disorders affect transsulfuration, remethylation, intracellular cobalamin processing, and S-adenosylmethionine synthesis.</div>
 
 
@@ -4800,6 +4854,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cbs-transsulfuration-block" data-dismech-node="CBS Transsulfuration Block" data-dismech-type="pathophysiology">
                 <div class="item-name">CBS Transsulfuration Block</div>
 
+
                 <div class="item-desc">CBS deficiency impairs conversion of homocysteine into cystathionine in the methionine catabolic pathway, producing homocysteine accumulation and multisystem disease dominated by vascular, ocular, skeletal, and neurologic complications.</div>
 
 
@@ -5030,6 +5085,7 @@ This pathophysiological event involves abnormal L-methionine metabolic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cobalamin-dependent-remethylation-and-mutase-cofactor-failure" data-dismech-node="Cobalamin-Dependent Remethylation and Mutase Cofactor Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cobalamin-Dependent Remethylation and Mutase Cofactor Failure</div>
+
 
                 <div class="item-desc">MMACHC-related cblC disease impairs intracellular cobalamin processing, reducing methylcobalamin support for methionine synthase and adenosylcobalamin support for methylmalonyl-CoA mutase. This produces the combined biochemical pattern of hyperhomocysteinemia, methylmalonic acidemia, and hypomethioninemia.</div>
 
@@ -5336,6 +5392,7 @@ This pathophysiological event involves abnormal L-methylmalonyl-CoA metabolic pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mthfr-remethylation-deficiency" data-dismech-node="MTHFR Remethylation Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">MTHFR Remethylation Deficiency</div>
 
+
                 <div class="item-desc">Severe MTHFR deficiency is a folate-metabolism disorder that blocks methionine-cycle remethylation, causing elevated plasma homocysteine and homocystinuria.</div>
 
 
@@ -5526,6 +5583,7 @@ This pathophysiological event involves abnormal homocysteine metabolic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mat1a-s-adenosylmethionine-synthesis-defect" data-dismech-node="MAT1A S-Adenosylmethionine Synthesis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">MAT1A S-Adenosylmethionine Synthesis Defect</div>
+
 
                 <div class="item-desc">MAT1A deficiency reduces hepatic methionine adenosyltransferase I/III activity, impairing S-adenosylmethionine synthesis and causing persistent hypermethioninemia. Severe persistent hypermethioninemia is associated with demyelination and brain white-matter injury.</div>
 
@@ -5928,6 +5986,9 @@ This clinical feature is thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6001,6 +6062,9 @@ This clinical feature is pulmonary arterial hypertension (HP:0002092). HP:000209
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6084,6 +6148,9 @@ This clinical feature is ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6159,6 +6226,9 @@ This clinical feature is chronic kidney disease (HP:0012622). HP:0012622 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6267,6 +6337,9 @@ This clinical feature is hyperhomocystinemia (HP:0002160). HP:0002160 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6331,6 +6404,9 @@ This clinical feature is hypermethioninemia (HP:0003235). HP:0003235 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6405,6 +6481,9 @@ This clinical feature is hypomethioninemia (HP:0003658). HP:0003658 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6469,6 +6548,9 @@ This clinical feature is methylmalonic acidemia (HP:0002912). HP:0002912 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6552,6 +6634,9 @@ This clinical feature is abnormality of the skeletal system (HP:0000924). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6715,9 @@ This clinical feature is specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6694,6 +6782,9 @@ This clinical feature is peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6768,6 +6859,9 @@ This clinical feature is mental deterioration (HP:0001268). HP:0001268 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6832,6 +6926,9 @@ This clinical feature is psychosis (HP:0000709). HP:0000709 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6906,6 +7003,9 @@ This clinical feature is seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6970,6 +7070,9 @@ This clinical feature is abnormal cerebral white matter morphology (HP:0002500).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7064,6 +7167,9 @@ This clinical feature is delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7178,6 +7284,9 @@ This disease-associated gene is CBS (hgnc:1550). hgnc:1550 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7252,6 +7361,9 @@ This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7330,6 +7442,9 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7385,6 +7500,12 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
         c.482G&gt;A
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent MMACHC variant associated with milder or later-onset cblC disease and more favorable hydroxocobalamin response in a large Chinese cohort.</div>
@@ -7493,6 +7614,9 @@ This disease-associated gene is MAT1A (hgnc:6903). hgnc:6903 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7619,6 +7743,12 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7764,6 +7894,12 @@ This treatment is dietary methionine intake avoidance, annotated with Dietary In
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7946,6 +8082,12 @@ This treatment uses glycine betaine (CHEBI:17750). CHEBI:17750 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Betaine is used to lower homocysteine by promoting alternate remethylation to methionine and is used in CBS deficiency and cobalamin/remethylation disorders.</div>
 
 
@@ -8068,6 +8210,12 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8241,6 +8389,12 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Folic acid is used as an adjunct in cblC treatment regimens with hydroxocobalamin and betaine to support remethylation-focused metabolic correction.</div>
 
 
@@ -8340,6 +8494,12 @@ This treatment is dietary methionine intake avoidance, annotated with Dietary In
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8481,6 +8641,9 @@ This treatment uses ademetionine, annotated with S-adenosyl-L-methionine (CHEBI:
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8491,6 +8654,9 @@ This treatment uses ademetionine, annotated with S-adenosyl-L-methionine (CHEBI:
 
 
     </div>
+
+
+
 
 
 
@@ -8596,6 +8762,12 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11485,6 +11657,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Falcon deep research supported curation of this MONDO entry as a pathway-level Mendelian grouping rather than a single disease mechanism. This entry therefore emphasizes the best-supported component disorders and shared biochemical/clinical logic, while leaving more granular subtype-specific modeling to dedicated disease pages or future subtype-specific entries. Conformance decision: this group is deliberately NOT declared to conform to the metabolic_intoxication_decompensation module. Although the acute metabolic-decompensation module is superficially related (both concern inborn errors of amino-acid/organic-acid metabolism), the dominant pathophysiology here is chronic perturbation of methionine/SAM/SAH balance and transmethylation with progressive vascular, ocular, skeletal, hepatic, and white-matter injury, rather than the acute toxic-metabolite decompensation (hyperammonemia/acidosis/encephalopathy under catabolic stress) that defines the intoxication-type module. cblC disease can involve acute organic-acid crises, but that acute-decompensation modeling belongs on a dedicated cblC/MMA subtype entry that can conform to metabolic_intoxication_decompensation, not on this transmethylation-centred pathway grouping.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

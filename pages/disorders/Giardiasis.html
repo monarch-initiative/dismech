@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4667,6 +4720,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ingestion-of-infectious-giardia-cysts" data-dismech-node="Ingestion of infectious Giardia cysts" data-dismech-type="pathophysiology">
                 <div class="item-name">Ingestion of infectious Giardia cysts</div>
 
+
                 <div class="item-desc">Infection begins with ingestion of environmentally transmitted cysts.</div>
 
 
@@ -4742,6 +4796,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trophozoite-colonization-of-the-proximal-small-intestinal-epithelial-surface" data-dismech-node="Trophozoite colonization of the proximal small-intestinal epithelial surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Trophozoite colonization of the proximal small-intestinal epithelial surface</div>
+
 
                 <div class="item-desc">Giardia trophozoites persist at the proximal small-intestinal lumen-epithelium interface without mucosal invasion.</div>
 
@@ -4847,6 +4902,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brush-border-disaccharidase-deficiency" data-dismech-node="Brush-Border Disaccharidase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Brush-Border Disaccharidase Deficiency</div>
+
 
                 <div class="item-desc">Colonizing trophozoites reduce brush-border disaccharidase (lactase, sucrase, maltase) activity, producing carbohydrate intolerance and contributing to diarrhea even when villous architecture is grossly normal.</div>
 
@@ -5008,6 +5064,7 @@ This pathophysiological event involves decreased brush-border disaccharidase act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-assemblage-specific-trophozoite-epithelial-injury-signaling" data-dismech-node="Assemblage-specific trophozoite-epithelial injury signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Assemblage-specific trophozoite-epithelial injury signaling</div>
 
+
                 <div class="item-desc">Host epithelial injury severity varies by Giardia assemblage and can intensify during mixed infections.</div>
 
 
@@ -5091,6 +5148,7 @@ This pathophysiological event involves decreased brush-border disaccharidase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-caspase-3-dependent-enterocyte-apoptosis" data-dismech-node="Caspase-3-dependent enterocyte apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Caspase-3-dependent enterocyte apoptosis</div>
+
 
                 <div class="item-desc">Giardia-induced epithelial injury triggers caspase-3-dependent enterocyte apoptosis.</div>
 
@@ -5236,6 +5294,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tight-junction-disassembly-in-infected-enterocytes" data-dismech-node="Tight-junction disassembly in infected enterocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Tight-junction disassembly in infected enterocytes</div>
 
+
                 <div class="item-desc">Giardia infection causes tight-junction disruption in intestinal epithelial cells.</div>
 
 
@@ -5354,6 +5413,7 @@ This pathophysiological event involves tight junction disassembly (GO:1905071). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-claudin-1-downregulation" data-dismech-node="Claudin-1 downregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Claudin-1 downregulation</div>
 
+
                 <div class="item-desc">Expression of the tight-junction protein claudin-1 is reduced in chronic human giardiasis.</div>
 
 
@@ -5429,6 +5489,7 @@ This pathophysiological event involves tight junction disassembly (GO:1905071). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoxia-dependent-pkc-alpha-beta-ii-dephosphorylation" data-dismech-node="Hypoxia-dependent PKC alpha/beta II dephosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoxia-dependent PKC alpha/beta II dephosphorylation</div>
+
 
                 <div class="item-desc">Low-oxygen conditions in infected IECs drive PKC alpha/beta II dephosphorylation linked to barrier injury.</div>
 
@@ -5540,6 +5601,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-barrier-resistance-decline" data-dismech-node="Epithelial barrier resistance decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial barrier resistance decline</div>
 
+
                 <div class="item-desc">Human duodenal giardiasis is associated with reduced epithelial resistance and barrier dysfunction.</div>
 
 
@@ -5624,6 +5686,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sodium-glucose-symport-impairment" data-dismech-node="Sodium-glucose symport impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Sodium-glucose symport impairment</div>
 
+
                 <div class="item-desc">Sodium-dependent glucose transport is reduced in chronic human giardiasis.</div>
 
 
@@ -5699,6 +5762,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-electrogenic-anion-secretion-activation" data-dismech-node="Electrogenic anion secretion activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Electrogenic anion secretion activation</div>
+
 
                 <div class="item-desc">Bumetanide-sensitive secretory current is increased in chronic human giardiasis.</div>
 
@@ -5776,6 +5840,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucus-layer-disruption" data-dismech-node="Mucus layer disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucus layer disruption</div>
 
+
                 <div class="item-desc">Giardia impairs mucus barrier integrity at the host-microbe interface.</div>
 
 
@@ -5852,6 +5917,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-commensal-microbiota-biofilm-impairment" data-dismech-node="Commensal microbiota biofilm impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Commensal microbiota biofilm impairment</div>
 
+
                 <div class="item-desc">Giardia-associated barrier perturbation disrupts commensal microbiota organization.</div>
 
 
@@ -5927,6 +5993,7 @@ This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malabsorption" data-dismech-node="Malabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Malabsorption</div>
+
 
                 <div class="item-desc">Chronic intestinal dysfunction in giardiasis can impair nutrient absorption.</div>
 
@@ -6318,6 +6385,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6384,6 +6454,9 @@ This clinical feature is Flatulence (HP:0033589). HP:0033589 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6460,6 +6533,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6531,6 +6607,9 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6597,6 +6676,9 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6707,6 +6789,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6812,6 +6897,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6908,6 +6996,9 @@ This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6988,6 +7079,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7054,6 +7148,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7150,6 +7247,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7255,6 +7355,9 @@ This clinical feature is irritable bowel syndrome (MONDO:0005052). MONDO:0005052
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7461,6 +7564,12 @@ This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Nitroimidazoles are core first-line agents for most uncomplicated giardiasis.</div>
 
 
@@ -7567,6 +7676,12 @@ This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (N
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7709,6 +7824,12 @@ This treatment uses paromomycin (CHEBI:7934). CHEBI:7934 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7864,6 +7985,9 @@ This treatment uses furazolidone (CHEBI:5195). CHEBI:5195 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7874,6 +7998,9 @@ This treatment uses furazolidone (CHEBI:5195). CHEBI:5195 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7960,6 +8087,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12729,6 +12862,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

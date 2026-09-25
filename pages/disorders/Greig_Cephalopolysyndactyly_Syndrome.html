@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Greig%20Cephalopolysyndactyly%20Syndrome"
@@ -3991,7 +4044,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4025,7 +4078,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4238,12 +4291,56 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gli3-haploinsufficiency" data-dismech-node="GLI3 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GLI3 Haploinsufficiency</div>
 
+
                 <div class="item-desc">GLI3 is a bifunctional zinc-finger transcription factor that mediates Hedgehog (Hh) signaling. In the absence of Hh signal, GLI3 is proteolytically processed into a truncated repressor form (GLI3R); when Hh is present, full-length GLI3 acts as a transcriptional activator (GLI3A). GCPS results from reduced total GLI3 protein through diverse mutation types (deletions, translocations, missense, frameshift), consistent with haploinsufficiency.
 </div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4319</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4260,11 +4357,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007224</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Hedgehog Signaling Pathway, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4347,6 +4444,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-anterior-posterior-limb-patterning" data-dismech-node="Disrupted Anterior-Posterior Limb Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Anterior-Posterior Limb Patterning</div>
 
+
                 <div class="item-desc">Reduced GLI3 protein disrupts the GLI3A/GLI3R ratio, perturbing the anterior-posterior repressor gradient in the developing limb. This gradient normally restricts digit number and specifies digit identity. Disruption leads to preaxial polydactyly, syndactyly, and craniofacial features including macrocephaly and hypertelorism.
 </div>
 
@@ -4369,11 +4467,11 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030326</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4519,6 +4617,7 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serially-homologous-autopod-malformation" data-dismech-node="Serially Homologous Autopod Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Serially Homologous Autopod Malformation</div>
 
+
                 <div class="item-desc">Because the autopod patterning program is serially reused in fore- and hindlimb, the perturbed GLI3 repressor gradient produces a coordinated malformation bundle across serially homologous elements: polysyndactyly affecting both the hands and the feet (preaxial and postaxial polydactyly, finger and toe syndactyly) rather than an isolated single-limb defect.
 </div>
 
@@ -4534,11 +4633,11 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4575,11 +4674,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4675,7 +4774,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Anterior-Posterior Limb Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GLI3 protein disrupts the GLI3A/GLI3R ratio, perturbing the anterior-posterior repressor gradient in the developing limb. This gradient normally restricts digit number and specifies digit identity. Disruption leads to preaxial polydactyly, syndactyly, and craniofacial features including macrocephaly and hypertelorism.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic Limb Morphogenesis\"]}}, {\"id\": \"Finger syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft-tissue fusion of fingers contributes to the hand polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006101\"}}, {\"id\": \"GLI3 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLI3 is a bifunctional zinc-finger transcription factor that mediates Hedgehog (Hh) signaling. In the absence of Hh signal, GLI3 is proteolytically processed into a truncated repressor form (GLI3R); when Hh is present, full-length GLI3 acts as a transcriptional activator (GLI3A). GCPS results from reduced total GLI3 protein through diverse mutation types (deletions, translocations, missense, frameshift), consistent with haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Hedgehog Signaling Pathway\"]}}, {\"id\": \"Postaxial hand polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Supernumerary digits on the ulnar side of the hand are a common hand pattern in GCPS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001162\"}}, {\"id\": \"Preaxial Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits on the preaxial (thumb/radial) side of the hand. May range from subtle thumb broadening to fully formed extra digits. A defining feature distinguishing GCPS from Pallister-Hall syndrome (which typically shows postaxial polydactyly).\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100258\"}}, {\"id\": \"Preaxial foot polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication on the hallux side of the foot is a common GCPS limb phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001841\"}}, {\"id\": \"Serially Homologous Autopod Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the autopod patterning program is serially reused in fore- and hindlimb, the perturbed GLI3 repressor gradient produces a coordinated malformation bundle across serially homologous elements: polysyndactyly affecting both the hands and the feet (preaxial and postaxial polydactyly, finger and toe syndactyly) rather than an isolated single-limb defect.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Toe syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft-tissue fusion of toes contributes to the lower-limb polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001770\"}}], \"edges\": [{\"source\": \"GLI3 Haploinsufficiency\", \"target\": \"Disrupted Anterior-Posterior Limb Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GLI3 dosage perturbs Hedgehog-regulated GLI3 repressor patterning during limb development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered Hedgehog-regulated GLI3 activator/repressor balance\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Serially Homologous Autopod Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed digit-number/identity specification manifests as a serially homologous malformation bundle affecting both hands and feet.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Preaxial Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted anterior-posterior limb patterning produces preaxial polydactyly within the GCPS spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Postaxial hand polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records postaxial hand polydactyly among the common limb-patterning outcomes of GCPS.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Preaxial foot polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records preaxial foot polydactyly as a frequent limb-patterning phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Toe syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toe syndactyly is part of the GCPS polysyndactyly phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Finger syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Finger syndactyly is part of the GCPS polysyndactyly phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Anterior-Posterior Limb Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GLI3 protein disrupts the GLI3A/GLI3R ratio, perturbing the anterior-posterior repressor gradient in the developing limb. This gradient normally restricts digit number and specifies digit identity. Disruption leads to preaxial polydactyly, syndactyly, and craniofacial features including macrocephaly and hypertelorism.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic Limb Morphogenesis\"]}}, {\"id\": \"Finger syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft-tissue fusion of fingers contributes to the hand polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006101\"}}, {\"id\": \"GLI3 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLI3 is a bifunctional zinc-finger transcription factor that mediates Hedgehog (Hh) signaling. In the absence of Hh signal, GLI3 is proteolytically processed into a truncated repressor form (GLI3R); when Hh is present, full-length GLI3 acts as a transcriptional activator (GLI3A). GCPS results from reduced total GLI3 protein through diverse mutation types (deletions, translocations, missense, frameshift), consistent with haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Hedgehog Signaling Pathway\"], \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}]}}, {\"id\": \"GLI3 Mutations (Haploinsufficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Postaxial hand polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Supernumerary digits on the ulnar side of the hand are a common hand pattern in GCPS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001162\"}}, {\"id\": \"Preaxial Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits on the preaxial (thumb/radial) side of the hand. May range from subtle thumb broadening to fully formed extra digits. A defining feature distinguishing GCPS from Pallister-Hall syndrome (which typically shows postaxial polydactyly).\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100258\"}}, {\"id\": \"Preaxial foot polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication on the hallux side of the foot is a common GCPS limb phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001841\"}}, {\"id\": \"Serially Homologous Autopod Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the autopod patterning program is serially reused in fore- and hindlimb, the perturbed GLI3 repressor gradient produces a coordinated malformation bundle across serially homologous elements: polysyndactyly affecting both the hands and the feet (preaxial and postaxial polydactyly, finger and toe syndactyly) rather than an isolated single-limb defect.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Toe syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft-tissue fusion of toes contributes to the lower-limb polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001770\"}}], \"edges\": [{\"source\": \"GLI3 Haploinsufficiency\", \"target\": \"Disrupted Anterior-Posterior Limb Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GLI3 dosage perturbs Hedgehog-regulated GLI3 repressor patterning during limb development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered Hedgehog-regulated GLI3 activator/repressor balance\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Serially Homologous Autopod Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed digit-number/identity specification manifests as a serially homologous malformation bundle affecting both hands and feet.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Preaxial Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted anterior-posterior limb patterning produces preaxial polydactyly within the GCPS spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Postaxial hand polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records postaxial hand polydactyly among the common limb-patterning outcomes of GCPS.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Preaxial foot polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records preaxial foot polydactyly as a frequent limb-patterning phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Toe syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toe syndactyly is part of the GCPS polysyndactyly phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"Disrupted Anterior-Posterior Limb Patterning\", \"target\": \"Finger syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Finger syndactyly is part of the GCPS polysyndactyly phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"perturbed GLI3 anterior-posterior repressor gradient\"]}, {\"source\": \"GLI3 Mutations (Haploinsufficiency)\", \"target\": \"GLI3 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4727,15 +4826,18 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4805,15 +4907,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4876,15 +4981,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000348</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000348</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4947,15 +5055,18 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000431</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000431</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5018,15 +5129,18 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000506</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000506</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Telecanthus (HP:0000506). HP:0000506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5089,15 +5203,18 @@ This clinical feature is Telecanthus (HP:0000506). HP:0000506 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002007</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5167,15 +5284,18 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100258</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Preaxial polydactyly (HP:0100258). HP:0100258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5257,15 +5377,18 @@ This clinical feature is Preaxial polydactyly (HP:0100258). HP:0100258 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001159</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001159</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5351,15 +5474,18 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001162</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001162</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5422,15 +5548,18 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001841</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001841</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Preaxial foot polydactyly (HP:0001841). HP:0001841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5493,15 +5622,18 @@ This clinical feature is Preaxial foot polydactyly (HP:0001841). HP:0001841 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001770</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5564,15 +5696,18 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006101</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5644,15 +5779,18 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5744,12 +5882,45 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:4319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -5823,6 +5994,8 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
             </div>
 
 
+            <div class="evidence-more">+ 2 more references</div>
+
         </div>
     </details>
 
@@ -5865,6 +6038,12 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Surgical removal of extra digits, typically performed in early childhood. Syndactyly release may also be performed for functional improvement.
 </div>
 
@@ -5880,6 +6059,12 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
                 <div class="item-name">
                     Developmental Monitoring
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6099,6 +6284,11 @@ pathophysiology:
     activator (GLI3A). GCPS results from reduced total GLI3 protein
     through diverse mutation types (deletions, translocations, missense,
     frameshift), consistent with haploinsufficiency.
+  genes:
+  - preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
   biological_processes:
   - preferred_term: Hedgehog Signaling Pathway
     term:
@@ -6478,7 +6668,20 @@ phenotypes:
     explanation: Orphanet records frontal bossing as a frequent GCPS phenotype.
 genetic:
 - name: GLI3 Mutations (Haploinsufficiency)
+  gene_term:
+    preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
   association: Causative
+  relationship_type: CAUSATIVE
+  inheritance:
+  - name: Autosomal dominant
+    inheritance_term:
+      preferred_term: Autosomal dominant inheritance
+      term:
+        id: HP:0000006
+        label: Autosomal dominant inheritance
   notes: &gt;
     Functional haploinsufficiency of GLI3 on chromosome 7p14.1.
     Multiple mutation types cause GCPS: translocations, large
@@ -6503,6 +6706,27 @@ genetic:
     supports: SUPPORT
     snippet: &#34;the phenotypic spectrum of GLI3 mutations is broader than that encompassed by the clinical diagnostic criteria, but the genotype-phenotype correlation persists&#34;
     explanation: &#34;Expanded cohort of 174 probands confirms robust genotype-phenotype correlation despite broader phenotypic spectrum.&#34;
+  - reference: PMID:20301619
+    reference_title: &#34;GLI3-Related Greig Cephalopolysyndactyly Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The diagnosis of GLI3-GCPS is established in a proband with typical
+      clinical findings and either a heterozygous pathogenic variant in GLI3 or a
+      deletion of chromosome 7p14.1 involving GLI3 identified by molecular
+      genetic testing.
+    explanation: &gt;-
+      GeneReviews DIAGNOSIS/TESTING section, establishing GLI3 as the disease
+      gene and sourcing the chromosome 7p14.1 location recorded in this block&#39;s
+      notes.
+  - reference: PMID:20301619
+    reference_title: &#34;GLI3-Related Greig Cephalopolysyndactyly Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;GLI3-GCPS is inherited in an autosomal dominant manner.&#34;
+    explanation: &gt;-
+      GeneReviews GENETIC COUNSELING section, giving the mode of inheritance
+      recorded on this gene-disease relationship.
 treatments:
 - name: Surgical Correction of Polydactyly
   description: &gt;
@@ -6516,6 +6740,11 @@ treatments:
     or contiguous gene involvement.
 datasets: []
 references:
+- reference: PMID:20301619
+  title: &#34;GLI3-Related Greig Cephalopolysyndactyly Syndrome.&#34;
+  tags:
+  - GeneReviews
+  findings: []
 - reference: DOI:10.1136/jmg-2022-108753
   title: Conclusion of diagnostic odysseys due to inversions disrupting &lt;i&gt;GLI3&lt;/i&gt; and &lt;i&gt;FBN1&lt;/i&gt;
   found_in:
@@ -6559,7 +6788,24 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">3</span>
+                    <span class="card-count">4</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301619" target="_blank">PMID:20301619</a>
+                            </div>
+
+                            <div class="reference-title">GLI3-Related Greig Cephalopolysyndactyly Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -6716,6 +6962,66 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Greig Cephalopolysyndactyly Syndrome (Changes required)</strong> · 2026-05-31T03:02:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Greig_Cephalopolysyndactyly/2026-05-31T030218Z-github-review-3612.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3612
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:18Z
+Issue updated: 2026-05-31T03:02:18Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Greig Cephalopolysyndactyly Syndrome**
+- Entry: `kb/disorders/Greig_Cephalopolysyndactyly.yaml`
+- Selection basis: #143 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Greig Cephalopolysyndactyly Syndrome; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include GLI3 Haploinsufficiency, Disrupted Anterior-Posterior Limb Patterning. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment modeling: treatments are present (Surgical Correction of Polydactyly, Developmental Monitoring). Check therapeutic agents, subtype applicability, evidence strength, and surveillance/supportive-care needs; avoid broad treatment claims that are not tied to the relevant phenotype or disease stage.
+6. Evidence/reference check: top references include PMID:15739154, PMID:34828280, PMID:10693759, PMID:24736735. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Preaxial Polydactyly, Cutaneous Syndactyly, Macrocephaly, Hypertelorism, Abnormal Corpus Callosum.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Greig_Cephalopolysyndactyly-deep-research-falcon.md`
+- PMID:15739154: https://pubmed.ncbi.nlm.nih.gov/15739154/
+- PMID:34828280: https://pubmed.ncbi.nlm.nih.gov/34828280/
+- PMID:10693759: https://pubmed.ncbi.nlm.nih.gov/10693759/
+- PMID:24736735: https://pubmed.ncbi.nlm.nih.gov/24736735/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7121,7 +7427,7 @@ A 2023 Journal of Medical Genetics study demonstrated that copy-neutral inversio
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Greig Cephalopolysyndactyly Syndrome", "mondoId": "MONDO:0008287", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Greig_Cephalopolysyndactyly_Syndrome", "yamlRevision": "9eed1b47f5ab"};
+        const OS_CONFIG = {"diseaseName": "Greig Cephalopolysyndactyly Syndrome", "mondoId": "MONDO:0008287", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Greig_Cephalopolysyndactyly_Syndrome", "yamlRevision": "b42c5a89f459"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5184,6 +5237,7 @@ Note the polarity of the edge opt-in, which is the reverse of the usual case. Th
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mns1-loss-of-function" data-dismech-node="Biallelic MNS1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MNS1 Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous nonsense, frameshift and in-frame deletion alleles in MNS1 abolish production of functional MNS1 protein. Immunofluorescence in affected individuals shows loss of MNS1 from the axonemes and flagella where the wild-type protein normally resides, confirming that the reported alleles behave as true nulls at the protein level rather than as hypomorphs of uncertain consequence.</div>
 
 
@@ -5327,6 +5381,7 @@ This pathophysiological event involves MNS1 (hgnc:29636). hgnc:29636 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-dynein-arm-docking-defect-in-the-motile-axoneme" data-dismech-node="Outer Dynein Arm Docking Defect in the Motile Axoneme" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Dynein Arm Docking Defect in the Motile Axoneme</div>
+
 
                 <div class="item-desc">MNS1 dimerises and binds CCDC114, a component of the outer dynein arm docking complex (ODA-DC). Without MNS1, outer dynein arms are incompletely docked onto the outer doublet microtubules. Crucially, the resulting ultrastructural lesion is subtle - a partial rather than complete loss of outer dynein arms, most pronounced in the distal axoneme - which distinguishes MNS1 deficiency from the complete ODA loss seen with DNAH5 or DNAI1 defects and accounts for the mild airway phenotype relative to classic primary ciliary dyskinesia.</div>
 
@@ -5561,6 +5616,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nodal-cilia-motility-failure-at-the-left-right-organizer" data-dismech-node="Nodal Cilia Motility Failure at the Left-Right Organizer" data-dismech-type="pathophysiology">
                 <div class="item-name">Nodal Cilia Motility Failure at the Left-Right Organizer</div>
 
+
                 <div class="item-desc">During gastrulation, motile monocilia at the ventral node beat to drive a leftward extraembryonic fluid flow that is the earliest known symmetry-breaking event in the vertebrate embryo. MNS1 is expressed in the mouse ventral node, and MNS1 deficiency compromises the outer dynein arm machinery that powers this beat, so nodal flow fails to be established robustly.</div>
 
 
@@ -5788,6 +5844,7 @@ This pathophysiological event involves abnormal determination of left/right symm
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-ciliary-dysfunction" data-dismech-node="Respiratory Ciliary Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Ciliary Dysfunction</div>
 
+
                 <div class="item-desc">MNS1 is present in the axonemes of human respiratory cilia, and affected individuals show its absence from airway epithelium together with a partial outer dynein arm defect. Unlike classic primary ciliary dyskinesia, however, the airway consequence is variable and frequently absent: most reported individuals have no significant otosinopulmonary disease, and the airway arm of the module is only partially manifested. Where it does occur it presents as neonatal respiratory distress, recurrent respiratory tract infection, chronic rhinitis and wet cough rather than established bronchiectasis.</div>
 
 
@@ -6005,6 +6062,7 @@ This pathophysiological event occurs in respiratory airway (UBERON:0001005). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sperm-flagellar-axoneme-assembly-failure" data-dismech-node="Sperm Flagellar Axoneme Assembly Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sperm Flagellar Axoneme Assembly Failure</div>
+
 
                 <div class="item-desc">MNS1 is an integral, detergent-resistant component of the sperm flagellum. In its absence the flagellar axoneme is not correctly assembled: the 9+2 microtubule arrangement and the surrounding outer dense fibres are disrupted, and outer doublet microtubules show ultrastructural disturbance in human patients. Because MNS1 loss acts during spermiogenesis - the post-meiotic morphogenesis of the round spermatid into a spermatozoon - both the number and the structure of the resulting gametes are affected.</div>
 
@@ -6260,6 +6318,7 @@ This pathophysiological event involves abnormal spermatid development (GO:000728
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-randomization-of-left-right-axis-specification" data-dismech-node="Randomization of Left-Right Axis Specification" data-dismech-type="pathophysiology">
                 <div class="item-name">Randomization of Left-Right Axis Specification</div>
 
+
                 <div class="item-desc">With nodal flow absent, left-right identity is assigned stochastically rather than deterministically. Some affected individuals develop normal situs solitus, some develop mirror-image situs inversus totalis, and a further fraction fails to establish a coherent axis at all and develops true heterotaxy (situs ambiguus) with discordant thoracic and abdominal arrangement and complex congenital heart disease. This randomisation - as opposed to consistent reversal - is the signature of a nodal-cilium laterality defect and explains the intrafamilial variability seen in MNS1 pedigrees.</div>
 
 
@@ -6422,6 +6481,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligoasthenoteratozoospermia-and-male-infertility" data-dismech-node="Oligoasthenoteratozoospermia and Male Infertility" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligoasthenoteratozoospermia and Male Infertility</div>
+
 
                 <div class="item-desc">Affected males have severe oligoasthenoteratozoospermia: reduced sperm counts, absent or near-absent progressive motility, and abnormal head and tail morphology. Infertility is the consistent reproductive outcome. In the one reported attempt, intracytoplasmic sperm injection did not rescue fertility, which is consistent with the defect being structural and gamete-intrinsic rather than purely motility-limited.</div>
 
@@ -6644,6 +6704,9 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6737,6 +6800,9 @@ This clinical feature is Complex congenital heart malformation, annotated with A
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP:0001627 (Abnormal heart morphology) is used because HPO has no single term for complex congenital heart disease; the preferred_term carries the intended clinical granularity.</div>
 
 
@@ -6806,6 +6872,9 @@ This clinical feature is Asplenia (HP:0001746). HP:0001746 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6891,6 +6960,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6964,6 +7036,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7063,6 +7138,9 @@ This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7157,6 +7235,9 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7221,6 +7302,9 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7299,6 +7383,9 @@ This clinical feature is Chronic rhinitis (HP:0002257). HP:0002257 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7386,6 +7473,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7464,6 +7554,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7530,6 +7623,9 @@ This clinical feature is Absent outer dynein arms (HP:0012256). HP:0012256 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7614,6 +7710,9 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7784,6 +7883,9 @@ This disease-associated gene is MNS1 (hgnc:29636). hgnc:29636 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7885,6 +7987,12 @@ This disease-associated gene is MNS1 (hgnc:29636). hgnc:29636 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous nonsense variant identified in four males with laterality defects and infertility from consanguineous families; the index allele for HTX9.</div>
 
 
@@ -7944,6 +8052,12 @@ This disease-associated gene is MNS1 (hgnc:29636). hgnc:29636 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous founder frameshift allele segregating in an extended Amish pedigree with situs inversus and male infertility.</div>
 
 
@@ -8001,6 +8115,12 @@ This disease-associated gene is MNS1 (hgnc:29636). hgnc:29636 is a gene from the
         MNS1 c.603_604insG p.Lys202Glufs*6
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous frameshift variant identified in a Han Chinese proband with severe oligoasthenoteratozoospermia, the fertility-only presentation of MNS1 deficiency.</div>
@@ -8119,6 +8239,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8129,6 +8252,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8211,6 +8337,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8221,6 +8350,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
     </div>
+
+
+
 
 
 
@@ -11498,6 +11630,69 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this is a standalone Disease entry rather than a subtype of the existing Visceral_Heterotaxy entry (MONDO:0018677), which models heterotaxy as a genetically heterogeneous clinical class and carries no subtypes. HTX9 has its own MONDO term, its own OMIM phenotype number (618948), a single defined causal gene, and a phenotype - male infertility from flagellar assembly failure - that is not part of the umbrella entity at all. MONDO records HTX9 as is_a visceral heterotaxy, which the parents list reflects.
+No GeneReviews chapter exists for MNS1-related disease or for heterotaxy as of this curation, so the GeneReviews phenotype baseline step was not applicable.
+Named Entity Confusion preflight: MONDO:0030070 carries no textual definition, so identity was anchored on OMIM:618948 and on the MONDO RO:0004003 causal-gene relationship to HGNC:29636 (MNS1). All curated content is drawn from MNS1-specific primary literature. Content about other numbered heterotaxy loci (HTX1/ZIC3, HTX2/CFC1, HTX4/ACVR2B, HTX5/NODAL, HTX6/CFAP52) was deliberately excluded.
+A Falcon deep-research report was generated for this entry and then DISCARDED after `just preflight-dr ... MONDO:0030070` returned FAIL: the report never mentioned MNS1 and discussed MMP21 62 times, i.e. it had resolved &#34;Visceral Heterotaxy 9&#34; to MMP21-related heterotaxy 7 (MONDO:0014762, OMIM:616749). This is the canonical Named Entity Confusion failure mode for the numbered HTX series - the report was internally coherent, its citations resolved, and its quotes would have validated as exact substrings, so only the semantic gene check caught it. Per CLAUDE.md the report was discarded whole rather than cherry-picked, and is deliberately not committed under research/ so that a later curator cannot pick it up under its misleading filename. This entry is built entirely from PubMed-sourced MNS1 primary literature and the ClinGen structured record.
+A SECOND deep-research report was generated in a later session and, unlike the first, was kept: research/Visceral_Heterotaxy_9-deep-research-openscientist.md. Read its frontmatter before using it. Falcon was requested and returned HTTP 403, so the run fell back to OpenScientist and the report records fell_back: true, requested_provider: falcon and the full provider_attempts chain. Note the report is named for OpenScientist, which actually wrote it, not for the falcon that was requested - so this file is NOT the discarded MMP21 report described above, and no falcon report for this disease should exist on disk. It PASSES the Named Entity Confusion preflight that the first report failed (MNS1 mentioned 58 times and the top gene by frequency, against MNS1=0 and MMP21=62 in the discarded one), and reference validation resolved 18/18 citations with none off topic. Two of its suggested ontology bindings are wrong and must not be used: it offers HP:0011885 for &#34;Abnormal visceral situs&#34; when that identifier is Hemorrhage of the eye, and UBERON:0004341 for the left-right organiser when that identifier is primitive streak. Neither is bound anywhere in this entry.
+The material added in that later session did not come from the report, which corroborated existing content rather than extending it. The CFAP53 paralogue redundancy hypothesis, the MFN2 interaction evidence and the gestational-alcohol gene-environment entry all come from PubMed searches of the MNS1 literature made independently of it; the report does not mention CFAP53 at all. Its two genuinely novel contributions - gnomAD v4 constraint metrics and UniProt/Pfam domain architecture - were deliberately NOT curated, because neither has a citable reference whose abstract contains the numbers, and manufacturing a snippet for them is precisely the failure mode the evidence SOP forbids.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment: MNS1/CFAP53 redundancy hypothesis, gene-environment entry, causal-edge evidence</strong> · 2026-09-02T05:52:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Visceral_Heterotaxy_9/2026-09-02T055259Z-claude-code-81dab9.yaml">View source</a></p>
+                        <p class="research-review-text">Augmentation session on an existing 96%-compliant entry (created in PR #8880); no new entry was created.
+
+Deep research. Falcon was requested per the /curate default and returned HTTP 403 (ProviderAuthError) on two attempts; `providers --check` confirmed it UNREACHABLE. Rather than hand-substituting a provider, the run was re-issued with `just dr_fallback=&#39;--fallback&#39;`, which fell back to OpenScientist and recorded fell_back/requested_provider/provider_attempts in the report frontmatter. The report is committed as research/Visceral_Heterotaxy_9-deep-research-openscientist.md, named for the provider that actually produced it. The fallback initially left a stale duplicate named -falcon.md whose frontmatter lacked template_sha and whose artifact paths pointed at a directory that did not exist; that duplicate was deleted rather than committed, and the preflight was re-run against the canonical file (PASS, MNS1=58).
+
+NEC preflight. This disease previously produced the canonical Named Entity Confusion failure (PR #8880 discarded a falcon report that resolved &#39;Visceral Heterotaxy 9&#39; to MMP21-related heterotaxy 7, MNS1=0/MMP21=62). The new report PASSES `just preflight-dr ... MONDO:0030070` with MNS1=58 mentions and MNS1 as top gene, so it was kept rather than discarded.
+
+Report validation. Neither validation section existed, so both were retro-fitted: `just validate-research-reference` (18/18 references resolved, 0 unresolved, 0 off topic) and `just validate-research-terms` (30/31 resolved). Term validation flagged two bindings that resolve but name different concepts - HP:0011885 offered for &#39;Abnormal visceral situs&#39; is actually Hemorrhage of the eye, and UBERON:0004341 offered for the left-right organiser is actually primitive streak. Neither was bound; both are recorded in the entry notes so a later curator does not pick them up.
+
+What was added, and where it came from. The report corroborated existing content rather than extending it, so the substantive additions come from independent PubMed searches of the MNS1 literature, all three papers previously uncited:
+
+- PMID:39007638 (Development 2024) - MNS1 and CFAP53 are paralogous filamentous microtubule inner proteins that act redundantly in (9+2) cilia; combined loss strips outer dynein arms. Used for two new evidence items on the Outer Dynein Arm Docking Defect node and as the basis of a new mechanistic_hypotheses entry, cfap53_paralogue_redundancy_airway_sparing (status EMERGING), which offers a mechanistic account of why the airway is spared while laterality fails and therefore of ClinGen&#39;s Disputed MNS1-PCD classification. The report never mentions CFAP53.
+- PMID:24876927 (Cilia 2014) - MFN2/MNS1 co-immunoprecipitation; MNS1 in detergent-resistant flagellar structures and distributed along the whole tail. Two evidence items on the Sperm Flagellar Axoneme Assembly Failure node.
+- PMID:30129265 (ACER 2018) - Mns1 dosage interacts with gastrulation-stage alcohol to raise craniofacial/ocular defect rates (41% WT, 64% het, 92% null). Basis of a new environmental: section, the entry&#39;s first, bound to ECTO:0300001 via influences_mechanisms with environmental_effect MODULATES.
+
+Also filled the entry&#39;s central uncited causal edge (Nodal Cilia Motility Failure -&gt; Randomization of Left-Right Axis Specification) with two quotes that make the causal claim directly, from references already in the cache.
+
+Honesty and scope decisions. The environmental entry is MODULATES, not EXACERBATES or PREDISPOSES: the evidence is murine, the potentiated phenotype (craniofacial/ocular/midline) is not a reported human MNS1 feature, and the interaction was seen in heterozygotes too, so it is a statement about Mns1 dosage rather than about the biallelic state defining HTX9. All three limits are written into its notes. The redundancy hypothesis is EMERGING, not CANONICAL, and carries an explicitly recorded internal problem: the sperm flagellum is itself (9+2) and should be buffered on this model yet fails most penetrantly, which is captured as a new KNOWLEDGE_GAP discussion (mns1_sperm_9plus2_redundancy_paradox) with a decisive proposed experiment rather than smoothed over. An earlier draft of the hypothesis asserted the sperm flagellum has &#39;its own fMIP composition&#39;; that was unsourced and was removed. Two new evidence items were also regraded from MODEL_ORGANISM to IN_VITRO on review - the PMID:39007638 MNS1 self-association and the PMID:24876927 MFN2 co-immunoprecipitation - because both claims rest on binding assays rather than in vivo observation, which is how this entry already grades the co-IP/yeast-two-hybrid demonstration of the MNS1-CCDC114 interaction from PMID:30148830. Localization claims from the same mouse papers were left as MODEL_ORGANISM, matching the existing PMID:22396656 detergent-resistance items. The report&#39;s two novel contributions - gnomAD v4 constraint metrics and UniProt/Pfam domain architecture - were deliberately not curated because neither has a citable reference whose abstract carries the numbers. The prior curator&#39;s scope decisions (standalone entry, no PCD causation claim, uncited cardiac-surgery treatment) were left intact.
+
+Pre-PR red-team review. A fresh-context review pass against the dismech-pr-review skill confirmed no fabricated snippets, no wrong PMIDs, no NEC, no ontology errors and no broken references (all 98 snippets byte-exact against cache), and raised ten prose-level overreach findings, all fixed before commit rather than argued with. The PMID:39007638 &#39;combined loss of both proteins&#39; snippet is an MNS1/CFAP53 DOUBLE mutant result and had been explained on the ODA node as &#39;the same lesion&#39; as single MNS1 loss, which the node itself describes as partial and distal; it is now INDIRECT and explicitly named as the double-mutant phenotype. The hypothesis&#39;s (9+0) premise was uncited and its &#39;therefore&#39; was a non-sequitur, since CFAP53 being essential in (9+0) does not entail it cannot cover for absent MNS1; the source&#39;s own &#39;(9+0), but not (9+2)&#39; sentence was added as evidence and the passage now says the asymmetry motivates the model rather than derives it. The hypothesis also did not acknowledge a counterexample already curated in this entry - Mns1 SINGLE nulls lose tracheal outer dynein arms and develop hydrocephalus (PMID:22396656), and tracheal and ependymal cilia are both (9+2) - which is now in the hypothesis notes with the conclusion that the model accounts for human airway mildness and not for the mouse (9+2) phenotypes. The environmental mechanism link had asserted that alcohol and MNS1 deficiency &#39;converge&#39; on nodal motile cilia and combined &#39;supra-additively&#39;, which the cited authors do not claim: their discussion prefers primary (non-motile) cilia and Shh, and they report situs inversus without craniofacial consequence. That description was rewritten to the source&#39;s framing, and the link&#39;s evidence - previously the abstract&#39;s background sentence, which evidenced nothing about alcohol - replaced with the conclusions sentence carrying the interaction claim, the hedged &#39;likely though interaction of alcohol with motile cilia function&#39; as INDIRECT, and a REFUTE item carrying the authors&#39; own primary-cilia reading. Smaller fixes: &#39;oligoasthenoteratozoospermia in every reported male&#39; narrowed to males actually assessed; ClinGen &#39;Disputed&#39; no longer read as a phenotype-severity measurement; &#39;abolishes motility&#39; softened to match &#39;significantly affecting&#39;; an unsupported &#39;homodimerises before engaging&#39; claim removed; the PMID:24876927 detergent-fractionation item regraded IN_VITRO for consistency with the co-IP items; and the PMID:31534215 edge quote marked INDIRECT, since it is a doubly-hedged author synthesis and nodal flow was never measured in patients.
+
+Automated PR review round (PR #10528). The ai4c-reviewer bot requested changes on one IMPORTANT source-fidelity error, which was real and had been introduced by the earlier review pass: the environmental link description said &#34;alcohol-exposed nulls showed situs inversus ... without that tracking craniofacial outcome&#34;. PMID:30129265 makes that dissociation about the VEHICLE-treated nulls (&#34;loss of Mns1 did not affect the incidence of eye defects or other craniofacial abnormalities in vehicle-treated animals. However 5/8 of these fetuses exhibited situs inversus&#34;); the alcohol-exposed nulls had 92.31% defects, so as written the sentence inverted the paper&#39;s argument and destroyed the dissociation it was trying to describe. Corrected to name the vehicle-treated group and the 5/8 figure. Verified against the cached full text before editing. All three of the reviewer&#39;s non-blocking suggestions were also taken: a sentence was added to the hypothesis notes making the edge opt-in polarity explicit (the group is declared on the ODA-docking to Respiratory Ciliary Dysfunction edge and explains why that edge is ATTENUATED, not why it holds, so the opt-in is not the edge&#39;s causal warrant); and the stale retired-enum prose was cleaned up. The reviewer flagged one instance of an explanation still saying &#34;Recorded as PARTIAL&#34; after #10003 migrated the value; the file actually carried four, all pre-existing and none introduced by this PR. All four were reworded to drop the retired value and to carry directness: INDIRECT instead, which is what each was actually expressing. The file now contains no mention of PARTIAL. The reviewer&#39;s remaining suggestion, that the two PMID:24876927 items carry different evidence_source values, was deliberately left as-is: the reviewer itself judged both defensible, and the split is intentional - detergent fractionation is a biochemical assay (IN_VITRO) while immunofluorescence localisation in ex vivo sperm is MODEL_ORGANISM, and each explanation states its own reasoning.
+
+Validation. `just validate-disorders` passed (schema + terms + references, batched, what CI runs). 98/98 snippets verified. check-enum-values, check-causal-targets, check-entity-refs, check-qualifier-terms, check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence all OK. The validator caught one invented reference_title during drafting (PMID:31534215), which was corrected to the real title. An unrelated formatting-only rewrite of references_cache/PMID_38884744.md, produced by re-fetching a pre-existing cache file with a newer fetcher, was reverted to keep the diff clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Visceral Heterotaxy 9 (HTX9, MONDO:0030070, MNS1)</strong> · 2026-08-19T04:34:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Visceral_Heterotaxy_9/2026-08-19T043404Z-claude-code-8085d9.yaml">View source</a></p>
+                        <p class="research-review-text">New standalone Disease entry for heterotaxy, visceral, 9, autosomal, with male infertility (HTX9; MONDO:0030070; OMIM:618948).
+
+NEC preflight (CLAUDE.md section 2b). MONDO:0030070 carries no definition text, so identity was anchored on OMIM:618948 and on the MONDO RO:0004003 causal-gene relationship, which resolves to HGNC:29636 (MNS1). A Falcon deep-research report was generated and then DISCARDED WHOLE after `just preflight-dr research/Visceral_Heterotaxy_9-deep-research-falcon.md MONDO:0030070` returned FAIL (MNS1 = 0 mentions; MMP21 = 62 mentions). The report had resolved the disease name to MMP21-related heterotaxy 7 (MONDO:0014762, OMIM:616749). Its citations all resolved and its quotes would have validated as exact substrings, so only the semantic gene check caught the confusion. The report, its citations sidecar and its artifacts directory were deleted rather than committed, so that no curator can later pick them up under the misleading filename. All curated content therefore comes from PubMed-sourced MNS1 primary literature plus one ClinGen structured record.
+
+Scope decision. Curated as a standalone entry rather than a subtype of the existing Visceral_Heterotaxy entry (MONDO:0018677), which models heterotaxy as a genetically heterogeneous clinical class and carries no subtypes. HTX9 has its own MONDO term, its own OMIM phenotype number, a single causal gene, and a male-infertility phenotype that is not part of the umbrella entity. MONDO&#39;s is_a link to visceral heterotaxy is reflected in the parents list. The umbrella entry was not modified.
+
+Mechanism. Biallelic MNS1 loss of function to outer dynein arm docking defect in the motile axoneme (MNS1 dimerises and binds the ODA-DC subunit CCDC114) to three parallel arms - nodal cilia motility failure at the left-right organizer, sperm flagellar axoneme assembly failure, and respiratory ciliary dysfunction - converging on randomization of left-right axis specification and on oligoasthenoteratozoospermia with male infertility.
+
+Module conformance. Two nodes declare conforms_to ciliopathy_dysfunction#Motile Cilia Beat Dysfunction: the nodal-cilium node (the module node explicitly covers nodal-flow randomisation of left-right asymmetry) and the respiratory node (MNS1 is demonstrably absent from patient airway epithelium, with a partial ODA defect). The respiratory node carries an explicit note that conformance is asserted for the mechanism, not for a claim that MNS1 deficiency reproduces primary ciliary dyskinesia.
+
+Honest constraints recorded rather than smoothed over. ClinGen&#39;s Motile Ciliopathy Gene Curation Expert Panel classifies MNS1-primary ciliary dyskinesia as Disputed (cited as a CGGV structured record, evidence_source OTHER). The index-cohort individual with airway disease also carried homozygous DNAH5 mutations. The single reported ICSI attempt failed and is curated as a REFUTE evidence item against the implicit claim that ICSI rescues fertility. The cardiac-surgery treatment deliberately carries no evidence item because no MNS1-specific management study exists. Three discussions were added: a KNOWLEDGE_GAP on the MNS1-PCD boundary, a HUMAN_MODEL_MISMATCH on mouse hydrocephalus with no reported human counterpart, and a KNOWLEDGE_GAP on the GLDN-confounded phenotype expansion. Non-ciliary features from single case reports (severe myopia, oligodontia, a fetal malformation syndrome) were deliberately NOT curated as phenotypes.
+
+Validation. `just validate`: all validations passed. `just validate-terms`: passed. `just count-verified-snippets`: 60/60 verified against cached references. `just check-duplicate-keys`: OK. `just check-title-snippets`: OK, no new title-quoting snippets. Targeted tests/test_data.py selection (conforms_to node references, unique names, model readout targets, subtype foreign keys, history record layout): 8383 passed. `just validate-disorders` was run once before opening the PR.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

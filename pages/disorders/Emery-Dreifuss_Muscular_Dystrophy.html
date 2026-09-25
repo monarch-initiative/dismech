@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Emery-Dreifuss%20Muscular%20Dystrophy"
@@ -3988,7 +4041,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">23</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4787,6 +4840,7 @@ This subtype is caused by variation in TMEM43 (hgnc:28472). hgnc:28472 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-envelope-and-linc-complex-dysfunction" data-dismech-node="Nuclear Envelope and LINC Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Envelope and LINC Complex Dysfunction</div>
 
+
                 <div class="item-desc">EDMD is caused by loss or dysfunction of nuclear-envelope proteins (emerin, lamin A/C) and LINC-complex components (nesprins, SUN proteins, LUMA) that physically couple the nucleoskeleton to the cytoskeleton. These proteins form an interacting network spanning the nuclear lamina, inner nuclear membrane, and outer nuclear membrane. Pathogenic variants disrupt nesprin/emerin/lamin binding, mislocalize emerin and SUN2, and compromise nuclear envelope integrity, which is the upstream defect common across all EDMD subtypes.</div>
 
 
@@ -5013,6 +5067,7 @@ This pathophysiological event involves inner nuclear membrane, annotated with nu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mechanotransduction-and-nuclear-mechanical-fragility" data-dismech-node="Impaired Mechanotransduction and Nuclear Mechanical Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mechanotransduction and Nuclear Mechanical Fragility</div>
 
+
                 <div class="item-desc">Striated muscle nuclei are continuously exposed to mechanical strain. A functional nuclear envelope / LINC complex transmits and buffers these forces. In EDMD, defective nucleo-cytoskeletal coupling impairs mechanotransduction and renders nuclei mechanically fragile. In LMNA-mutant (EDMD2) myoblasts under cyclic stretch, lamin A/C fails to recruit desmin and plectin to the nuclear periphery and nuclei fail to reorient properly, directly linking the molecular defect to defective mechanosignaling.</div>
 
 
@@ -5053,6 +5108,49 @@ This pathophysiological event involves skeletal muscle myoblast, annotated with 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LMNA
+
+
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6636</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5068,11 +5166,11 @@ This pathophysiological event involves skeletal muscle myoblast, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0071260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0071260</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cellular response to mechanical stimulus (GO:0071260). GO:0071260 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5159,6 +5257,7 @@ This pathophysiological event involves abnormal cellular response to mechanical 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-stress-induced-nuclear-damage-and-dna-damage-response" data-dismech-node="Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response</div>
 
+
                 <div class="item-desc">Mechanically fragile EDMD nuclei accumulate damage under physiologic strain, including stretch-induced DNA damage and activation of DNA-damage responses (e.g., gamma-H2A.X foci, p53 signaling). Muscle-specific loss of the nuclear-envelope protein NET39 in mice recapitulates EDMD-like muscle wasting with abnormal myonuclei and DNA damage, and renders myoblasts hypersensitive to mechanical stretch, establishing a mechanical-stress to DNA-damage axis as a contributor to muscle degeneration.</div>
 
 
@@ -5173,11 +5272,11 @@ This pathophysiological event involves abnormal cellular response to mechanical 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5214,11 +5313,11 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006974</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5305,6 +5404,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maladaptive-transcriptional-reprogramming-and-fibro-fatty-remodeling" data-dismech-node="Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling</div>
 
+
                 <div class="item-desc">Nuclear-envelope dysfunction alters chromatin organization and gene expression programs. Transcriptomic analysis of EDMD-spectrum patient myotubes across seven causal genes shows convergent dysregulation of fibrosis/ECM, metabolism, myogenic signaling, and splicing pathways. This maladaptive reprogramming drives muscle fiber degeneration with fibro-fatty remodeling in skeletal muscle and contributes to fibrosis and electrical instability in the heart.</div>
 
 
@@ -5319,11 +5419,11 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5360,11 +5460,11 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5394,11 +5494,11 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008380" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0008380</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008380" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0008380</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal RNA splicing (GO:0008380). GO:0008380 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5428,11 +5528,11 @@ This pathophysiological event involves abnormal RNA splicing (GO:0008380). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042692" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042692</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042692" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042692</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal muscle cell differentiation (GO:0042692). GO:0042692 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5567,6 +5667,7 @@ This pathophysiological event involves abnormal muscle cell differentiation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-conduction-disease-and-arrhythmogenesis" data-dismech-node="Cardiac Conduction Disease and Arrhythmogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Conduction Disease and Arrhythmogenesis</div>
 
+
                 <div class="item-desc">Cardiac involvement is the principal determinant of morbidity and mortality in EDMD. Nuclear-envelope dysfunction in atrial and conduction-system cardiomyocytes produces an atrial myopathy with progressive conduction disease (AV block, sinus node dysfunction), atrial arrhythmia (atrial fibrillation/flutter), and atrial standstill, with attendant thromboembolic risk. EMD and especially LMNA variants additionally confer a high risk of malignant ventricular arrhythmia and progression to dilated cardiomyopathy, end-stage heart failure, and sudden cardiac death. Pacing alone does not prevent sudden death from ventricular arrhythmia, so ICD therapy is often required.</div>
 
 
@@ -5581,11 +5682,11 @@ This pathophysiological event involves abnormal muscle cell differentiation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5611,11 +5712,11 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0002068</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002068</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac Purkinje conduction myocyte, annotated with Purkinje myocyte (CL:0002068). CL:0002068 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5641,11 +5742,11 @@ This pathophysiological event involves cardiac Purkinje conduction myocyte, anno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002072" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002072" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0002072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves nodal (pacemaker/conduction) myocyte, annotated with nodal myocyte (CL:0002072). CL:0002072 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5667,6 +5768,49 @@ This pathophysiological event involves nodal (pacemaker/conduction) myocyte, ann
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EMD
+
+
+    <a href="https://bioregistry.io/hgnc:3331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3331</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EMD (hgnc:3331). hgnc:3331 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5682,11 +5826,11 @@ This pathophysiological event involves nodal (pacemaker/conduction) myocyte, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5862,7 +6006,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles tendon contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Contractures of the Achilles tendons are characteristic and contribute to toe-walking and gait disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Atrial fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial arrhythmias including atrial fibrillation, flutter, and tachycardia are common and carry thromboembolic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial standstill\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrial myopathy can evolve to atrial standstill (absence of atrial electrical/mechanical activity), which carries a high thromboembolic risk and may warrant anticoagulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025478\"}}, {\"id\": \"Atrioventricular block\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conduction-system disease, including atrioventricular block, is a hallmark cardiac manifestation and a frequent cause of death; it may require pacemaker implantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001678\"}}, {\"id\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac involvement is the principal determinant of morbidity and mortality in EDMD. Nuclear-envelope dysfunction in atrial and conduction-system cardiomyocytes produces an atrial myopathy with progressive conduction disease (AV block, sinus node dysfunction), atrial arrhythmia (atrial fibrillation/flutter), and atrial standstill, with attendant thromboembolic risk. EMD and especially LMNA variants additionally confer a high risk of malignant ventricular arrhythmia and progression to dilated cardiomyopathy, end-stage heart failure, and sudden cardiac death. Pacing alone does not prevent sudden death from ventricular arrhythmia, so ICD therapy is often required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"cardiac Purkinje conduction myocyte\", \"nodal (pacemaker/conduction) myocyte\"], \"biological_processes\": [\"cardiac conduction\"]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy with progressive systolic dysfunction develops particularly in LMNA-related EDMD and can progress to end-stage heart failure requiring transplantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Elbow contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flexion contractures of the elbows are among the earliest and most characteristic contractures in EDMD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034391\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In FHL1-related EDMD (EDMD6), the associated cardiac disease characteristically includes hypertrophic cardiomyopathy in addition to conduction defects and arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EDMD6\"], \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Striated muscle nuclei are continuously exposed to mechanical strain. A functional nuclear envelope / LINC complex transmits and buffers these forces. In EDMD, defective nucleo-cytoskeletal coupling impairs mechanotransduction and renders nuclei mechanically fragile. In LMNA-mutant (EDMD2) myoblasts under cyclic stretch, lamin A/C fails to recruit desmin and plectin to the nuclear periphery and nuclei fail to reorient properly, directly linking the molecular defect to defective mechanosignaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"cellular response to mechanical stimulus\"]}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early joint contractures are a defining feature, typically beginning in the first two decades and characteristically affecting the elbows, Achilles tendons, and posterior cervical/paraspinal muscles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear-envelope dysfunction alters chromatin organization and gene expression programs. Transcriptomic analysis of EDMD-spectrum patient myotubes across seven causal genes shows convergent dysregulation of fibrosis/ECM, metabolism, myogenic signaling, and splicing pathways. This maladaptive reprogramming drives muscle fiber degeneration with fibro-fatty remodeling in skeletal muscle and contributes to fibrosis and electrical instability in the heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"extracellular matrix organization\", \"RNA splicing\", \"muscle cell differentiation\"]}}, {\"id\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanically fragile EDMD nuclei accumulate damage under physiologic strain, including stretch-induced DNA damage and activation of DNA-damage responses (e.g., gamma-H2A.X foci, p53 signaling). Muscle-specific loss of the nuclear-envelope protein NET39 in mice recapitulates EDMD-like muscle wasting with abnormal myonuclei and DNA damage, and renders myoblasts hypersensitive to mechanical stretch, establishing a mechanical-stress to DNA-damage axis as a contributor to muscle degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Muscle atrophy and wasting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive skeletal muscle wasting accompanies the weakness, following the same humeroperoneal-then-scapular/pelvic-girdle distribution; \\\"weakness and wasting\\\" together constitute the skeletal-muscle limb of the EDMD clinical triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive muscle weakness and wasting, initially in a humeroperoneal distribution and later extending to scapular and pelvic-girdle muscles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Nuclear Envelope and LINC Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EDMD is caused by loss or dysfunction of nuclear-envelope proteins (emerin, lamin A/C) and LINC-complex components (nesprins, SUN proteins, LUMA) that physically couple the nucleoskeleton to the cytoskeleton. These proteins form an interacting network spanning the nuclear lamina, inner nuclear membrane, and outer nuclear membrane. Pathogenic variants disrupt nesprin/emerin/lamin binding, mislocalize emerin and SUN2, and compromise nuclear envelope integrity, which is the upstream defect common across all EDMD subtypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"nuclear envelope organization\"]}}, {\"id\": \"Peroneal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the peroneal (anterolateral lower-leg) muscles is part of the characteristic humeroperoneal distribution and contributes to foot drop.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011727\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory function may be impaired due to involvement of respiratory muscles, especially in severe/early-onset phenotypes, and may require respiratory aids.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Spinal rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rigidity of the spine, due to contractures of the posterior cervical and paraspinal musculature, limits neck and trunk flexion and is part of the characteristic contracture pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003306\"}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death, from conduction block or malignant ventricular arrhythmia, is a leading cause of mortality and a major rationale for intensive cardiac surveillance and device therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial arrhythmia and atrial standstill predispose to thromboembolism, including stroke, sometimes occurring even without documented atrial arrhythmia in LMNA cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Ventricular arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmias are a major cause of sudden death, particularly in LMNA-related and EMD-related disease, often disproportionate to the degree of systolic dysfunction. Pacing does not protect against them, so ICD therapy is frequently indicated.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Nuclear Envelope and LINC Complex Dysfunction\", \"target\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"target\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"target\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Elbow contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Achilles tendon contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Spinal rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Peroneal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Muscle atrophy and wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrioventricular block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrial standstill\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Ventricular arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles tendon contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Contractures of the Achilles tendons are characteristic and contribute to toe-walking and gait disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Atrial fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial arrhythmias including atrial fibrillation, flutter, and tachycardia are common and carry thromboembolic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial standstill\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrial myopathy can evolve to atrial standstill (absence of atrial electrical/mechanical activity), which carries a high thromboembolic risk and may warrant anticoagulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025478\"}}, {\"id\": \"Atrioventricular block\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conduction-system disease, including atrioventricular block, is a hallmark cardiac manifestation and a frequent cause of death; it may require pacemaker implantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001678\"}}, {\"id\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac involvement is the principal determinant of morbidity and mortality in EDMD. Nuclear-envelope dysfunction in atrial and conduction-system cardiomyocytes produces an atrial myopathy with progressive conduction disease (AV block, sinus node dysfunction), atrial arrhythmia (atrial fibrillation/flutter), and atrial standstill, with attendant thromboembolic risk. EMD and especially LMNA variants additionally confer a high risk of malignant ventricular arrhythmia and progression to dilated cardiomyopathy, end-stage heart failure, and sudden cardiac death. Pacing alone does not prevent sudden death from ventricular arrhythmia, so ICD therapy is often required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"cardiac Purkinje conduction myocyte\", \"nodal (pacemaker/conduction) myocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"genes\": [\"EMD\"], \"gene_terms\": [{\"label\": \"EMD\", \"id\": \"hgnc:3331\"}]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy with progressive systolic dysfunction develops particularly in LMNA-related EDMD and can progress to end-stage heart failure requiring transplantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"EMD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EMD\"], \"gene_terms\": [{\"label\": \"EMD\", \"id\": \"hgnc:3331\"}], \"subtypes\": [\"EDMD1\"], \"association\": \"Loss-of-function variants (X-linked recessive)\"}}, {\"id\": \"Elbow contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flexion contractures of the elbows are among the earliest and most characteristic contractures in EDMD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034391\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In FHL1-related EDMD (EDMD6), the associated cardiac disease characteristically includes hypertrophic cardiomyopathy in addition to conduction defects and arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EDMD6\"], \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Striated muscle nuclei are continuously exposed to mechanical strain. A functional nuclear envelope / LINC complex transmits and buffers these forces. In EDMD, defective nucleo-cytoskeletal coupling impairs mechanotransduction and renders nuclei mechanically fragile. In LMNA-mutant (EDMD2) myoblasts under cyclic stretch, lamin A/C fails to recruit desmin and plectin to the nuclear periphery and nuclei fail to reorient properly, directly linking the molecular defect to defective mechanosignaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"cellular response to mechanical stimulus\"], \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}]}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early joint contractures are a defining feature, typically beginning in the first two decades and characteristically affecting the elbows, Achilles tendons, and posterior cervical/paraspinal muscles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"LMNA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"subtypes\": [\"EDMD2\"], \"association\": \"Heterozygous (dominant) and rare biallelic (recessive) variants\"}}, {\"id\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear-envelope dysfunction alters chromatin organization and gene expression programs. Transcriptomic analysis of EDMD-spectrum patient myotubes across seven causal genes shows convergent dysregulation of fibrosis/ECM, metabolism, myogenic signaling, and splicing pathways. This maladaptive reprogramming drives muscle fiber degeneration with fibro-fatty remodeling in skeletal muscle and contributes to fibrosis and electrical instability in the heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"extracellular matrix organization\", \"RNA splicing\", \"muscle cell differentiation\"]}}, {\"id\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanically fragile EDMD nuclei accumulate damage under physiologic strain, including stretch-induced DNA damage and activation of DNA-damage responses (e.g., gamma-H2A.X foci, p53 signaling). Muscle-specific loss of the nuclear-envelope protein NET39 in mice recapitulates EDMD-like muscle wasting with abnormal myonuclei and DNA damage, and renders myoblasts hypersensitive to mechanical stretch, establishing a mechanical-stress to DNA-damage axis as a contributor to muscle degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Muscle atrophy and wasting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive skeletal muscle wasting accompanies the weakness, following the same humeroperoneal-then-scapular/pelvic-girdle distribution; \\\"weakness and wasting\\\" together constitute the skeletal-muscle limb of the EDMD clinical triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive muscle weakness and wasting, initially in a humeroperoneal distribution and later extending to scapular and pelvic-girdle muscles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Nuclear Envelope and LINC Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EDMD is caused by loss or dysfunction of nuclear-envelope proteins (emerin, lamin A/C) and LINC-complex components (nesprins, SUN proteins, LUMA) that physically couple the nucleoskeleton to the cytoskeleton. These proteins form an interacting network spanning the nuclear lamina, inner nuclear membrane, and outer nuclear membrane. Pathogenic variants disrupt nesprin/emerin/lamin binding, mislocalize emerin and SUN2, and compromise nuclear envelope integrity, which is the upstream defect common across all EDMD subtypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"nuclear envelope organization\"]}}, {\"id\": \"Peroneal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the peroneal (anterolateral lower-leg) muscles is part of the characteristic humeroperoneal distribution and contributes to foot drop.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011727\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory function may be impaired due to involvement of respiratory muscles, especially in severe/early-onset phenotypes, and may require respiratory aids.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Spinal rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rigidity of the spine, due to contractures of the posterior cervical and paraspinal musculature, limits neck and trunk flexion and is part of the characteristic contracture pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003306\"}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death, from conduction block or malignant ventricular arrhythmia, is a leading cause of mortality and a major rationale for intensive cardiac surveillance and device therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial arrhythmia and atrial standstill predispose to thromboembolism, including stroke, sometimes occurring even without documented atrial arrhythmia in LMNA cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Ventricular arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmias are a major cause of sudden death, particularly in LMNA-related and EMD-related disease, often disproportionate to the degree of systolic dysfunction. Pacing does not protect against them, so ICD therapy is frequently indicated.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Nuclear Envelope and LINC Complex Dysfunction\", \"target\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"target\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response\", \"target\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Elbow contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Achilles tendon contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Spinal rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Peroneal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Muscle atrophy and wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrioventricular block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Atrial standstill\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Ventricular arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EMD\", \"target\": \"Cardiac Conduction Disease and Arrhythmogenesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMNA\", \"target\": \"Impaired Mechanotransduction and Nuclear Mechanical Fragility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5914,15 +6058,18 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001907</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001907</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5992,15 +6139,18 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001678</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001678</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6061,15 +6211,18 @@ This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6130,15 +6283,18 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025478</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0025478</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial standstill (HP:0025478). HP:0025478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6199,15 +6355,18 @@ This clinical feature is Atrial standstill (HP:0025478). HP:0025478 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001644</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6268,15 +6427,18 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004308</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6362,15 +6524,18 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">A quantitative sudden-cardiac-death or all-cause/cardiovascular mortality rate for EDMD/cardiolaminopathy cohorts is still needed; PMID:35453731&#39;s abstract does not report one.</div>
@@ -6433,15 +6598,18 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6511,15 +6679,18 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001771</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001771</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Achilles tendon contracture (HP:0001771). HP:0001771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6580,15 +6751,18 @@ This clinical feature is Achilles tendon contracture (HP:0001771). HP:0001771 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011727</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011727</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peroneal muscle weakness (HP:0011727). HP:0011727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6658,10 +6832,10 @@ This clinical feature is Peroneal muscle weakness (HP:0011727). HP:0011727 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint contracture (HP:0034392), qualified as childhood onset. HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6696,6 +6870,9 @@ This clinical feature is Joint contracture (HP:0034392), qualified as childhood 
 
 
                     </div>
+
+
+
 
 
 
@@ -6756,15 +6933,18 @@ This clinical feature is Joint contracture (HP:0034392), qualified as childhood 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034391" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0034391</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034391" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0034391</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elbow contracture (HP:0034391). HP:0034391 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6825,15 +7005,18 @@ This clinical feature is Elbow contracture (HP:0034391). HP:0034391 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003306</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003306</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6896,10 +7079,10 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003701</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Humeroperoneal muscle weakness, annotated with Proximal muscle weakness (HP:0003701), qualified as course progressive. HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6923,6 +7106,9 @@ This clinical feature is Humeroperoneal muscle weakness, annotated with Proximal
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0003701 (Proximal muscle weakness) is broader than the EDMD distribution: the characteristic humeroperoneal pattern includes both a proximal upper-limb (humeral/biceps-triceps) component and a distal lower-limb (peroneal) component. The distal peroneal component is captured separately in the dedicated &#34;Peroneal muscle weakness&#34; phenotype (HP:0011727).</div>
@@ -6987,10 +7173,10 @@ This clinical feature is Humeroperoneal muscle weakness, annotated with Proximal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as course progressive. HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7014,6 +7200,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
                     </div>
+
+
+
 
 
 
@@ -7076,15 +7265,18 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002747</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7188,10 +7380,10 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
                         Gene: EMD
 
 
-    <a href="https://bioregistry.io/hgnc:3331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:3331</a>
+    <a href="https://bioregistry.io/hgnc:3331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:3331</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EMD (hgnc:3331). hgnc:3331 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7199,6 +7391,9 @@ This disease-associated gene is EMD (hgnc:3331). hgnc:3331 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -7260,10 +7455,10 @@ This disease-associated gene is EMD (hgnc:3331). hgnc:3331 is a gene from the HU
                         Gene: LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:6636</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7271,6 +7466,9 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7332,10 +7530,10 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
                         Gene: SYNE1
 
 
-    <a href="https://bioregistry.io/hgnc:17089" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:17089</a>
+    <a href="https://bioregistry.io/hgnc:17089" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:17089</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SYNE1 (hgnc:17089). hgnc:17089 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7343,6 +7541,9 @@ This disease-associated gene is SYNE1 (hgnc:17089). hgnc:17089 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7404,10 +7605,10 @@ This disease-associated gene is SYNE1 (hgnc:17089). hgnc:17089 is a gene from th
                         Gene: SYNE2
 
 
-    <a href="https://bioregistry.io/hgnc:17084" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:17084</a>
+    <a href="https://bioregistry.io/hgnc:17084" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:17084</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SYNE2 (hgnc:17084). hgnc:17084 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7415,6 +7616,9 @@ This disease-associated gene is SYNE2 (hgnc:17084). hgnc:17084 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7476,10 +7680,10 @@ This disease-associated gene is SYNE2 (hgnc:17084). hgnc:17084 is a gene from th
                         Gene: FHL1
 
 
-    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:3702</a>
+    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:3702</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FHL1 (hgnc:3702). hgnc:3702 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7487,6 +7691,9 @@ This disease-associated gene is FHL1 (hgnc:3702). hgnc:3702 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7548,10 +7755,10 @@ This disease-associated gene is FHL1 (hgnc:3702). hgnc:3702 is a gene from the H
                         Gene: TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:28472</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7559,6 +7766,9 @@ This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7628,7 +7838,7 @@ This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is pacemaker implantation, annotated with Pacemaker Placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7656,6 +7866,12 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7722,7 +7938,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7750,6 +7966,12 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7816,7 +8038,7 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">anticoagulant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">anticoagulant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anticoagulant agent therapy, annotated with Anticoagulation Therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7844,6 +8066,12 @@ This treatment is anticoagulant agent therapy, annotated with Anticoagulation Th
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7910,7 +8138,7 @@ This treatment is anticoagulant agent therapy, annotated with Anticoagulation Th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7946,6 +8174,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7956,6 +8187,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8015,7 +8249,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8051,6 +8285,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8061,6 +8298,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8120,7 +8360,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8156,6 +8396,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8166,6 +8409,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -8225,7 +8471,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">noninvasive ventilation<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">noninvasive ventilation<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8253,6 +8499,12 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8319,7 +8571,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8346,6 +8598,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8412,7 +8670,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">anesthesia procedure (malignant hyperthermia trigger avoidance)<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">anesthesia procedure (malignant hyperthermia trigger avoidance)<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anesthesia procedure (malignant hyperthermia trigger avoidance), annotated with Anesthesia Procedure (NCIT:C15181). NCIT:C15181 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8440,6 +8698,12 @@ This treatment is anesthesia procedure (malignant hyperthermia trigger avoidance
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8598,11 +8862,11 @@ This treatment is anesthesia procedure (malignant hyperthermia trigger avoidance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001644</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8906,6 +9170,11 @@ pathophysiology:
     (EDMD2) myoblasts under cyclic stretch, lamin A/C fails to recruit desmin and
     plectin to the nuclear periphery and nuclei fail to reorient properly,
     directly linking the molecular defect to defective mechanosignaling.
+  genes:
+  - preferred_term: LMNA
+    term:
+      id: hgnc:6636
+      label: LMNA
   cell_types:
   - preferred_term: skeletal muscle myoblast
     term:
@@ -9033,6 +9302,11 @@ pathophysiology:
     end-stage heart failure, and sudden cardiac death. Pacing alone does not
     prevent sudden death from ventricular arrhythmia, so ICD therapy is often
     required.
+  genes:
+  - preferred_term: EMD
+    term:
+      id: hgnc:3331
+      label: EMD
   cell_types:
   - preferred_term: cardiac muscle cell
     term:
@@ -9814,6 +10088,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10369,7 +10645,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Emery-Dreifuss Muscular Dystrophy", "mondoId": "MONDO:0016830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Emery-Dreifuss_Muscular_Dystrophy", "yamlRevision": "fdd3c3f8663f"};
+        const OS_CONFIG = {"diseaseName": "Emery-Dreifuss Muscular Dystrophy", "mondoId": "MONDO:0016830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Emery-Dreifuss_Muscular_Dystrophy", "yamlRevision": "3ccff6c457d7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

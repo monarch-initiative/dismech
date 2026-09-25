@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4658,6 +4711,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pik3r1-c-terminal-sh2-domain-variant" data-dismech-node="PIK3R1 C-terminal SH2 Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">PIK3R1 C-terminal SH2 Domain Variant</div>
 
+
                 <div class="item-desc">Heterozygous PIK3R1 variants cluster in exon 14, which encodes the C-terminal SH2 domain of the p85-alpha regulatory subunit. The reported allele spectrum comprises missense, frameshift and nonsense changes, all of which spare the N-terminal half of the protein, and c.1945C&gt;T (p.Arg649Trp) recurs across unrelated families as a mutational hotspot. PIK3R1 also encodes the p55-alpha and p50-alpha subunits, so a single allele perturbs the regulatory arm of every class IA PI3K holoenzyme in which those subunits participate.</div>
 
 
@@ -4865,6 +4919,7 @@ This pathophysiological event involves abnormal p85-alpha PI3K regulatory subuni
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-p85-alpha-binding-to-irs-1" data-dismech-node="Impaired p85-alpha Binding to IRS-1" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired p85-alpha Binding to IRS-1</div>
 
+
                 <div class="item-desc">Recruitment of class IA PI3K to the activated insulin receptor depends on the p85-alpha SH2 domains engaging phosphotyrosine motifs on IRS-1. The SHORT syndrome hotspot variant impairs that interaction, so the catalytic p110 subunit is not brought to its membrane substrate after insulin stimulation. This is the step that makes the disease a post-receptor defect: the insulin receptor itself is intact.</div>
 
 
@@ -4978,6 +5033,7 @@ This pathophysiological event involves decreased p85-alpha binding to IRS-1, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pi3k-akt-signal-transduction" data-dismech-node="Reduced PI3K-AKT Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced PI3K-AKT Signal Transduction</div>
+
 
                 <div class="item-desc">Downstream of the failed IRS-1 interaction, phosphorylation of AKT and of the more distal S6 target is reduced in patient-derived cells. The defect is not confined to one branch of the cascade: proximal and distal PI3K-dependent signalling are both impaired, which is why one molecular lesion produces a phenotype spanning growth, adipose tissue and glucose metabolism.</div>
 
@@ -5187,6 +5243,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-receptor-insulin-resistance" data-dismech-node="Post-receptor Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-receptor Insulin Resistance</div>
 
+
                 <div class="item-desc">Insulin resistance in SHORT syndrome arises below the receptor, in the PI3K arm of the cascade. Clinically this presents as severe insulin resistance with compensatory hyperinsulinaemia, progressing in some patients to diabetes, typically in the second decade.</div>
 
 
@@ -5350,6 +5407,7 @@ This pathophysiological event involves decreased insulin receptor signaling path
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dissociation-of-insulin-resistance-from-dyslipidaemia" data-dismech-node="Dissociation of Insulin Resistance from Dyslipidaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Dissociation of Insulin Resistance from Dyslipidaemia</div>
 
+
                 <div class="item-desc">Obesity-related insulin resistance travels with fatty liver, dyslipidaemia and low adiponectin. Insulin resistance from insulin-receptor dysfunction travels with none of them, and insulin resistance from AKT2 dysfunction phenocopies the obesity pattern. SHORT syndrome sits with the receptor group: four of five studied patients had extreme insulin resistance without dyslipidaemia or hepatic steatosis, and adiponectin was preserved in three of those four. Because PIK3R1 acts between the receptor and AKT, that placement is informative about where in the cascade the lesion sits, and it makes the metabolic profile a discriminating clinical feature rather than an incidental one.</div>
 
 
@@ -5479,6 +5537,7 @@ This pathophysiological event involves decreased insulin receptor signaling path
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-insulin-secretion-and-incretin-response" data-dismech-node="Impaired Insulin Secretion and Incretin Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Insulin Secretion and Incretin Response</div>
 
+
                 <div class="item-desc">A second, beta-cell arm of the metabolic phenotype, demonstrated only in the knock-in mouse: the mutation impairs insulin secretion and the action of GLP-1 on islets, in vivo and in vitro. If it holds in patients it means the diabetes is not purely a resistance phenomenon, which would matter for treatment choice. No equivalent human measurement is cited, so this node is model-derived throughout.</div>
 
 
@@ -5592,6 +5651,7 @@ This pathophysiological event involves decreased insulin secretion (GO:0030073).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-adipocyte-differentiation" data-dismech-node="Impaired Adipocyte Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Adipocyte Differentiation</div>
+
 
                 <div class="item-desc">PI3K signalling is required for preadipocytes to differentiate into mature adipocytes. The hotspot variant reduces AKT-mediated insulin signalling in reconstituted Pik3r1-knockout preadipocytes, and the resulting failure of adipose differentiation is the proposed basis of the partial lipodystrophy, which characteristically affects the face, chest and upper extremities while sparing the buttocks and legs.</div>
 
@@ -5832,6 +5892,7 @@ This pathophysiological event involves decreased fat cell differentiation (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-growth-signalling" data-dismech-node="Impaired Growth Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Growth Signalling</div>
 
+
                 <div class="item-desc">Growth restriction in SHORT syndrome begins prenatally and continues after birth. It is attributed to downregulation of the PI3K-AKT-mTOR axis, which drives cell growth and proliferation. This attribution rests on the pathway&#39;s known role rather than on a direct measurement in growth-plate tissue from patients.</div>
 
 
@@ -5968,6 +6029,7 @@ This pathophysiological event involves decreased fat cell differentiation (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progeroid-craniofacial-and-dental-development" data-dismech-node="Progeroid Craniofacial and Dental Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Progeroid Craniofacial and Dental Development</div>
 
+
                 <div class="item-desc">A distinct progeroid craniofacial appearance - triangular face, frontal bossing, hypoplastic or thin alae nasi, large low-set ears, mandibular retrognathia - together with a dental phenotype broader than the acronym&#39;s &#34;teething delay&#34;: microdontia, hypodontia and enamel hypoplasia are all reported. Systematic appraisal found the facial dysmorphism to be the *most* consistent feature of the syndrome, ahead of the eponymous ocular and dental signs, which makes it the best recognition cue and not a minor detail. The facial fat loss contributes to the appearance and is modelled separately from the adipose node; the skeletal and dental components have no established mechanism, which is why this node carries no upstream molecular detail.</div>
 
 
@@ -6099,6 +6161,7 @@ This pathophysiological event involves decreased fat cell differentiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterior-segment-dysgenesis" data-dismech-node="Anterior Segment Dysgenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterior Segment Dysgenesis</div>
+
 
                 <div class="item-desc">Maldevelopment of the anterior segment of the eye produces the Rieger anomaly and related findings (posterior embryotoxon, glaucoma) that give the syndrome its &#34;R&#34;. The developmental route from reduced PI3K signalling to anterior chamber dysgenesis has not been worked out; this node records the tissue-level lesion without asserting an intervening mechanism.</div>
 
@@ -6344,6 +6407,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6408,6 +6474,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6491,6 +6560,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6557,6 +6629,9 @@ This clinical feature is Large low-set ears, annotated with Low-set ears (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6637,6 +6712,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6747,6 +6825,9 @@ This clinical feature is Rieger anomaly (HP:0000558). HP:0000558 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6841,6 +6922,9 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6905,6 +6989,9 @@ This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6979,6 +7066,9 @@ This clinical feature is Deeply set eye (HP:0000490). HP:0000490 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7043,6 +7133,9 @@ This clinical feature is Thin iris, annotated with Hypoplasia of the iris (HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7117,6 +7210,9 @@ This clinical feature is Irregular pupil, annotated with Abnormal pupil morpholo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7186,6 +7282,9 @@ This clinical feature is Goniosynechiae, annotated with Anterior synechiae of th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7250,6 +7349,9 @@ This clinical feature is Early cataract, annotated with Cataract (HP:0000518). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7335,6 +7437,9 @@ This clinical feature is Polycystic ovaries (HP:0000147). HP:0000147 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7410,6 +7515,9 @@ This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7509,6 +7617,9 @@ This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7575,6 +7686,9 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7651,6 +7765,9 @@ This clinical feature is Mandibular retrognathia, annotated with Micrognathia (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7717,6 +7834,9 @@ This clinical feature is Hypoplastic alae nasi, annotated with Underdeveloped na
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7791,6 +7911,9 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7860,6 +7983,9 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7924,6 +8050,9 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8009,6 +8138,9 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8073,6 +8205,9 @@ This clinical feature is Dyslipidaemia, annotated with Hypertriglyceridemia (HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8153,6 +8288,9 @@ This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8252,6 +8390,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8325,6 +8466,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8435,6 +8579,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8501,6 +8648,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8621,6 +8771,9 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8723,6 +8876,7 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8742,11 +8896,17 @@ This variant is in PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent hotspot allele, accounting for the majority of reported cases. It substitutes an arginine in the C-terminal SH2 domain of p85-alpha. Two lines of functional work place it as dominant negative rather than simply hypomorphic: overexpression of the mutant subunit in preadipocytes attenuates insulin-induced AKT phosphorylation and adipocyte differentiation, and the knock-in mouse carrying one copy reproduces the human phenotype.</div>
@@ -8858,6 +9018,7 @@ This variant is in PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8877,11 +9038,17 @@ This variant is in PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift insertion in exon 14, the allele in the trio whose exome sequencing identified PIK3R1 as the SHORT syndrome gene.</div>
@@ -8944,6 +9111,7 @@ This variant is in PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8963,11 +9131,17 @@ This variant is in PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A de novo truncating allele in the same region. Cells from a patient carrying it express abundant truncated PIK3R1 products, which is the observation behind the dominant-negative reading rather than a simple loss of the subunit.</div>
@@ -9124,6 +9298,9 @@ This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9134,6 +9311,9 @@ This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -9365,6 +9545,9 @@ This treatment uses thiazolidinedione, annotated with Thiazolidinedione Antidiab
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9375,6 +9558,9 @@ This treatment uses thiazolidinedione, annotated with Thiazolidinedione Antidiab
 
 
     </div>
+
+
+
 
 
 
@@ -9599,6 +9785,9 @@ This treatment is Hormone therapy, annotated with Pharmacotherapy (NCIT:C15986).
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9609,6 +9798,9 @@ This treatment is Hormone therapy, annotated with Pharmacotherapy (NCIT:C15986).
 
 
     </div>
+
+
+
 
 
 
@@ -9750,6 +9942,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9760,6 +9955,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9893,6 +10091,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9903,6 +10104,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -13810,6 +14014,45 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity scope. This entry covers SHORT syndrome as the PIK3R1-related growth, lipodystrophy and anterior-segment disorder. It is deliberately kept separate from the existing `Activated_PI3K-delta_Syndrome` entry even though both are PIK3R1 diseases, because the variant classes, the direction of effect on PI3K signalling, and the affected systems differ. MONDO&#39;s `MONDO:1060136` (&#34;PIK3R1-related immunodeficiency and SHORT syndrome&#34;) lumps the two; that lumping is not adopted here, and the overlap between them is recorded as an open question rather than as a merged pathograph.
+Frequency bands. Two cohorts inform them and they agree on ordering. The 32-patient molecularly confirmed cohort grades features qualitatively (&#34;commonly observed&#34;, &#34;not as prevalent&#34;, &#34;less specific, or minor&#34;) and gives only one percentage, for the acronym-completeness figure. The later systematic appraisal of 19 individuals from 11 families puts facial dysmorphism first, ahead of lipodystrophy, insulin resistance and intrauterine growth restriction, and ahead of the eponymous ocular and dental signs. Bands here are anchored to that ordering rather than to reported prevalences, and each phenotype&#39;s evidence explanation says which wording it rests on. Where the sources support no ordering at all, no `frequency` is recorded.
+Reference consumption. Every reference cached by this PR is cited except one: `PMID:24033310` is a three-line commentary whose cached body contains only a list of the three 2013 gene-discovery papers, with no abstract and nothing quotable. It is kept in the cache because the deep-research report cites it and the cache should match the report&#39;s reference set, but there is no claim it can support.
+GeneReviews. There is no GeneReviews chapter for SHORT syndrome. A PubMed title search (`SHORT syndrome[TI] AND GeneReviews[TI]`) returns zero records, and the deep-research run surfaced none across its 19 references. Recorded here so the question does not have to be re-asked. The systematic appraisal (PMID:34212753) is the nearest equivalent and is the source most of this entry&#39;s frequency ordering rests on.
+Pathograph connectivity. Four phenotypes are deliberately left with no incoming edge: joint hypermobility, inguinal hernia, sensorineural hearing impairment and speech delay. These are exactly the features the cohort study grades as &#34;less specific, or minor&#34;, and no cited source proposes a route from the signalling defect to any of them. Drawing an edge would assert a mechanism nobody has; leaving them attached to nothing is the accurate representation. Every other phenotype in the entry is reachable from the PIK3R1 variant node.
+Mechanism, and one qualification carried rather than dropped. The pathograph routes the three arms of the phenotype - growth, adipose, metabolic - through a single node in which PI3K-AKT signalling is reduced, which is how the founding papers framed it and what the knock-in mouse supports across liver, muscle and fat. The 2016 dissociation study qualifies that: it states the mutations impair insulin signalling only in some cellular contexts, and reports one patient&#39;s cells in which the binding defect did not propagate downstream. That qualification is recorded as an open question rather than resolved by splitting the node, because nothing cited identifies what makes a tissue sensitive.
+Two phenotypes are recorded in order to record their absence. Hepatic steatosis and dyslipidaemia carry REFUTE evidence, because their absence alongside extreme insulin resistance is diagnostically useful - it points away from obesity-related insulin resistance and towards a proximal receptor-to-PI3K lesion. Omitting them would make the entry silent on a question clinicians actually ask.
+Not asserted. The gene-level `genetic:` entry carries no `functional_impact_category`, since the schema places that slot on variant-level records; the variants themselves are curated with their functional effects, and the dominant-negative reading of p.Arg649Trp is evidenced from the preadipocyte overexpression experiment and the mouse paper&#39;s own framing rather than asserted from the heterozygous state alone. Growth hormone therapy is recorded with REFUTE evidence against the claim that it causes the diabetes: the cited review attributes that to puberty instead, and the case against growth hormone in this disorder rests on lack of statural benefit.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: SHORT Syndrome</strong> · 2026-09-01T15:41:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SHORT_Syndrome/2026-09-01T154131Z-claude-code-46a79b.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0010026, claimed via issue #10377.
+
+Deep research: one openscientist run (research/SHORT_Syndrome-deep-research-openscientist.md, 17 min, 19 citations). The run landed without reference_validation or term_validation in its frontmatter, unlike the TFRC run from the same batch, so both were added by hand with just validate-research-reference and just validate-research-terms. Reference validation then returned 19/19 resolved, 0 unresolved, 19/19 on topic.
+
+Term validation caught a real error and it is worth recording: the report gives MONDO:0009159 as this disease&#39;s MONDO identifier, in its key-identifiers table and again in the running text. MONDO:0009159 is Ehlers-Danlos syndrome, cardiac valvular type. The correct term, MONDO:0010026, is what this entry binds. This is the failure mode issue #9888 predicts - the recipe sends an empty mondo_id, so the provider supplies its own - and it is the expensive shape of it, because the invented CURIE resolves cleanly and only a label check catches it. Reported on #9888 with the evidence. Nothing else in the report was wrong: the mechanism, the mouse model and the metabolic dissociation all check out against the primary papers.
+
+The entry was drafted first from the 2013 gene-discovery trio (PMID:23810378, PMID:23810379, PMID:23810382) plus the 32-patient clinical reappraisal (PMID:26497935). The report then contributed four substantial things, all verified against the primary sources before use: the Pik3r1 R649W knock-in mouse (PMID:26974159), the dissociation of insulin resistance from dyslipidaemia and hepatic steatosis (PMID:27766312), the pubertal timing of the diabetes with its age-stratified counts and the metformin/SGLT2-inhibitor regimen (PMID:32879144), and the systematic dental and craniofacial appraisal (PMID:34212753).
+
+Two curation decisions worth flagging. Hepatic steatosis and dyslipidaemia are curated as phenotypes carrying REFUTE evidence, because their absence alongside extreme insulin resistance is diagnostically informative rather than merely a negative. Growth hormone therapy is likewise recorded with a REFUTE item against the reading that it causes the diabetes, since the cited review attributes that to puberty; the case against growth hormone rests on lack of statural benefit.
+
+A discussion records a genuine tension the entry does not resolve: the pathograph routes everything through one reduced-PI3K-AKT node, while the 2016 study states these mutations impair insulin signalling only in some cellular contexts and reports one patient&#39;s cells where the binding defect did not propagate downstream. The node was kept single and the qualification recorded rather than splitting the pathograph on speculation.
+
+Four phenotypes are deliberately left unconnected - joint hypermobility, inguinal hernia, sensorineural hearing impairment, speech delay - because they are the features the cohort study grades as less specific and no source proposes a mechanism. Every other phenotype is reachable from the variant node.
+
+Validation: just validate passes with 111/111 snippets verified; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

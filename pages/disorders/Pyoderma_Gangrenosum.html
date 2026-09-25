@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6042,6 +6095,7 @@ Curation consequence: no targeted agent in this entry may be presented as establ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation-and-il-1-overproduction" data-dismech-node="Inflammasome Activation and IL-1 Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Activation and IL-1 Overproduction</div>
 
+
                 <div class="item-desc">The proximal molecular lesion in pyoderma gangrenosum is exaggerated, inappropriately triggered activation of the inflammasome in innate immune cells of genetically predisposed individuals, leading to overproduction of interleukin-1 (IL-1beta and IL-1alpha). Protein-array profiling of PG lesional skin shows significantly higher expression of IL-1 beta and its receptor I than in normal skin, and IL-1beta is the pivotal cytokine driving the downstream exaggerated production of cytokines and chemokines that recruit neutrophils. This node is the point at which the monogenic PAPA/PSTPIP1 arm and the far commoner sporadic disease converge, and it is the rationale for IL-1 blockade as therapy.</div>
 
 
@@ -6296,6 +6350,7 @@ This pathophysiological event involves increased Interleukin-1 beta production (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-th1-skewed-cytokine-amplification" data-dismech-node="Th17/Th1-Skewed Cytokine Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Th17/Th1-Skewed Cytokine Amplification</div>
 
+
                 <div class="item-desc">Downstream of IL-1, a T helper 17/T helper 1-skewed adaptive layer amplifies the innate signal, producing high levels of tumor necrosis factor-alpha, IL-1beta, IL-1alpha, IL-8/CXCL8, IL-12, IL-15, IL-17, IL-23 and IL-36. In PG lesional skin specifically, the chemokines IL-8, CXCL1/2/3, CXCL16 and RANTES are over-expressed, and this chemokine signal is stronger than in Sweet syndrome. This profile is the direct rationale for the biologic therapies used in PG — TNF, IL-1, IL-17, IL-23 and complement C5a inhibitors — and it is why pyoderma gangrenosum sits at the interface of innate autoinflammation and adaptive immunity rather than being purely innate.</div>
 
 
@@ -6547,6 +6602,7 @@ This pathophysiological event involves increased Positive regulation of inflamma
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-recruitment-to-the-dermis" data-dismech-node="Neutrophil Recruitment to the Dermis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Recruitment to the Dermis</div>
+
 
                 <div class="item-desc">Driven by the amplified chemokine milieu, neutrophils undergo chemotaxis and migration into the dermis and become activated. Increased neutrophil granulocyte activity is the demonstrated cellular hallmark of the disease and the feature that places pyoderma gangrenosum within the neutrophilic dermatoses.</div>
 
@@ -6805,6 +6861,7 @@ This pathophysiological event involves increased Neutrophil activation (GO:00421
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-overactivation" data-dismech-node="JAK-STAT Pathway Overactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Overactivation</div>
 
+
                 <div class="item-desc">The JAK/STAT pathway is the common downstream transducer for most of the cytokines this entry already models (IL-6, IL-12, IL-23, interferons), and single-cell RNA sequencing with multiplex immunohistochemistry shows it significantly overactivated in PG lesions — particularly in advanced-stage lesions — driven chiefly by myeloid cells and T cells. The activation is associated with enhanced NET formation in myeloid cells and with aberrant Th17 / Th17.1 differentiation and plasticity, so it converges on two nodes already in this pathograph. Independent multi-omics work identifies JAK2 and STAT3 as the network hubs of an inflammatory module conserved between PG skin and IBD gut, which is the molecular candidate for the gut-skin axis behind PG&#39;s commonest systemic association. This node is the rationale for JAK inhibition (tofacitinib, baricitinib), which remains investigational.</div>
 
 
@@ -7049,6 +7106,7 @@ This pathophysiological event involves increased JAK-STAT cascade, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-c5a-generation-and-c5ar1-signalling" data-dismech-node="Complement C5a Generation and C5aR1 Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement C5a Generation and C5aR1 Signalling</div>
 
+
                 <div class="item-desc">Complement activation generates the anaphylatoxin C5a, which signals through its receptor C5aR1 on neutrophils. In pyoderma gangrenosum this is the named proximal driver of NET release: among the candidate inducers expressed in PG (IL-1 beta, IL-6, IL-8 and C5aR1), C5a is the most potent inducer of NETosis, acting dose-dependently within 30 minutes and specifically through C5aR1 and ERK — C5aR blockade with avacopan and ERK inhibition each abolish it. The axis is active in human disease, not only in culture: C5a in PG wound fluid is more than 6-fold higher than in traumatic wound fluid, at concentrations sufficient to induce NETosis, and correlates with neutrophil elastase levels. C5a is also a classical neutrophil chemoattractant, so it plausibly contributes to recruitment as well as to NET release; only the NETosis arm is modeled as a causal edge here.</div>
 
 
@@ -7277,6 +7335,7 @@ This pathophysiological event involves increased Complement component C5a signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gsdmd-dependent-netosis" data-dismech-node="GSDMD-Dependent NETosis" data-dismech-type="pathophysiology">
                 <div class="item-name">GSDMD-Dependent NETosis</div>
+
 
                 <div class="item-desc">Activated neutrophils release neutrophil extracellular traps (NETs) — decondensed chromatin studded with granule proteins — by a process regulated by gasdermin D (GSDMD), whose pores release neutrophil elastase and myeloperoxidase during early NETosis. Serum NET levels (MPO-DNA complexes) are elevated in PG patients versus healthy controls and fall after effective treatment. This is the effector cell-death programme of the neutrophilic arm and the node the only available PG animal model addresses: GSDMD-knockout mice develop significantly less severe ulcers in the PG-serum transfer model. It amplifies the surrounding cytokine milieu, feeding back on the inflammatory response.</div>
 
@@ -7518,6 +7577,7 @@ This pathophysiological event involves increased Neutrophil extracellular trap f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterile-neutrophilic-dermal-inflammation-and-tissue-destruction" data-dismech-node="Sterile Neutrophilic Dermal Inflammation and Tissue Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterile Neutrophilic Dermal Inflammation and Tissue Destruction</div>
 
+
                 <div class="item-desc">A dense, sterile (culture-negative) neutrophilic infiltrate accumulates in the dermis, most conspicuously at the advancing ulcer edge, and destroys dermal tissue. Over-expressed Fas/Fas ligand and CD40/CD40 ligand systems contribute to that tissue damage in PG. The absence of a causative organism is central: the inflammation is aseptic, which is why antibiotics do not resolve the lesion and why exclusion of infection is a formal diagnostic criterion. Biopsy of the ulcer edge demonstrating a neutrophilic infiltrate is the single major criterion in the Delphi consensus definition.</div>
 
 
@@ -7732,6 +7792,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp-mediated-extracellular-matrix-destruction" data-dismech-node="MMP-Mediated Extracellular Matrix Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">MMP-Mediated Extracellular Matrix Destruction</div>
 
+
                 <div class="item-desc">Matrix metalloproteinases released within the neutrophil-rich infiltrate — principally MMP-2 and MMP-9, alongside neutrophil elastase from NETs — degrade dermal extracellular matrix and are the proximate effectors of tissue loss. Immunohistochemistry of PG lesions shows MMP-2 and MMP-9 significantly elevated versus controls. Importantly this arm is subtype-graded rather than uniform: myeloperoxidase, IL-8 and MMP-9 are expressed more strongly in ulcerative and bullous PG than in vegetative PG, which is the mechanistic correlate of vegetative disease being the superficial, indolent, less destructive variant.</div>
 
 
@@ -7927,6 +7988,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cutaneous-ulceration-with-undermined-violaceous-border" data-dismech-node="Progressive Cutaneous Ulceration with Undermined Violaceous Border" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cutaneous Ulceration with Undermined Violaceous Border</div>
 
+
                 <div class="item-desc">The converging neutrophilic process manifests clinically as the defining lesion: a painful, rapidly evolving cutaneous ulcer with undermined, irregular, erythematous-violaceous edges and a mucopurulent or hemorrhagic exudate. Rapid progression and a reddish-violaceous wound border are two of the three major criteria of the PARACELSUS diagnostic score, the border being present in 98% of patients. Healing characteristically leaves a cribriform scar, and the disease carries substantially increased mortality.</div>
 
 
@@ -8032,6 +8094,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathergy-trauma-induced-lesion-initiation" data-dismech-node="Pathergy - Trauma-Induced Lesion Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathergy - Trauma-Induced Lesion Initiation</div>
+
 
                 <div class="item-desc">Pathergy is the induction of new lesions, or the marked enlargement of existing ones, at sites of minor cutaneous trauma — needle sticks, biopsies, surgical incisions, or chronic mechanical irritation such as an ostomy appliance. Mechanistically it represents a lowered threshold for triggering the neutrophilic inflammatory cascade in already primed skin, so trauma locally initiates the same pathway rather than causing a distinct process. This node is clinically load-bearing rather than merely descriptive: it is why surgical debridement and defect closure can exacerbate the injury, and why postsurgical pyoderma gangrenosum is a recognized entity. Pathergy is a minor criterion in the Delphi consensus definition and appears in the PARACELSUS score as localization of the lesion at a site of trauma.</div>
 
@@ -8155,6 +8218,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pstpip1-dysfunction-monogenic-papa-arm" data-dismech-node="PSTPIP1 Dysfunction (Monogenic PAPA Arm)" data-dismech-type="pathophysiology">
                 <div class="item-name">PSTPIP1 Dysfunction (Monogenic PAPA Arm)</div>
+
 
                 <div class="item-desc">In PAPA syndrome (pyogenic arthritis, pyoderma gangrenosum, and acne), an autosomal dominant autoinflammatory disease, missense variants in PSTPIP1/CD2BP1 (E250Q, A230T) severely reduce binding of the PSTPIP1 adaptor to PEST-type protein tyrosine phosphatase. The resulting hyper-phosphorylated PSTPIP1 protein alters its participation in inflammasome activation, and overproduction of IL-1beta is a clear molecular feature of the syndrome. This is the clean Mendelian arm that links a defined molecular lesion to the same IL-1/inflammasome node that drives sporadic pyoderma gangrenosum, of which PG is the cutaneous hallmark. Note this node models the mechanistic arm only: PAPA syndrome itself (MONDO:0011462) is a distinct disease entity and is not curated here.</div>
 
@@ -8489,6 +8553,9 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8614,6 +8681,9 @@ This clinical feature is Cutaneous ulcer with undermined violaceous border, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8710,6 +8780,9 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8776,6 +8849,9 @@ This clinical feature is Superficial vegetative cutaneous lesion, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8877,6 +8953,9 @@ This clinical feature is Peristomal skin ulceration, annotated with Skin ulcer (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8968,6 +9047,9 @@ This clinical feature is Skin ulcer of the lower limb, annotated with Skin ulcer
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9076,6 +9158,9 @@ This clinical feature is Cribriform (&#34;wrinkled paper&#34;) scar, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9172,6 +9257,9 @@ This clinical feature is Severe pain at the ulceration site, annotated with Pain
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9230,6 +9318,9 @@ This clinical feature is Severe pain at the ulceration site, annotated with Pain
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately NOT bound to an ontology term. Pathergy is trauma-induced lesion INITIATION, not a lesion morphology; HPO has no term for it, and the nearest candidates are all misleading. This phenotype previously carried HP:0200042 (Skin ulcer), which discarded the semantic content and made it indistinguishable from the three other Skin ulcer annotations in this file. Per the dismech-terms rule that no term beats a misleading or too-general one, the free-text `preferred_term` stands alone. NEEDS TERM / candidate HPO new-term request (NTR): pathergy is a formal scored criterion in both the Delphi consensus definition and the PARACELSUS score, and also occurs in Behcet disease, so a dedicated HP term would be reused. Raised in the PR #9115 review.</div>
@@ -9375,6 +9466,9 @@ This disease-associated gene is PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9450,6 +9544,7 @@ This disease-associated gene is PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9469,11 +9564,17 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the CDC15-homologous domain, co-segregating with PAPA syndrome and severely reducing PSTPIP1 binding to PEST-type protein tyrosine phosphatase. Pathogenic for PAPA syndrome, not for sporadic PG.</div>
@@ -9536,6 +9637,7 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9555,11 +9657,17 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the CDC15-homologous domain, co-segregating with PAPA syndrome and severely reducing PSTPIP1 binding to PEST-type protein tyrosine phosphatase. Pathogenic for PAPA syndrome, not for sporadic PG.</div>
@@ -9649,6 +9757,9 @@ This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9721,6 +9832,9 @@ This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9789,6 +9903,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9886,6 +10003,9 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10012,6 +10132,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10022,6 +10145,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -10181,6 +10307,9 @@ This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEB
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10191,6 +10320,9 @@ This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEB
 
 
     </div>
+
+
+
 
 
 
@@ -10350,6 +10482,9 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10360,6 +10495,9 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -10554,6 +10692,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10564,6 +10705,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -10735,6 +10879,9 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10745,6 +10892,9 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -10904,6 +11054,9 @@ This treatment uses clobetasol propionate (CHEBI:31414). CHEBI:31414 is a therap
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10914,6 +11067,9 @@ This treatment uses clobetasol propionate (CHEBI:31414). CHEBI:31414 is a therap
 
 
     </div>
+
+
+
 
 
 
@@ -11073,6 +11229,9 @@ This treatment uses vilobelimab (NCIT:C172643). NCIT:C172643 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11083,6 +11242,9 @@ This treatment uses vilobelimab (NCIT:C172643). NCIT:C172643 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -11242,6 +11404,9 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11252,6 +11417,9 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -11425,6 +11593,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11435,6 +11606,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11574,6 +11748,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -17310,6 +17490,204 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entry created for issue #9069. Curated from primary literature retrieved via the PubMed E-utilities API; every PMID was fetched with `just fetch-reference` and every snippet independently verified as an exact substring of the cached reference.
+DEEP RESEARCH. A `claude_code` deep-research run (research/Pyoderma_Gangrenosum-deep-research-claude_code.md) completed after the entry had already been drafted from primary literature, and was used only as a cross-check and lead source, not as the basis of the entry. Its own reference validation is clean (124/124 references resolved, 0 unresolved, 2/2 quoted claims found in source, 0 off topic). `just preflight-dr` returns SKIP because MONDO records no causal gene (RO:0004003) for MONDO:0018824 — correct, since sporadic PG is not Mendelian — so the manual NEC preflight was run instead: `runoak -i sqlite:obo:mondo info MONDO:0018824 -O obo` confirms the label `pyoderma gangrenosum`, the Orphanet:48104 xref, and the two parents MONDO:0002922 (pyoderma) and MONDO:0019751 (autoinflammatory syndrome). The report&#39;s top gene is PSTPIP1 (19 mentions), which is the correct PG-associated gene, and the single OMIM it cites (604416) is PAPA syndrome, discussed correctly as the monogenic anchor rather than as PG itself — so no named entity confusion. The one substantive lead taken from the report was PMID:24903614 (Marzano 2014), which the report cited with a `[paraphrase]` marker; the real abstract was fetched and quoted verbatim instead. Following the PR #9115 review the report was consumed considerably more deeply: the GSDMD-dependent NETosis node, the PG-serum-transfer animal model, the susceptibility-gene set (MEFV/NLRP3/NOD2), adalimumab, topical clobetasol, the Su criteria, the biopsy-utility controversy, the systemic-disease meta-analysis, and the refuted infectious-etiology and solid-malignancy claims were all added — each from an independently fetched source quoted verbatim, never from the report&#39;s own paraphrases.
+A third review round closed the two effector arms that had been deferred. The earlier deferral reason recorded here — that no primary source had been &#34;fetched and verified in this pass&#34; — was an *effort* statement dressed as a scoping decision, and the reviewer was right to reject it: declining a claim because it is unsupported is legitimate, declining it because the work was not done is not. Both arms are now curated from disease-specific primary sources — `Complement C5a Generation and C5aR1 Signalling` (PMID:37516310: C5a is the most potent NETosis inducer among the candidates expressed in PG, acts through C5aR1 and ERK, and is more than 6-fold elevated in PG wound fluid) and `MMP-Mediated Extracellular Matrix Destruction` (PMID:20636397) — together with a `JAK-STAT Pathway Overactivation` node (PMID:42603447, PMID:42123319). The same round added the Phase II/III trial landscape. Nothing from the DR report is asserted on the report&#39;s own authority.
+TRIAL EVIDENCE DISCIPLINE. Five of the nine curated trials are terminated, and that negative record is curated as fact rather than omitted: the vilobelimab Phase III (NCT05964413) was stopped for futility and all three gevokizumab registrations were terminated. Consequently the C5a-blockade and IL-1-blockade treatments carry explicit negative qualifiers and must NOT be read as established therapy — a mechanism node can be genuinely active in disease and still not be the therapeutic lever, which is the point of the `pg_trial_attrition` discussion. Trial phase and status were taken from the ClinicalTrials.gov API rather than from the review or the DR report; that check found NCT02318914 is the open-label safety *extension* of the gevokizumab programme rather than a third independent randomised trial, and it is described as such.
+ENTITY SHAPE. MONDO:0018824 has four `is_a` children — MONDO:0035235 classic (exact synonym &#34;Ulcerative pyoderma gangrenosum&#34;), MONDO:0035236 pustular, MONDO:0035237 bullous, and MONDO:0035238 vegetative — and each of those four `has_subtypes` entries is bound to its MONDO term via `subtype_term`. The Peristomal subtype is correctly left unbound: MONDO has no term for it. (An earlier revision of this entry asserted that MONDO:0018824 had no children and rested the single-entry decision on that; the claim was false and has been removed rather than softened — see PR #9115 review and the correction on issue #9069.)
+The decision to model these as `has_subtypes` on one Disease entry rather than as four separate Disease entries does NOT rest on that ontology claim. It rests on the variants being differences of morphology, site and course within one disease process — the discriminator-expressible case — sharing a single pathograph, one set of diagnostic instruments, and one treatment ladder. Four of the five carry a real `subtype:` back-reference on a phenotype claim that actually differs by variant (issue #7082): Ulcerative (border/site/scarring), Bullous (hemorrhagic bullae, hematologic association), Pustular (sterile pustules), Peristomal (peristomal ulceration). Vegetative still has no phenotype back-reference — the sources available enumerate and quantify it without characterizing a distinguishing morphological feature in quotable form — but it is no longer bare: it now carries its MONDO binding, a quantified `subtype_frequency` (2 of 67), and its own evidence item.
+FRAMING. PG is curated as autoinflammatory, not infectious — MONDO&#39;s MONDO:0019751 parent is the mechanistically informative one and drives the pathograph. The name is a historical misnomer: the lesion is sterile, is not gangrene, and exclusion of infection is a formal diagnostic criterion.
+EVIDENCE DISCIPLINE. Greek letters and middle-dot decimal separators were avoided inside snippets where the cached rendering is ambiguous (PMID:29742056 renders &#34;(IL)- 1beta&#34; with an interior space; PMID:24903614 uses &#34;P = 0·0001&#34; with a middle dot; PMID:21532836 uses a Unicode beta), so descriptions say &#34;IL-1beta&#34; while snippets quote only spans that are unambiguously present in the cached text. The ~50% associated-systemic-disease figure commonly quoted for PG is NOT asserted as a single number: the population-based cohort gives 33% and a hospital inpatient series 47.8%, and both are curated with their populations because they are not measuring the same thing.
+SCOPE. PAPA syndrome (MONDO:0011462, PSTPIP1) is an open curation stub and is deliberately NOT curated here — it is cross-referenced as the monogenic arm only. A kb/comorbidities/ entry for the PG-IBD relationship is likewise left as tracked follow-up in `discussions`. No existing mechanism module was a clean fit: the closest conceptual neighbours (`granuloma_formation`, `fibrotic_response`) model different processes, and a neutrophilic-dermatosis or IL-1/inflammasome module does not exist, so no `conforms_to` is declared. Sweet_Syndrome already lists pyoderma gangrenosum as a differential diagnosis; this entry reciprocates, and the two are kept as distinct entities.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR 9115 round-3 review: C5a, MMP, JAK-STAT nodes and trial landscape</strong> · 2026-08-20T22:10:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pyoderma_Gangrenosum/2026-08-20T221008Z-claude-code-95516d.yaml">View source</a></p>
+                        <p class="research-review-text">Third review round on PR #9115 (3 IMPORTANT, 3 SUGGESTION). All six addressed.
+
+IMPORTANT 1 - complement C5a/C5aR1 node. The previous round declined this on
+the stated ground that &#34;no primary source was fetched and verified in this
+pass&#34;. The reviewer correctly identified that as an EFFORT statement dressed
+as a scoping decision: declining a claim because it is unsupported is
+legitimate, declining it because the work was not done is not. Accepted and
+acted on. Fetched PMID:37516310 (Wang et al., J Invest Dermatol) and verified
+it says what the review claimed: C5a is the most potent NETosis inducer among
+the candidates expressed in PG, acts specifically through C5aR1 and ERK
+(abolished by avacopan and by U0126), and is more than 6-fold elevated in PG
+wound fluid versus traumatic-wound fluid, correlating with neutrophil
+elastase. Added `Complement C5a Generation and C5aR1 Signalling`
+(biological_scale MOLECULAR, GO:0006956 + GO:0038178) with a DIRECT causal
+edge into the GSDMD-Dependent NETosis node added last round, so that effector
+now has its named proximal driver. Evidence split by source type: the
+induction experiments IN_VITRO, the wound-fluid measurements HUMAN_CLINICAL.
+
+IMPORTANT 2 - Phase II+ trial landscape. Added eight trials. Phase and status
+were taken from the ClinicalTrials.gov API directly, NOT from the review or
+the DR report, because the review had already been shown to carry one wrong
+NCT in an earlier round. That check mattered: NCT02318914 is the open-label
+2-year safety EXTENSION of the gevokizumab programme, not a third independent
+randomised Phase III as the review described, and it is curated as such. It
+also surfaced the single most consequential fact in this round - the
+vilobelimab Phase III NCT05964413 is TERMINATED with registry whyStopped
+&#34;Study stopped for futility&#34;. The negative record is curated as fact: five of
+nine trials are terminated. Both the new C5a-blockade treatment and the
+existing IL-1-blockade treatment now carry explicit NEGATIVE QUALIFIER text
+forbidding them from being read as established therapy, and a new
+`pg_trial_attrition` INTERPRETATION discussion sets out three non-exclusive
+readings (mechanistic redundancy, trial-design difficulty, and nodes being
+real-but-not-rate-limiting) with the curation consequence stated explicitly.
+
+IMPORTANT 3 - JAK-STAT. Added `JAK-STAT Pathway Overactivation` from
+PMID:42603447 (scRNA-seq + multiplex IHC showing overactivation in PG
+lesions, driven by myeloid and T cells; tofacitinib suppresses STAT
+phosphorylation, myeloid NETosis and IL-17A in vitro), with DIRECT edges into
+both the NETosis and Th17/Th1 nodes it converges on. Added a JAK-inhibition
+treatment marked investigational only. PMID:42123319 is curated throughout as
+evidence_source COMPUTATIONAL and supports PARTIAL, because it is an entirely
+in-silico study (Mendelian randomization, WGCNA, docking, system dynamics)
+that states its own lack of experimental validation.
+
+SUGGESTIONS. Split-thickness grafting under immunosuppressive cover
+(PMID:23903083) added as a counterweight to the avoid-debridement guidance -
+the operative principle is now &#34;not on active disease without cover&#34;, not
+&#34;never&#34;. MMP-2/MMP-9 added as a full `MMP-Mediated Extracellular Matrix
+Destruction` node (PMID:20636397). JAK2 added to the genetic section, but
+deliberately NOT as the review framed it: the cited systematic review reports
+&#34;two had mutations in JAK2&#34; among 823 cases without naming the allele or its
+origin, so this entry does NOT assert JAK2 V617F or variant_origin SOMATIC
+despite V617F being the canonical myeloproliferative allele. The discrepancy
+and the reason are recorded in the gene&#39;s notes.
+
+Unplanned bonus from PMID:20636397: it reports myeloperoxidase, IL-8 and
+MMP-9 expressed significantly LESS in vegetative PG than in ulcerative and
+bullous PG. That finally supplies the distinguishing feature for the
+Vegetative subtype that rounds 1-2 could not find, so Vegetative now has a
+real evidenced `subtype:` back-reference (a new phenotype capturing the
+superficial, less-destructive lesion with its mechanistic correlate) rather
+than the documented exception it carried before. All five subtypes now carry
+back-references.
+
+Also updated `pg_ibd_comorbidity_edge` with PMID:42123319, which reports
+Mendelian-randomization evidence that IBD is a causal risk factor for PG plus
+six shared loci and a JAK-STAT module with JAK2/STAT3 hubs - closing part of
+a gap this entry itself flagged in round 1. Corrected two now-false claims my
+own edits created: the notes paragraph and the pathogenesis knowledge-gap
+discussion both said C5a and MMP were uncurated.
+
+Process note for the record: the previous round triggered two concurrent
+review runs (an auto-triggered `claude-review` on push plus a manual
+`claude-code-review.yml` dispatch), which produced an APPROVED verdict at
+21:33 and a CHANGES_REQUESTED at 21:45 against the same commit. The later
+review is binding and was addressed here; the approval was NOT treated as the
+verdict and no review was dismissed. Only one review path will be used from
+now on.
+
+Validation run and read in full: just validate PASS; just
+count-verified-snippets 147/147 verified against cached references (up from
+116/116, so all 31 new snippets are exact quotes); just validate-disorders
+(the batched pre-PR sweep CI runs) PASS; just check-folded-hyphens OK; just
+check-title-snippets OK (no new title-quoting snippets, which was a real risk
+given several trial brief-summaries restate their titles); just
+check-duplicate-keys OK across 4240 files; pytest tests/test_data.py over the
+subtype/unique/conforms/discussion/attaches/model-readout/animal/variant/
+trial/treatment selection returned 19478 passed. Compliance reads 89.9/90.1
+percent versus 91.2/91.5 last round - this is denominator dilution from added
+content, not regression: satisfied items rose from 238/261 to 303/337.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Pyoderma Gangrenosum</strong> · 2026-08-20T15:55:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pyoderma_Gangrenosum/2026-08-20T155546Z-claude-code-191a5d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Pyoderma_Gangrenosum.yaml for MONDO:0018824 as a single
+Disease entry. Framed as a primarily sterile autoinflammatory neutrophilic
+dermatosis rather than an infection, driven by MONDO&#39;s autoinflammatory-syndrome
+parent MONDO:0019751 rather than its pyoderma parent MONDO:0002922.
+
+Pathograph: two upstream arms - PSTPIP1 dysfunction as the monogenic PAPA arm,
+and pathergy as trauma-induced lesion initiation - feed a five-node chain running
+inflammasome activation and IL-1 overproduction, Th17/Th1-skewed cytokine
+amplification, neutrophil recruitment to the dermis, sterile neutrophilic dermal
+inflammation with tissue destruction, and progressive cutaneous ulceration with an
+undermined violaceous border. Two mechanistic_hypotheses recorded:
+autoinflammatory_neutrophil_model as CANONICAL and follicular_unit_initiation as
+EMERGING.
+
+Entry shape: MONDO:0018824 has no children and is tagged ordo_disorder, so this is
+a single entry despite the dashboard CURATE_ROOT_WITH_SUBTYPES hint. Five
+has_subtypes were curated - Ulcerative, Bullous, Pustular, Vegetative, Peristomal.
+Four of the five carry genuine subtype back-references on phenotype claims that
+actually differ by variant, addressing the decorative-subtype problem in issue
+7082. The Vegetative subtype deliberately carries no back-reference because
+available sources enumerate the variant without characterizing a distinguishing
+feature in quotable form; that exception is documented in the entry notes rather
+than papered over with an unevidenced back-reference.
+
+Also curated: two DIAGNOSTIC_CRITERIA definitions - the Delphi consensus criteria
+for ulcerative PG with sensitivity 86 percent and specificity 90 percent, and the
+PARACELSUS score - both marked VALIDATED_AGAINST_GOLD_STANDARD with rationale and
+citing evidence; PSTPIP1 typed as MODIFIER rather than causal because sporadic PG
+is not Mendelian; population-based epidemiology from the UK GPRD cohort;
+histopathology with the diagnostic ulcer-edge neutrophilic infiltrate; four
+differential diagnoses including Sweet syndrome, reciprocating the pointer
+Sweet_Syndrome.yaml already carries to PG; six treatments including the infliximab
+randomised placebo-controlled trial PMID:16188920 and the STOP GAP trial
+PMID:26071094, with target_mechanisms links into the pathograph; the STOP GAP trial
+keyed on its WHO ICTRP identifier ISRCTN35898459 since it is not registered on
+ClinicalTrials.gov; and three discussions covering the PG-IBD comorbidity
+follow-up, the PG versus PAPA entity boundary, and an open pathogenesis knowledge
+gap.
+
+Honesty notes on content: the commonly quoted &#34;about 50 percent have associated
+systemic disease&#34; figure is NOT asserted as a single number - the population-based
+cohort gives 33 percent and a hospital inpatient series 47.8 percent, and both are
+curated with their populations because they measure different things. PAPA syndrome
+MONDO:0011462 is an open curation stub and is cross-referenced only, not curated
+here.
+
+Curation method and provenance: the entry was built from primary literature located
+through the PubMed E-utilities API, with every PMID fetched using just
+fetch-reference and every snippet independently verified as an exact substring of
+the cached reference. A claude_code deep-research run completed only after the entry
+had been drafted and was used purely as a cross-check and lead source, not as the
+basis of the entry; its own reference validation was clean at 124 of 124 references
+resolved with 2 of 2 quoted claims found and none off topic. The single substantive
+lead taken from it was PMID:24903614, which the report had cited with a paraphrase
+marker, so the real abstract was fetched and quoted verbatim instead. Effector nodes
+the report proposed but that could not be independently verified in this pass -
+complement C5a/C5aR1 signalling, GSDMD-dependent NETosis, and MMP-2/MMP-9 matrix
+destruction - were recorded as follow-up enrichment targets in the knowledge-gap
+discussion rather than asserted.
+
+NEC preflight: just preflight-dr returned SKIP because MONDO records no causal gene
+via RO:0004003 for MONDO:0018824, which is correct for a non-Mendelian disease, so
+the manual preflight was run instead. runoak -i sqlite:obo:mondo info MONDO:0018824
+-O obo confirmed the label pyoderma gangrenosum, the Orphanet:48104 xref, and both
+parents. The report&#39;s top gene was PSTPIP1 at 19 mentions, the correct
+PG-associated gene, and its single OMIM 604416 is PAPA syndrome, discussed correctly
+as the monogenic anchor rather than mistaken for PG itself, so no named entity
+confusion.
+
+Validation actually run, with output read in full: just validate passed; just
+count-verified-snippets reported 78 of 78 snippets verified against cached
+references; just validate-disorders, the batched pre-PR sweep that CI runs, passed
+with all validations passed and 78 of 78 snippets verified; just
+check-title-snippets reported no new title-quoting snippets; just
+check-duplicate-keys found no duplicate mapping keys across 4240 YAML files; the
+pytest tests/test_data.py selection covering subtype, unique-name, conforms_to,
+discussion and attaches_to foreign keys returned 10689 passed; and compliance
+reported 89.6 percent global and 89.9 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

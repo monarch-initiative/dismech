@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4679,6 +4732,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-uchl1-loss-of-function" data-dismech-node="Biallelic UCHL1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic UCHL1 Loss of Function</div>
 
+
                 <div class="item-desc">UCHL1 encodes ubiquitin C-terminal hydrolase L1, a neuron-specific (and testis/ovary-expressed) cysteine-protease deubiquitinating enzyme that is among the most abundant proteins in the brain. Reported disease alleles compromise the enzyme in several distinct ways: the index p.Glu7Ala allele lies in the ubiquitin-binding region and causes a &gt;7-fold loss of ubiquitin affinity with near complete loss of hydrolase activity (&gt;100-fold reduction in catalytic efficiency); p.Ala216Asp renders the protein insoluble (loss of function); a canonical splice-site variant (c.459+2T&gt;C) and an in-frame deletion (p.Gly210del) have also been reported. Notably one allele, p.Arg178Gln, paradoxically increases hydrolytic turnover, so the unifying lesion is loss of normal UCH-L1 function/steady-state protein rather than strictly reduced catalysis (see `mechanistic_hypotheses`).
 </div>
 
@@ -4924,6 +4978,7 @@ This pathophysiological event involves decreased ubiquitin binding (GO:0043130).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-neuronal-ubiquitin-recycling" data-dismech-node="Failure of Neuronal Ubiquitin Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Neuronal Ubiquitin Recycling</div>
 
+
                 <div class="item-desc">UCH-L1 binds monoubiquitin with high avidity, prolongs its half-life and generates free monomeric ubiquitin from adducts and precursors. Loss of UCH-L1 function therefore depletes the neuronal free-monoubiquitin pool on which all downstream ubiquitin conjugation depends. This was shown in vivo in the gad mouse, in which UCH-L1 function is lost and neuronal monoubiquitin is reduced.
 </div>
 
@@ -5100,6 +5155,7 @@ This pathophysiological event involves decreased protein deubiquitination (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ubiquitin-dependent-protein-turnover" data-dismech-node="Impaired Ubiquitin-Dependent Protein Turnover" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ubiquitin-Dependent Protein Turnover</div>
 
+
                 <div class="item-desc">Reduced ubiquitin availability and deubiquitinase activity slow proteasome-mediated protein catabolism in neurons, so misfolded and damaged proteins are cleared less efficiently and ubiquitinated conjugates accumulate. In the Uchl1-mutant gad mouse this is seen directly as progressive accumulation of ubiquitin-positive deposits along sensory and motor pathways.
 </div>
 
@@ -5270,6 +5326,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dying-back-axonal-degeneration" data-dismech-node="Dying-Back Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Dying-Back Axonal Degeneration</div>
+
 
                 <div class="item-desc">The cardinal cellular lesion is a distal-to-proximal (&#34;dying-back&#34;) axonal degeneration with formation of axonal spheroids at nerve terminals, established in the Uchl1-mutant gad mouse and matching the length-dependent clinical pattern in patients. Long, thin, highly transport-dependent projections — retinal ganglion cell axons in the optic nerve, corticospinal tract axons, and the ascending dorsal-column sensory axons — are selectively vulnerable.
 </div>
@@ -5474,6 +5531,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-and-optic-nerve-degeneration" data-dismech-node="Retinal Ganglion Cell and Optic Nerve Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell and Optic Nerve Degeneration</div>
+
 
                 <div class="item-desc">Progressive loss of retinal ganglion cells and their optic nerve axons produces bilateral optic atrophy, the usual presenting feature, with progressive visual decline to blindness during childhood.
 </div>
@@ -5703,6 +5761,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-degeneration" data-dismech-node="Cerebellar Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Degeneration</div>
 
+
                 <div class="item-desc">Degeneration of the cerebellar cortex and its output pathways produces progressive cerebellar ataxia and nystagmus. Purkinje cells, which carry the sole output of the cerebellar cortex and are exceptionally dependent on proteostasis across a very large dendritic and axonal compartment, are the presumed principal target, by analogy with the conserved cerebellar-degeneration module; UCHL1-specific histopathological confirmation in humans is not available (see `discussions`).
 </div>
 
@@ -5882,6 +5941,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dorsal-column-and-sensory-axon-degeneration" data-dismech-node="Dorsal Column and Sensory Axon Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Dorsal Column and Sensory Axon Degeneration</div>
+
 
                 <div class="item-desc">Length-dependent degeneration of large sensory axons and their ascending dorsal-column projections produces impaired vibration and joint-position sense — the &#34;dorsal column dysfunction&#34; of the original description — and, in some patients, a clinically evident peripheral neuropathy. This is the human counterpart of the gracile-tract axonal dystrophy that names the gad mouse. Conformance caveat: this node declares conformance to the `peripheral_axonal_degeneration` module, but only its axonal arm applies. The module node also carries Schwann cells with decreased myelination and axon ensheathment; UCHL1 disease is a primary axonopathy with no established demyelinating component, so those descriptors are deliberately omitted rather than overlooked.
 </div>
@@ -6112,6 +6172,7 @@ This pathophysiological event occurs in peripheral nerve, annotated with nerve (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-degeneration" data-dismech-node="Corticospinal Tract Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Degeneration</div>
+
 
                 <div class="item-desc">Distal degeneration of the long descending corticospinal axons of upper motor neurons produces spasticity, hyperreflexia and extensor plantar responses in a lower-limb-predominant (paraparetic) distribution that eventually generalises to tetraparesis — the feature that places this disorder in the hereditary spastic paraplegia nomenclature as SPG79B.
 </div>
@@ -6466,6 +6527,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6560,6 +6624,9 @@ This clinical feature is Sudden cardiac death (HP:0001645), qualified as middle 
 
 
                     </div>
+
+
+
 
 
 
@@ -6669,6 +6736,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     </div>
+
+
+
 
 
 
@@ -6797,6 +6867,9 @@ This clinical feature is Progressive visual loss (HP:0000529), qualified as chil
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6896,6 +6969,9 @@ This clinical feature is Blindness (HP:0000618), qualified as childhood onset. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6960,6 +7036,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7031,6 +7110,9 @@ This clinical feature is Ophthalmoparesis (HP:0000597). HP:0000597 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7142,6 +7224,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7218,6 +7303,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO binding uses Pes cavus as the closest available term. The deformity documented in the cited family is equinovarus; pes cavus is separately recorded in Table 1 for patients of two of the four published families.
@@ -7325,6 +7413,9 @@ This clinical feature is Spastic paraparesis (HP:0002313), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7414,6 +7505,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7515,6 +7609,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251), 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7609,6 +7706,9 @@ This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7679,6 +7779,9 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7744,6 +7847,9 @@ This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7890,6 +7996,9 @@ This clinical feature is Loss of ambulation (HP:0002505), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8014,6 +8123,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8107,6 +8219,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8223,6 +8338,9 @@ This clinical feature is Tetraparesis (HP:0002273), qualified as course progress
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progression to tetraparesis is stated in the Orphanet/MONDO clinical definition of this entity (Orphanet:352654 / MONDO:0014209). No abstract-level quotable primary-literature statement of tetraparesis was found, so this phenotype is recorded without an evidence item rather than with a fabricated snippet, per the project SOP on unverifiable claims.
 </div>
 
@@ -8260,6 +8378,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8427,6 +8548,9 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877), qualified as yo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8537,6 +8661,9 @@ This disease-associated gene is UCHL1 (hgnc:12513). hgnc:12513 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -8655,6 +8782,7 @@ This disease-associated gene is UCHL1 (hgnc:12513). hgnc:12513 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8676,7 +8804,13 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The index homozygous missense allele (consanguineous family). Glu7 lies within the ubiquitin-binding region; the substitution reduces ubiquitin affinity at least sevenfold, near-completely abolishes hydrolase activity, and is predicted to obstruct correct positioning of the substrate for tunnelling beneath the cross-over loop spanning the catalytic cleft, giving a &gt;100-fold loss of catalytic efficiency.
@@ -8740,6 +8874,7 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8761,7 +8896,13 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A compound-heterozygous missense allele that renders the recombinant protein insoluble — a straightforward loss-of-function mechanism.
@@ -8825,6 +8966,7 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8846,7 +8988,13 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A compound-heterozygous missense allele with a counter-intuitive functional consequence: purified recombinant p.Arg178Gln protein shows roughly four-fold increased hydrolytic activity, because Arg178 normally holds the catalytic histidine in a partially inactive arrangement. Later biophysical work attributed the gain to a kcat effect and a more reactive catalytic cysteine, with widespread changes in protein dynamics rather than a rearranged active site.
@@ -8935,6 +9083,7 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8956,7 +9105,13 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A novel homozygous canonical splice-donor variant identified by whole-exome sequencing in an Indian family with two affected siblings and validated by Sanger sequencing.
@@ -9020,6 +9175,7 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9041,7 +9197,13 @@ This variant is in UCHL1 (hgnc:12513). hgnc:12513 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A novel homozygous in-frame single-codon deletion (c.627_629del) identified in two siblings with a Behr-syndrome-like presentation who additionally developed hypertrophic cardiomyopathy.
@@ -9159,6 +9321,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive and multidisciplinary: low-vision rehabilitation, physiotherapy and spasticity management, mobility aids, orthopaedic assessment of scoliosis, respiratory monitoring, cardiac surveillance and genetic counselling.
 </div>
 
@@ -9213,6 +9381,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9223,6 +9394,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -9283,6 +9457,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9293,6 +9470,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9401,6 +9581,9 @@ This treatment uses botulinum toxin (no CHEBI/NCIT chemical-entity term availabl
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9411,6 +9594,9 @@ This treatment uses botulinum toxin (no CHEBI/NCIT chemical-entity term availabl
 
 
     </div>
+
+
+
 
 
 
@@ -9500,6 +9686,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9667,6 +9859,9 @@ This treatment uses beta-blocker, annotated with Beta-Adrenergic Antagonist (NCI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9677,6 +9872,9 @@ This treatment uses beta-blocker, annotated with Beta-Adrenergic Antagonist (NCI
 
 
     </div>
+
+
+
 
 
 
@@ -9774,6 +9972,9 @@ This treatment is non-invasive ventilation, annotated with Therapeutic Procedure
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9784,6 +9985,9 @@ This treatment is non-invasive ventilation, annotated with Therapeutic Procedure
 
 
     </div>
+
+
+
 
 
 
@@ -9880,6 +10084,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9890,6 +10097,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -9978,6 +10188,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13514,6 +13730,37 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion preflight. The MONDO label for this entity (&#34;early-onset progressive neurodegeneration-blindness-ataxia-spasticity syndrome&#34;) is purely descriptive and names a phenotype cluster shared by many genetically distinct diseases, so this entry was built only after independently establishing the causal gene. MONDO:0014209 asserts `RO:0004003 HGNC:12513 ! UCHL1`, xrefs OMIM:615491 and Orphanet:352654, and carries the synonyms SPG79 and NDGOA; NCBI MedGen (concept C3809665) independently defines OMIM 615491 as &#34;Spastic paraplegia-79B (SPG79B) ... an autosomal recessive progressive neurologic disorder&#34;. The MONDO definition text is drawn essentially verbatim from the index UCHL1 report (PMID:23359680). The gene is therefore UCHL1 on three independent anchors — the MONDO relationship, the MedGen/OMIM definition, and the primary literature. Confusable entities deliberately kept out: Behr syndrome (OPA1 and friends), autosomal dominant optic atrophy (OPA1), Friedreich ataxia, PLA2G6-related neurodegeneration, and the other hereditary spastic paraplegias.
+Recessive/dominant split. UCHL1 causes two allelic but nosologically separate disorders: the severe childhood-onset biallelic disease curated here (SPG79B, OMIM 615491, MONDO:0014209) and a later-onset autosomal dominant spastic ataxia caused by heterozygous loss of function (SPG79A). Reports of the dominant disorder (PMID:35986737, PMID:39030458, PMID:41402561, PMID:42375238) are cited here only to characterise the allelic spectrum, to distinguish the two entities, to support a general UCH-L1 function statement, and — with an explicit PARTIAL/cross-arm caveat — for the neuropathy phenotype; they are not used as evidence for the recessive phenotype itself. A separate dismech entry for SPG79A would be a reasonable follow-up.
+PARK5 / UCHL1 parkinsonism kept out. A third, older UCHL1 literature — the p.Ile93Met (PARK5) dominant-parkinsonism allele and the p.Ser18Tyr protective polymorphism — concerns a proposed toxic gain-of-function mechanism and a susceptibility association, not the loss-of-function optic-atrophy/spastic-paraplegia spectrum. It is deliberately excluded from this entry so that the three UCHL1 disease concepts (recessive SPG79B, dominant SPG79A, PARK5) are not merged.
+Behr syndrome boundary. dismech already curates `Behr_Syndrome` (MONDO:0008858) as the clinically defined, genetically heterogeneous mitochondrial optic-atrophy-plus entity (OPA1 core, plus OPA3, C12orf65/MTRFR, C19orf12). The clinical overlap with UCHL1 disease is near-complete, and PMID:32656641 in fact reported a UCHL1 family as a novel genetic form of Behr syndrome. The two are kept as separate dismech entries because their pathophysiology graphs are disjoint — mitochondrial fusion/cristae/OXPHOS failure versus ubiquitin-proteasome failure — and because MONDO gives them distinct identifiers. UCHL1 is deliberately not added to the `Behr_Syndrome` gene list; the relationship is recorded here as a differential diagnosis instead.
+GeneReviews. PubMed searches for a GeneReviews chapter covering UCHL1 or SPG79 returned no results (searched 2026-08-01), so no GeneReviews phenotype baseline was available for this entry. The phenotype set is therefore built from the four published recessive families, principally Table 1 of PMID:32656641, which pools all ten reported patients. The class-level chapter PMID:20301682 (Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview) is tagged in `references:` as the nearest GeneReviews anchor, but with an explicit scope caveat: it covers *pure* HSP, while SPG79B is a complicated HSP, so no clinical claim in this entry is drawn from it.
+Deep research provenance. An Edison (falcon) deep-research run was performed and read (`research/UCHL1-Related_Neurodegeneration_with_Optic_Atrophy_and_Spastic_Paraplegia-deep-research-falcon.md`, 33 citations, 12.5 min). Its NEC check was clean — the report is UCHL1-centred throughout, names MONDO:0014209 and Orphanet:352654 correctly, and mentions OPA1 only as a differential diagnosis. It was used as leads, not ground truth: every PMID it suggested was re-fetched with `just fetch-reference` and every snippet verified against the cached abstract. Its citation keys are author-year strings rather than PMIDs, so each source was independently resolved via PubMed/DOI before use. Two of its leads could not be used for evidence: the Genc 2019 mouse-model review (PMID:31394733), whose UCHL1(nm3419) corticospinal-neuron claims live in the full text and are absent from the cached abstract, and the Drosophila dUCH knockdown work, which models dopaminergic rather than optic/spastic degeneration. Its Open Targets-derived claim that the dominant paper is `10.1016/j.gim.2023.100961` was not adopted; the verified record used here is PMID:35986737 (`10.1016/j.gim.2022.07.006`).
+Evidence discipline: frequency bands. Every `frequency:` value in this entry is derived from one source and one source only — Table 1 of PMID:32656641, which pools all ten patients reported across the four published SPG79B families and scores each feature per patient. Five phenotypes carry a band, and in each case the cited snippet is the Table 1 row for *that specific feature*, so the denominator counts the feature the band is attached to rather than an aggregate category containing it:
+- Peripheral neuropathy, VERY_FREQUENT — &#34;Peripheral motor neuropathy&#34; row, 10/10. - Loss of ambulation, VERY_FREQUENT — &#34;Lost ambulation&#34; row, 10/10. - Cognitive impairment, FREQUENT — &#34;Cognitive impairment&#34; row, 4 of 9 assessable (44%),
+  one patient not assessed. Counter-evidence (normal cognition in both index siblings)
+  is recorded as a REFUTE item on the same phenotype.
+- Seizures, OCCASIONAL — &#34;Seizures&#34; row, 2/10 (20%). - Ophthalmoparesis, OCCASIONAL — &#34;Ophthalmoparesis&#34; row, 2 of 7 assessable (29%).
+Bands are deliberately NOT assigned to any other phenotype. Where the only available statement is an aggregate one (for example &#34;less consistently described features include epilepsy, cognitive impairment, facial myokymia...&#34;), it is retained as association evidence with an explicit note that it does not carry the band. The one quantified series elsewhere in the literature (optic atrophy 9/17, neuropathy 11/21) belongs to the *dominant* SPG79A cohort, is marked PARTIAL and cross-arm, and is never used to set a band here. Two Table 1 snippets reproduce a row rendered from the source HTML table, so the row label runs into its first cells (&#34;Cognitive impairmentNA...&#34;, &#34;OphthalmoparesisNANANA...&#34;) — that is the source text, not a transcription error.
+`Tetraparesis` is recorded from the Orphanet/MONDO definition with an explanatory `notes` field and no evidence item, rather than with an unverifiable snippet.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: UCHL1-Related Neurodegeneration with Optic Atrophy and Spastic Paraplegia</strong> · 2026-08-01T18:58:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/UCHL1-Related_Neurodegeneration_with_Optic_Atrophy_and_Spastic_Paraplegia/2026-08-01T185859Z-claude-code-9b616d.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0014209 / OMIM 615491 / Orphanet:352654, curated as the UCHL1 recessive entity SPG79B. Causal gene UCHL1 established BEFORE deep research on three independent anchors: the MONDO RO:0004003 relationship to HGNC:12513, the NCBI MedGen C3809665 definition of OMIM 615491 as SPG79B, and the index primary report PMID:23359680. NEC preflight passed; the descriptive MONDO label was treated as high-risk and the entry was positioned explicitly against Behr syndrome, autosomal dominant optic atrophy, Friedreich ataxia, PLA2G6 neurodegeneration and the other hereditary spastic paraplegias. Deep research was run with Edison/falcon and read in full; its report was UCHL1-centred and NEC-clean, and was used only as leads. Every PMID was fetched with just fetch-reference and every snippet verified as an exact substring of the cached abstract. Pathophysiology chain: biallelic UCHL1 loss of function to failure of neuronal ubiquitin recycling to impaired ubiquitin-dependent protein turnover to dying-back axonal degeneration, branching to retinal ganglion cell, cerebellar, dorsal column and corticospinal degeneration. Two module conformances declared, the peripheral-axonal one with an explicit caveat that only its axonal arm applies. Twenty phenotypes, five variants, a three-phase progression, one animal model, three differential diagnoses, one EMERGING mechanistic hypothesis on the UCH-L1 activity window and one HUMAN_MODEL_MISMATCH discussion about the mouse-only neuropathology. A pre-PR red-team review was run with the dismech-pr-review skill and all of its CRITICAL and IMPORTANT findings were fixed: a Bishop 2016 snippet that clipped off a negation and inverted the source meaning; peripheral neuropathy resting on cross-arm dominant-cohort evidence when recessive-specific full text was already cached; six missing phenotypes recoverable from that same full text, notably loss of ambulation and cognitive impairment; a gad-mouse snippet that did not carry the protein-turnover claim its explanation made; and the absent progression section. Also corrected: a hyperreflexia assertion that the source contradicts, since reflexes are reduced or absent from the superimposed neuropathy; prevalence class moved from a numeric Orphanet band to ULTRA_RARE; hypertrophic cardiomyopathy onset moved to YOUNG_ADULT; and PARK5 explicitly scoped out. Validation: just validate, just validate-terms and just validate-references all pass, with 85 of 85 snippets verified. No GeneReviews chapter exists for UCHL1 or SPG79. Frequency bands are given only where a published count exists, and the one quantified dominant-cohort series is marked PARTIAL and cross-arm.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

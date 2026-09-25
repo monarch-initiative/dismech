@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 47</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Shwachman-Diamond%20syndrome"
@@ -3990,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">35</div>
+                <div class="stat-value">47</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4879,6 +4932,7 @@ This subtype is caused by variation in SBDS (hgnc:19440). hgnc:19440 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sbds-loss-of-function" data-dismech-node="Biallelic SBDS Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SBDS Loss of Function</div>
 
+
                 <div class="item-desc">Gene conversion between SBDS and its 97%-identical neighbouring pseudogene SBDSP1 imports pseudogene-derived sequence changes that truncate the protein, leaving a hypomorphic residue of SBDS activity.</div>
 
 
@@ -5022,6 +5076,7 @@ This pathophysiological event involves SBDS (hgnc:19440). hgnc:19440 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dnajc21-loss-of-function" data-dismech-node="Biallelic DNAJC21 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DNAJC21 Loss of Function</div>
+
 
                 <div class="item-desc">DNAJC21 is an rRNA-associated co-chaperone acting at two points of ribosome biogenesis. Biallelic loss corrupts early nuclear rRNA processing as well as the late cytoplasmic maturation of the 60S subunit, and traps the 60S export factor PA2G4 in the cytoplasm.</div>
 
@@ -5205,6 +5260,7 @@ This pathophysiological event involves abnormal ribosomal large subunit biogenes
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-eif6-eviction-from-the-pre-60s-subunit" data-dismech-node="Failure of eIF6 Eviction from the Pre-60S Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of eIF6 Eviction from the Pre-60S Subunit</div>
 
+
                 <div class="item-desc">Release of the anti-association factor eIF6 is the last step of cytoplasmic 60S maturation and is catalysed by SBDS together with the GTPase EFL1. Disease variants uncouple EFL1 GTP hydrolysis from eIF6 release, so eIF6 remains bound and the subunit cannot join a 40S partner.</div>
 
 
@@ -5338,6 +5394,7 @@ This pathophysiological event involves abnormal ribosomal large subunit assembly
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-co-translational-protein-targeting" data-dismech-node="Impaired Co-translational Protein Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Co-translational Protein Targeting</div>
+
 
                 <div class="item-desc">In the SRP54-related form the lesion is not ribosome maturation but the signal recognition particle itself. Missense variants in the SRP54 GTPase domain reduce GTPase activity and impair delivery of nascent secretory and membrane polypeptides, a load the granulopoietic and pancreatic acinar compartments are least able to absorb.</div>
 
@@ -5486,6 +5543,7 @@ This pathophysiological event involves SRP54 (hgnc:11301). hgnc:11301 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-80s-ribosome-assembly" data-dismech-node="Impaired 80S Ribosome Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired 80S Ribosome Assembly</div>
 
+
                 <div class="item-desc">The convergent cellular lesion of the SBDS, EFL1 and DNAJC21 forms: mature subunits fail to assemble into translating 80S ribosomes. This is the node at which the otherwise distinct causal genes of nosology group 11 meet.</div>
 
 
@@ -5600,6 +5658,7 @@ This pathophysiological event involves abnormal ribosomal large subunit assembly
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-translation-deficit" data-dismech-node="Global Translation Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Translation Deficit</div>
 
+
                 <div class="item-desc">Reduced global protein synthesis, the functional consequence that makes SDS a ribosomopathy and the constraint that selects the somatic clones later in the graph.</div>
 
 
@@ -5659,6 +5718,38 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired neutrophil chemotaxis</span>
+
+	                            <span class="crosslink-desc">A functional neutrophil defect independent of the count, so patients can be infection-prone at numbers that look adequate. Drawn from the translation deficit rather than from the marrow node because it is a defect of the cells produced, not of their production.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+	                            <span class="crosslink-desc">Neurodevelopmental involvement, reported in a subset. No cited source traces a route from the translation deficit to it.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic fibrosis</span>
+
+	                            <span class="crosslink-desc">Hepatic involvement, which in this disease is usually transient in early childhood.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated hepatic transaminases</span>
+
+	                            <span class="crosslink-desc">The biochemical correlate of that hepatic involvement, and usually the way it is detected.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Exocrine Pancreatic Acinar Failure</span>
@@ -5738,6 +5829,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exocrine-pancreatic-acinar-failure" data-dismech-node="Exocrine Pancreatic Acinar Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Exocrine Pancreatic Acinar Failure</div>
 
+
                 <div class="item-desc">Acinar tissue is replaced by fat, producing pancreatic enzyme deficiency, steatorrhoea and malabsorption. Unusually for a structural pancreatic disease, secretory capacity often improves with age, and a substantial minority of patients become pancreatic sufficient in later childhood.</div>
 
 
@@ -5779,6 +5871,22 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exocrine pancreatic insufficiency</span>
+
+	                            <span class="crosslink-desc">The clinical diagnosis this node describes: acinar loss and fatty replacement leave too little enzyme output to digest fat.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+
+	                            <span class="crosslink-desc">Malabsorption from that enzyme deficiency is the usual route to infantile growth failure here, and the reason pancreatic enzyme replacement is first-line.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Malnutrition</span>
@@ -5834,6 +5942,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-failure-with-granulopoietic-predominance" data-dismech-node="Bone Marrow Failure with Granulopoietic Predominance" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Failure with Granulopoietic Predominance</div>
 
+
                 <div class="item-desc">Persistent or intermittent neutropenia is the earliest and most constant haematological finding, but the marrow defect is not lineage-restricted and single- or multilineage cytopenias develop over time.</div>
 
 
@@ -5875,6 +5984,30 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neutropenia</span>
+
+	                            <span class="crosslink-desc">The predominant and often earliest cytopenia — this is the finding that places the disease in the IUIS phagocyte table.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pancytopenia</span>
+
+	                            <span class="crosslink-desc">Progression to multilineage failure, in a minority but a clinically decisive one.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent respiratory infections</span>
+
+	                            <span class="crosslink-desc">The infectious consequence of the neutropenia, and the commonest infection pattern in this disease.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">p53-Dependent Progenitor Apoptosis</span>
@@ -5937,6 +6070,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-chondrocyte-dysfunction" data-dismech-node="Growth Plate Chondrocyte Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Chondrocyte Dysfunction</div>
+
 
                 <div class="item-desc">The skeletal arm of the disease. Radiographs show delayed appearance of secondary ossification centres, then widening and irregularity of the metaphyses that progresses with age, together with generalised osteopenia. The metaphyseal component worsens while the epiphyseal maturation delay tends to normalise, which is why the nosology classifies SDS as a metaphyseal rather than an epiphyseal dysplasia.</div>
 
@@ -6022,6 +6156,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metaphyseal-dysplasia" data-dismech-node="Metaphyseal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Metaphyseal Dysplasia</div>
 
+
                 <div class="item-desc">The clinically expressed skeletal lesion: metaphyseal dyschondroplasia of the long bones, short ribs with broadened anterior ends, and thoracic narrowing.</div>
 
 
@@ -6043,6 +6178,30 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Metaphyseal dysplasia</span>
+
+	                            <span class="crosslink-desc">The clinical and radiographic finding this node describes. Note the entry carries a pathophysiology node and a phenotype whose names differ only in casing; they are separate objects and the graph matches names exactly, so this edge connects the two rather than collapsing them.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Narrow chest</span>
+
+	                            <span class="crosslink-desc">Thoracic involvement of the same skeletal dysplasia — the rib-cage expression, which at its most severe restricts lung growth.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteopenia</span>
+
+	                            <span class="crosslink-desc">Reduced bone density accompanying the dysplasia.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Short Stature</span>
@@ -6098,6 +6257,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-short-stature" data-dismech-node="Short Stature" data-dismech-type="pathophysiology">
                 <div class="item-name">Short Stature</div>
 
+
                 <div class="item-desc">Short stature in SDS has two converging causes, modelled here as two incoming edges: the intrinsic skeletal growth defect, and malnutrition from exocrine pancreatic insufficiency. Studies indicating that patients are genuinely short rather than merely undernourished are why the skeletal route is drawn at all.</div>
 
 
@@ -6115,6 +6275,21 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short stature</span>
+
+	                            <span class="crosslink-desc">The clinical finding this node describes; the same name-casing distinction as above applies.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -6158,6 +6333,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malnutrition" data-dismech-node="Malnutrition" data-dismech-type="pathophysiology">
                 <div class="item-name">Malnutrition</div>
+
 
                 <div class="item-desc">Fat and fat-soluble vitamin malabsorption secondary to exocrine pancreatic insufficiency. This is the nutritional route to poor growth, distinct from the skeletal one.</div>
 
@@ -6234,6 +6410,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-dependent-progenitor-apoptosis" data-dismech-node="p53-Dependent Progenitor Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">p53-Dependent Progenitor Apoptosis</div>
+
 
                 <div class="item-desc">Ribosomal stress activates p53 in haematopoietic progenitors, and the apoptosis that follows is what depletes the marrow. The checkpoint cuts both ways: with p53 intact the cells die, producing the cytopenias, while p53 inactivation lets them survive as aneuploid cells - which is the same checkpoint whose somatic loss defines the pre-malignant clonal arm of this disease.</div>
 
@@ -6359,6 +6536,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-infection" data-dismech-node="Recurrent Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Infection</div>
 
+
                 <div class="item-desc">Recurrent bacterial infection, particularly respiratory and otologic, is a common presenting problem and the main indication for G-CSF.</div>
 
 
@@ -6419,6 +6597,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-clonal-hematopoiesis-under-ribosomal-fitness-constraint" data-dismech-node="Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint</div>
+
 
                 <div class="item-desc">Multiple independent somatic clones arise in the SDS marrow from early life, selected by the fitness constraint the germline ribosome defect imposes. The clones are not one population: they split into two mechanistically opposed classes with opposite clinical meaning, modelled here as separate downstream nodes so that the graph cannot be read as &#34;clonal hematopoiesis causes leukemia&#34;.</div>
 
@@ -6503,6 +6682,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eif6-mutant-compensatory-clonal-expansion" data-dismech-node="EIF6-Mutant Compensatory Clonal Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">EIF6-Mutant Compensatory Clonal Expansion</div>
+
 
                 <div class="item-desc">Somatic EIF6 inactivation ameliorates the underlying ribosome defect and so enhances clone fitness. It carries limited leukemic potential and is deliberately given no edge to malignant transformation: this arm is a compensatory response, not a step toward leukemia, and an edge here would assert the opposite of what the source reports. EIF6 is inactivated by two distinct genetic routes, and both belong here: point mutation, and interstitial deletion of chromosome 20q, which removes the EIF6 locus and is the commoner of the two. This is why del(20q) in an SDS marrow does not carry the ominous meaning it carries in sporadic myelodysplastic syndrome.</div>
 
@@ -6590,6 +6770,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-mutant-maladaptive-clonal-expansion" data-dismech-node="TP53-Mutant Maladaptive Clonal Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53-Mutant Maladaptive Clonal Expansion</div>
 
+
                 <div class="item-desc">Somatic TP53 mutation improves clone fitness by inactivating tumour-suppressor checkpoints while leaving the ribosome defect uncorrected. This is the arm that carries leukemic potential, and progression to overt leukemia is associated with acquisition of biallelic TP53 alterations.</div>
 
 
@@ -6666,6 +6847,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-malignant-transformation" data-dismech-node="Myeloid Malignant Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Malignant Transformation</div>
 
+
                 <div class="item-desc">Progression to myelodysplastic syndrome or acute myeloid leukemia occurs in a substantial minority of patients, typically at a young age, and is the principal determinant of prognosis. Solid tumours are rare.</div>
 
 
@@ -6683,6 +6865,29 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myelodysplasia</span>
+
+	                            <span class="crosslink-desc">The usual first step of transformation, and what surveillance marrow examination is looking for.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acute myeloid leukemia</span>
+
+	                            <span class="crosslink-desc">Frank leukaemia, the endpoint that dominates long-term prognosis and the reason clonal surveillance matters in this disease.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -6774,7 +6979,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic DNAJC21 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNAJC21 is an rRNA-associated co-chaperone acting at two points of ribosome biogenesis. Biallelic loss corrupts early nuclear rRNA processing as well as the late cytoplasmic maturation of the 60S subunit, and traps the 60S export factor PA2G4 in the cytoplasm.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ribosomal large subunit biogenesis\"], \"genes\": [\"DNAJC21\"], \"gene_terms\": [{\"label\": \"DNAJC21\", \"id\": \"hgnc:27030\"}]}}, {\"id\": \"Biallelic SBDS Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gene conversion between SBDS and its 97%-identical neighbouring pseudogene SBDSP1 imports pseudogene-derived sequence changes that truncate the protein, leaving a hypomorphic residue of SBDS activity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SBDS\"], \"gene_terms\": [{\"label\": \"SBDS\", \"id\": \"hgnc:19440\"}]}}, {\"id\": \"Blood and platelet transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfusion support is used for symptomatic anaemia and thrombocytopenia arising from marrow failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent or intermittent neutropenia is the earliest and most constant haematological finding, but the marrow defect is not lineage-restricted and single- or multilineage cytopenias develop over time.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The knockdown reproduces both the neutrophil-count deficit and the chemotaxis defect that mark the granulopoietic arm of the human disease.\"}]}}, {\"id\": \"DNAJC21\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC21\"], \"gene_terms\": [{\"label\": \"DNAJC21\", \"id\": \"hgnc:27030\"}], \"association\": \"Causal biallelic variant\"}}, {\"id\": \"EIF6-Mutant Compensatory Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic EIF6 inactivation ameliorates the underlying ribosome defect and so enhances clone fitness. It carries limited leukemic potential and is deliberately given no edge to malignant transformation: this arm is a compensatory response, not a step toward leukemia, and an edge here would assert the opposite of what the source reports. EIF6 is inactivated by two distinct genetic routes, and both belong here: point mutation, and interstitial deletion of chromosome 20q, which removes the EIF6 locus and is the commoner of the two. This is why del(20q) in an SDS marrow does not carry the ominous meaning it carries in sporadic myelodysplastic syndrome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exocrine Pancreatic Acinar Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acinar tissue is replaced by fat, producing pancreatic enzyme deficiency, steatorrhoea and malabsorption. Unusually for a structural pancreatic disease, secretory capacity often improves with age, and a substantial minority of patients become pancreatic sufficient in later childhood.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\"}]}}, {\"id\": \"Exocrine pancreatic insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty replacement of the pancreas with enzyme deficiency, steatorrhoea and malabsorption; present in over 95% of cohort patients, though secretory capacity may improve with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001738\"}}, {\"id\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Release of the anti-association factor eIF6 is the last step of cytoplasmic 60S maturation and is catalysed by SBDS together with the GTPase EFL1. Disease variants uncouple EFL1 GTP hydrolysis from eIF6 release, so eIF6 remains bound and the subunit cannot join a 40S partner.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ribosomal large subunit assembly\"], \"animal_models\": [{\"name\": \"Sbds-null mouse ribosome reconstitution\", \"species\": \"Mouse\", \"genotype\": \"Sbds-deleted\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Late cytoplasmic 60S subunits isolated from Sbds-deleted mice retain eIF6, the same biochemical lesion described in this node, and support biochemical reconstitution of SBDS/EFL1-catalyzed eIF6 release.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malabsorption from exocrine pancreatic insufficiency causes failure to thrive, often the presenting complaint in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global Translation Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced global protein synthesis, the functional consequence that makes SDS a ribosomopathy and the constraint that selects the somatic clones later in the graph.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translation\"]}}, {\"id\": \"Granulocyte colony-stimulating factor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"G-CSF is considered for severe recurrent infection with an absolute neutrophil count persistently at or below 500/mm3, and is particularly useful as cover for dental or orthopaedic procedures. Prolonged use is approached with caution given the underlying leukemia predisposition.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"recombinant granulocyte colony-stimulating factor\"]}}, {\"id\": \"Growth Plate Chondrocyte Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal arm of the disease. Radiographs show delayed appearance of secondary ossification centres, then widening and irregularity of the metaphyses that progresses with age, together with generalised osteopenia. The metaphyseal component worsens while the epiphyseal maturation delay tends to normalise, which is why the nosology classifies SDS as a metaphyseal rather than an epiphyseal dysplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HSCT is the only curative option for the haematological disease and is considered for severe marrow failure, MDS or AML. Conditioning is modified because standard agents such as cyclophosphamide and busulfan carry a risk of cardiac toxicity in SDS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired 80S Ribosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent cellular lesion of the SBDS, EFL1 and DNAJC21 forms: mature subunits fail to assemble into translating 80S ribosomes. This is the node at which the otherwise distinct causal genes of nosology group 11 meet.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ribosomal large subunit assembly\"]}}, {\"id\": \"Impaired Co-translational Protein Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the SRP54-related form the lesion is not ribosome maturation but the signal recognition particle itself. Missense variants in the SRP54 GTPase domain reduce GTPase activity and impair delivery of nascent secretory and membrane polypeptides, a load the granulopoietic and pancreatic acinar compartments are least able to absorb.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SRP54\"], \"gene_terms\": [{\"label\": \"SRP54\", \"id\": \"hgnc:11301\"}], \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Morpholino knockdown of srp54 directly manipulates the co-translational targeting defect that monoallelic human SRP54 variants cause, then reports on its downstream consequences.\"}]}}, {\"id\": \"Malnutrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fat and fat-soluble vitamin malabsorption secondary to exocrine pancreatic insufficiency. This is the nutritional route to poor growth, distinct from the skeletal one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metaphyseal Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically expressed skeletal lesion: metaphyseal dyschondroplasia of the long bones, short ribs with broadened anterior ends, and thoracic narrowing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metaphyseal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metaphyseal dyschondroplasia of the long bones with widening and irregularity that progresses through childhood; the feature that places SDS in the metaphyseal group of the ISDS skeletal nosology.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100255\"}}, {\"id\": \"Myeloid Malignant Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progression to myelodysplastic syndrome or acute myeloid leukemia occurs in a substantial minority of patients, typically at a young age, and is the principal determinant of prognosis. Solid tumours are rare.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or intermittent neutropenia, present in essentially all affected children and usually the earliest abnormality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001875\"}}, {\"id\": \"Nutritional and fat-soluble vitamin surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional status and fat-soluble vitamin concentrations are followed every six months because malabsorption persists even on enzyme replacement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early orthopaedic and pulmonary referral is required for thoracic dystrophy; skeletal dysplasia, asymmetric growth and joint deformities need ongoing orthopaedic management, with hip and knee radiographs during rapid growth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral pancreatic enzymes with fat-soluble vitamin supplementation are the standard treatment for the exocrine pancreatic component.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow involvement is not confined to the granulocytic lineage; single- or multilineage cytopenias develop and may progress to severe marrow failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the vertebral bodies, present in the newborn period. This is the finding that makes the severe neonatal form spondylometaphyseal; the classic SDS skeleton is metaphyseal with delayed epiphyseal ossification and is not platyspondylic.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe neonatal SMD\"], \"term_id\": \"HP:0000926\"}}, {\"id\": \"Recurrent Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent bacterial infection, particularly respiratory and otologic, is a common presenting problem and the main indication for G-CSF.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SBDS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SBDS\"], \"gene_terms\": [{\"label\": \"SBDS\", \"id\": \"hgnc:19440\"}], \"frequency\": \"approximately 90% of patients\", \"association\": \"Causal biallelic variant\"}}, {\"id\": \"SRP54\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SRP54\"], \"gene_terms\": [{\"label\": \"SRP54\", \"id\": \"hgnc:11301\"}], \"association\": \"Causal monoallelic variant\"}}, {\"id\": \"SRP54-knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Sbds-null mouse ribosome reconstitution\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Short Stature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Short stature in SDS has two converging causes, modelled here as two incoming edges: the intrinsic skeletal growth defect, and malnutrition from exocrine pancreatic insufficiency. Studies indicating that patients are genuinely short rather than merely undernourished are why the skeletal route is drawn at all.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple independent somatic clones arise in the SDS marrow from early life, selected by the fitness constraint the germline ribosome defect imposes. The clones are not one population: they split into two mechanistically opposed classes with opposite clinical meaning, modelled here as separate downstream nodes so that the graph cannot be read as \\\"clonal hematopoiesis causes leukemia\\\".\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic TP53 mutation improves clone fitness by inactivating tumour-suppressor checkpoints while leaving the ribosome defect uncorrected. This is the arm that carries leukemic potential, and progression to overt leukemia is associated with acquisition of biallelic TP53 alterations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p53-Dependent Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ribosomal stress activates p53 in haematopoietic progenitors, and the apoptosis that follows is what depletes the marrow. The checkpoint cuts both ways: with p53 intact the cells die, producing the cytopenias, while p53 inactivation lets them survive as aneuploid cells - which is the same checkpoint whose somatic loss defines the pre-malignant clonal arm of this disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apoptotic process\"]}}], \"edges\": [{\"source\": \"Biallelic SBDS Loss of Function\", \"target\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SBDS is the cofactor that couples EFL1 GTP hydrolysis to eIF6 release, so its loss blocks the eviction step directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic DNAJC21 Loss of Function\", \"target\": \"Impaired 80S Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corrupted 60S maturation reduces the pool of subunits competent to form translating 80S ribosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"target\": \"Impaired 80S Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"eIF6 retained on the 60S subunit sterically blocks subunit joining, so fewer 80S ribosomes are formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Co-translational Protein Targeting\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zebrafish knockdown of SRP54 reproduces the neutrophil deficit and chemotaxis defect seen in patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced secretory-pathway throughput in maturing myeloid precursors.\"]}, {\"source\": \"Impaired Co-translational Protein Targeting\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired 80S Ribosome Assembly\", \"target\": \"Global Translation Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer competent 80S ribosomes lowers global protein synthesis. The two steps are close together in time but are separate claims: a cell could in principle compensate for reduced assembly, and the somatic EIF6 arm of this disease is precisely such a compensation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acinar cell, among the most secretory in the body, is disproportionately sensitive to a global translation deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoietic progenitors, and the granulocytic lineage in particular, cannot sustain output under the translation deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Growth Plate Chondrocyte Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chondrogenesis is the third tissue named as sensitive to the SDS defect, and is the origin of the metaphyseal dysplasia that places SDS in the metaphyseal group of the skeletal nosology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The translation deficit is itself the selective pressure: it constrains hematopoietic clone fitness and thereby selects somatic mutants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exocrine Pancreatic Acinar Failure\", \"target\": \"Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fat and fat-soluble vitamin malabsorption drive failure to thrive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"p53-Dependent Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ribosomal stress from the maturation defect activates p53 in marrow progenitors, and the resulting apoptosis is the proximate reason the cytopenias develop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"Recurrent Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutropenia, compounded in some patients by hypogammaglobulinaemia, predisposes to recurrent bacterial infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Chondrocyte Dysfunction\", \"target\": \"Metaphyseal Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth produces the clinical skeletal dysplasia and contributes to short stature independently of malnutrition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Chondrocyte Dysfunction\", \"target\": \"Platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the severe neonatal presentation the growth-plate lesion also involves the vertebral endplate physes, so the vertebral bodies are already flattened at birth and the dysplasia reads as spondylometaphyseal rather than purely metaphyseal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metaphyseal Dysplasia\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth contributes to short stature independently of the nutritional route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malnutrition\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malnutrition compounds the intrinsic skeletal growth defect, the second of the two routes into short stature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"target\": \"EIF6-Mutant Compensatory Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The compensatory arm, selected because inactivating EIF6 partially corrects the very defect that constrains clone fitness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"target\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pre-malignant arm, selected by removing tumour-suppressor checkpoints rather than by correcting the ribosome defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"target\": \"Myeloid Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progression to overt myeloid malignancy follows acquisition of biallelic TP53 alterations within this clonal lineage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acquisition of a second TP53 hit, producing biallelic TP53 inactivation in the expanded clone.\"]}, {\"source\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"target\": \"Exocrine pancreatic insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor\", \"target\": \"Neutropenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood and platelet transfusion\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"target\": \"Metaphyseal Dysplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"target\": \"Metaphyseal dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and fat-soluble vitamin surveillance\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sbds-null mouse ribosome reconstitution\", \"target\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Late cytoplasmic 60S subunits isolated from Sbds-deleted mice retain eIF6, the same biochemical lesion described in this node, and support biochemical reconstitution of SBDS/EFL1-catalyzed eIF6 release.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Impaired Co-translational Protein Targeting\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of srp54 directly manipulates the co-translational targeting defect that monoallelic human SRP54 variants cause, then reports on its downstream consequences.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"A morpholino knockdown in a non-mammalian model, not the patient missense-variant mechanism; it removes SRP54 function outright rather than reproducing the specific hypomorphic GTPase-domain lesion.\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The knockdown reproduces both the neutrophil-count deficit and the chemotaxis defect that mark the granulopoietic arm of the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"SBDS\", \"target\": \"Biallelic SBDS Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC21\", \"target\": \"Biallelic DNAJC21 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRP54\", \"target\": \"Impaired Co-translational Protein Targeting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute myeloid leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AML is the principal malignant outcome, arises at young ages, and is associated with acquisition of biallelic TP53 alterations in the marrow.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004808\"}}, {\"id\": \"Biallelic DNAJC21 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNAJC21 is an rRNA-associated co-chaperone acting at two points of ribosome biogenesis. Biallelic loss corrupts early nuclear rRNA processing as well as the late cytoplasmic maturation of the 60S subunit, and traps the 60S export factor PA2G4 in the cytoplasm.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ribosomal large subunit biogenesis\"], \"genes\": [\"DNAJC21\"], \"gene_terms\": [{\"label\": \"DNAJC21\", \"id\": \"hgnc:27030\"}]}}, {\"id\": \"Biallelic SBDS Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gene conversion between SBDS and its 97%-identical neighbouring pseudogene SBDSP1 imports pseudogene-derived sequence changes that truncate the protein, leaving a hypomorphic residue of SBDS activity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SBDS\"], \"gene_terms\": [{\"label\": \"SBDS\", \"id\": \"hgnc:19440\"}]}}, {\"id\": \"Blood and platelet transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfusion support is used for symptomatic anaemia and thrombocytopenia arising from marrow failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent or intermittent neutropenia is the earliest and most constant haematological finding, but the marrow defect is not lineage-restricted and single- or multilineage cytopenias develop over time.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The knockdown reproduces both the neutrophil-count deficit and the chemotaxis defect that mark the granulopoietic arm of the human disease.\"}]}}, {\"id\": \"DNAJC21\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC21\"], \"gene_terms\": [{\"label\": \"DNAJC21\", \"id\": \"hgnc:27030\"}], \"association\": \"Causal biallelic variant\"}}, {\"id\": \"EIF6-Mutant Compensatory Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic EIF6 inactivation ameliorates the underlying ribosome defect and so enhances clone fitness. It carries limited leukemic potential and is deliberately given no edge to malignant transformation: this arm is a compensatory response, not a step toward leukemia, and an edge here would assert the opposite of what the source reports. EIF6 is inactivated by two distinct genetic routes, and both belong here: point mutation, and interstitial deletion of chromosome 20q, which removes the EIF6 locus and is the commoner of the two. This is why del(20q) in an SDS marrow does not carry the ominous meaning it carries in sporadic myelodysplastic syndrome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient hepatomegaly with elevated liver enzymes is typical in the first years of life and usually improves without sequelae.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002910\"}}, {\"id\": \"Exocrine Pancreatic Acinar Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acinar tissue is replaced by fat, producing pancreatic enzyme deficiency, steatorrhoea and malabsorption. Unusually for a structural pancreatic disease, secretory capacity often improves with age, and a substantial minority of patients become pancreatic sufficient in later childhood.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\"}]}}, {\"id\": \"Exocrine pancreatic insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty replacement of the pancreas with enzyme deficiency, steatorrhoea and malabsorption; present in over 95% of cohort patients, though secretory capacity may improve with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001738\"}}, {\"id\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Release of the anti-association factor eIF6 is the last step of cytoplasmic 60S maturation and is catalysed by SBDS together with the GTPase EFL1. Disease variants uncouple EFL1 GTP hydrolysis from eIF6 release, so eIF6 remains bound and the subunit cannot join a 40S partner.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ribosomal large subunit assembly\"], \"animal_models\": [{\"name\": \"Sbds-null mouse ribosome reconstitution\", \"species\": \"Mouse\", \"genotype\": \"Sbds-deleted\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Late cytoplasmic 60S subunits isolated from Sbds-deleted mice retain eIF6, the same biochemical lesion described in this node, and support biochemical reconstitution of SBDS/EFL1-catalyzed eIF6 release.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malabsorption from exocrine pancreatic insufficiency causes failure to thrive, often the presenting complaint in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global Translation Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced global protein synthesis, the functional consequence that makes SDS a ribosomopathy and the constraint that selects the somatic clones later in the graph.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translation\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay and attention or learning problems are common and increasingly recognised as part of the phenotype rather than a consequence of chronic illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Granulocyte colony-stimulating factor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"G-CSF is considered for severe recurrent infection with an absolute neutrophil count persistently at or below 500/mm3, and is particularly useful as cover for dental or orthopaedic procedures. Prolonged use is approached with caution given the underlying leukemia predisposition.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"recombinant granulocyte colony-stimulating factor\"]}}, {\"id\": \"Growth Plate Chondrocyte Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal arm of the disease. Radiographs show delayed appearance of secondary ossification centres, then widening and irregularity of the metaphyses that progresses with age, together with generalised osteopenia. The metaphyseal component worsens while the epiphyseal maturation delay tends to normalise, which is why the nosology classifies SDS as a metaphyseal rather than an epiphyseal dysplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HSCT is the only curative option for the haematological disease and is considered for severe marrow failure, MDS or AML. Conditioning is modified because standard agents such as cyclophosphamide and busulfan carry a risk of cardiac toxicity in SDS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Established liver fibrosis at autopsy in the stillborn patient. This is a different hepatic lesion from the transient transaminase elevation of classic SDS, which resolves without sequelae.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe neonatal SMD\"], \"term_id\": \"HP:0001395\"}}, {\"id\": \"Impaired 80S Ribosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent cellular lesion of the SBDS, EFL1 and DNAJC21 forms: mature subunits fail to assemble into translating 80S ribosomes. This is the node at which the otherwise distinct causal genes of nosology group 11 meet.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ribosomal large subunit assembly\"]}}, {\"id\": \"Impaired Co-translational Protein Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the SRP54-related form the lesion is not ribosome maturation but the signal recognition particle itself. Missense variants in the SRP54 GTPase domain reduce GTPase activity and impair delivery of nascent secretory and membrane polypeptides, a load the granulopoietic and pancreatic acinar compartments are least able to absorb.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SRP54\"], \"gene_terms\": [{\"label\": \"SRP54\", \"id\": \"hgnc:11301\"}], \"animal_models\": [{\"name\": \"SRP54-knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"srp54 morpholino knockdown\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Morpholino knockdown of srp54 directly manipulates the co-translational targeting defect that monoallelic human SRP54 variants cause, then reports on its downstream consequences.\"}]}}, {\"id\": \"Impaired neutrophil chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A functional neutrophil defect distinct from, and additional to, the low neutrophil count: SDS neutrophils show dysregulated chemotaxis traced to altered F-actin polymerization. It matters clinically because it means infection risk is not fully predicted by the absolute neutrophil count, and it is reproduced in the srp54 zebrafish model.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Malnutrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fat and fat-soluble vitamin malabsorption secondary to exocrine pancreatic insufficiency. This is the nutritional route to poor growth, distinct from the skeletal one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metaphyseal Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically expressed skeletal lesion: metaphyseal dyschondroplasia of the long bones, short ribs with broadened anterior ends, and thoracic narrowing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metaphyseal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metaphyseal dyschondroplasia of the long bones with widening and irregularity that progresses through childhood; the feature that places SDS in the metaphyseal group of the ISDS skeletal nosology.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100255\"}}, {\"id\": \"Myelodysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myelodysplastic syndrome develops in a substantial minority and marks the transition from marrow failure to clonal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002863\"}}, {\"id\": \"Myeloid Malignant Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progression to myelodysplastic syndrome or acute myeloid leukemia occurs in a substantial minority of patients, typically at a young age, and is the principal determinant of prognosis. Solid tumours are rare.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Narrow chest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short ribs with broadened anterior ends narrow the thorax; severe thoracic dystrophy is the reason GeneReviews recommends early pulmonary and orthopaedic referral.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000774\"}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or intermittent neutropenia, present in essentially all affected children and usually the earliest abnormality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001875\"}}, {\"id\": \"Nutritional and fat-soluble vitamin surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional status and fat-soluble vitamin concentrations are followed every six months because malabsorption persists even on enzyme replacement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early orthopaedic and pulmonary referral is required for thoracic dystrophy; skeletal dysplasia, asymmetric growth and joint deformities need ongoing orthopaedic management, with hip and knee radiographs during rapid growth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised osteopenia is a consistent radiographic finding across the SDS skeletal series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral pancreatic enzymes with fat-soluble vitamin supplementation are the standard treatment for the exocrine pancreatic component.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow involvement is not confined to the granulocytic lineage; single- or multilineage cytopenias develop and may progress to severe marrow failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the vertebral bodies, present in the newborn period. This is the finding that makes the severe neonatal form spondylometaphyseal; the classic SDS skeleton is metaphyseal with delayed epiphyseal ossification and is not platyspondylic.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe neonatal SMD\"], \"term_id\": \"HP:0000926\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdeveloped lungs, found at autopsy in the stillborn patient of this subtype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe neonatal SMD\"], \"term_id\": \"HP:0002089\"}}, {\"id\": \"Recurrent Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent bacterial infection, particularly respiratory and otologic, is a common presenting problem and the main indication for G-CSF.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neutropenia, sometimes with hypogammaglobulinaemia, causes recurrent bacterial infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Respiratory failure requiring assisted ventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure from the neonatal period onward, severe enough to require permanent ventilatory support in the one patient of this subtype who survived the newborn period.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe neonatal SMD\"], \"term_id\": \"HP:0004887\"}}, {\"id\": \"SBDS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SBDS\"], \"gene_terms\": [{\"label\": \"SBDS\", \"id\": \"hgnc:19440\"}], \"frequency\": \"approximately 90% of patients\", \"association\": \"Causal biallelic variant\"}}, {\"id\": \"SRP54\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SRP54\"], \"gene_terms\": [{\"label\": \"SRP54\", \"id\": \"hgnc:11301\"}], \"association\": \"Causal monoallelic variant\"}}, {\"id\": \"SRP54-knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Sbds-null mouse ribosome reconstitution\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Short Stature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Short stature in SDS has two converging causes, modelled here as two incoming edges: the intrinsic skeletal growth defect, and malnutrition from exocrine pancreatic insufficiency. Studies indicating that patients are genuinely short rather than merely undernourished are why the skeletal route is drawn at all.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature reflects an intrinsic growth defect as well as malabsorption; weight and length are deficient from birth and remain below normal.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple independent somatic clones arise in the SDS marrow from early life, selected by the fitness constraint the germline ribosome defect imposes. The clones are not one population: they split into two mechanistically opposed classes with opposite clinical meaning, modelled here as separate downstream nodes so that the graph cannot be read as \\\"clonal hematopoiesis causes leukemia\\\".\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic TP53 mutation improves clone fitness by inactivating tumour-suppressor checkpoints while leaving the ribosome defect uncorrected. This is the arm that carries leukemic potential, and progression to overt leukemia is associated with acquisition of biallelic TP53 alterations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p53-Dependent Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ribosomal stress activates p53 in haematopoietic progenitors, and the apoptosis that follows is what depletes the marrow. The checkpoint cuts both ways: with p53 intact the cells die, producing the cytopenias, while p53 inactivation lets them survive as aneuploid cells - which is the same checkpoint whose somatic loss defines the pre-malignant clonal arm of this disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apoptotic process\"]}}], \"edges\": [{\"source\": \"Biallelic SBDS Loss of Function\", \"target\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SBDS is the cofactor that couples EFL1 GTP hydrolysis to eIF6 release, so its loss blocks the eviction step directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic DNAJC21 Loss of Function\", \"target\": \"Impaired 80S Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corrupted 60S maturation reduces the pool of subunits competent to form translating 80S ribosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"target\": \"Impaired 80S Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"eIF6 retained on the 60S subunit sterically blocks subunit joining, so fewer 80S ribosomes are formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Co-translational Protein Targeting\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zebrafish knockdown of SRP54 reproduces the neutrophil deficit and chemotaxis defect seen in patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced secretory-pathway throughput in maturing myeloid precursors.\"]}, {\"source\": \"Impaired Co-translational Protein Targeting\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired 80S Ribosome Assembly\", \"target\": \"Global Translation Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer competent 80S ribosomes lowers global protein synthesis. The two steps are close together in time but are separate claims: a cell could in principle compensate for reduced assembly, and the somatic EIF6 arm of this disease is precisely such a compensation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Impaired neutrophil chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A functional neutrophil defect independent of the count, so patients can be infection-prone at numbers that look adequate. Drawn from the translation deficit rather than from the marrow node because it is a defect of the cells produced, not of their production.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement, reported in a subset. No cited source traces a route from the translation deficit to it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic involvement, which in this disease is usually transient in early childhood.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The biochemical correlate of that hepatic involvement, and usually the way it is detected.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acinar cell, among the most secretory in the body, is disproportionately sensitive to a global translation deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoietic progenitors, and the granulocytic lineage in particular, cannot sustain output under the translation deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Growth Plate Chondrocyte Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chondrogenesis is the third tissue named as sensitive to the SDS defect, and is the origin of the metaphyseal dysplasia that places SDS in the metaphyseal group of the skeletal nosology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Translation Deficit\", \"target\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The translation deficit is itself the selective pressure: it constrains hematopoietic clone fitness and thereby selects somatic mutants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exocrine Pancreatic Acinar Failure\", \"target\": \"Exocrine pancreatic insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical diagnosis this node describes: acinar loss and fatty replacement leave too little enzyme output to digest fat.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exocrine Pancreatic Acinar Failure\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption from that enzyme deficiency is the usual route to infantile growth failure here, and the reason pancreatic enzyme replacement is first-line.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Exocrine Pancreatic Acinar Failure\", \"target\": \"Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fat and fat-soluble vitamin malabsorption drive failure to thrive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The predominant and often earliest cytopenia \\u2014 this is the finding that places the disease in the IUIS phagocyte table.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progression to multilineage failure, in a minority but a clinically decisive one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The infectious consequence of the neutropenia, and the commonest infection pattern in this disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"p53-Dependent Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ribosomal stress from the maturation defect activates p53 in marrow progenitors, and the resulting apoptosis is the proximate reason the cytopenias develop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"target\": \"Recurrent Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutropenia, compounded in some patients by hypogammaglobulinaemia, predisposes to recurrent bacterial infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Chondrocyte Dysfunction\", \"target\": \"Metaphyseal Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth produces the clinical skeletal dysplasia and contributes to short stature independently of malnutrition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Chondrocyte Dysfunction\", \"target\": \"Platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the severe neonatal presentation the growth-plate lesion also involves the vertebral endplate physes, so the vertebral bodies are already flattened at birth and the dysplasia reads as spondylometaphyseal rather than purely metaphyseal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metaphyseal Dysplasia\", \"target\": \"Metaphyseal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical and radiographic finding this node describes. Note the entry carries a pathophysiology node and a phenotype whose names differ only in casing; they are separate objects and the graph matches names exactly, so this edge connects the two rather than collapsing them.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metaphyseal Dysplasia\", \"target\": \"Narrow chest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic involvement of the same skeletal dysplasia \\u2014 the rib-cage expression, which at its most severe restricts lung growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metaphyseal Dysplasia\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced bone density accompanying the dysplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metaphyseal Dysplasia\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered metaphyseal growth contributes to short stature independently of the nutritional route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Short Stature\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding this node describes; the same name-casing distinction as above applies.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malnutrition\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malnutrition compounds the intrinsic skeletal growth defect, the second of the two routes into short stature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"target\": \"EIF6-Mutant Compensatory Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The compensatory arm, selected because inactivating EIF6 partially corrects the very defect that constrains clone fitness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Clonal Hematopoiesis Under Ribosomal Fitness Constraint\", \"target\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pre-malignant arm, selected by removing tumour-suppressor checkpoints rather than by correcting the ribosome defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53-Mutant Maladaptive Clonal Expansion\", \"target\": \"Myeloid Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progression to overt myeloid malignancy follows acquisition of biallelic TP53 alterations within this clonal lineage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acquisition of a second TP53 hit, producing biallelic TP53 inactivation in the expanded clone.\"]}, {\"source\": \"Myeloid Malignant Transformation\", \"target\": \"Myelodysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The usual first step of transformation, and what surveillance marrow examination is looking for.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myeloid Malignant Transformation\", \"target\": \"Acute myeloid leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frank leukaemia, the endpoint that dominates long-term prognosis and the reason clonal surveillance matters in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Narrow chest\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"A severely narrow thorax restricts fetal and infant lung growth. This is the severe end of the skeletal phenotype and the route by which a bone dysplasia becomes lethal.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary hypoplasia\", \"target\": \"Respiratory failure requiring assisted ventilation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The consequence of hypoplastic lungs in the neonatal period, and the reason the thoracic form of this dysplasia carries a different prognosis from the limb form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pancreatic enzyme replacement and fat-soluble vitamin supplementation\", \"target\": \"Exocrine pancreatic insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor\", \"target\": \"Neutropenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood and platelet transfusion\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"target\": \"Metaphyseal Dysplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopaedic and pulmonary management of the skeletal dysplasia\", \"target\": \"Metaphyseal dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and fat-soluble vitamin surveillance\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sbds-null mouse ribosome reconstitution\", \"target\": \"Failure of eIF6 Eviction from the Pre-60S Subunit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Late cytoplasmic 60S subunits isolated from Sbds-deleted mice retain eIF6, the same biochemical lesion described in this node, and support biochemical reconstitution of SBDS/EFL1-catalyzed eIF6 release.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Impaired Co-translational Protein Targeting\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of srp54 directly manipulates the co-translational targeting defect that monoallelic human SRP54 variants cause, then reports on its downstream consequences.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"A morpholino knockdown in a non-mammalian model, not the patient missense-variant mechanism; it removes SRP54 function outright rather than reproducing the specific hypomorphic GTPase-domain lesion.\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Bone Marrow Failure with Granulopoietic Predominance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The knockdown reproduces both the neutrophil-count deficit and the chemotaxis defect that mark the granulopoietic arm of the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"SRP54-knockdown zebrafish\", \"target\": \"Exocrine Pancreatic Acinar Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same knockdown reduces exocrine pancreas size, matching the pancreatic arm of the human phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"SBDS\", \"target\": \"Biallelic SBDS Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC21\", \"target\": \"Biallelic DNAJC21 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRP54\", \"target\": \"Impaired Co-translational Protein Targeting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6870,6 +7075,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6934,6 +7142,9 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7033,6 +7244,9 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7102,6 +7316,9 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7166,6 +7383,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7249,6 +7469,9 @@ This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7313,6 +7536,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Autopsy finding in the stillborn patient only (1/2); no frequency band is asserted on a denominator of two. Left unwired: no source curated here links it to a modelled mechanism of this entry.</div>
@@ -7393,6 +7619,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7489,6 +7718,9 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255), qualified as course
 
 
                     </div>
+
+
+
 
 
 
@@ -7617,6 +7849,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7695,6 +7930,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7764,6 +8002,16 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Pulmonary hypoplasia</span>
+
+                    </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7828,6 +8076,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in both patients reported with this subtype (2/2). No frequency band is asserted: the denominator is two patients from two unrelated families.</div>
@@ -7908,6 +8159,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8017,6 +8271,9 @@ This clinical feature is Respiratory failure requiring assisted ventilation (HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in the surviving patient only (1/2); no frequency band is asserted on a denominator of two. Deliberately left unwired in the pathograph: no cited source states a causal edge from any modelled mechanism to this finding, and it must not be chained to the pulmonary hypoplasia recorded below, which was found at autopsy in the other patient.</div>
 
 
@@ -8088,8 +8345,18 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Autopsy finding in the stillborn patient only (1/2); no frequency band is asserted on a denominator of two. Left unwired: the narrow thorax of this disease is a plausible restrictive mechanism, but the cited report states only the co-occurrence and no source curated here asserts that edge.</div>
 
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Respiratory failure requiring assisted ventilation</span>
+
+                    </div>
 
 
 
@@ -8171,6 +8438,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8235,6 +8505,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8353,6 +8626,9 @@ This disease-associated gene is SBDS (hgnc:19440). hgnc:19440 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8450,6 +8726,9 @@ This disease-associated gene is DNAJC21 (hgnc:27030). hgnc:27030 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8518,6 +8797,9 @@ This disease-associated gene is SRP54 (hgnc:11301). hgnc:11301 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -8619,6 +8901,9 @@ This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8691,6 +8976,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8759,6 +9047,9 @@ This disease-associated gene is EIF6 (hgnc:6159). hgnc:6159 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8864,6 +9155,9 @@ This treatment is pancreatic enzyme replacement therapy, annotated with Protein 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8874,6 +9168,9 @@ This treatment is pancreatic enzyme replacement therapy, annotated with Protein 
 
 
     </div>
+
+
+
 
 
 
@@ -9065,6 +9362,9 @@ This treatment uses recombinant granulocyte colony-stimulating factor (NCIT:C128
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9075,6 +9375,9 @@ This treatment uses recombinant granulocyte colony-stimulating factor (NCIT:C128
 
 
     </div>
+
+
+
 
 
 
@@ -9245,6 +9548,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9255,6 +9561,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -9425,6 +9734,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9435,6 +9747,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -9552,6 +9867,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9562,6 +9880,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -9732,6 +10053,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9742,6 +10066,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11928,6 +12255,22 @@ pathophysiology:
       Review statement that the SDS genes converge on ribosome maturation and
       early protein synthesis.
   downstream:
+  - target: Impaired neutrophil chemotaxis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A functional neutrophil defect independent of the count, so patients can be infection-prone at numbers that look adequate. Drawn from the translation deficit rather than from the marrow node because it is a defect of the cells produced, not of their production.
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Neurodevelopmental involvement, reported in a subset. No cited source traces a route from the translation deficit to it.
+  - target: Hepatic fibrosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Hepatic involvement, which in this disease is usually transient in early childhood.
+  - target: Elevated hepatic transaminases
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The biochemical correlate of that hepatic involvement, and usually the way it is detected.
   - target: Exocrine Pancreatic Acinar Failure
     description: &gt;-
       The acinar cell, among the most secretory in the body, is
@@ -12014,6 +12357,14 @@ pathophysiology:
       Documents the age-dependent partial recovery of exocrine function that
       distinguishes this node from a fixed structural lesion.
   downstream:
+  - target: Exocrine pancreatic insufficiency
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical diagnosis this node describes: acinar loss and fatty replacement leave too little enzyme output to digest fat.
+  - target: Failure to thrive
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Malabsorption from that enzyme deficiency is the usual route to infantile growth failure here, and the reason pancreatic enzyme replacement is first-line.
   - target: Malnutrition
     description: &gt;-
       Fat and fat-soluble vitamin malabsorption drive failure to thrive.
@@ -12045,6 +12396,18 @@ pathophysiology:
       Supports both the granulocytic predominance and the broader marrow
       involvement described in this node.
   downstream:
+  - target: Neutropenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The predominant and often earliest cytopenia — this is the finding that places the disease in the IUIS phagocyte table.
+  - target: Pancytopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Progression to multilineage failure, in a minority but a clinically decisive one.
+  - target: Recurrent respiratory infections
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The infectious consequence of the neutropenia, and the commonest infection pattern in this disease.
   - target: p53-Dependent Progenitor Apoptosis
     description: &gt;-
       Ribosomal stress from the maturation defect activates p53 in marrow
@@ -12151,6 +12514,18 @@ pathophysiology:
     explanation: &gt;-
       Names the two commonest radiographic findings that constitute this node.
   downstream:
+  - target: Metaphyseal dysplasia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical and radiographic finding this node describes. Note the entry carries a pathophysiology node and a phenotype whose names differ only in casing; they are separate objects and the graph matches names exactly, so this edge connects the two rather than collapsing them.
+  - target: Narrow chest
+    causal_link_type: DIRECT
+    description: &gt;-
+      Thoracic involvement of the same skeletal dysplasia — the rib-cage expression, which at its most severe restricts lung growth.
+  - target: Osteopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Reduced bone density accompanying the dysplasia.
   - target: Short Stature
     description: &gt;-
       Disordered metaphyseal growth contributes to short stature independently
@@ -12183,6 +12558,11 @@ pathophysiology:
       In almost all affected children, persistent or intermittent neutropenia is an early finding. Short stature and recurrent infections are common.
     explanation: &gt;-
       Records short stature as a common manifestation.
+  downstream:
+  - target: Short stature
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical finding this node describes; the same name-casing distinction as above applies.
 - name: Malnutrition
   biological_scale: ORGANISM
   description: &gt;-
@@ -12412,6 +12792,15 @@ pathophysiology:
     explanation: &gt;-
       Cohort evidence for the young age at malignancy and the restriction to
       haematological cancers.
+  downstream:
+  - target: Myelodysplasia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The usual first step of transformation, and what surveillance marrow examination is looking for.
+  - target: Acute myeloid leukemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Frank leukaemia, the endpoint that dominates long-term prognosis and the reason clonal surveillance matters in this disease.
 phenotypes:
 - name: Neutropenia
   category: Hematologic
@@ -12564,6 +12953,11 @@ phenotypes:
     explanation: &gt;-
       The rib abnormality underlying the narrow thorax is named as one of the
       commonest findings.
+  sequelae:
+  - target: Pulmonary hypoplasia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A severely narrow thorax restricts fetal and infant lung growth. This is the severe end of the skeletal phenotype and the route by which a bone dysplasia becomes lethal.
 - name: Short stature
   category: Growth
   description: &gt;-
@@ -12808,6 +13202,11 @@ phenotypes:
       A British boy was a stillbirth with pulmonary hypoplasia and hepatic fibrosis found on autopsy.
     explanation: &gt;-
       Autopsy source for pulmonary hypoplasia in the stillborn patient.
+  sequelae:
+  - target: Respiratory failure requiring assisted ventilation
+    causal_link_type: DIRECT
+    description: &gt;-
+      The consequence of hypoplastic lungs in the neonatal period, and the reason the thoracic form of this dysplasia carries a different prognosis from the limb form.
 - name: Hepatic fibrosis
   category: Hepatic
   subtype: Severe neonatal SMD
@@ -13707,7 +14106,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Shwachman-Diamond syndrome", "mondoId": "MONDO:0009833", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shwachman-Diamond_syndrome", "yamlRevision": "b62f1430841c"};
+        const OS_CONFIG = {"diseaseName": "Shwachman-Diamond syndrome", "mondoId": "MONDO:0009833", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shwachman-Diamond_syndrome", "yamlRevision": "f4d0d309f4dc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4594,6 +4647,7 @@ The gap matters practically as well as mechanistically. Three genetically distin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-setx-loss-of-function-variant" data-dismech-node="Biallelic SETX Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SETX Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">Two loss-of-function SETX alleles, homozygous or compound heterozygous. The reported spectrum is dominated by missense, frameshift and nonsense changes, with a large minority causing premature termination of the 2,677-residue protein; whole-exon deletions and duplications also occur and are missed by sequencing alone, so a convincing phenotype with a single point mutation should prompt dosage analysis.</div>
 
 
@@ -4611,6 +4665,8 @@ The gap matters practically as well as mechanistically. Three genetically distin
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4621,6 +4677,9 @@ The gap matters practically as well as mechanistically. Three genetically distin
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4716,6 +4775,7 @@ The gap matters practically as well as mechanistically. Three genetically distin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-senataxin-rna-dna-helicase-activity" data-dismech-node="Loss of Senataxin RNA/DNA Helicase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Senataxin RNA/DNA Helicase Activity</div>
+
 
                 <div class="item-desc">Senataxin is a nucleoplasmic superfamily-I DNA/RNA helicase homologous to yeast Sen1p, with a C-terminal helicase domain and an N-terminal protein-interaction domain. With the protein truncated or inactive, the cell loses a single enzyme that is used in several places at once: unwinding R-loops behind paused polymerase, unwinding them again where transcription meets replication, and docking the transcription machinery to RNA-processing and damage-response partners.</div>
 
@@ -4899,6 +4959,7 @@ This pathophysiological event involves nucleoplasm (GO:0005654). GO:0005654 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-r-loop-resolution-at-transcription-pause-sites" data-dismech-node="Defective R-Loop Resolution at Transcription Pause Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective R-Loop Resolution at Transcription Pause Sites</div>
 
+
                 <div class="item-desc">R-loops form behind elongating RNA polymerase II, especially over G-rich pause sites downstream of poly(A) signals, and must be unwound for the transcript to be degraded and the polymerase released. Without senataxin the hybrids persist at these sites and at transcription-replication collision points. Note that the direction of the R-loop change in senataxin-depleted human cells is not uniform across studies, which is recorded as a discussion on this entry rather than smoothed over here.</div>
 
 
@@ -5037,6 +5098,7 @@ This pathophysiological event involves decreased R-loop resolution, annotated wi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-rna-polymerase-ii-transcription-termination" data-dismech-node="Defective RNA Polymerase II Transcription Termination" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective RNA Polymerase II Transcription Termination</div>
 
+
                 <div class="item-desc">Senataxin-depleted cells show read-through past the poly(A) site, reduced polymerase occupancy at affected genes, and altered splice-site selection, consistent with a protein that couples termination to RNA processing through poly(A)-binding proteins.</div>
 
 
@@ -5174,6 +5236,7 @@ This pathophysiological event involves decreased termination of RNA polymerase I
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-senataxin-exosome-rna-surveillance-coupling" data-dismech-node="Disrupted Senataxin-Exosome RNA Surveillance Coupling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Senataxin-Exosome RNA Surveillance Coupling</div>
 
+
                 <div class="item-desc">Sumoylated senataxin binds Rrp45, a core subunit of the nuclear RNA exosome, and the two proteins co-localise in nuclear foci at R-loops generated by transcription-replication collisions. This is the one step in the chain that has been shown to separate AOA2 from ALS4 at the molecular level: AOA2 alleles abolish both the sumoylation and the Rrp45 interaction, while ALS4 alleles leave them intact.</div>
 
 
@@ -5273,6 +5336,7 @@ This pathophysiological event involves decreased termination of RNA polymerase I
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-transcriptional-control-of-autophagy-genes" data-dismech-node="Impaired Transcriptional Control of Autophagy Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Transcriptional Control of Autophagy Genes</div>
 
+
                 <div class="item-desc">Senataxin depletion changes the transcription of autophagy and lysosomal-degradation genes, apparently through direct recruitment of RNA polymerase II to those genes rather than through a downstream signalling route.</div>
 
 
@@ -5349,6 +5413,7 @@ This pathophysiological event involves decreased transcriptional regulation of m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-autophagic-clearance-of-damaged-proteins-and-organelles" data-dismech-node="Blocked Autophagic Clearance of Damaged Proteins and Organelles" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Autophagic Clearance of Damaged Proteins and Organelles</div>
+
 
                 <div class="item-desc">Autophagic flux stalls, ubiquitinated proteins and aggregates accumulate, and mitochondrial defects appear. The same perturbation is present in AOA2 patient fibroblasts, not only in knockdown lines, which is what makes it a disease mechanism rather than an artefact of depletion.</div>
 
@@ -5461,6 +5526,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypersensitivity-to-oxidative-dna-damage" data-dismech-node="Hypersensitivity to Oxidative DNA Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypersensitivity to Oxidative DNA Damage</div>
+
 
                 <div class="item-desc">AOA2 patient fibroblasts and lymphoblasts carry constitutive oxidative DNA damage and are hypersensitive to hydrogen peroxide, camptothecin and mitomycin C but not to ionizing radiation. The selectivity matters: it separates AOA2 from ataxia-telangiectasia, whose cells are radiosensitive, and it points at lesions arising during transcription and replication rather than at a general break-repair failure. Complementation with full-length SETX cDNA rescues the sensitivity, so the defect is senataxin&#39;s.</div>
 
@@ -5599,6 +5665,7 @@ This pathophysiological event involves decreased cellular response to oxidative 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-unrepaired-dna-double-strand-breaks" data-dismech-node="Accumulation of Unrepaired DNA Double-Strand Breaks" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Unrepaired DNA Double-Strand Breaks</div>
 
+
                 <div class="item-desc">Double-strand breaks arising at transcription-replication collisions and after oxidative insult are rejoined slowly, and the burden is measurable in patient-derived cells including iPSC-derived neural progenitors.</div>
 
 
@@ -5728,6 +5795,7 @@ This pathophysiological event involves decreased double-strand break repair (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disease-specific-transcriptional-network-dysregulation" data-dismech-node="Disease-Specific Transcriptional Network Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disease-Specific Transcriptional Network Dysregulation</div>
 
+
                 <div class="item-desc">A reproducible set of genes is mis-expressed in AOA2. The signature is detectable in patient fibroblasts, in peripheral blood from members of twelve AOA2 families, and in the cerebellum of Setx knockout mice, and the gene sets affected by AOA2 alleles differ from those affected by ALS4 alleles — which is the strongest available evidence that the two allelic diseases diverge through what senataxin transcribes.</div>
 
 
@@ -5826,6 +5894,7 @@ This pathophysiological event involves decreased double-strand break repair (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-genomic-and-proteostatic-stress-in-post-mitotic-neurons" data-dismech-node="Chronic Genomic and Proteostatic Stress in Post-Mitotic Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Genomic and Proteostatic Stress in Post-Mitotic Neurons</div>
+
 
                 <div class="item-desc">The convergence point of the molecular arms: unrepaired breaks, stalled autophagic clearance and a mis-set transcriptional program in cells that cannot dilute damage by dividing. This node is where the mechanism is weakest in human evidence, and the entry says so rather than asserting a clean handover — the neuronal read-out comes from patient iPSC-derived progenitors and from the clinical and neuropathological endpoint, not from affected human brain.</div>
 
@@ -5978,6 +6047,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-degeneration-in-the-cerebellar-cortex" data-dismech-node="Purkinje Cell Degeneration in the Cerebellar Cortex" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Degeneration in the Cerebellar Cortex</div>
+
 
                 <div class="item-desc">Loss of Purkinje cells from the cerebellar cortex is the neuropathological endpoint of the cerebellar arm. Post-mortem material in AOA2 is scarce; the claim rests on a small number of autopsied patients and on the imaging correlate.</div>
 
@@ -6153,6 +6223,7 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-cortical-atrophy" data-dismech-node="Cerebellar Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Cortical Atrophy</div>
 
+
                 <div class="item-desc">Volume loss in the cerebellum, visible on MRI in essentially every patient. It is not a late marker of severity: it is present in the youngest and most mildly affected patients, and appears to be established at or before symptom onset rather than tracking with disease duration.</div>
 
 
@@ -6302,6 +6373,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-degeneration-of-sensory-and-motor-peripheral-axons" data-dismech-node="Degeneration of Sensory and Motor Peripheral Axons" data-dismech-type="pathophysiology">
                 <div class="item-name">Degeneration of Sensory and Motor Peripheral Axons</div>
+
 
                 <div class="item-desc">A length-dependent axonal degeneration affecting both sensory and motor fibres. Sural nerve biopsy shows severe depletion of large myelinated fibres, and in at least one patient of small fibres as well. In some patients the sensory component behaves as a ganglionopathy rather than a distal axonopathy, with sensory action potentials lost across all limbs and normal motor conduction.</div>
 
@@ -6505,6 +6577,7 @@ This pathophysiological event occurs in sural nerve (UBERON:0015488). UBERON:001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-meiotic-recombination-and-sex-chromosome-inactivation" data-dismech-node="Failure of Meiotic Recombination and Sex Chromosome Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Meiotic Recombination and Sex Chromosome Inactivation</div>
 
+
                 <div class="item-desc">A second, non-neurological consequence of losing senataxin, worked out in the knockout mouse: programmed meiotic double-strand breaks persist, Rad51 filaments fail to disassemble, R-loops accumulate, crossing-over fails, and meiotic sex chromosome inactivation is incomplete.</div>
 
 
@@ -6632,6 +6705,7 @@ This pathophysiological event involves primary spermatocyte (CL:0000656). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germ-cell-arrest-in-spermatogenesis" data-dismech-node="Germ Cell Arrest in Spermatogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Germ Cell Arrest in Spermatogenesis</div>
+
 
                 <div class="item-desc">In the one AOA2 patient whose testis has been examined histologically, seminiferous tubules contained spermatogonia and primary spermatocytes but no spermatids — the same pachytene-stage arrest described in the mouse. Sperm production was impaired in all three patients in whom it was assessed.</div>
 
@@ -6845,6 +6919,9 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6964,6 +7041,9 @@ This clinical feature is Hypometric saccades (HP:0000571). HP:0000571 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7060,6 +7140,9 @@ This clinical feature is Saccadic smooth pursuit, annotated with Saccadic smooth
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7209,9 @@ This clinical feature is Convergent strabismus, annotated with Strabismus (HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7234,6 +7320,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7298,6 +7387,9 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7410,6 +7502,9 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7487,7 +7582,7 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -7497,10 +7592,13 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7570,6 +7668,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7650,6 +7751,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7748,6 +7852,9 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073), qualified a
 
 
                     </div>
+
+
+
 
 
 
@@ -7856,6 +7963,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7922,6 +8032,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7998,6 +8111,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8066,6 +8182,9 @@ This clinical feature is Axonal sensorimotor polyneuropathy, annotated with Peri
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8199,6 +8318,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8263,6 +8385,9 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8334,6 +8459,9 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8435,6 +8563,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8526,6 +8657,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8627,6 +8761,9 @@ This clinical feature is Head tremor (HP:0002346). HP:0002346 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8695,6 +8832,9 @@ This clinical feature is Pyramidal signs, annotated with Abnormal pyramidal sign
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8836,6 +8976,9 @@ This disease-associated gene is SETX (hgnc:445). hgnc:445 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8992,6 +9135,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9002,6 +9148,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9115,6 +9264,9 @@ This treatment is wheelchair provision, annotated with Rehabilitation (NCIT:C153
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9125,6 +9277,9 @@ This treatment is wheelchair provision, annotated with Rehabilitation (NCIT:C153
 
 
     </div>
+
+
+
 
 
 
@@ -9237,6 +9392,9 @@ This treatment is Occupational Therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9247,6 +9405,9 @@ This treatment is Occupational Therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9384,6 +9545,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9394,6 +9558,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9506,6 +9673,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9516,6 +9686,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9635,6 +9808,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9645,6 +9821,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10552,10 +10731,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                 </div>
 
-                <div class="evidence-snippet">"Disease progression to wheelchair dependence averaged 15.9 ± 8.6 years, with no significant differences observed in gender or adult onset and juvenile onset."</div>
+                <div class="evidence-snippet">"Ataxia with oculomotor apraxia type 2 (AOA2), a rare autosomal recessive neurodegenerative disorder, exhibits marked clinical heterogeneity, thereby presenting substantial diagnostic challenges. This study conducts an investigation of two pedigrees with SETX gene mutation-associated AOA2,..."</div>
 
 
-                <div class="evidence-explanation">Gives the interval to wheelchair dependence and the two variables that did not predict it.</div>
+                <div class="evidence-explanation">Identifies SETX-related AOA2 and its clinical features and pooled progression to wheelchair dependence. Nonsignificant age/sex differences do not prove that these factors can never predict progression.</div>
 
 
 
@@ -13035,10 +13214,10 @@ phenotypes:
     individual patients. It is measured routinely in AOA2 work-ups but no cohort frequency
     was found in the sources curated here.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:20869730
     reference_title: Sensory neuronopathy in ataxia with oculomotor apraxia type 2.
@@ -13370,11 +13549,22 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Disease progression to wheelchair dependence averaged 15.9 ± 8.6 years, with no
-      significant differences observed in gender or adult onset and juvenile onset.
+      Ataxia with oculomotor apraxia type 2 (AOA2), a rare autosomal recessive neurodegenerative
+      disorder, exhibits marked clinical heterogeneity, thereby presenting substantial diagnostic
+      challenges. This study conducts an investigation of two pedigrees with SETX gene
+      mutation-associated AOA2, coupled with a review of the clinical manifestations and genetic
+      characteristics documented in previously reported study. ... Both pedigrees exhibited
+      progressive gait instability, dysarthria, peripheral neuropathy, cerebellar atrophy, and
+      elevated α-fetoprotein (AFP). ... Literature review of 216 patients revealed median onset age
+      of 15 years old (interquartile range: 13-18), with 77.1% developing symptoms between 10 and 20
+      years. Key clinical features included ataxia (100%), dysarthria (99.2%), cerebellar atrophy
+      (99.4%), and elevated AFP (97.6%). Oculomotor apraxia was observed in 34.2% of cases. Disease
+      progression to wheelchair dependence averaged 15.9 ± 8.6 years, with no significant
+      differences observed in gender or adult onset and juvenile onset.
     explanation: &gt;-
-      Gives the interval to wheelchair dependence and the two variables that did not
-      predict it.
+      Identifies SETX-related AOA2 and its clinical features and pooled progression to wheelchair
+      dependence. Nonsignificant age/sex differences do not prove that these factors can never
+      predict progression.
   - reference: PMID:19696032
     reference_title: &#34;Ataxia with oculomotor apraxia type 2: clinical, biological and genotype/phenotype correlation study of a cohort of 90 patients.&#34;
     supports: SUPPORT
@@ -14298,6 +14488,27 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split. This is a leaf disease entry: one gene, one recessive mechanism, one pathograph. AOA2 is not split by allele or by ancestry — the French-Canadian L1976R cluster and the Algerian and Italian series describe the same disease, and the only reproducible genotype-phenotype effect (helicase-domain missense alleles run milder) is recorded as a genetic-section observation rather than as a subtype. The dominant allelic disorder ALS4 is a separate dismech entry (Juvenile Amyotrophic Lateral Sclerosis) and is cross-referenced in differential_diagnoses rather than duplicated here; the two are separated by inheritance, phenotype, and an experimental difference in senataxin sumoylation, so folding them together would lose real information.
+Deliberately not modelled. There is no cancer predisposition and no immunodeficiency in AOA2, so no such nodes or surveillance recommendations appear, and the entry does not conform to the genome_instability_mutation module, whose chain runs through clonal evolution to neoplasia. Senataxin&#39;s role in restraining the antiviral transcriptional response is real and interesting but no clinical infection phenotype has been reported in AOA2, so it is left out rather than speculated into the pathograph. Elevated serum IgG was considered as a phenotype and dropped: no cached source supports it, and the one reviewed patient whose immunoglobulins were measured had normal levels. Cognitive impairment is likewise not curated as a phenotype: the one dedicated neuropsychological study found substantially preserved profiles and attributed the measured reading deficit to the oculomotor disorder, which is recorded on the assistive-technology treatment instead.
+Where the mechanism is weak. The molecular arm is well evidenced in patient cells, knockdown lines and biochemistry; the step from cellular stress to cerebellar neuron death is not, and the entry says so in three places rather than papering over it — a HUMAN_MODEL_MISMATCH discussion for the non-degenerating knockout mouse, a CONTROVERSY discussion for the R-loop account, and an explicit statement in the description of the convergence node. Human neuropathology in AOA2 rests on a very small number of autopsies.
+Corrections to the deep-research report. The Perplexity sonar-deep-research report for this entry is thin on primary literature: it cites four PMIDs in total and leans on MedlinePlus, OMIM, an ataxia-charity PDF and Genomics England PanelApp pages, none of which is citable here, so essentially all evidence in this entry was taken from primary papers read directly from the reference cache. One of its four identifiers, PMID:795872, did not resolve and is flagged in the report&#39;s own Reference Validation section; it is not a PMID at all but the article number in a JAMA Neurology URL the report mistook for one, and it is not cited anywhere in this entry. The report&#39;s Term Validation section flags MONDO:0018996 as named &#34;if available&#34; — that is an artefact of the report echoing the query template rather than a wrong binding, and the MONDO term itself is correct. The preflight check returned WARN because AFP is mentioned 49 times against SETX&#39;s 167; that is the diagnostic biomarker, not a second disease entity, and the report&#39;s OMIM references (606002 for the disease, 608465 for the gene) both match. Two of the report&#39;s substantive claims were not carried across: its step 4 presents impaired autophagy as an established parallel arm of the neuronal mechanism, which overstates a single 2021 study whose own R-loop result contradicts the report&#39;s step 2, and its step 8 asserts that elevated AFP, hypercholesterolaemia and raised CK arise from &#34;altered hepatic gene expression&#34;, for which no evidence was found and against which the AOA2 liver data argue.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Ataxia_With_Oculomotor_Apraxia_Type_2</strong> · 2026-09-09T19:46:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Ataxia_With_Oculomotor_Apraxia_Type_2/2026-09-09T194614Z-claude-code-bf7fe3.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of AOA2 (MONDO:0018996, SETX/senataxin) as a leaf DISEASE entry: 16 pathophysiology nodes forming one connected causal chain from the biallelic SETX loss-of-function variant through lost helicase activity, failed R-loop resolution and RNA polymerase II transcription termination, a disrupted senataxin-exosome coupling, mis-transcribed autophagy genes, oxidative DNA-damage hypersensitivity and unrepaired double-strand breaks, to Purkinje cell degeneration with cerebellar atrophy, peripheral axonal degeneration, and a separate meiotic arm ending in germ-cell arrest and male infertility; 22 phenotypes with HP bindings and frequency bands; serum alpha-fetoprotein modelled in biochemical with the 7 microg/l sequencing threshold and a CORRELATES_WITH readout link; prevalence, progression, diagnosis, GeneReviews-derived treatments, the Setx knockout mouse and patient iPSC-derived neural progenitors, five differential diagnoses, and three discussions. 127 evidence items over 34 PMIDs. Conformance declared to cerebellar_purkinje_degeneration (Cerebellar Neuron Insult, Purkinje Neuron Degeneration) and peripheral_axonal_degeneration (Distal Axonal Degeneration and Demyelination). The deep-research provider was Perplexity sonar-deep-research; its report cites only four PMIDs and leans on non-citable web pages, so essentially all evidence was read directly from primary papers in references_cache. Report content refused or corrected: PMID:795872 was flagged unresolved by the report&#39;s own reference validation and is not cited (it is the article number in a JAMA Neurology URL, not a PMID); the Term Validation flag on MONDO:0018996 named &#39;if available&#39; is the report echoing the query template and the term binding is correct; preflight-dr returned WARN on rival gene AFP, which is the diagnostic biomarker rather than a second disease entity, and both report OMIM numbers (606002 disease, 608465 gene) match MONDO; the report&#39;s step 4 claim that impaired autophagy is an established parallel arm of the neuronal mechanism was downgraded because it rests on a single 2021 study whose own R-loop result contradicts the report&#39;s step 2; and its step 8 attribution of raised AFP, cholesterol and CK to altered hepatic gene expression was dropped as unsupported and contradicted by AOA2 liver data (PMID:40255955). Elevated serum IgG, listed as a candidate phenotype, was dropped because no cached source supports it and the one reviewed patient with measured immunoglobulins had normal levels. Validation run and read: just validate passed with 127/127 snippets verified; just validate-terms passed; just validate-disorders passed; check-entity-refs, check-causal-targets, check-duplicate-keys and check-enum-values all OK; check-qualifier-terms-online OK with 388 labels matching and 103 resolved online; list-gene-term-mismatches examined the single hgnc:445 SETX binding with no findings; check-reference-titles, check-title-snippets, check-snippet-length, check-snippet-grading and check-folded-hyphens all passed; just normalize-cache and just check-term-cache-integrity passed, with the only cache addition being GO:0006369 and its enum row.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14738,7 +14949,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ataxia With Oculomotor Apraxia Type 2", "mondoId": "MONDO:0018996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ataxia_With_Oculomotor_Apraxia_Type_2", "yamlRevision": "1bced9781ee6"};
+        const OS_CONFIG = {"diseaseName": "Ataxia With Oculomotor Apraxia Type 2", "mondoId": "MONDO:0018996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ataxia_With_Oculomotor_Apraxia_Type_2", "yamlRevision": "746441430fc9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

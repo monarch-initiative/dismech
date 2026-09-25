@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4178,6 +4231,25 @@ an autosomal recessive mode"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                GSS
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4624</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GSS (hgnc:4624). hgnc:4624 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">The systemic (moderate and severe) form, corresponding to MONDO:0009947 / OMIM:266130. Generalized glutathione synthetase deficiency produces hemolytic anemia together with 5-oxoprolinuria and high-anion-gap metabolic acidosis; the severe end of the spectrum adds progressive neurological dysfunction (seizures, psychomotor retardation) and recurrent bacterial infections.
@@ -4204,6 +4276,25 @@ an autosomal recessive mode"</div>
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GSS
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4624</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GSS (hgnc:4624). hgnc:4624 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4246,6 +4337,7 @@ an autosomal recessive mode"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutathione-synthetase-molecular-function-deficiency" data-dismech-node="Glutathione synthetase molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutathione synthetase molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic GSS variants reduce glutathione synthetase (glutathione synthase) activity, the ATP-dependent enzyme that condenses gamma-glutamylcysteine with glycine in the second and final step of glutathione biosynthesis. Most disease alleles are missense with residual activity; complete loss of both alleles is thought to be lethal.
 </div>
 
@@ -4269,11 +4361,11 @@ an autosomal recessive mode"</div>
         GSS
 
 
-    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4624</a>
+    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4624</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GSS (hgnc:4624). hgnc:4624 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4311,11 +4403,11 @@ This pathophysiological event involves GSS (hgnc:4624). hgnc:4624 is a gene from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006750</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006750</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased glutathione biosynthetic process (GO:0006750). GO:0006750 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4350,11 +4442,11 @@ This pathophysiological event involves decreased glutathione biosynthetic proces
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0004363</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased glutathione synthase activity (GO:0004363). GO:0004363 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4469,6 +4561,7 @@ function of both GS alleles is probably lethal."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-glutathione-deficiency" data-dismech-node="Generalized glutathione deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized glutathione deficiency</div>
 
+
                 <div class="item-desc">Glutathione is a tripeptide of glutamate, cysteine and glycine that is central to free-radical scavenging and cellular redox homeostasis. Depletion impairs antioxidant defense, which reduces erythrocyte survival and, in the severe form, contributes to central-nervous-system injury and susceptibility to bacterial infection.
 </div>
 
@@ -4502,11 +4595,11 @@ function of both GS alleles is probably lethal."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006749</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006749</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated glutathione metabolic process (GO:0006749). GO:0006749 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4536,11 +4629,11 @@ This pathophysiological event involves dysregulated glutathione metabolic proces
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045454</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045454</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell redox homeostasis (GO:0045454). GO:0045454 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4665,6 +4758,7 @@ This pathophysiological event involves decreased cell redox homeostasis (GO:0045
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-erythrocyte-injury" data-dismech-node="Oxidative erythrocyte injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative erythrocyte injury</div>
 
+
                 <div class="item-desc">Glutathione depletion impairs erythrocyte antioxidant defense. Oxidative stress increases erythrocyte injury and premature destruction, producing the hemolytic anemia seen across the clinical spectrum.
 </div>
 
@@ -4680,11 +4774,11 @@ This pathophysiological event involves decreased cell redox homeostasis (GO:0045
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4721,11 +4815,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4755,11 +4849,11 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034102" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0034102</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034102" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0034102</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased erythrocyte clearance (GO:0034102). GO:0034102 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4874,6 +4968,7 @@ severe metabolic acidosis, 5-oxoprolinuria, increased rate of hemolysis"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gamma-glutamylcysteine-overproduction-and-5-oxoproline-accumulation" data-dismech-node="Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation</div>
 
+
                 <div class="item-desc">In the systemic (moderate and severe) forms, disinhibited gamma-glutamylcysteine synthesis floods the gamma-glutamyl cycle; gamma-glutamylcysteine is converted to 5-oxoproline (pyroglutamate), producing the diagnostic 5-oxoprolinuria and a high-anion-gap metabolic acidosis.
 </div>
 
@@ -4896,11 +4991,11 @@ severe metabolic acidosis, 5-oxoprolinuria, increased rate of hemolysis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006749</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006749</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated glutathione metabolic process (GO:0006749). GO:0006749 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5030,7 +5125,7 @@ This pathophysiological event involves dysregulated glutathione metabolic proces
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GSS variants (predominantly missense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Affected individuals are homozygous or compound heterozygous for GSS variants. Missense variants that leave residual activity predominate, whereas frameshift, nonsense and splice variants are associated with the moderate and severe phenotypes.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management aims to avoid hemolytic crises and to increase defense against reactive oxygen species. Treatment usually includes correction of the metabolic acidosis and supplementation with vitamins C and E; early supplementation with both vitamins from the neonatal period may improve long-term outcome. Blood transfusion is used for acute hemolytic anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"L-ascorbic acid\", \"vitamin E\"]}}, {\"id\": \"GSS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GSS\"], \"gene_terms\": [{\"label\": \"GSS\", \"id\": \"hgnc:4624\"}], \"variant_count\": 1}}, {\"id\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the systemic (moderate and severe) forms, disinhibited gamma-glutamylcysteine synthesis floods the gamma-glutamyl cycle; gamma-glutamylcysteine is converted to 5-oxoproline (pyroglutamate), producing the diagnostic 5-oxoprolinuria and a high-anion-gap metabolic acidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glutathione metabolic process\"]}}, {\"id\": \"Generalized glutathione deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutathione is a tripeptide of glutamate, cysteine and glycine that is central to free-radical scavenging and cellular redox homeostasis. Depletion impairs antioxidant defense, which reduces erythrocyte survival and, in the severe form, contributes to central-nervous-system injury and susceptibility to bacterial infection.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glutathione metabolic process\", \"cell redox homeostasis\"]}}, {\"id\": \"Glutathione synthetase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic GSS variants reduce glutathione synthetase (glutathione synthase) activity, the ATP-dependent enzyme that condenses gamma-glutamylcysteine with glycine in the second and final step of glutathione biosynthesis. Most disease alleles are missense with residual activity; complete loss of both alleles is thought to be lethal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glutathione biosynthetic process\"], \"molecular_functions\": [\"glutathione synthase activity\"], \"genes\": [\"GSS\"], \"gene_terms\": [{\"label\": \"GSS\", \"id\": \"hgnc:4624\"}]}}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia occurs across the clinical spectrum and is the sole manifestation in the mild form; it results from reduced glutathione-dependent erythrocyte antioxidant defense.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Increased urinary 5-oxoproline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18183\", \"term_label\": \"5-oxo-L-proline\", \"readouts\": [{\"target\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary 5-oxoproline reports the systemic overproduction and accumulation of 5-oxoproline.\"}]}}, {\"id\": \"Increased urinary L-pyroglutamic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"5-oxoprolinuria (increased urinary L-pyroglutamic acid) is the diagnostic organic-acid finding of the systemic forms.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410132\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis accompanies 5-oxoprolinuria in the moderate and severe forms.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Oxidative erythrocyte injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutathione depletion impairs erythrocyte antioxidant defense. Oxidative stress increases erythrocyte injury and premature destruction, producing the hemolytic anemia seen across the clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"erythrocyte clearance\"]}}, {\"id\": \"Progressive central nervous system dysfunction\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Recurrent bacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of severely affected patients experience recurrent bacterial infections attributed to impaired glutathione-dependent host defense.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Reduced erythrocyte glutathione\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16856\", \"term_label\": \"glutathione\", \"readouts\": [{\"target\": \"Generalized glutathione deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced erythrocyte glutathione directly reports the generalized glutathione deficiency.\"}]}}, {\"id\": \"Reduced glutathione synthetase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Glutathione synthetase molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced measured enzyme activity is the direct functional readout of the GSS molecular defect.\"}]}}], \"edges\": [{\"source\": \"Glutathione synthetase molecular function deficiency\", \"target\": \"Generalized glutathione deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced glutathione synthetase activity lowers cellular glutathione.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Oxidative erythrocyte injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glutathione depletion reduces erythrocyte antioxidant defense, increasing oxidative stress and hemolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low glutathione releases gamma-glutamylcysteine synthetase from feedback inhibition; excess gamma-glutamylcysteine is cyclized to 5-oxoproline, overwhelming 5-oxoprolinase in the systemic forms.\\n\", \"hypothesis_groups\": [\"canonical\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Progressive central nervous system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"In the severe form, impaired antioxidant defense contributes to progressive neurological injury.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced glutathione-dependent host defense predisposes severely affected patients to recurrent bacterial infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative erythrocyte injury\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature destruction of oxidatively vulnerable erythrocytes produces hemolytic anemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated 5-oxoproline is excreted, producing 5-oxoprolinuria (increased urinary L-pyroglutamic acid).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"5-oxoproline accumulation generates a high-anion-gap metabolic acidosis in the systemic forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"target\": \"Hemolytic anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Reduced erythrocyte glutathione\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced erythrocyte glutathione directly reports the generalized glutathione deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Glutathione synthetase molecular function deficiency\", \"target\": \"Reduced glutathione synthetase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced measured enzyme activity is the direct functional readout of the GSS molecular defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary 5-oxoproline reports the systemic overproduction and accumulation of 5-oxoproline.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"GSS variants\", \"target\": \"Glutathione synthetase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic GSS variants (predominantly missense)\", \"target\": \"GSS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [\"Progressive central nervous system dysfunction\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GSS variants (predominantly missense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Affected individuals are homozygous or compound heterozygous for GSS variants. Missense variants that leave residual activity predominate, whereas frameshift, nonsense and splice variants are associated with the moderate and severe phenotypes.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management aims to avoid hemolytic crises and to increase defense against reactive oxygen species. Treatment usually includes correction of the metabolic acidosis and supplementation with vitamins C and E; early supplementation with both vitamins from the neonatal period may improve long-term outcome. Blood transfusion is used for acute hemolytic anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"L-ascorbic acid\", \"vitamin E\"]}}, {\"id\": \"GSS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GSS\"], \"gene_terms\": [{\"label\": \"GSS\", \"id\": \"hgnc:4624\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the systemic (moderate and severe) forms, disinhibited gamma-glutamylcysteine synthesis floods the gamma-glutamyl cycle; gamma-glutamylcysteine is converted to 5-oxoproline (pyroglutamate), producing the diagnostic 5-oxoprolinuria and a high-anion-gap metabolic acidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glutathione metabolic process\"]}}, {\"id\": \"Generalized glutathione deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutathione is a tripeptide of glutamate, cysteine and glycine that is central to free-radical scavenging and cellular redox homeostasis. Depletion impairs antioxidant defense, which reduces erythrocyte survival and, in the severe form, contributes to central-nervous-system injury and susceptibility to bacterial infection.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glutathione metabolic process\", \"cell redox homeostasis\"]}}, {\"id\": \"Glutathione synthetase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic GSS variants reduce glutathione synthetase (glutathione synthase) activity, the ATP-dependent enzyme that condenses gamma-glutamylcysteine with glycine in the second and final step of glutathione biosynthesis. Most disease alleles are missense with residual activity; complete loss of both alleles is thought to be lethal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glutathione biosynthetic process\"], \"molecular_functions\": [\"glutathione synthase activity\"], \"genes\": [\"GSS\"], \"gene_terms\": [{\"label\": \"GSS\", \"id\": \"hgnc:4624\"}]}}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia occurs across the clinical spectrum and is the sole manifestation in the mild form; it results from reduced glutathione-dependent erythrocyte antioxidant defense.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Increased urinary 5-oxoproline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18183\", \"term_label\": \"5-oxo-L-proline\", \"readouts\": [{\"target\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary 5-oxoproline reports the systemic overproduction and accumulation of 5-oxoproline.\"}]}}, {\"id\": \"Increased urinary L-pyroglutamic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"5-oxoprolinuria (increased urinary L-pyroglutamic acid) is the diagnostic organic-acid finding of the systemic forms.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410132\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis accompanies 5-oxoprolinuria in the moderate and severe forms.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Oxidative erythrocyte injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutathione depletion impairs erythrocyte antioxidant defense. Oxidative stress increases erythrocyte injury and premature destruction, producing the hemolytic anemia seen across the clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"erythrocyte clearance\"]}}, {\"id\": \"Progressive central nervous system dysfunction\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Recurrent bacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of severely affected patients experience recurrent bacterial infections attributed to impaired glutathione-dependent host defense.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"With 5-Oxoprolinuria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Reduced erythrocyte glutathione\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16856\", \"term_label\": \"glutathione\", \"readouts\": [{\"target\": \"Generalized glutathione deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced erythrocyte glutathione directly reports the generalized glutathione deficiency.\"}]}}, {\"id\": \"Reduced glutathione synthetase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Glutathione synthetase molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced measured enzyme activity is the direct functional readout of the GSS molecular defect.\"}]}}], \"edges\": [{\"source\": \"Glutathione synthetase molecular function deficiency\", \"target\": \"Generalized glutathione deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced glutathione synthetase activity lowers cellular glutathione.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Oxidative erythrocyte injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glutathione depletion reduces erythrocyte antioxidant defense, increasing oxidative stress and hemolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low glutathione releases gamma-glutamylcysteine synthetase from feedback inhibition; excess gamma-glutamylcysteine is cyclized to 5-oxoproline, overwhelming 5-oxoprolinase in the systemic forms.\\n\", \"hypothesis_groups\": [\"canonical\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Progressive central nervous system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"In the severe form, impaired antioxidant defense contributes to progressive neurological injury.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced glutathione-dependent host defense predisposes severely affected patients to recurrent bacterial infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative erythrocyte injury\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature destruction of oxidatively vulnerable erythrocytes produces hemolytic anemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated 5-oxoproline is excreted, producing 5-oxoprolinuria (increased urinary L-pyroglutamic acid).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"5-oxoproline accumulation generates a high-anion-gap metabolic acidosis in the systemic forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"target\": \"Hemolytic anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Correction of acidosis and antioxidant vitamin supplementation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Generalized glutathione deficiency\", \"target\": \"Reduced erythrocyte glutathione\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced erythrocyte glutathione directly reports the generalized glutathione deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Glutathione synthetase molecular function deficiency\", \"target\": \"Reduced glutathione synthetase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced measured enzyme activity is the direct functional readout of the GSS molecular defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Gamma-glutamylcysteine overproduction and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary 5-oxoproline reports the systemic overproduction and accumulation of 5-oxoproline.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"GSS variants\", \"target\": \"Glutathione synthetase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic GSS variants (predominantly missense)\", \"target\": \"GSS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [\"Progressive central nervous system dysfunction\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5086,15 +5181,18 @@ This pathophysiological event involves dysregulated glutathione metabolic proces
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5169,15 +5267,18 @@ it is associated with hemolytic anemia, metabolic acidosis, 5-oxoprolinuria"</di
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0410132</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0410132</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:0410132). HP:0410132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5249,15 +5350,18 @@ This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:041
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5329,15 +5433,18 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001942</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5410,15 +5517,18 @@ symptoms, and recurrent bacterial infections"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5482,15 +5592,18 @@ as seizures and psychomotor retardation"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5581,6 +5694,8 @@ as seizures and psychomotor retardation"</div>
                 <div class="item-name">
                     GSS variants
 
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
+
                 </div>
 
                 <div class="item-meta">
@@ -5593,17 +5708,22 @@ as seizures and psychomotor retardation"</div>
                         Gene: GSS
 
 
-    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:4624</a>
+    <a href="https://bioregistry.io/hgnc:4624" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:4624</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GSS (hgnc:4624). hgnc:4624 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5688,6 +5808,12 @@ extent, predict a mild versus a more severe phenotype."</div>
         Biallelic GSS variants (predominantly missense)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Affected individuals are homozygous or compound heterozygous for GSS variants. Missense variants that leave residual activity predominate, whereas frameshift, nonsense and splice variants are associated with the moderate and severe phenotypes.
@@ -5798,7 +5924,7 @@ protein expressed from cDNAs in four cases with different missense mutations."</
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5840,11 +5966,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_29073" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:29073</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29073" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:29073</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses L-ascorbic acid (CHEBI:29073). CHEBI:29073 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5857,16 +5983,22 @@ This treatment uses L-ascorbic acid (CHEBI:29073). CHEBI:29073 is a therapeutic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:33234</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:33234</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5894,11 +6026,11 @@ This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001878</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5911,11 +6043,11 @@ This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001942</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Metabolic acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6521,6 +6653,11 @@ has_subtypes:
     metabolic acidosis; the severe end of the spectrum adds progressive
     neurological dysfunction (seizures, psychomotor retardation) and recurrent
     bacterial infections.
+  genes:
+  - preferred_term: GSS
+    term:
+      id: hgnc:4624
+      label: GSS
 - name: Without 5-Oxoprolinuria
   display_name: Glutathione synthetase deficiency without 5-oxoprolinuria (mild)
   subtype_term:
@@ -6535,6 +6672,11 @@ has_subtypes:
     activity is preserved in other tissues, gamma-glutamylcysteine is not
     overproduced systemically, so 5-oxoprolinuria and metabolic acidosis are
     absent.
+  genes:
+  - preferred_term: GSS
+    term:
+      id: hgnc:4624
+      label: GSS
 prevalence:
 - population: Worldwide
   measure_type: POINT_PREVALENCE
@@ -7035,6 +7177,8 @@ genetic:
     term:
       id: hgnc:4624
       label: GSS
+  relationship_type: CAUSATIVE
+  association: Causative
   inheritance:
   - name: Autosomal recessive
     evidence:
@@ -7152,7 +7296,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glutathione Synthetase Deficiency", "mondoId": "MONDO:0017909", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glutathione_Synthetase_Deficiency", "yamlRevision": "0bfe698b505c"};
+        const OS_CONFIG = {"diseaseName": "Glutathione Synthetase Deficiency", "mondoId": "MONDO:0017909", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glutathione_Synthetase_Deficiency", "yamlRevision": "f9d076e9ac51"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

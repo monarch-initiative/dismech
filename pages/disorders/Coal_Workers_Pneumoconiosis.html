@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4743,6 +4796,7 @@ Two things make this a mismatch rather than a plain gap. The node binds CL:00020
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respirable-coal-mine-dust-deposition-and-retention" data-dismech-node="Respirable Coal Mine Dust Deposition and Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Respirable Coal Mine Dust Deposition and Retention</div>
 
+
                 <div class="item-desc">Respirable coal mine dust — a heterogeneous mixture of carbonaceous coal particles, crystalline silica, and other silicate minerals — is small enough to escape upper-airway defences and deposit in the terminal bronchioles and alveoli, beyond the reach of mucociliary clearance. Cumulative retained dust burden, not any single exposure, is the driving quantity.</div>
 
 
@@ -4886,6 +4940,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-silica-enriched-dust-burden" data-dismech-node="Silica-Enriched Dust Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Silica-Enriched Dust Burden</div>
 
+
                 <div class="item-desc">The crystalline silica and silicate fraction of the retained dust, which in contemporary thin-seam mining is markedly higher than historically because accessing thin coal seams requires cutting silica-bearing rock strata. Silica is far more cytotoxic and fibrogenic per particle than carbonaceous coal, so a silica-enriched burden shifts the disease toward the accelerated and silica-type severe forms rather than merely producing more of the same lesion.</div>
 
 
@@ -5015,6 +5070,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-phagocytosis-of-retained-dust" data-dismech-node="Alveolar Macrophage Phagocytosis of Retained Dust" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage Phagocytosis of Retained Dust</div>
+
 
                 <div class="item-desc">Alveolar macrophages recognize and internalize the deposited particles in an attempt to clear them. Coal and silica particles are poorly biodegradable, so the macrophage cannot resolve the load and instead becomes the persistently activated cell around which the lesion is built.</div>
 
@@ -5192,6 +5248,7 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-oxygen-species-generation-and-oxidative-injury" data-dismech-node="Reactive Oxygen Species Generation and Oxidative Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Oxygen Species Generation and Oxidative Injury</div>
+
 
                 <div class="item-desc">Dust-laden macrophages and the reactive particle surfaces generate reactive oxygen species that overwhelm local antioxidant defences. Reactive oxygen species are the shared upstream signal feeding both the inflammasome branch and the epithelial injury branch of the cascade.</div>
 
@@ -5401,6 +5458,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-mitochondrial-dysfunction-and-defective-mitophagy" data-dismech-node="Macrophage Mitochondrial Dysfunction and Defective Mitophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Mitochondrial Dysfunction and Defective Mitophagy</div>
 
+
                 <div class="item-desc">Coal-silica dust collapses mitochondrial membrane potential and impairs oxidative phosphorylation in macrophages, while suppressing PINK1/Parkin signalling so the damaged mitochondria are not cleared. The failure of mitochondrial quality control amplifies the oxidant load and feeds both macrophage death and the inflammatory output, rather than being a passive consequence of them.</div>
 
 
@@ -5598,6 +5656,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dust-laden-macrophage-death" data-dismech-node="Dust-Laden Macrophage Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Dust-Laden Macrophage Death</div>
 
+
                 <div class="item-desc">Poorly biodegradable particles — the silica fraction especially — are cytotoxic to the macrophages that ingested them, and pro-apoptotic signalling rises in the alveolar compartment after coal dust exposure. Particles freed by dying cells are available for re-uptake by newly recruited macrophages, a loop that keeps the lesion building without further inhaled dust. How much of the early injury this cell death actually accounts for is contested; see the refuting evidence below.</div>
 
 
@@ -5770,6 +5829,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-and-small-airway-tissue-injury" data-dismech-node="Alveolar and Small-Airway Tissue Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar and Small-Airway Tissue Injury</div>
+
 
                 <div class="item-desc">The cumulative tissue-level result of retained dust, macrophage death and oxidant exposure: structural and functional damage concentrated in the alveoli and the small conducting airways, which is where the dust sits and where the reparative program is then triggered.</div>
 
@@ -5948,6 +6008,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kappab-and-nlrp3-inflammasome-activation" data-dismech-node="NF-kappaB and NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kappaB and NLRP3 Inflammasome Activation</div>
+
 
                 <div class="item-desc">Reactive oxygen species and retained particles activate NF-kappaB signalling and assembly of the NLRP3 inflammasome in macrophages and epithelial cells, activating caspase-1 and releasing mature IL-1beta and IL-18. This converts a particle-handling problem into a sustained cytokine signal.</div>
 
@@ -6153,6 +6214,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-inflammatory-cell-recruitment-and-amplification" data-dismech-node="Sustained Inflammatory Cell Recruitment and Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Inflammatory Cell Recruitment and Amplification</div>
+
 
                 <div class="item-desc">IL-1beta, IL-18, TNF-alpha and chemokines recruit neutrophils and further macrophages to the peribronchiolar region. Because the retained dust is never cleared, the recruitment does not resolve, and the small airways carry the signature chronic inflammatory change of coal miners&#39; lungs.</div>
 
@@ -6416,6 +6478,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-epithelial-injury-and-epithelial-mesenchymal-transition" data-dismech-node="Alveolar Epithelial Injury and Epithelial-Mesenchymal Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Epithelial Injury and Epithelial-Mesenchymal Transition</div>
 
+
                 <div class="item-desc">Injured alveolar epithelial cells undergo epithelial-mesenchymal transition, losing epithelial identity and acquiring a mesenchymal, matrix-producing phenotype. This is a second route into the fibroblast pool, parallel to activation of resident fibroblasts by the inflammatory milieu.</div>
 
 
@@ -6586,6 +6649,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-activation-and-myofibroblast-differentiation" data-dismech-node="Fibroblast Activation and Myofibroblast Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast Activation and Myofibroblast Differentiation</div>
+
 
                 <div class="item-desc">Resident lung fibroblasts, together with cells arriving via epithelial-mesenchymal transition, differentiate into alpha-smooth-muscle-actin positive myofibroblasts under TGF-beta and inflammatory cytokine signalling. This is the central effector step: from here the lesion is matrix, not inflammation.</div>
 
@@ -6808,6 +6872,7 @@ This pathophysiological event involves increased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peribronchiolar-collagen-deposition-and-coal-macule-formation" data-dismech-node="Peribronchiolar Collagen Deposition and Coal Macule Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Peribronchiolar Collagen Deposition and Coal Macule Formation</div>
 
+
                 <div class="item-desc">Myofibroblasts deposit collagen and reticulin around the dust-laden macrophage collection at the respiratory bronchiole, producing the coal macule — the histopathologic hallmark lesion of CWP. Macules aggregate into micronodules and nodules that become visible as small rounded opacities on chest radiography, defining simple CWP.</div>
 
 
@@ -6987,6 +7052,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-centrilobular-emphysema" data-dismech-node="Focal Centrilobular Emphysema" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Centrilobular Emphysema</div>
 
+
                 <div class="item-desc">Destruction of alveolar walls immediately around the coal macule produces focal centrilobular emphysema. This is the obstructive component of coal mine dust lung disease and runs alongside the restrictive fibrotic component rather than replacing it, which is why advanced disease is characteristically a mixed defect.</div>
 
 
@@ -7118,6 +7184,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nodule-coalescence-into-progressive-massive-fibrosis" data-dismech-node="Nodule Coalescence into Progressive Massive Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Nodule Coalescence into Progressive Massive Fibrosis</div>
+
 
                 <div class="item-desc">Nodular lesions coalesce into conglomerate fibrotic masses one centimetre or larger, destroying regional lung architecture. PMF is the disabling complicated form and is characteristically self-sustaining: it can continue to progress after dust exposure has ended. The silica-enriched dust burden of contemporary mining shifts the histologic type of these masses toward silica-type PMF.</div>
 
@@ -7291,6 +7358,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gas-exchange-and-mixed-ventilatory-defect" data-dismech-node="Impaired Gas Exchange and Mixed Ventilatory Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gas Exchange and Mixed Ventilatory Defect</div>
+
 
                 <div class="item-desc">Fibrotic mass lesions restrict lung expansion while focal emphysema and small airway disease obstruct airflow, producing the mixed restrictive-obstructive physiology and ventilation-perfusion mismatch of advanced CWP. Progressive hypoxemia follows, and chronic hypoxic vasoconstriction with vascular destruction raises pulmonary artery pressure toward cor pulmonale.</div>
 
@@ -7627,6 +7695,9 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7700,6 +7771,9 @@ This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7780,6 +7854,9 @@ This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7879,6 +7956,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7945,6 +8025,9 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8039,6 +8122,9 @@ This clinical feature is Chronic cough (HP:0034315). HP:0034315 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8140,6 +8226,9 @@ This clinical feature is Focal centrilobular emphysema, annotated with Centrilob
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8231,6 +8320,9 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8330,6 +8422,9 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8394,6 +8489,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8516,6 +8614,9 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8613,6 +8714,9 @@ This disease-associated gene is TGFB1 (hgnc:11766). hgnc:11766 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8718,6 +8822,9 @@ This disease-associated gene is H19 (hgnc:4713). hgnc:4713 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8819,6 +8926,9 @@ This treatment is occupational exposure cessation, annotated with Therapeutic Pr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8829,6 +8939,9 @@ This treatment is occupational exposure cessation, annotated with Therapeutic Pr
 
 
     </div>
+
+
+
 
 
 
@@ -8966,6 +9079,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8976,6 +9092,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9070,6 +9189,9 @@ This treatment is Pulmonary Rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9080,6 +9202,9 @@ This treatment is Pulmonary Rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
     </div>
+
+
+
 
 
 
@@ -9194,6 +9319,9 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9204,6 +9332,9 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -9318,6 +9449,9 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9328,6 +9462,9 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9512,6 +9649,9 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9522,6 +9662,9 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10774,10 +10917,10 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
                 </div>
 
-                <div class="evidence-snippet">"Pathologic studies have shown that rounded opacities on chest imaging correspond to coal macules and coal nodules, and irregular opacities to interstitial fibrosis."</div>
+                <div class="evidence-snippet">"A chest radiograph classified using the International Labor Office (ILO) system has been the mainstay for medical surveillance of pneumoconioses in dusty trades. ... Coal mine dust lung disease (CMDLD), or black lung, is a group of lung conditions caused by exposure to coal mine dust, including..."</div>
 
 
-                <div class="evidence-explanation">Establishes the radiographic-pathologic correspondence that makes the rounded opacity a readout of the macular lesion specifically.</div>
+                <div class="evidence-explanation">Restores the plain-radiograph/ILO context and coal-workers&#39; pneumoconiosis diagnostic setting before the opacity-to-pathology mapping. The selected passage does not give p/q/r millimeter boundaries.</div>
 
 
 
@@ -13713,10 +13856,19 @@ imaging_findings:
     reference_title: &#34;Pathology and Mineralogy of the Pneumoconioses.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Pathologic studies have shown that rounded opacities on chest imaging correspond to coal macules and coal nodules, and irregular opacities to interstitial fibrosis.&#34;
+    snippet: &gt;-
+      A chest radiograph classified using the International Labor Office (ILO) system has been the
+      mainstay for medical surveillance of pneumoconioses in dusty trades. ... Coal mine dust lung
+      disease (CMDLD), or black lung, is a group of lung conditions caused by exposure to coal mine
+      dust, including emphysema, chronic obstructive pulmonary disease, dust-related diffuse
+      fibrosis, and coal worker’s pneumoconiosis (CWP). CWP can be diagnosed by finding rounded or
+      irregular linear opacities on chest imaging in association with a compatible exposure history.
+      Pathologic studies have shown that rounded opacities on chest imaging correspond to coal
+      macules and coal nodules, and irregular opacities to interstitial fibrosis.
     explanation: &gt;-
-      Establishes the radiographic-pathologic correspondence that makes the
-      rounded opacity a readout of the macular lesion specifically.
+      Restores the plain-radiograph/ILO context and coal-workers&#39; pneumoconiosis diagnostic setting
+      before the opacity-to-pathology mapping. The selected passage does not give p/q/r millimeter
+      boundaries.
 - name: Nodules on high-resolution CT not visible on plain radiography
   modality: CT
   description: &gt;-
@@ -14050,6 +14202,101 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Coal Workers Pneumoconiosis</strong> · 2026-09-03T02:53:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Coal_Workers_Pneumoconiosis/2026-09-03T025325Z-claude-code-05abb6.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Coal_Workers_Pneumoconiosis.yaml de novo (MONDO:0006654, canonical
+label &#34;anthracosis&#34;; &#34;coal workers&#39; pneumoconiosis&#34; is an exact MONDO synonym).
+
+Duplicate preflight: git grep over origin/main kb/ for MONDO:0006654, &#34;coal worker&#34;,
+&#34;anthracosis&#34;, &#34;coal dust&#34; returned only Chronic_Obstructive_Pulmonary_Disease (a coal-dust
+mention, not a CWP entry); stubs/ had no match; GitHub PR and issue searches across all
+states returned zero. No claim issue existed.
+
+Deep research: claude_code provider only, via `just research-disorder claude_code
+Coal_Workers_Pneumoconiosis`. Run took 254s over 20 turns and 18 web searches, cost
+~$1.22, 57 citations. The report carried no reference_validation or term_validation
+frontmatter block, so both were retro-fitted with `just validate-research-reference` and
+`just validate-research-terms`.
+
+Reference validation on the report: 31/31 resolved, 0 unresolved, 0 off topic. Nothing was
+excluded on validation grounds.
+
+Term validation on the report found 2 terms named as a different term and 4 worth a second
+look. Independent OAK checks found MORE wrong bindings than the validator flagged, because
+the validator only checked 14 of 36 names. Every suggested HPO term was re-derived from OAK
+rather than copied. Wrong report suggestions, all rejected:
+  HP:0002105 report &#34;Restrictive ventilatory defect&#34; -&gt; HP is Hemoptysis (NOT flagged by
+    the validator; caught by direct OAK lookup). Correct term used: HP:0002091.
+  HP:0009777 report &#34;Rheumatoid nodules&#34; -&gt; HP is Absent thumb. Phenotype dropped.
+  HP:0100750 report &#34;Pulmonary nodule&#34; -&gt; HP is Atelectasis. Correct term used: HP:0033608.
+  HP:0031246 report &#34;Chronic cough&#34; -&gt; HP is Nonproductive cough. Correct term used:
+    HP:0034315.
+  HP:0002092 report &#34;Pulmonary hypertension&#34; -&gt; HP is Pulmonary arterial hypertension, a
+    Group 1 entity; CWP causes Group 3 PH. Bound HP:0004890 Elevated pulmonary artery
+    pressure instead.
+  NCIT:C64582 report &#34;Oxygen&#34; -&gt; NCIT is &#34;Hypopharyngeal Cancer pNX TNM Finding v6 and v7&#34;.
+    Bound NCIT:C94624 Oxygen Therapy instead.
+  UBERON:0002185 report &#34;bronchiole&#34; -&gt; UBERON is bronchus; UBERON:0000115 report &#34;lung
+    parenchyma&#34; -&gt; UBERON is lung epithelium. Bound UBERON:0002188 respiratory bronchiole,
+    which is where the coal macule actually forms.
+Every NCIT treatment term was checked for reachability from NCIT:C25218 before use.
+
+Citations: the report cites by URL and PMC id rather than PMID, and its .citations.md
+sidecar contains only the prompt. 21 PMC ids were converted to PMIDs via the PMC ID
+Converter API and cited as PMIDs; PubMed searches added further primary sources (NIOSH
+surveillance, the National Coal Workers&#39; Autopsy Study PMF-typing paper, the 37-year
+mortality cohort, the UNOS transplant analysis).
+
+Content: 4 subtypes (simple, complicated/PMF, rapidly progressive, Caplan syndrome);
+13-node pathophysiology chain wired with `downstream` edges from dust deposition through
+macrophage phagocytosis, ROS, NLRP3/NF-kappaB, inflammatory amplification, EMT and
+fibroblast activation to the coal macule, focal emphysema, PMF and mixed ventilatory
+defect; a separate `Silica-Enriched Dust Burden` node carrying the contemporary
+silica-driven resurgence; 10 phenotypes; 2 environmental entries (coal mine dust with
+exposure_classifications and two influences_mechanisms links, plus smoking as an explicitly
+non-causal modifier); 3 susceptibility genes (TNF, TGFB1, H19); 3 prevalence records; 2
+biomarkers; 6 treatments; 1 clinical trial (NCT04461587).
+
+Five nodes declare conforms_to against fibrotic_response (Tissue Injury, Inflammatory
+Recruitment and Amplification, Mesenchymal Cell Activation, Excessive ECM Deposition,
+Architectural Distortion and Organ Dysfunction), matching the Asbestosis pattern.
+
+Deliberate omissions, recorded so they are not read as oversights:
+  - No `datasets:` block. `just discover-datasets` returned 13 candidates, all GENE_ONLY
+    via TNF/TGFB1/H19 and none about coal dust or pneumoconiosis (Crohn&#39;s disease, macular
+    degeneration, ovarian cancer). A direct GEO search found exactly one plausible series,
+    GSE311671, whose title says &#34;Coal Mine Dust&#34; but whose summary and overall design are a
+    silica suspension murine silicosis model. Including it would have been the Named Entity
+    Confusion failure the dataset-curation guidance warns about, so nothing was added.
+  - No iarc_carcinogen_group on the coal mine dust exposure. Coal mine dust itself has no
+    IARC group this entry is entitled to assert; crystalline silica&#39;s Group 1 listing
+    belongs to the Silicosis exposure. The coal-dust/lung-cancer association is curated as
+    cohort evidence instead.
+  - ILO item 2.1.9 (COPD from coal dust) deliberately not claimed: it names a different
+    disease outcome of the same exposure, curated under COPD.
+  - No GeneReviews baseline. PubMed search for &#34;pneumoconiosis GeneReviews[All Fields]&#34;
+    returned 0 hits, as expected for a purely acquired occupational disease.
+  - Most `downstream` edges carry no edge-level evidence. Edge evidence was added only for
+    the 8 edges where a source makes the causal claim itself; the rest were left uncited
+    rather than reusing a node citation to paper over an unsourced edge.
+
+Validation run: `just validate` and `just validate-disorders` both pass, 72/72 snippets
+verified against the cached references. check-entity-refs, check-causal-targets,
+check-duplicate-keys, check-enum-values, check-qualifier-terms and
+check-qualifier-terms-online all OK. Whole-KB content gates (snippet-length,
+title-snippets, folded-hyphens, snippet-grading, environmental-evidence) report no new
+violations. Compliance 84.7% (Silicosis 79.4%, Chronic Beryllium Disease 79.9%, Asbestosis
+88.6%). Page renders; the derived HTML was not committed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14637,7 +14884,7 @@ animal_models:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Coal Workers Pneumoconiosis", "mondoId": "MONDO:0006654", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coal_Workers_Pneumoconiosis", "yamlRevision": "eb3254ae9089"};
+        const OS_CONFIG = {"diseaseName": "Coal Workers Pneumoconiosis", "mondoId": "MONDO:0006654", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coal_Workers_Pneumoconiosis", "yamlRevision": "e632a8162db8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

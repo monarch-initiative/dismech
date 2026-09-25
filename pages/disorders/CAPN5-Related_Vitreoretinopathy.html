@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4507,6 +4560,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-capn5-gain-of-function-protease-hyperactivation" data-dismech-node="CAPN5 Gain-of-Function Protease Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">CAPN5 Gain-of-Function Protease Hyperactivation</div>
 
+
                 <div class="item-desc">Heterozygous missense mutations near the calcium-sensitive gating loop of the calpain-5 catalytic core increase calcium sensitivity and catalytic activity of the enzyme; in transfected HEK293T cells the founding mutant proteins localize to the cytoplasm rather than near the cell surface, suggesting the mutations may alter a membrane-binding property of calpain-5. The regulatory domain-III variant G376S has not been functionally assayed and is only hypothesized to have a milder effect on protein function. Capn5 knockout mice show no retinal phenotype, indicating the disease mechanism is gain-of-function rather than haploinsufficiency.</div>
 
 
@@ -4592,6 +4646,8 @@ This genetic context concerns CAPN5 (hgnc:1482). hgnc:1482 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4607,6 +4663,9 @@ This genetic context concerns CAPN5 (hgnc:1482). hgnc:1482 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous missense variants in the CAPN5 protease domain. Recorded as GAIN_OF_FUNCTION rather than haploinsufficiency: the variants hyperactivate the calpain-5 protease, and the inflammatory and neovascular phenotype is not seen with CAPN5 deletion.</div>
 
@@ -4786,6 +4845,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-photoreceptor-synaptic-proteolysis" data-dismech-node="Aberrant Photoreceptor Synaptic Proteolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Photoreceptor Synaptic Proteolysis</div>
+
 
                 <div class="item-desc">Hyperactive, mislocalized calpain-5 is hypothesized to aberrantly proteolyze substrates at the retinal ribbon synapse in the retina&#39;s naturally high-calcium phototransduction environment; the specific protein substrates of calpain-5 have not been identified. Vitreous proteomics of CAPN5-NIV patients shows early loss of synaptic proteins including neurexin-2, glutamate receptor 4 (a receptor expressed in rod bipolar cells), and neurofascin. The proteomic analysis could not differentiate which retinal cells are affected by these losses, which may contribute to the synaptic signaling defect -- reduced ERG b-wave amplitude -- seen in early disease.</div>
 
@@ -5003,6 +5063,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-and-adaptive-autoimmune-uveitis" data-dismech-node="Innate and Adaptive Autoimmune Uveitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate and Adaptive Autoimmune Uveitis</div>
+
 
                 <div class="item-desc">Aberrant proteolysis and the resulting cellular stress may trigger local innate immune activation (Toll-like receptor pathway genes, chemokines, cytokines, complement components) accompanied by dense CD3+ T-lymphocyte infiltration of the uvea, vitreous, and retina, driving chronic autoimmune uveitis; how the innate and adaptive arms interact in CAPN5-NIV pathogenesis remains under investigation. Vitreous TNF-alpha levels are normal, explaining why patients fail conventional anti-TNF immunosuppression (e.g. infliximab).</div>
 
@@ -5278,6 +5339,7 @@ This pathophysiological event occurs in vitreous body (UBERON:0001798). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-driven-photoreceptor-degeneration" data-dismech-node="Oxidative Stress-Driven Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress-Driven Photoreceptor Degeneration</div>
 
+
                 <div class="item-desc">Chronic inflammation is accompanied by loss of vitreous antioxidant defenses (superoxide dismutase, peroxiredoxins, catalase, clusterin), indicating reduced defense against oxidative stress that may leave photoreceptors vulnerable to oxidative injury. A retinitis-pigmentosa-like pigmentary photoreceptor degeneration (ADNIV Stage II) follows, distinguished from classic RP by pigment clumping rather than bone-spicule pigmentation.</div>
 
 
@@ -5444,6 +5506,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-opticin-loss-and-pathologic-retinal-neovascularization" data-dismech-node="Opticin Loss and Pathologic Retinal Neovascularization" data-dismech-type="pathophysiology">
                 <div class="item-name">Opticin Loss and Pathologic Retinal Neovascularization</div>
+
 
                 <div class="item-desc">Downregulation of the anti-angiogenic vitreous matrix protein opticin may contribute, together with elevated vascular endothelial growth factor (VEGF), to pathologic retinal and iris neovascularization mimicking proliferative diabetic retinopathy (ADNIV Stage III). Anti-VEGF therapy (bevacizumab) has been repositioned to suppress this neovascularization.</div>
 
@@ -5637,6 +5700,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrotic-proliferative-vitreoretinopathy-and-progressive-blindness" data-dismech-node="Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness</div>
 
+
                 <div class="item-desc">Downregulation of the vitreous structural proteoglycan versican may disrupt normal vitreous architecture, contributing to intraocular fibrosis, epiretinal membrane formation, and tractional retinal detachment (ADNIV Stage IV). Structural damage is generally irreversible; the disease culminates in phthisis bulbi and complete blindness (Stage V) despite corticosteroid control of active inflammation.</div>
 
 
@@ -5783,7 +5847,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactive, mislocalized calpain-5 is hypothesized to aberrantly proteolyze substrates at the retinal ribbon synapse in the retina\u0027s naturally high-calcium phototransduction environment; the specific protein substrates of calpain-5 have not been identified. Vitreous proteomics of CAPN5-NIV patients shows early loss of synaptic proteins including neurexin-2, glutamate receptor 4 (a receptor expressed in rod bipolar cells), and neurofascin. The proteomic analysis could not differentiate which retinal cells are affected by these losses, which may contribute to the synaptic signaling defect -- reduced ERG b-wave amplitude -- seen in early disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Photoreceptor Cell\"], \"biological_processes\": [\"Proteolysis\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"CAPN5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CAPN5\"], \"gene_terms\": [{\"label\": \"CAPN5\", \"id\": \"hgnc:1482\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 6}}, {\"id\": \"CAPN5 Gain-of-Function Protease Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense mutations near the calcium-sensitive gating loop of the calpain-5 catalytic core increase calcium sensitivity and catalytic activity of the enzyme; in transfected HEK293T cells the founding mutant proteins localize to the cytoplasm rather than near the cell surface, suggesting the mutations may alter a membrane-binding property of calpain-5. The regulatory domain-III variant G376S has not been functionally assayed and is only hypothesized to have a milder effect on protein function. Capn5 knockout mice show no retinal phenotype, indicating the disease mechanism is gain-of-function rather than haploinsufficiency.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Photoreceptor Cell\"], \"molecular_functions\": [\"Calcium-Dependent Cysteine-Type Endopeptidase Activity\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous missense variants in the CAPN5 protease domain. Recorded as GAIN_OF_FUNCTION rather than haploinsufficiency: the variants hyperactivate the calpain-5 protease, and the inflammatory and neovascular phenotype is not seen with CAPN5 deletion.\", \"gene_terms\": [{\"label\": \"CAPN5\", \"id\": \"hgnc:1482\"}]}, \"role\": \"trigger\", \"locations\": [\"retina\"]}}, {\"id\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downregulation of the vitreous structural proteoglycan versican may disrupt normal vitreous architecture, contributing to intraocular fibrosis, epiretinal membrane formation, and tractional retinal detachment (ADNIV Stage IV). Structural damage is generally irreversible; the disease culminates in phthisis bulbi and complete blindness (Stage V) despite corticosteroid control of active inflammation.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"vitreous body\", \"retina\"]}}, {\"id\": \"Innate and Adaptive Autoimmune Uveitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant proteolysis and the resulting cellular stress may trigger local innate immune activation (Toll-like receptor pathway genes, chemokines, cytokines, complement components) accompanied by dense CD3+ T-lymphocyte infiltration of the uvea, vitreous, and retina, driving chronic autoimmune uveitis; how the innate and adaptive arms interact in CAPN5-NIV pathogenesis remains under investigation. Vitreous TNF-alpha levels are normal, explaining why patients fail conventional anti-TNF immunosuppression (e.g. infliximab).\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T Cell\"], \"biological_processes\": [\"Innate Immune Response\", \"Adaptive Immune Response\"], \"role\": \"central_effector\", \"locations\": [\"uvea\", \"vitreous body\"]}}, {\"id\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downregulation of the anti-angiogenic vitreous matrix protein opticin may contribute, together with elevated vascular endothelial growth factor (VEGF), to pathologic retinal and iris neovascularization mimicking proliferative diabetic retinopathy (ADNIV Stage III). Anti-VEGF therapy (bevacizumab) has been repositioned to suppress this neovascularization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal Blood Vessel Endothelial Cell\"], \"biological_processes\": [\"Angiogenesis\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation is accompanied by loss of vitreous antioxidant defenses (superoxide dismutase, peroxiredoxins, catalase, clusterin), indicating reduced defense against oxidative stress that may leave photoreceptors vulnerable to oxidative injury. A retinitis-pigmentosa-like pigmentary photoreceptor degeneration (ADNIV Stage II) follows, distinguished from classic RP by pigment clumping rather than bone-spicule pigmentation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Photoreceptor Cell\"], \"biological_processes\": [\"Response to Oxidative Stress\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"p.Arg243Leu (c.728G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Classic ADNIV, onset ~20s; also reported with late-onset mild presentation at ages 45 and 69.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg289Trp (c.865C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic domain, de novo. Most severe/syndromic variant -- childhood blindness, hearing loss, developmental delay.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly267Ser (c.799G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic domain (exon 6). Severe, congenital nystagmus, early vitreoretinopathy.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly376Ser (c.1126G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Regulatory domain-III. Mild, incidental, near-normal vision at age 19.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Leu244Pro (c.731T\u003eC)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Classic ADNIV.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Lys250Asn (c.750G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Severe uveitis, retinal neovascularization/detachment.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"CAPN5 Gain-of-Function Protease Hyperactivation\", \"target\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"target\": \"Innate and Adaptive Autoimmune Uveitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate and Adaptive Autoimmune Uveitis\", \"target\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate and Adaptive Autoimmune Uveitis\", \"target\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"target\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"target\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"p.Arg243Leu (c.728G\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Leu244Pro (c.731T\u003eC)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Lys250Asn (c.750G\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly267Ser (c.799G\u003eA)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly376Ser (c.1126G\u003eA)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg289Trp (c.865C\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactive, mislocalized calpain-5 is hypothesized to aberrantly proteolyze substrates at the retinal ribbon synapse in the retina\u0027s naturally high-calcium phototransduction environment; the specific protein substrates of calpain-5 have not been identified. Vitreous proteomics of CAPN5-NIV patients shows early loss of synaptic proteins including neurexin-2, glutamate receptor 4 (a receptor expressed in rod bipolar cells), and neurofascin. The proteomic analysis could not differentiate which retinal cells are affected by these losses, which may contribute to the synaptic signaling defect -- reduced ERG b-wave amplitude -- seen in early disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Photoreceptor Cell\"], \"biological_processes\": [\"Proteolysis\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"CAPN5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CAPN5\"], \"gene_terms\": [{\"label\": \"CAPN5\", \"id\": \"hgnc:1482\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 6}}, {\"id\": \"CAPN5 Gain-of-Function Protease Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense mutations near the calcium-sensitive gating loop of the calpain-5 catalytic core increase calcium sensitivity and catalytic activity of the enzyme; in transfected HEK293T cells the founding mutant proteins localize to the cytoplasm rather than near the cell surface, suggesting the mutations may alter a membrane-binding property of calpain-5. The regulatory domain-III variant G376S has not been functionally assayed and is only hypothesized to have a milder effect on protein function. Capn5 knockout mice show no retinal phenotype, indicating the disease mechanism is gain-of-function rather than haploinsufficiency.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Photoreceptor Cell\"], \"molecular_functions\": [\"Calcium-Dependent Cysteine-Type Endopeptidase Activity\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous missense variants in the CAPN5 protease domain. Recorded as GAIN_OF_FUNCTION rather than haploinsufficiency: the variants hyperactivate the calpain-5 protease, and the inflammatory and neovascular phenotype is not seen with CAPN5 deletion.\", \"gene_terms\": [{\"label\": \"CAPN5\", \"id\": \"hgnc:1482\"}]}, \"role\": \"trigger\", \"locations\": [\"retina\"]}}, {\"id\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downregulation of the vitreous structural proteoglycan versican may disrupt normal vitreous architecture, contributing to intraocular fibrosis, epiretinal membrane formation, and tractional retinal detachment (ADNIV Stage IV). Structural damage is generally irreversible; the disease culminates in phthisis bulbi and complete blindness (Stage V) despite corticosteroid control of active inflammation.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"vitreous body\", \"retina\"]}}, {\"id\": \"Innate and Adaptive Autoimmune Uveitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant proteolysis and the resulting cellular stress may trigger local innate immune activation (Toll-like receptor pathway genes, chemokines, cytokines, complement components) accompanied by dense CD3+ T-lymphocyte infiltration of the uvea, vitreous, and retina, driving chronic autoimmune uveitis; how the innate and adaptive arms interact in CAPN5-NIV pathogenesis remains under investigation. Vitreous TNF-alpha levels are normal, explaining why patients fail conventional anti-TNF immunosuppression (e.g. infliximab).\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T Cell\"], \"biological_processes\": [\"Innate Immune Response\", \"Adaptive Immune Response\"], \"role\": \"central_effector\", \"locations\": [\"uvea\", \"vitreous body\"]}}, {\"id\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downregulation of the anti-angiogenic vitreous matrix protein opticin may contribute, together with elevated vascular endothelial growth factor (VEGF), to pathologic retinal and iris neovascularization mimicking proliferative diabetic retinopathy (ADNIV Stage III). Anti-VEGF therapy (bevacizumab) has been repositioned to suppress this neovascularization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal Blood Vessel Endothelial Cell\"], \"biological_processes\": [\"Angiogenesis\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation is accompanied by loss of vitreous antioxidant defenses (superoxide dismutase, peroxiredoxins, catalase, clusterin), indicating reduced defense against oxidative stress that may leave photoreceptors vulnerable to oxidative injury. A retinitis-pigmentosa-like pigmentary photoreceptor degeneration (ADNIV Stage II) follows, distinguished from classic RP by pigment clumping rather than bone-spicule pigmentation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Photoreceptor Cell\"], \"biological_processes\": [\"Response to Oxidative Stress\"], \"role\": \"central_effector\", \"locations\": [\"retina\"]}}, {\"id\": \"p.Arg243Leu (c.728G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Classic ADNIV, onset ~20s; also reported with late-onset mild presentation at ages 45 and 69.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg289Trp (c.865C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic domain, de novo. Most severe/syndromic variant -- childhood blindness, hearing loss, developmental delay.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly267Ser (c.799G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic domain (exon 6). Severe, congenital nystagmus, early vitreoretinopathy.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly376Ser (c.1126G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Regulatory domain-III. Mild, incidental, near-normal vision at age 19.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Leu244Pro (c.731T\u003eC)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Classic ADNIV.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Lys250Asn (c.750G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Catalytic core, gating loop. Severe uveitis, retinal neovascularization/detachment.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"CAPN5 Gain-of-Function Protease Hyperactivation\", \"target\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Photoreceptor Synaptic Proteolysis\", \"target\": \"Innate and Adaptive Autoimmune Uveitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate and Adaptive Autoimmune Uveitis\", \"target\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate and Adaptive Autoimmune Uveitis\", \"target\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress-Driven Photoreceptor Degeneration\", \"target\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Opticin Loss and Pathologic Retinal Neovascularization\", \"target\": \"Fibrotic Proliferative Vitreoretinopathy and Progressive Blindness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAPN5\", \"target\": \"CAPN5 Gain-of-Function Protease Hyperactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg243Leu (c.728G\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Leu244Pro (c.731T\u003eC)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Lys250Asn (c.750G\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly267Ser (c.799G\u003eA)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly376Ser (c.1126G\u003eA)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg289Trp (c.865C\u003eT)\", \"target\": \"CAPN5\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5866,6 +5930,9 @@ This clinical feature is Retinal neovascularization (HP:0030666), qualified as t
 
 
                     </div>
+
+
+
 
 
 
@@ -5971,6 +6038,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6067,6 +6137,9 @@ This clinical feature is Uveitis (HP:0000554), qualified as temporality chronic.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6149,6 +6222,9 @@ This clinical feature is Abnormal electroretinogram (HP:0000512), qualified as t
 
 
                     </div>
+
+
+
 
 
 
@@ -6295,6 +6371,9 @@ This clinical feature is Pigmentary retinopathy (HP:0000580), qualified as tempo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6379,6 +6458,9 @@ This clinical feature is Retinal detachment (HP:0000541), qualified as temporali
 
 
                     </div>
+
+
+
 
 
 
@@ -6473,6 +6555,9 @@ This clinical feature is Phthisis bulbi (HP:0000667), qualified as temporality c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6546,6 +6631,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6664,6 +6752,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6766,7 +6857,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6774,6 +6867,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Catalytic core, gating loop. Classic ADNIV, onset ~20s; also reported with late-onset mild presentation at ages 45 and 69.</div>
@@ -6801,7 +6899,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6809,6 +6909,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Catalytic core, gating loop. Classic ADNIV.</div>
@@ -6836,7 +6941,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6844,6 +6951,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Catalytic core, gating loop. Severe uveitis, retinal neovascularization/detachment.</div>
@@ -6871,7 +6983,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6879,6 +6993,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Catalytic domain (exon 6). Severe, congenital nystagmus, early vitreoretinopathy.</div>
@@ -6906,7 +7025,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6914,6 +7035,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Regulatory domain-III. Mild, incidental, near-normal vision at age 19.</div>
@@ -6941,7 +7067,9 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6949,6 +7077,11 @@ This disease-associated gene is CAPN5 (hgnc:1482). hgnc:1482 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Catalytic domain, de novo. Most severe/syndromic variant -- childhood blindness, hearing loss, developmental delay.</div>
@@ -7024,6 +7157,12 @@ This treatment is corticosteroid agent therapy, annotated with Steroid Therapy (
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7177,6 +7316,12 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Intravitreal bevacizumab, an anti-VEGF monoclonal antibody, was repositioned based on proteomic evidence of elevated vitreous VEGF and successfully mitigated neovascularization in CAPN5-NIV patients.</div>
 
 
@@ -7270,6 +7415,12 @@ This treatment is Cryotherapy (NCIT:C40030). NCIT:C40030 is a clinical intervent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Retinal cryotherapy has been used in CAPN5-NIV: a severely affected patient with progressive vitreoretinopathy and recurrent vitreous hemorrhages received multiple cryotherapy treatments. Disease-specific indication and outcome data are limited to single-case experience.</div>
 
 
@@ -7350,6 +7501,12 @@ This treatment is Brachytherapy (NCIT:C15195). NCIT:C15195 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7457,6 +7614,12 @@ This treatment is vitrectomy (NCIT:C50837). NCIT:C50837 is a clinical interventi
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pars plana vitrectomy has been used in the surgical management of advanced CAPN5-NIV: a severely affected patient with progressive vitreoretinopathy, recurrent vitreous hemorrhages, and subsequent tractional retinal detachments underwent bilateral vitrectomies. Disease-specific indication and outcome data are limited to single-case experience.</div>
 
 
@@ -7538,6 +7701,12 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9291,6 +9460,19 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: CAPN5-Related Vitreoretinopathy (ADNIV, MONDO:0100450)</strong> · 2026-07-17T16:27:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CAPN5-Related_Vitreoretinopathy/2026-07-17T162741Z-claude-code-35dc83.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of CAPN5-related vitreoretinopathy (ADNIV/NIV/VRNI, OMIM:193235) from issue #4008&#39;s Acquired/Common retinopathy list. Sourced via a claude_code deep-research run (research/CAPN5-Related_Vitreoretinopathy-deep-research-claude_code.md, 16 web searches, 20 citations) after falcon returned a transient network error; NEC preflight passed (gene CAPN5/HGNC:1482 and OMIM:193235 both match the MONDO:0100450 record). 6-node pathophysiology chain: CAPN5 gain-of-function protease hyperactivation -&gt; aberrant photoreceptor synaptic proteolysis -&gt; innate/adaptive autoimmune uveitis (branches to) -&gt; oxidative-stress photoreceptor degeneration (conforms_to photoreceptor_degeneration#Photoreceptor Metabolic and Oxidative Stress) and opticin-loss/neovascularization -&gt; fibrotic proliferative vitreoretinopathy and blindness (conforms_to fibrotic_response#Architectural Distortion and Organ Dysfunction). Modeled canonical gain-of-function vs. refuted-in-text haploinsufficiency as mechanistic_hypotheses (DEPRECATED status, since REFUTED is not a valid enum value). Three has_subtypes capturing the genotype-severity spectrum (Classic catalytic-domain, Mild regulatory-domain G376S, Syndromic Severe de novo R289W with hearing loss/developmental delay). 7 PMIDs fetched and verified (23055945, 23861576, 25994508, 29040051, 29472286, 31110225, 32274441); all evidence_source classifications checked (MODEL_ORGANISM kept distinct from HUMAN_CLINICAL for the mouse-model claims). Two snippet fixes needed during validation: trimmed a bracketed citation-number artifact (&#39;[32]&#39;) that the reference validator could not match despite being an exact quote, and rewrote a TNF-alpha snippet to avoid the Greek alpha character (same category of Windows-local encoding mismatch seen on other entries this session -- both were exact matches under manual whitespace-normalized substring checks). New MONDO:0100450 term manually appended to cache/mondo/terms.csv and cache/enums/diseaseterm_*.csv (does not auto-populate). Note: &#39;just validate&#39; on this Windows machine has a reproducible side effect of touching all ~2472 references_cache/*.md files (reference_id frontmatter re-quoting) plus intermittently mojibake-corrupting two unrelated MONDO rows -- both were reverted before staging so the commit is scoped to just this entry&#39;s files.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

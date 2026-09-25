@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4793,6 +4846,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leaky-gaa-splicing-and-partial-residual-enzyme-activity" data-dismech-node="Leaky GAA Splicing and Partial Residual Enzyme Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Leaky GAA Splicing and Partial Residual Enzyme Activity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The LOPD-defining lesion is partial rather than complete loss of acid alpha-glucosidase. The commonest LOPD allele, c.-32-13T&gt;G (IVS1), sits in intron 1 and weakens the splice acceptor of GAA exon 2. Most transcripts from that allele are aberrantly spliced (partial or complete exon 2 skipping), but a low level of correctly spliced, fully functional transcript escapes. That residual activity - conventionally quoted as roughly 1-30% of normal, though see the caveat in the biochemical section and in notes - is what shifts the phenotype from infantile to late onset. In the great majority of LOPD patients the leaky allele is carried in trans with a second, more deleterious pathogenic variant, so the leaky allele is the one setting how much enzyme the patient makes.
 </div>
 
@@ -4890,6 +4950,8 @@ This genetic context concerns GAA (hgnc:4065). hgnc:4065 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4905,6 +4967,9 @@ This genetic context concerns GAA (hgnc:4065). hgnc:4065 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Compound heterozygosity for the leaky c.-32-13T&gt;G intron-1 splice variant and a second, more deleterious pathogenic GAA variant.</div>
 
@@ -5094,6 +5159,13 @@ This pathophysiological event involves decreased acid alpha-glucosidase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-lysosomal-glycogen-accumulation-in-skeletal-and-respiratory-muscle" data-dismech-node="Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Partial GAA activity permits slow lysosomal glycogen accumulation that is concentrated in skeletal muscle, including the respiratory muscles, rather than the generalized multisystem storage of infantile disease. The tissue selectivity reflects the very high glycogen flux of muscle relative to its residual degradative capacity, so muscle is the first compartment in which the reduced enzyme reserve is exhausted.
 </div>
@@ -5310,6 +5382,13 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-cardiac-sparing" data-dismech-node="Relative Cardiac Sparing" data-dismech-type="pathophysiology">
                 <div class="item-name">Relative Cardiac Sparing</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Absence of hypertrophic cardiomyopathy is a defining feature of LOPD and part of its formal case definition, not merely a statistical tendency. Residual GAA activity is sufficient to keep cardiomyocyte glycogen storage subclinical, so the cardiorespiratory collapse that kills untreated infants does not occur; the respiratory system, not the heart, becomes the life-limiting organ. This node is curated as a mechanistic contrast rather than as a claim that the myocardium is entirely normal - adult arteriopathy and rare conduction findings are described in the umbrella Pompe disease entry.
 </div>
 
@@ -5405,6 +5484,13 @@ This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagic-mistargeting-of-endocytosed-recombinant-enzyme" data-dismech-node="Autophagic Mistargeting of Endocytosed Recombinant Enzyme" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic Mistargeting of Endocytosed Recombinant Enzyme</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Skeletal myofibers in Pompe disease develop large autophagic areas alongside glycogen-filled lysosomes. These areas trap endocytosed recombinant human GAA in a partially processed form so that it never reaches the lysosome, which is a mechanistic explanation for why enzyme replacement therapy is far more effective in cardiac than in skeletal muscle and why it slows rather than arrests the LOPD myopathy. Because LOPD is a decades-long disease treated for decades, this therapeutic ceiling is a defining clinical problem of the late-onset form.
 </div>
@@ -5640,6 +5726,13 @@ This pathophysiological event involves decreased endosomal transport of endocyto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pre-vacuolar-metabolic-reprogramming-of-myonuclei" data-dismech-node="Pre-Vacuolar Metabolic Reprogramming of Myonuclei" data-dismech-type="pathophysiology">
                 <div class="item-name">Pre-Vacuolar Metabolic Reprogramming of Myonuclei</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Single-nucleus RNA sequencing combined with spatial transcriptomics of LOPD muscle biopsies shows that myofibers are transcriptionally abnormal before they are histologically abnormal. Fibers that are not yet vacuolated already show reduced glycolytic gene expression with increased lipid and amino-acid metabolism, upregulated autophagy genes, and downregulated ribosomal and mitochondrial programmes producing defective oxidative phosphorylation. Inflammation, apoptosis, and regeneration signatures appear only once vacuolation is established. This staging matters for LOPD specifically, because it identifies an early, possibly still-tractable metabolic derangement that precedes the structural damage enzyme replacement therapy cannot undo. The study reports only a &#34;tendency&#34; for therapy to restore the dysregulated metabolism, so reversibility is a hypothesis this node raises rather than a result it records.
 </div>
@@ -5970,6 +6063,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-limb-girdle-and-axial-myofiber-degeneration" data-dismech-node="Progressive Limb-Girdle and Axial Myofiber Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Limb-Girdle and Axial Myofiber Degeneration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Chronic storage and autophagic injury destroy myofibers, which are replaced by fat. The distribution is characteristically limb-girdle and axial, with early involvement of the psoas and paraspinal muscles; quantitative fat fraction on lumbar MRI correlates with strength, walking distance, stair climbing and supine spirometry, and continues to rise during enzyme replacement therapy.
 </div>
 
@@ -6101,6 +6201,13 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phrenic-motor-unit-failure" data-dismech-node="Phrenic Motor Unit Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Phrenic Motor Unit Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Diaphragm weakness in LOPD is disproportionate to limb weakness and is the proximate cause of nocturnal hypoventilation and ultimately of ventilatory failure. Neurophysiological study of treated LOPD patients found that those with respiratory failure had absent or severely reduced phrenic nerve compound muscle action potentials and diaphragm EMG showing neurogenic as well as myopathic changes, implicating spinal phrenic motor neuron dysfunction alongside myofiber disease. Because intravenous recombinant enzyme does not cross the blood-brain barrier, a motor neuron contribution would explain residual respiratory decline on enzyme replacement therapy. The motor neuron arm is curated as PROVISIONAL: the supporting series is small (eight patients) and calls for confirmation.
 </div>
@@ -6322,6 +6429,13 @@ This pathophysiological event occurs in diaphragm (UBERON:0001103). UBERON:00011
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-response-to-enzyme-replacement-therapy" data-dismech-node="Incomplete Response to Enzyme Replacement Therapy" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete Response to Enzyme Replacement Therapy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Enzyme replacement therapy changes the trajectory of LOPD but does not normalize it. Walking distance and forced vital capacity improve modestly relative to placebo in the short term, yet muscle fat fraction continues to increase, some patients still progress to ventilatory support, and the effect on sleep-disordered breathing is undocumented. This residual disease burden is a mechanistic consequence of the autophagic mistargeting node and, possibly, of the motor neuron arm of diaphragm weakness, which intravenous enzyme cannot reach.
 </div>
 
@@ -6433,6 +6547,13 @@ This pathophysiological event occurs in diaphragm (UBERON:0001103). UBERON:00011
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-glycogen-accumulation-in-vascular-and-visceral-smooth-muscle" data-dismech-node="Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Residual GAA activity is exhausted in smooth muscle as well as in skeletal muscle. Autopsy of a woman with LOPD demonstrated lysosomal glycogen inside vascular smooth muscle cells by transmission electron microscopy, alongside involvement of the bladder, intestine, and esophagus. This is a distinct cellular compartment from the skeletal and respiratory myofiber storage that dominates the LOPD clinical picture, and it is the substrate for the disease&#39;s two extra-muscular arms: the dilative arteriopathy of large arteries, and the gastrointestinal and genitourinary symptoms that patients report independently of limb weakness. Smooth-muscle storage is the reason LOPD is a systemic lysosomal disease rather than a pure myopathy.
 </div>
@@ -6787,6 +6908,13 @@ This pathophysiological event involves increased glycogen-distended lysosome, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dilative-arteriopathy-of-the-aorta-and-intracranial-arteries" data-dismech-node="Dilative Arteriopathy of the Aorta and Intracranial Arteries" data-dismech-type="pathophysiology">
                 <div class="item-name">Dilative Arteriopathy of the Aorta and Intracranial Arteries</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Progressive dilatation, ectasia and aneurysm formation affecting the ascending thoracic aorta and the intracranial arteries, with the vertebrobasilar system most often involved, together with a small-vessel component that shows up as white matter hyperintensity and cerebellar and brainstem microbleeds. It is the second organ system LOPD damages after muscle, and it is largely uncoupled from myopathy severity: patients are identified on surveillance imaging rather than by limb weakness, and enzyme replacement therapy did not change vessel calibre over a year of follow-up in the one series that looked. The node is recorded as PROVISIONAL rather than ESTABLISHED because the causal step from smooth-muscle glycogen to wall weakness is inferred rather than demonstrated - one aortic specimen showed connective-tissue changes resembling a fibrillinopathy rather than a storage lesion, and the Gaa-/- mouse accumulates little aortic glycogen, which led that study&#39;s authors to decline to attribute aortic wall weakness to glycogen accumulation (see animal_models).
 </div>
@@ -7159,7 +7287,7 @@ This pathophysiological event occurs in arterial tunica media, annotated with tu
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partial GAA activity permits slow lysosomal glycogen accumulation that is concentrated in skeletal muscle, including the respiratory muscles, rather than the generalized multisystem storage of infantile disease. The tissue selectivity reflects the very high glycogen flux of muscle relative to its residual degradative capacity, so muscle is the first compartment in which the reduced enzyme reserve is exhausted.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Lysosomal glycogen catabolism\"], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal myofibers in Pompe disease develop large autophagic areas alongside glycogen-filled lysosomes. These areas trap endocytosed recombinant human GAA in a partially processed form so that it never reaches the lysosome, which is a mechanistic explanation for why enzyme replacement therapy is far more effective in cardiac than in skeletal muscle and why it slows rather than arrests the LOPD myopathy. Because LOPD is a decades-long disease treated for decades, this therapeutic ceiling is a defining clinical problem of the late-onset form.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"autophagy\", \"endosomal transport of endocytosed enzyme\"]}}, {\"id\": \"Cerebral white matter hyperintensities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T2/FLAIR white matter hyperintensity accompanies the large-artery disease in roughly half of imaged LOPD adults, with cerebellar and brainstem microbleeds in a smaller subset. Together these constitute the small-vessel arm of LOPD cerebrovascular involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic constipation is reported by LOPD patients and is attributed to the same intestinal smooth-muscle storage lesion as reflux.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Dilatation of the ascending thoracic aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of adults with LOPD develop an arteriopathy whose best-characterized expression is dilatation of the ascending thoracic aorta. It is distinct from the hypertrophic cardiomyopathy of infantile-onset disease - the LOPD myocardium is typically spared - and it is specific enough to LOPD that GeneReviews adds aortic assessment to the annual echocardiogram for this group. Its mechanism is now curated on this entry: it is the aortic expression of the dilative arteriopathy node, downstream of lysosomal glycogen storage in vascular smooth muscle. That causal step is recorded as PROVISIONAL rather than established - see the arteriopathy node and the Gaa-/- mouse link for the evidence that qualifies it.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012727\"}}, {\"id\": \"Dilatation of the intracranial arteries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Beyond the vertebrobasilar system, LOPD arteriopathy affects the anterior circulation, produces saccular and fusiform aneurysms, and coexists with arterial stenosis in a third of patients. Enzyme replacement therapy did not reduce vessel calibre over a year of follow-up, so this arm of the disease is not currently treatment-responsive.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0004944\"}}, {\"id\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive dilatation, ectasia and aneurysm formation affecting the ascending thoracic aorta and the intracranial arteries, with the vertebrobasilar system most often involved, together with a small-vessel component that shows up as white matter hyperintensity and cerebellar and brainstem microbleeds. It is the second organ system LOPD damages after muscle, and it is largely uncoupled from myopathy severity: patients are identified on surveillance imaging rather than by limb weakness, and enzyme replacement therapy did not change vessel calibre over a year of follow-up in the one series that looked. The node is recorded as PROVISIONAL rather than ESTABLISHED because the causal step from smooth-muscle glycogen to wall weakness is inferred rather than demonstrated - one aortic specimen showed connective-tissue changes resembling a fibrillinopathy rather than a storage lesion, and the Gaa-/- mouse accumulates little aortic glycogen, which led that study\u0027s authors to decline to attribute aortic wall weakness to glycogen accumulation (see animal_models).\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medial vascular smooth muscle cell\"], \"locations\": [\"ascending thoracic aorta\", \"basilar artery\", \"arterial tunica media\"], \"animal_models\": [{\"name\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"species\": \"Mouse\", \"genotype\": \"Gaa-/- (targeted disruption of exon 6), homozygous null\", \"background\": \"B6;129\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The aorta accumulated the least glycogen of any smooth-muscle tissue measured and did not accumulate more between 6 and 15 months, and the authors state that this does not support the glycogen-to-wall-weakness hypothesis. The only aortic change seen was tunica media remodeling at 15 months. Note the study assayed glycogen and wall histology; it did not report vessel-calibre measurements, so what is recorded here is failure to reproduce the storage-driven wall lesion rather than a measured absence of dilatation.\"}]}}, {\"id\": \"Enzyme replacement therapy for late-onset disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous recombinant human GAA is the standard disease-modifying treatment. Alglucosidase alfa is approved for LOPD; avalglucosidase alfa is approved for individuals with LOPD older than one year; and cipaglucosidase alfa with miglustat is approved for adults with LOPD weighing at least 40 kg who are not improving on their current regimen. Benefit in LOPD is real but partial, and is limited by autophagic mistargeting of enzyme in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"alglucosidase alfa\", \"avalglucosidase alfa\", \"cipaglucosidase alfa\", \"miglustat\"]}}, {\"id\": \"GAA leaky splice-site variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GAA\"], \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most widely used Pompe mouse, a global Gaa knockout that survives into adulthood without treatment. This entry curates the study that characterized its smooth muscle rather than its skeletal muscle, because that is what bears on the extra-muscular arms of LOPD. Glycogen, lysosomes and autophagosomes accumulate across aortic, tracheal, esophageal, gastric and bladder smooth muscle, with the gastrointestinal and genitourinary tissues most affected. The model\u0027s central limitation for late-onset disease is genetic: a global null has essentially no residual enzyme, whereas LOPD is defined by partial activity from a leaky splice allele, so the mouse is genotypically closer to infantile-onset disease and its tempo cannot be read across.\\n\"}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reflux is reported by LOPD patients alongside constipation and is attributed to glycogen storage in gastrointestinal smooth muscle rather than to the limb myopathy. It improved markedly on enzyme replacement therapy in the one series that followed it, which distinguishes it from the vascular arm of smooth-muscle disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002020\"}}, {\"id\": \"Incomplete Response to Enzyme Replacement Therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enzyme replacement therapy changes the trajectory of LOPD but does not normalize it. Walking distance and forced vital capacity improve modestly relative to placebo in the short term, yet muscle fat fraction continues to increase, some patients still progress to ventilatory support, and the effect on sleep-disordered breathing is undocumented. This residual disease burden is a mechanistic consequence of the autophagic mistargeting node and, possibly, of the motor neuron arm of diaphragm weakness, which intravenous enzyme cannot reach.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The LOPD-defining lesion is partial rather than complete loss of acid alpha-glucosidase. The commonest LOPD allele, c.-32-13T\u003eG (IVS1), sits in intron 1 and weakens the splice acceptor of GAA exon 2. Most transcripts from that allele are aberrantly spliced (partial or complete exon 2 skipping), but a low level of correctly spliced, fully functional transcript escapes. That residual activity - conventionally quoted as roughly 1-30% of normal, though see the caveat in the biochemical section and in notes - is what shifts the phenotype from infantile to late onset. In the great majority of LOPD patients the leaky allele is carried in trans with a second, more deleterious pathogenic variant, so the leaky allele is the one setting how much enzyme the patient makes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"GAA pre-mRNA splicing at the exon 2 acceptor\"], \"molecular_functions\": [\"acid alpha-glucosidase activity\"], \"genes\": [\"GAA\"], \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\", \"modifier\": \"DECREASED\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Compound heterozygosity for the leaky c.-32-13T\u003eG intron-1 splice variant and a second, more deleterious pathogenic GAA variant.\", \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\"}]}}}, {\"id\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual GAA activity is exhausted in smooth muscle as well as in skeletal muscle. Autopsy of a woman with LOPD demonstrated lysosomal glycogen inside vascular smooth muscle cells by transmission electron microscopy, alongside involvement of the bladder, intestine, and esophagus. This is a distinct cellular compartment from the skeletal and respiratory myofiber storage that dominates the LOPD clinical picture, and it is the substrate for the disease\u0027s two extra-muscular arms: the dilative arteriopathy of large arteries, and the gastrointestinal and genitourinary symptoms that patients report independently of limb weakness. Smooth-muscle storage is the reason LOPD is a systemic lysosomal disease rather than a pure myopathy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"smooth muscle cell of bladder\", \"smooth muscle cell of the esophagus\", \"intestinal smooth muscle cell\"], \"biological_processes\": [\"lysosomal glycogen degradation in smooth muscle\"], \"animal_models\": [{\"name\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"species\": \"Mouse\", \"genotype\": \"Gaa-/- (targeted disruption of exon 6), homozygous null\", \"background\": \"B6;129\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantitative glycogen assay, PAS histology and LAMP1/LC3 immunoblotting all show the storage-plus-vacuolar-accumulation lesion in the same smooth-muscle beds implicated by human autopsy.\"}]}}, {\"id\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diaphragm weakness is expressed earliest during sleep, so sleep-disordered breathing and nocturnal hypoventilation typically precede overt daytime respiratory failure and are accompanied by sleep disruption, excessive daytime sleepiness, and reduced health-related quality of life.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002877\"}}, {\"id\": \"Non-invasive ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-invasive ventilation is the mainstay of treatment for sleep-disordered breathing and ventilatory failure in LOPD, targeting adequate ventilation during sleep and prevention of acute hypercapnic decompensation. It addresses the diaphragmatic failure node directly and is required regardless of enzyme replacement therapy in many patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phrenic Motor Unit Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragm weakness in LOPD is disproportionate to limb weakness and is the proximate cause of nocturnal hypoventilation and ultimately of ventilatory failure. Neurophysiological study of treated LOPD patients found that those with respiratory failure had absent or severely reduced phrenic nerve compound muscle action potentials and diaphragm EMG showing neurogenic as well as myopathic changes, implicating spinal phrenic motor neuron dysfunction alongside myofiber disease. Because intravenous recombinant enzyme does not cross the blood-brain barrier, a motor neuron contribution would explain residual respiratory decline on enzyme replacement therapy. The motor neuron arm is curated as PROVISIONAL: the supporting series is small (eight patients) and calls for confirmation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Phrenic motor neuron\"], \"locations\": [\"diaphragm\"]}}, {\"id\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-nucleus RNA sequencing combined with spatial transcriptomics of LOPD muscle biopsies shows that myofibers are transcriptionally abnormal before they are histologically abnormal. Fibers that are not yet vacuolated already show reduced glycolytic gene expression with increased lipid and amino-acid metabolism, upregulated autophagy genes, and downregulated ribosomal and mitochondrial programmes producing defective oxidative phosphorylation. Inflammation, apoptosis, and regeneration signatures appear only once vacuolation is established. This staging matters for LOPD specifically, because it identifies an early, possibly still-tractable metabolic derangement that precedes the structural damage enzyme replacement therapy cannot undo. The study reports only a \\\"tendency\\\" for therapy to restore the dysregulated metabolism, so reversibility is a hypothesis this node raises rather than a result it records.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Skeletal muscle fiber\", \"Slow (type I) muscle fiber\", \"Muscle-infiltrating macrophage\"], \"biological_processes\": [\"glycolytic process\", \"lipid metabolic process\", \"oxidative phosphorylation\"]}}, {\"id\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic storage and autophagic injury destroy myofibers, which are replaced by fat. The distribution is characteristically limb-girdle and axial, with early involvement of the psoas and paraspinal muscles; quantitative fat fraction on lumbar MRI correlates with strength, walking distance, stair climbing and supine spirometry, and continues to rise during enzyme replacement therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Progressive proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive limb-girdle weakness with lower-limb predominance is the cardinal motor manifestation of LOPD, and may progress to wheelchair use.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Relative Cardiac Sparing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence of hypertrophic cardiomyopathy is a defining feature of LOPD and part of its formal case definition, not merely a statistical tendency. Residual GAA activity is sufficient to keep cardiomyocyte glycogen storage subclinical, so the cardiorespiratory collapse that kills untreated infants does not occur; the respiratory system, not the heart, becomes the life-limiting organ. This node is curated as a mechanistic contrast rather than as a claim that the myocardium is entirely normal - adult arteriopathy and rare conduction findings are described in the umbrella Pompe disease entry.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"]}}, {\"id\": \"Respiratory insufficiency due to muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness, principally of the diaphragm, progresses to ventilatory failure and is the leading cause of death in untreated LOPD. In roughly a third of patients respiratory symptoms are the presenting complaint, ahead of limb weakness.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute cerebral infarction or intracranial hemorrhage occurs in a minority of LOPD adults and may be the presenting event. It is the clinically consequential endpoint of the intracranial arteriopathy and the reason vascular imaging is proposed as routine workup in this group.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Urinary incontinence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary incontinence in LOPD is attributed to lysosomal glycogen storage in bladder smooth muscle demonstrated at autopsy, rather than to pelvic floor weakness secondary to the limb-girdle myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000020\"}}, {\"id\": \"Vertebrobasilar dolichoectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elongation and dilatation of the vertebrobasilar arteries is the single most common vascular abnormality in LOPD and is usually asymptomatic until it is looked for. Basilar artery diameter correlates with disease duration, so it behaves as a progressive manifestation rather than a static malformation.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020038\"}}, {\"id\": \"c.-32-13T\u003eG (IVS1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Intron-1 variant 13 nucleotides upstream of GAA exon 2. It weakens the exon 2 splice acceptor, causing partial and complete exon 2 skipping, while permitting a low level of correctly spliced wild-type transcript - the \\\"leaky\\\" behaviour that yields residual enzyme and late-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"mLOE\"}}], \"edges\": [{\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual GAA activity slows, but does not prevent, lysosomal glycogen accumulation, producing a decades-long rather than months-long storage course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Relative Cardiac Sparing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual enzyme activity is sufficient to keep cardiomyocyte glycogen turnover below the threshold that produces infantile hypertrophic cardiomyopathy. The quantitative threshold itself has not been measured in human myocardium, so the link is recorded with unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same partial enzyme deficit is exhausted in smooth muscle as well as in skeletal muscle, opening the extra-muscular arm of the disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycogen-engorged lysosomes disturb autophagic flux in myofibers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage perturbs myonuclear metabolic gene expression before any vacuole is visible on histology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative storage and autophagic damage destroy contractile architecture in proximal lower-limb and paraspinal muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Phrenic Motor Unit Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in the diaphragm undermines the principal muscle of inspiration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"target\": \"Incomplete Response to Enzyme Replacement Therapy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enzyme that never reaches the lysosome cannot clear stored glycogen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"target\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolically compromised fibers progress to vacuolation, inflammation, apoptosis, and replacement by fat.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"target\": \"Progressive proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of contractile tissue in limb-girdle and axial muscle produces the characteristic LOPD weakness pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phrenic Motor Unit Failure\", \"target\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inspiratory muscle failure is expressed first during sleep, when accessory muscle recruitment falls and ventilation depends on the diaphragm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phrenic Motor Unit Failure\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive diaphragm failure produces daytime hypercapnic respiratory failure, the leading cause of death in untreated LOPD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycogen-laden smooth muscle cells in the tunica media are the proposed structural cause of progressive arterial wall remodeling and dilatation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in esophageal and gastric smooth muscle is the proposed basis of the reflux LOPD patients report; the contractile deficit linking the two has not been measured in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in intestinal smooth muscle is the proposed basis of the chronic constipation LOPD patients report; as with reflux, the contractile deficit linking the two has not been measured in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Urinary incontinence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bladder smooth muscle storage is the proposed basis of urinary incontinence in LOPD.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Dilatation of the ascending thoracic aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Vertebrobasilar dolichoectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Dilatation of the intracranial arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dilative and stenotic arteriopathy predisposes to both infarction and hemorrhage, but the proportion of LOPD strokes attributable to the arteriopathy rather than to conventional risk factors has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Cerebral white matter hyperintensities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Small-vessel involvement accompanies the large-artery disease; white matter change is its parenchymal correlate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Progressive proximal muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Phrenic Motor Unit Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"target\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Quantitative glycogen assay, PAS histology and LAMP1/LC3 immunoblotting all show the storage-plus-vacuolar-accumulation lesion in the same smooth-muscle beds implicated by human autopsy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A global null has no residual GAA, whereas LOPD is defined by partial activity from a leaky splice allele, so the model reproduces the lesion but not the late-onset tempo or threshold. Aortic glycogen was the lowest of the tissues measured and did not increase between 6 and 15 months, so the vascular half of this node is the weakest part of the match.\"}, {\"source\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"target\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The aorta accumulated the least glycogen of any smooth-muscle tissue measured and did not accumulate more between 6 and 15 months, and the authors state that this does not support the glycogen-to-wall-weakness hypothesis. The only aortic change seen was tunica media remodeling at 15 months. Note the study assayed glycogen and wall histology; it did not report vessel-calibre measurements, so what is recorded here is failure to reproduce the storage-driven wall lesion rather than a measured absence of dilatation.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a negative result about the aorta specifically, in a model whose lifespan (6-9 months untreated, examined to 15 months) is far shorter than the decades over which human aortic dilatation develops, so failure to recapitulate may reflect insufficient time rather than a wrong mechanism. It is recorded because it is the main reason the human arteriopathy node is marked PROVISIONAL, not as a refutation of the mechanism.\"}, {\"source\": \"GAA leaky splice-site variants\", \"target\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.-32-13T\u003eG (IVS1)\", \"target\": \"GAA leaky splice-site variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partial GAA activity permits slow lysosomal glycogen accumulation that is concentrated in skeletal muscle, including the respiratory muscles, rather than the generalized multisystem storage of infantile disease. The tissue selectivity reflects the very high glycogen flux of muscle relative to its residual degradative capacity, so muscle is the first compartment in which the reduced enzyme reserve is exhausted.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Lysosomal glycogen catabolism\"], \"locations\": [\"skeletal muscle tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal myofibers in Pompe disease develop large autophagic areas alongside glycogen-filled lysosomes. These areas trap endocytosed recombinant human GAA in a partially processed form so that it never reaches the lysosome, which is a mechanistic explanation for why enzyme replacement therapy is far more effective in cardiac than in skeletal muscle and why it slows rather than arrests the LOPD myopathy. Because LOPD is a decades-long disease treated for decades, this therapeutic ceiling is a defining clinical problem of the late-onset form.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"autophagy\", \"endosomal transport of endocytosed enzyme\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cerebral white matter hyperintensities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T2/FLAIR white matter hyperintensity accompanies the large-artery disease in roughly half of imaged LOPD adults, with cerebellar and brainstem microbleeds in a smaller subset. Together these constitute the small-vessel arm of LOPD cerebrovascular involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic constipation is reported by LOPD patients and is attributed to the same intestinal smooth-muscle storage lesion as reflux.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Dilatation of the ascending thoracic aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of adults with LOPD develop an arteriopathy whose best-characterized expression is dilatation of the ascending thoracic aorta. It is distinct from the hypertrophic cardiomyopathy of infantile-onset disease - the LOPD myocardium is typically spared - and it is specific enough to LOPD that GeneReviews adds aortic assessment to the annual echocardiogram for this group. Its mechanism is now curated on this entry: it is the aortic expression of the dilative arteriopathy node, downstream of lysosomal glycogen storage in vascular smooth muscle. That causal step is recorded as PROVISIONAL rather than established - see the arteriopathy node and the Gaa-/- mouse link for the evidence that qualifies it.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012727\"}}, {\"id\": \"Dilatation of the intracranial arteries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Beyond the vertebrobasilar system, LOPD arteriopathy affects the anterior circulation, produces saccular and fusiform aneurysms, and coexists with arterial stenosis in a third of patients. Enzyme replacement therapy did not reduce vessel calibre over a year of follow-up, so this arm of the disease is not currently treatment-responsive.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0004944\"}}, {\"id\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive dilatation, ectasia and aneurysm formation affecting the ascending thoracic aorta and the intracranial arteries, with the vertebrobasilar system most often involved, together with a small-vessel component that shows up as white matter hyperintensity and cerebellar and brainstem microbleeds. It is the second organ system LOPD damages after muscle, and it is largely uncoupled from myopathy severity: patients are identified on surveillance imaging rather than by limb weakness, and enzyme replacement therapy did not change vessel calibre over a year of follow-up in the one series that looked. The node is recorded as PROVISIONAL rather than ESTABLISHED because the causal step from smooth-muscle glycogen to wall weakness is inferred rather than demonstrated - one aortic specimen showed connective-tissue changes resembling a fibrillinopathy rather than a storage lesion, and the Gaa-/- mouse accumulates little aortic glycogen, which led that study\u0027s authors to decline to attribute aortic wall weakness to glycogen accumulation (see animal_models).\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medial vascular smooth muscle cell\"], \"locations\": [\"ascending thoracic aorta\", \"basilar artery\", \"arterial tunica media\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"species\": \"Mouse\", \"genotype\": \"Gaa-/- (targeted disruption of exon 6), homozygous null\", \"background\": \"B6;129\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The aorta accumulated the least glycogen of any smooth-muscle tissue measured and did not accumulate more between 6 and 15 months, and the authors state that this does not support the glycogen-to-wall-weakness hypothesis. The only aortic change seen was tunica media remodeling at 15 months. Note the study assayed glycogen and wall histology; it did not report vessel-calibre measurements, so what is recorded here is failure to reproduce the storage-driven wall lesion rather than a measured absence of dilatation.\"}]}}, {\"id\": \"Enzyme replacement therapy for late-onset disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous recombinant human GAA is the standard disease-modifying treatment. Alglucosidase alfa is approved for LOPD; avalglucosidase alfa is approved for individuals with LOPD older than one year; and cipaglucosidase alfa with miglustat is approved for adults with LOPD weighing at least 40 kg who are not improving on their current regimen. Benefit in LOPD is real but partial, and is limited by autophagic mistargeting of enzyme in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"alglucosidase alfa\", \"avalglucosidase alfa\", \"cipaglucosidase alfa\", \"miglustat\"]}}, {\"id\": \"GAA leaky splice-site variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GAA\"], \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most widely used Pompe mouse, a global Gaa knockout that survives into adulthood without treatment. This entry curates the study that characterized its smooth muscle rather than its skeletal muscle, because that is what bears on the extra-muscular arms of LOPD. Glycogen, lysosomes and autophagosomes accumulate across aortic, tracheal, esophageal, gastric and bladder smooth muscle, with the gastrointestinal and genitourinary tissues most affected. The model\u0027s central limitation for late-onset disease is genetic: a global null has essentially no residual enzyme, whereas LOPD is defined by partial activity from a leaky splice allele, so the mouse is genotypically closer to infantile-onset disease and its tempo cannot be read across.\\n\"}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reflux is reported by LOPD patients alongside constipation and is attributed to glycogen storage in gastrointestinal smooth muscle rather than to the limb myopathy. It improved markedly on enzyme replacement therapy in the one series that followed it, which distinguishes it from the vascular arm of smooth-muscle disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002020\"}}, {\"id\": \"Incomplete Response to Enzyme Replacement Therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enzyme replacement therapy changes the trajectory of LOPD but does not normalize it. Walking distance and forced vital capacity improve modestly relative to placebo in the short term, yet muscle fat fraction continues to increase, some patients still progress to ventilatory support, and the effect on sleep-disordered breathing is undocumented. This residual disease burden is a mechanistic consequence of the autophagic mistargeting node and, possibly, of the motor neuron arm of diaphragm weakness, which intravenous enzyme cannot reach.\\n\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The LOPD-defining lesion is partial rather than complete loss of acid alpha-glucosidase. The commonest LOPD allele, c.-32-13T\u003eG (IVS1), sits in intron 1 and weakens the splice acceptor of GAA exon 2. Most transcripts from that allele are aberrantly spliced (partial or complete exon 2 skipping), but a low level of correctly spliced, fully functional transcript escapes. That residual activity - conventionally quoted as roughly 1-30% of normal, though see the caveat in the biochemical section and in notes - is what shifts the phenotype from infantile to late onset. In the great majority of LOPD patients the leaky allele is carried in trans with a second, more deleterious pathogenic variant, so the leaky allele is the one setting how much enzyme the patient makes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"GAA pre-mRNA splicing at the exon 2 acceptor\"], \"molecular_functions\": [\"acid alpha-glucosidase activity\"], \"genes\": [\"GAA\"], \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\", \"modifier\": \"DECREASED\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Compound heterozygosity for the leaky c.-32-13T\u003eG intron-1 splice variant and a second, more deleterious pathogenic GAA variant.\", \"gene_terms\": [{\"label\": \"GAA\", \"id\": \"hgnc:4065\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual GAA activity is exhausted in smooth muscle as well as in skeletal muscle. Autopsy of a woman with LOPD demonstrated lysosomal glycogen inside vascular smooth muscle cells by transmission electron microscopy, alongside involvement of the bladder, intestine, and esophagus. This is a distinct cellular compartment from the skeletal and respiratory myofiber storage that dominates the LOPD clinical picture, and it is the substrate for the disease\u0027s two extra-muscular arms: the dilative arteriopathy of large arteries, and the gastrointestinal and genitourinary symptoms that patients report independently of limb weakness. Smooth-muscle storage is the reason LOPD is a systemic lysosomal disease rather than a pure myopathy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"smooth muscle cell of bladder\", \"smooth muscle cell of the esophagus\", \"intestinal smooth muscle cell\"], \"biological_processes\": [\"lysosomal glycogen degradation in smooth muscle\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"species\": \"Mouse\", \"genotype\": \"Gaa-/- (targeted disruption of exon 6), homozygous null\", \"background\": \"B6;129\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantitative glycogen assay, PAS histology and LAMP1/LC3 immunoblotting all show the storage-plus-vacuolar-accumulation lesion in the same smooth-muscle beds implicated by human autopsy.\"}]}}, {\"id\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diaphragm weakness is expressed earliest during sleep, so sleep-disordered breathing and nocturnal hypoventilation typically precede overt daytime respiratory failure and are accompanied by sleep disruption, excessive daytime sleepiness, and reduced health-related quality of life.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002877\"}}, {\"id\": \"Non-invasive ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-invasive ventilation is the mainstay of treatment for sleep-disordered breathing and ventilatory failure in LOPD, targeting adequate ventilation during sleep and prevention of acute hypercapnic decompensation. It addresses the diaphragmatic failure node directly and is required regardless of enzyme replacement therapy in many patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phrenic Motor Unit Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragm weakness in LOPD is disproportionate to limb weakness and is the proximate cause of nocturnal hypoventilation and ultimately of ventilatory failure. Neurophysiological study of treated LOPD patients found that those with respiratory failure had absent or severely reduced phrenic nerve compound muscle action potentials and diaphragm EMG showing neurogenic as well as myopathic changes, implicating spinal phrenic motor neuron dysfunction alongside myofiber disease. Because intravenous recombinant enzyme does not cross the blood-brain barrier, a motor neuron contribution would explain residual respiratory decline on enzyme replacement therapy. The motor neuron arm is curated as PROVISIONAL: the supporting series is small (eight patients) and calls for confirmation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Phrenic motor neuron\"], \"locations\": [\"diaphragm\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-nucleus RNA sequencing combined with spatial transcriptomics of LOPD muscle biopsies shows that myofibers are transcriptionally abnormal before they are histologically abnormal. Fibers that are not yet vacuolated already show reduced glycolytic gene expression with increased lipid and amino-acid metabolism, upregulated autophagy genes, and downregulated ribosomal and mitochondrial programmes producing defective oxidative phosphorylation. Inflammation, apoptosis, and regeneration signatures appear only once vacuolation is established. This staging matters for LOPD specifically, because it identifies an early, possibly still-tractable metabolic derangement that precedes the structural damage enzyme replacement therapy cannot undo. The study reports only a \\\"tendency\\\" for therapy to restore the dysregulated metabolism, so reversibility is a hypothesis this node raises rather than a result it records.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Skeletal muscle fiber\", \"Slow (type I) muscle fiber\", \"Muscle-infiltrating macrophage\"], \"biological_processes\": [\"glycolytic process\", \"lipid metabolic process\", \"oxidative phosphorylation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic storage and autophagic injury destroy myofibers, which are replaced by fat. The distribution is characteristically limb-girdle and axial, with early involvement of the psoas and paraspinal muscles; quantitative fat fraction on lumbar MRI correlates with strength, walking distance, stair climbing and supine spirometry, and continues to rise during enzyme replacement therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"locations\": [\"skeletal muscle tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive limb-girdle weakness with lower-limb predominance is the cardinal motor manifestation of LOPD, and may progress to wheelchair use.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Relative Cardiac Sparing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence of hypertrophic cardiomyopathy is a defining feature of LOPD and part of its formal case definition, not merely a statistical tendency. Residual GAA activity is sufficient to keep cardiomyocyte glycogen storage subclinical, so the cardiorespiratory collapse that kills untreated infants does not occur; the respiratory system, not the heart, becomes the life-limiting organ. This node is curated as a mechanistic contrast rather than as a claim that the myocardium is entirely normal - adult arteriopathy and rare conduction findings are described in the umbrella Pompe disease entry.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Respiratory insufficiency due to muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness, principally of the diaphragm, progresses to ventilatory failure and is the leading cause of death in untreated LOPD. In roughly a third of patients respiratory symptoms are the presenting complaint, ahead of limb weakness.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute cerebral infarction or intracranial hemorrhage occurs in a minority of LOPD adults and may be the presenting event. It is the clinically consequential endpoint of the intracranial arteriopathy and the reason vascular imaging is proposed as routine workup in this group.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Urinary incontinence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary incontinence in LOPD is attributed to lysosomal glycogen storage in bladder smooth muscle demonstrated at autopsy, rather than to pelvic floor weakness secondary to the limb-girdle myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000020\"}}, {\"id\": \"Vertebrobasilar dolichoectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elongation and dilatation of the vertebrobasilar arteries is the single most common vascular abnormality in LOPD and is usually asymptomatic until it is looked for. Basilar artery diameter correlates with disease duration, so it behaves as a progressive manifestation rather than a static malformation.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020038\"}}, {\"id\": \"c.-32-13T\u003eG (IVS1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Intron-1 variant 13 nucleotides upstream of GAA exon 2. It weakens the exon 2 splice acceptor, causing partial and complete exon 2 skipping, while permitting a low level of correctly spliced wild-type transcript - the \\\"leaky\\\" behaviour that yields residual enzyme and late-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"mLOE\"}}], \"edges\": [{\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual GAA activity slows, but does not prevent, lysosomal glycogen accumulation, producing a decades-long rather than months-long storage course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Relative Cardiac Sparing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual enzyme activity is sufficient to keep cardiomyocyte glycogen turnover below the threshold that produces infantile hypertrophic cardiomyopathy. The quantitative threshold itself has not been measured in human myocardium, so the link is recorded with unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"target\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same partial enzyme deficit is exhausted in smooth muscle as well as in skeletal muscle, opening the extra-muscular arm of the disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycogen-engorged lysosomes disturb autophagic flux in myofibers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage perturbs myonuclear metabolic gene expression before any vacuole is visible on histology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative storage and autophagic damage destroy contractile architecture in proximal lower-limb and paraspinal muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"target\": \"Phrenic Motor Unit Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in the diaphragm undermines the principal muscle of inspiration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagic Mistargeting of Endocytosed Recombinant Enzyme\", \"target\": \"Incomplete Response to Enzyme Replacement Therapy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enzyme that never reaches the lysosome cannot clear stored glycogen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pre-Vacuolar Metabolic Reprogramming of Myonuclei\", \"target\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolically compromised fibers progress to vacuolation, inflammation, apoptosis, and replacement by fat.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Limb-Girdle and Axial Myofiber Degeneration\", \"target\": \"Progressive proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of contractile tissue in limb-girdle and axial muscle produces the characteristic LOPD weakness pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phrenic Motor Unit Failure\", \"target\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inspiratory muscle failure is expressed first during sleep, when accessory muscle recruitment falls and ventilation depends on the diaphragm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phrenic Motor Unit Failure\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive diaphragm failure produces daytime hypercapnic respiratory failure, the leading cause of death in untreated LOPD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycogen-laden smooth muscle cells in the tunica media are the proposed structural cause of progressive arterial wall remodeling and dilatation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in esophageal and gastric smooth muscle is the proposed basis of the reflux LOPD patients report; the contractile deficit linking the two has not been measured in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Storage in intestinal smooth muscle is the proposed basis of the chronic constipation LOPD patients report; as with reflux, the contractile deficit linking the two has not been measured in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"target\": \"Urinary incontinence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bladder smooth muscle storage is the proposed basis of urinary incontinence in LOPD.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Dilatation of the ascending thoracic aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Vertebrobasilar dolichoectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Dilatation of the intracranial arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dilative and stenotic arteriopathy predisposes to both infarction and hemorrhage, but the proportion of LOPD strokes attributable to the arteriopathy rather than to conventional risk factors has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"target\": \"Cerebral white matter hyperintensities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Small-vessel involvement accompanies the large-artery disease; white matter change is its parenchymal correlate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Progressive proximal muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy for late-onset disease\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Phrenic Motor Unit Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Nocturnal hypoventilation and sleep-disordered breathing\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Non-invasive ventilation\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"target\": \"Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Quantitative glycogen assay, PAS histology and LAMP1/LC3 immunoblotting all show the storage-plus-vacuolar-accumulation lesion in the same smooth-muscle beds implicated by human autopsy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A global null has no residual GAA, whereas LOPD is defined by partial activity from a leaky splice allele, so the model reproduces the lesion but not the late-onset tempo or threshold. Aortic glycogen was the lowest of the tissues measured and did not increase between 6 and 15 months, so the vascular half of this node is the weakest part of the match.\"}, {\"source\": \"Gaa-/- global knockout mouse (smooth muscle characterization)\", \"target\": \"Dilative Arteriopathy of the Aorta and Intracranial Arteries\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The aorta accumulated the least glycogen of any smooth-muscle tissue measured and did not accumulate more between 6 and 15 months, and the authors state that this does not support the glycogen-to-wall-weakness hypothesis. The only aortic change seen was tunica media remodeling at 15 months. Note the study assayed glycogen and wall histology; it did not report vessel-calibre measurements, so what is recorded here is failure to reproduce the storage-driven wall lesion rather than a measured absence of dilatation.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a negative result about the aorta specifically, in a model whose lifespan (6-9 months untreated, examined to 15 months) is far shorter than the decades over which human aortic dilatation develops, so failure to recapitulate may reflect insufficient time rather than a wrong mechanism. It is recorded because it is the main reason the human arteriopathy node is marked PROVISIONAL, not as a refutation of the mechanism.\"}, {\"source\": \"GAA leaky splice-site variants\", \"target\": \"Leaky GAA Splicing and Partial Residual Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.-32-13T\u003eG (IVS1)\", \"target\": \"GAA leaky splice-site variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7228,6 +7356,9 @@ This clinical feature is Dilatation of the ascending thoracic aorta, annotated w
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7342,6 +7473,9 @@ This clinical feature is Vertebrobasilar dolichoectasia (HP:0020038), qualified 
 
 
                     </div>
+
+
+
 
 
 
@@ -7468,6 +7602,9 @@ This clinical feature is Dilatation of the intracranial arteries, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7589,6 +7726,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7692,6 +7832,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7781,6 +7924,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7898,6 +8044,9 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7959,7 +8108,7 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -7969,10 +8118,13 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8071,6 +8223,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
                     </div>
+
+
+
 
 
 
@@ -8210,6 +8365,9 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
                     </div>
+
+
+
 
 
 
@@ -8356,6 +8514,9 @@ This clinical feature is Axial and paraspinal muscle weakness, annotated with Ax
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8447,6 +8608,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8568,6 +8732,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8702,6 +8869,9 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cerebellar and brainstem microbleeds accompany the white matter change in this cohort, but they are not curated as a separate phenotype here: HPO has no cerebral microhemorrhage or microbleed term, and Cerebral hemorrhage (HP:0001342) names a clinical event rather than a susceptibility-weighted imaging finding, so binding it would overstate what was observed. The microbleed evidence is recorded on the Dilative Arteriopathy of the Aorta and Intracranial Arteries node instead, where it supports the small-vessel claim without needing a phenotype binding.</div>
 
 
@@ -8780,6 +8950,9 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877). HP:0002877 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8888,6 +9061,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8982,6 +9158,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9046,6 +9225,9 @@ This clinical feature is Urinary incontinence (HP:0000020). HP:0000020 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9168,6 +9350,9 @@ This disease-associated gene is GAA (hgnc:4065). hgnc:4065 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9270,7 +9455,9 @@ This disease-associated gene is GAA (hgnc:4065). hgnc:4065 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
+
 
 
 
@@ -9278,6 +9465,11 @@ This disease-associated gene is GAA (hgnc:4065). hgnc:4065 is a gene from the HU
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Intron-1 variant 13 nucleotides upstream of GAA exon 2. It weakens the exon 2 splice acceptor, causing partial and complete exon 2 skipping, while permitting a low level of correctly spliced wild-type transcript - the &#34;leaky&#34; behaviour that yields residual enzyme and late-onset disease.
@@ -9470,6 +9662,9 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9480,6 +9675,9 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9720,6 +9918,9 @@ This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9730,6 +9931,9 @@ This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9918,6 +10122,9 @@ This treatment is multidisciplinary disease surveillance, annotated with Disease
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9928,6 +10135,9 @@ This treatment is multidisciplinary disease surveillance, annotated with Disease
 
 
     </div>
+
+
+
 
 
 
@@ -10074,6 +10284,9 @@ This treatment is avoidance of high-risk agents and circumstances, annotated wit
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10084,6 +10297,9 @@ This treatment is avoidance of high-risk agents and circumstances, annotated wit
 
 
     </div>
+
+
+
 
 
 
@@ -14006,10 +14222,10 @@ phenotypes:
     brings a patient to neuromuscular attention; isolated hyperCKemia is one of the
     accepted triggers for GAA enzyme screening.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   diagnostic: true
   evidence:
   - reference: PMID:36299500
@@ -15277,6 +15493,90 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Augment Late-Onset Pompe Disease with the smooth-muscle and vascular arm</strong> · 2026-09-01T11:07:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Late-Onset_Pompe_Disease/2026-09-01T110707Z-claude-code-62a621.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented the existing MONDO:0018485 entry rather than creating a duplicate: the requested disorder name is the MONDO label already curated as kb/disorders/Late-Onset_Pompe_Disease.yaml (issue #8759, PR #8878).
+
+Deep research: two runs. The requested provider (falcon) failed authentication (403, empty EDISON_API_KEY), so the run was made with --fallback and completed as openscientist; research/Late-Onset_Pompe_Disease-deep-research-openscientist.md carries fell_back: true, requested_provider: falcon and the provider_attempts trail, with 52/52 references resolved. That report has no smooth-muscle or vascular content, so it corroborates the existing entry rather than this augmentation. A second run with claude_code (no API key needed) produced research/Late-Onset_Pompe_Disease-deep-research-claude_code.md (231s, 17 web searches, 70 citations, 47/47 references resolved), and it is the one that bears on this work: it independently identified the same vasculopathy literature found by direct PubMed search, which is the triangulation this augmentation rests on. Its reference_validation carries needs_review: true for one unsupported quote (PMC:PMC11638199, &#39;unexplained limb-girdle weakness&#39;), which was not used here. The openscientist report is also needs_review, for one mislabelled term (HP:0001638 read as &#39;Minor/mild cardiac involvement&#39;; HP calls it Cardiomyopathy), which was not used. The claude_code term_validation flagged six mislabelled CURIEs; notably it offered CL:0000192 for *vascular* smooth muscle, which CL calls plain &#39;smooth muscle cell&#39;. That binding was not taken - CL:0000359 (vascular associated smooth muscle cell) was verified independently with OAK and used instead. The pre-existing falcon report from the original curation was left in place.
+
+What was added. The prior curation recorded, on the &#39;Dilatation of the ascending thoracic aorta&#39; phenotype, that glycogen storage in vascular smooth muscle was &#39;the proposed substrate, but the mechanism is not established here and is deliberately not asserted&#39;. That gap is now closed with human evidence and the phenotype description updated accordingly. Two pathophysiology nodes: &#39;Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle&#39; (CELLULAR, ESTABLISHED, conforms to lysosomal_substrate_accumulation) on the strength of LOPD autopsy transmission electron microscopy (PMID:22664150) plus Gaa-/- mouse quantification (PMID:33883348); and &#39;Dilative Arteriopathy of the Aorta and Intracranial Arteries&#39; (TISSUE, PROVISIONAL) from PMID:21605996, PMID:39010129, PMID:33386209 and PMID:22945242. The arteriopathy node is deliberately PROVISIONAL rather than ESTABLISHED: the step from smooth-muscle glycogen to arterial wall weakness is inferred, one resected aneurysmal aorta showed connective-tissue rather than storage changes, and the mouse does not develop the lesion.
+
+Seven phenotypes: vertebrobasilar dolichoectasia (HP:0020038, FREQUENT, 17/30), dilatation of the intracranial arteries (HP:0004944), stroke (HP:0001297, OCCASIONAL, 7/30), cerebral white matter hyperintensities (HP:0030890, FREQUENT, 13/28), gastroesophageal reflux (HP:0002020), constipation (HP:0002019), urinary incontinence (HP:0000020). Every frequency band is backed by a quoted denominator; all four cerebrovascular frequencies come from one 30-patient Chinese imaging cohort and the notes say so rather than presenting them as pooled estimates.
+
+New animal_models section: the Gaa-/- B6;129 global knockout (PMID:33883348), carrying two links. It RECAPITULATES the smooth-muscle storage node (MODERATE, two readouts: tissue glycogen INCREASED, LAMP1 INCREASED) and FAILS_TO_RECAPITULATE the arteriopathy node (LOW), with the authors&#39; own statement that their aortic findings do not corroborate the glycogen-to-wall-weakness hypothesis, plus an UNCHANGED aortic PAS readout. The negative result is curated rather than dropped because it is the reason the human node is qualified. Both links record the model&#39;s central limitation for late-onset disease: a global null has no residual enzyme, whereas LOPD is defined by partial activity from a leaky splice allele.
+
+Validation. just validate passed (schema, terms, references). just validate-disorders (the batched CI gate) passed: schema OK, terms OK, 156/157 snippets verified. just count-verified-snippets --unskip-prefix DOI reports 157/157, so the one DOI-keyed item CI skips was checked by hand and verifies. check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets and check-snippet-grading all clean with no new baseline entries. Compliance rose from 98.5 percent (256/260) to 98.8 percent (331/335); the four remaining gaps are pre-existing (two datasets lacking evidence, one proposed experiment). Two literature cache files (PMID_34800399, PMID_39424261) were rewritten as formatting-only churn by the research runs&#39; validator and were reverted, since they carry no content change and are unrelated to this curation. Separately, the --fallback run renamed the falcon output directory on its way to openscientist, which deleted the previously committed falcon report, its citations sidecar and its artifact, and left a duplicate of that artifact inside the openscientist artifact directory. The falcon files were restored from git and the stray duplicate removed, so the only research additions here are the two new reports.
+
+Review round (PR #10363). The automated reviewer approved with no blocking findings and five
+advisory notes; three were actionable and are addressed. First, the microbleed evidence item sat
+on the white-matter-hyperintensity phenotype, where it supported the description but not
+HP:0030890. The reviewer proposed a sibling phenotype on an HPO cerebral-microhemorrhage term,
+but no such term exists: OAK returns nothing for microbleed or microhemorrhage, and Cerebral
+hemorrhage (HP:0001342) names a clinical event rather than a susceptibility-weighted imaging
+finding, so binding it would overstate the observation. The evidence item was moved to the
+arteriopathy node, where it supports the small-vessel claim without needing a phenotype binding,
+and the phenotype carries a notes entry recording why the suggested fix was not taken. Second,
+the visceral smooth-muscle cell type was bound at the generic CL:0000192; the reviewer asked for
+an OAK check, and CL does carry organ-specific terms, so bladder is now CL:0002597 and esophagus
+CL:0002599. The intestinal component stays at CL:0000192 because CL offers only small- and
+large-intestine terms below that point while the cited autopsy says &#34;intestine&#34; without
+specifying segment. Third, the gastroesophageal-reflux edge was carried only by a mouse paper&#39;s
+background prose about human symptoms; a human therapeutic-response item was added from
+PMID:20559845, where enzyme replacement reversed the gastrointestinal symptoms while leaving
+cerebral vessel calibre unchanged - INDIRECT support that those symptoms arise from GAA-
+deficient smooth muscle, and the same sentence marks the contrast with the vascular arm. The
+fourth note, that the PR body misattributed the autopsy evidence to PMID:21605996 instead of
+PMID:22664150, was already corrected before the review posted; the YAML was never wrong. The
+fifth was informational about diff size. After these changes all gates were re-run: validate,
+validate-terms, entity-refs, causal-targets, duplicate-keys, enum-values and qualifier-terms are
+clean, and count-verified-snippets --unskip-prefix DOI reports 158/158.
+
+Second review round (PR #10363). The re-review requested changes on two findings, both correct
+and both mine. First, the note added in the previous round claimed CL offers only small- and
+large-intestine smooth-muscle terms; it does not. CL:0002504 &#34;enteric smooth muscle cell&#34; is
+defined as &#34;A smooth muscle cell of the intestine&#34;, carries &#34;intestinal smooth muscle cell&#34; as
+an exact synonym, is already in cache/cl/terms.csv and the celltypeterm enum cache, and is
+already used in four other entries. The earlier OAK search missed it because the label contains
+no form of the word &#34;intestine&#34;. The binding is now CL:0002504 and the false claim is replaced
+by a note that the segment-agnostic term was chosen over its children because the autopsy does
+not specify segment. Second, the Constipation phenotype asserted in its description that it
+shares the intestinal smooth-muscle mechanism but had no incoming pathograph edge, so it
+rendered as a floating node while its two siblings were wired up; nothing gates an unconnected
+phenotype, so no check caught it. An INDIRECT_UNKNOWN_INTERMEDIATES edge mirroring the reflux
+one was added, carrying the same PMID:20559845 enzyme-replacement-response sentence. Two
+advisory notes were also taken: the reflux edge explanation said &#34;gastrointestinal symptoms&#34;
+where the quote says &#34;intestinal symptoms&#34;, now corrected to track the quote and to say that the
+paper defines those symptoms earlier as constipation and reflux; and the arteriopathy node
+description, which described only the aorta and intracranial arteries, now acknowledges the
+small-vessel component that the white-matter-hyperintensity and microbleed evidence covers.
+After these changes: validate, validate-terms, entity-refs, causal-targets, duplicate-keys,
+enum-values and qualifier-terms clean, count-verified-snippets --unskip-prefix DOI 159/159, and
+compliance-connectivity for this entry rises from 10/18 to 11/18 phenotypes connected, with all
+seven remaining unconnected phenotypes pre-existing and out of scope.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Late-Onset Pompe Disease (MONDO:0018485)</strong> · 2026-08-19T04:24:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Late-Onset_Pompe_Disease/2026-08-19T042435Z-claude-code-8b538c.yaml">View source</a></p>
+                        <p class="research-review-text">Standalone entry for the late-onset arm of acid alpha-glucosidase deficiency (MONDO:0018485; OMIM:621314; Orphanet:420429).
+
+SCOPE DECISION. kb/disorders/Pompe_Disease.yaml (MONDO:0009290) already carried an LOPD subtype with a display_name and description but no bound term. Chose a standalone entry over binding-only, because the late-onset form has substantive mechanism that is not derivable from the umbrella entry and that the umbrella deliberately does not model: (a) partial rather than absent enzyme, produced by leaky intron-1 splicing at c.-32-13T&gt;G; (b) the resulting relative cardiac sparing, which is part of the formal case definition rather than a statistical tendency; (c) diaphragm-predominant respiratory failure with a possible spinal phrenic motor neuron component; (d) an autophagic/lipofuscin ceiling on enzyme replacement therapy that only matters because LOPD is treated for decades; (e) pre-vacuolar metabolic reprogramming of myonuclei; and (f) the newborn-screening pre-symptomatic treatment-initiation dilemma. The umbrella entry is otherwise left untouched except for one surgical edit: the LOPD subtype block now carries subtype_term MONDO:0018485 and a pointer to this file. The IOPD subtype block was deliberately not touched, because a sibling agent is concurrently curating MONDO:0017694 (issue 8758).
+
+CONTENT. 8 pathophysiology nodes wired into a single chain from leaky splicing to incomplete ERT response, conforming at lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation. 5 phenotypes, 2 progression phases, 1 biochemical marker, 1 histopathology finding (lipofuscin-loaded autolysosomes), 1 genetic entry with the c.-32-13T&gt;G variant, 2 treatments with target_mechanisms, 4 clinical trials (LOTS, COMET, PROPEL, RESOLUTE), 2 datasets, and 2 discussions (a KNOWLEDGE_GAP on pre-symptomatic ERT initiation and a HUMAN_MODEL_MISMATCH on whether GAA-knockout-mouse enzyme mistargeting explains the human treatment ceiling).
+
+DEEP RESEARCH. falcon (Edison), research/Late-Onset_Pompe_Disease-deep-research-falcon.md. Report reference_validation: 12/12 references resolved, confabulation_rate 0.0, 0 off topic. `just preflight-dr` against MONDO:0018485 returned SKIP because MONDO records no RO:0004003 causal gene for this subtype term; the manual fallback was run and passes - GAA dominates the report&#39;s gene mentions (GAA=23, next highest 2), and the OMIM difference (report cites 232300, MONDO xrefs 621314) is the expected umbrella-vs-subtype split rather than a Named Entity Confusion signal, since OMIM:621314 is a recent LOPD-specific entry that the literature does not yet use. Only two claims were taken from the report and both were independently re-verified against freshly fetched abstracts: the single-nucleus RNA-seq staging study (PMID:39045638) and the post-ERT muscle proteomics study (PMID:33799647).
+
+VALIDATION. `just validate` (schema + terms + full reference validation) passed; `just validate-disorders` (the batched --no-full-text sweep CI runs) passed; `just count-verified-snippets` reports 67/67 snippets verified against cached references; `just verify-datasets` resolved 2/2 accessions; `just check-duplicate-keys` clean over 2334 files. Compliance 95%. No references_cache or cache CSV file was hand-written - all were produced by `just fetch-reference` and `just validate-terms`.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16833,7 +17133,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Late-Onset Pompe Disease", "mondoId": "MONDO:0018485", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late-Onset_Pompe_Disease", "yamlRevision": "8e49bc8a0a2e"};
+        const OS_CONFIG = {"diseaseName": "Late-Onset Pompe Disease", "mondoId": "MONDO:0018485", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late-Onset_Pompe_Disease", "yamlRevision": "2fde353ec2a7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4565,6 +4618,7 @@ A practical consequence follows for anyone reading a ZPR1 variant in a diagnosti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zpr1-p-ile196thr-homozygous-founder-variant" data-dismech-node="ZPR1 p.Ile196Thr Homozygous Founder Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">ZPR1 p.Ile196Thr Homozygous Founder Variant</div>
 
+
                 <div class="item-desc">ZPR1 c.587T&gt;C (p.Ile196Thr), homozygous, in every patient with a confirmed genotype. Structural modelling places the substituted isoleucine in the hydrophobic core of the protein, which predicts a folding rather than an interaction defect. It remains the only ZPR1 allele established as disease-causing. One further genotype has been reported - a compound heterozygous pair of variants of uncertain significance, including a truncating allele, in a child with an overlapping phenotype - but its phase was never established and neither variant is classified beyond uncertain, so the genotype-phenotype relationship of the gene as a whole is still unknown. The allelic spectrum is set out in full on the ZPR1 genetic record.</div>
 
 
@@ -4732,6 +4786,7 @@ This pathophysiological event involves ZPR1 (hgnc:13051). hgnc:13051 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-zpr1-protein" data-dismech-node="Absence of ZPR1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of ZPR1 Protein</div>
 
+
                 <div class="item-desc">Patient fibroblasts contain no detectable ZPR1. That is a stronger result than the missense genotype would suggest and it is the single most important fact about this disease&#39;s mechanism: a core-destabilising substitution that leaves no protein behind makes the allele functionally null, at least in fibroblasts, and licenses reading the ZPR1-deficiency literature as relevant.
 The caveat is that fibroblasts are the only human tissue examined. Whether kidney, hair follicle, cochlea or brain also lack the protein entirely, or retain some, has not been tested, and a residual amount somewhere would matter - complete ZPR1 loss is embryonic lethal in mouse, and these children were liveborn.</div>
 
@@ -4871,6 +4926,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-subnuclear-localization-of-smn-and-npat" data-dismech-node="Disrupted Subnuclear Localization of SMN and NPAT" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Subnuclear Localization of SMN and NPAT</div>
+
 
                 <div class="item-desc">ZPR1 moves into the nucleus during S phase and concentrates with the survival motor neurons protein and the histone gene-specific transcription factor NPAT in subnuclear foci, including Cajal bodies sitting on histone gene clusters. Without ZPR1, both proteins lose that localisation and histone gene expression falls.
 This node is imported from ZPR1-deficiency work in cell lines and in Zpr1-null mouse embryos, not from patients. No patient tissue has been examined for SMN or NPAT localisation, so the node describes what ZPR1 loss does rather than what was observed in this disease.</div>
@@ -5038,6 +5094,7 @@ This pathophysiological event involves Cajal body (GO:0015030). GO:0015030 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-cycle-arrest-in-g1" data-dismech-node="Cell Cycle Arrest in G1" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Cycle Arrest in G1</div>
 
+
                 <div class="item-desc">ZPR1-deficient cells stop cycling. In patient fibroblasts a significant fraction is arrested in G1; in experimental ZPR1 deficiency the block is broader, halting S phase progression and arresting cells in G1 and G2 both. The patient measurement is the one this entry treats as the disease phenotype; the experimental one shows the arrest is not an artefact of one cell line.</div>
 
 
@@ -5174,6 +5231,7 @@ This pathophysiological event involves decreased cell cycle G1/S phase transitio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cell-proliferation-in-developing-tissues" data-dismech-node="Reduced Cell Proliferation in Developing Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cell Proliferation in Developing Tissues</div>
+
 
                 <div class="item-desc">The tissue-level step, occurring in parallel across many organs: a ubiquitously expressed protein required for cell cycle progression is absent, so tissues that must proliferate in order to form do not reach their normal size or number. This is the node that accounts for the breadth of the syndrome - growth, head circumference, kidney, hair, ear and genital development are affected together because the constraint is on proliferation itself rather than on any organ&#39;s own programme.
 Direct evidence in humans is limited to the fibroblast arrest above; the proliferation deficit itself is demonstrated in the Zpr1-null mouse embryo, which shows reduced proliferation with increased apoptosis and dies early in development. No affected human tissue has been examined histologically.</div>
@@ -5515,6 +5573,9 @@ This clinical feature is Non-cirrhotic portal hypertension, annotated with Porta
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5599,6 +5660,9 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5702,6 +5766,9 @@ This clinical feature is Severe congenital sensorineural hearing impairment, ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5777,6 +5844,9 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5899,6 +5969,9 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5974,6 +6047,9 @@ This clinical feature is Genital hypoplasia, annotated with External genital hyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6057,6 +6133,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6123,6 +6202,9 @@ This clinical feature is Distinctive craniofacial features, annotated with Abnor
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6226,6 +6308,9 @@ This clinical feature is Congenital alopecia, annotated with Alopecia (HP:000159
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0005597 (Congenital alopecia totalis) would be the closer label but asserts totality, which neither abstract states. Following the ontology term contract, the specificity is carried in preferred_term instead of manufacturing a narrower ontology match.</div>
@@ -6336,6 +6421,9 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6414,6 +6502,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6478,6 +6569,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6558,6 +6652,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated as one record covering both the prenatal and postnatal components because the two reports describe them together. The postnatal component is separately bindable to HP:0008897 (Postnatal growth retardation) if a later report gives it its own description.</div>
@@ -6648,6 +6745,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left unbound deliberately. HP:0003819 (Death in childhood) is the right concept, but it sits in the HPO Mortality/Aging branch rather than under HP:0000118 (Phenotypic abnormality), so it is not a member of the PhenotypeTerm dynamic enum and binding it fails term validation. The same is true of HP:0001522 (Death in infancy). Other entries in this repository handle it the same way - see Autosomal_Recessive_Spondylometaphyseal_Dysplasia_Megarbane_Type. The mortality is also recorded in `progression`.
 Numerator and denominator: 3 of the 4 children in the founding cohort, before age 3. The two children in the 2026 report were alive at publication and are not counted either way, so no frequency band is recorded.</div>
 
@@ -6701,6 +6801,9 @@ Numerator and denominator: 3 of the 4 children in the founding cohort, before ag
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left unbound. HPO has no term for growth hormone resistance or growth hormone insensitivity: a search of the ontology returned 52 terms matching &#34;growth hormone&#34;, none of which describes resistance, and targeted searches for &#34;resistance&#34;, &#34;insensitivity&#34; and &#34;Laron&#34; returned nothing applicable either. HP:0000845 (Elevated circulating growth hormone concentration) and HP:0030353 (Decreased circulating insulin-like growth factor 1 concentration) are the laboratory findings that would normally establish resistance, but the abstract reports neither value, so binding either would assert a measurement that was not published. No term beats a wrong one.</div>
@@ -6821,6 +6924,9 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (8 references)
@@ -6923,6 +7029,7 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6942,11 +7049,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founder allele of the Middle Rio Grande Valley, homozygous in all six patients with a confirmed genotype. Structural modelling places the substituted isoleucine in the hydrophobic core of the protein, and patient fibroblasts contain no detectable ZPR1, so it behaves as a null in the one human tissue anybody has assayed.</div>
@@ -7034,6 +7147,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7053,11 +7167,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A maternally inherited frameshift, reported once, in a thirteen-month-old with a phenotype overlapping this syndrome and presumed - not shown - to be in trans with p.(Leu149Ser). The reporting authors predict it produces a null protein lacking all characterised functional domains. It is the only truncating ZPR1 allele reported in a patient, and it is classified as of uncertain significance in that report.</div>
@@ -7120,6 +7240,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7139,11 +7260,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense change of unknown parental origin reported in the same child, placed by the reporting authors in the eEF1-alpha binding domain and compared by them with p.Ile196Thr as a hydrophobic-to-polar substitution in the same pocket. Classified as of uncertain significance in that report.</div>
@@ -7262,6 +7389,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7272,6 +7402,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7385,6 +7518,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7395,6 +7531,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9662,6 +9801,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Growth Restriction, Hypoplastic Kidneys, Alopecia and Distinctive Facies (GKAF, ZPR1)</strong> · 2026-09-04T22:28:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Growth_Restriction_Hypoplastic_Kidneys_Alopecia_And_Distinctive_Facies/2026-09-04T222838Z-claude-code-41b471.yaml">View source</a></p>
+                        <p class="research-review-text">Identity resolved from the stub&#39;s MONDO xref chain, since MONDO records no causal gene for MONDO:0859146: OLS gave OMIM:619321, NCBI mim2gene_medgen mapped that MIM to GeneID 8882, and NCBI Gene resolved it to ZPR1 (11q23.3). Coverage recheck by gene against origin/main found no kb/ entry for ZPR1 (the only matches were an unrelated Wilson&#39;s-disease Biomni expression table), so this is a new Disease rather than a fold-in.
+
+Evidence base: two clinical reports totalling six children in five families (PMID:29851065 Ito 2018, four children from three New Mexican Hispanic families; PMID:40776660 2026, two sisters, identifying c.587T&gt;C as a Middle Rio Grande Valley founder variant), plus three ZPR1-deficiency mechanism papers (PMID:17068332 cell cycle and transcription, PMID:15767679 Zpr1-null mouse, PMID:16648254 Zpr1-deficient mouse neurodegeneration). Both clinical papers are abstract-only in the cache; the abstracts are unusually complete and carry the whole phenotype list, the mortality, the variant, the structural modelling and the fibroblast result.
+
+Mechanism curated as a general proliferation defect: p.Ile196Thr (predicted to disrupt the hydrophobic core, COMPUTATIONAL) -&gt; no detectable ZPR1 protein in patient fibroblasts -&gt; G1 cell cycle arrest, and in parallel disrupted subnuclear localisation of SMN and NPAT -&gt; reduced proliferation in developing tissues -&gt; the twelve organ phenotypes. That breadth is the point: the constraint is on proliferation itself, which is why one lesion touches growth, brain, kidney, hair, ear, gonad, liver and endocrine axis.
+
+The interpretive problem is recorded rather than smoothed over. Almost all ZPR1 biology comes from spinal muscular atrophy research, and the viable Zpr1+/- mouse develops axonal pathology and neurodegeneration, which no reported patient has. The Zpr1+/- model link to Global Developmental Delay is therefore curated as FAILS_TO_RECAPITULATE with both required limitations and evidence, and a HUMAN_MODEL_MISMATCH discussion sets out the three open explanations (dose difference, early renal death, or nobody looked). A second KNOWLEDGE_GAP records that one allele in one founder population cannot separate the gene&#39;s phenotype from p.Ile196Thr&#39;s, and notes the tension that a true ZPR1 null is embryonic lethal in mouse while these children were liveborn.
+
+Two phenotypes are deliberately left with preferred_term and no term:. Growth Hormone Resistance - HPO has no term for growth hormone resistance or insensitivity (52 &#39;growth hormone&#39; matches searched, plus targeted searches for resistance, insensitivity and Laron), and binding the laboratory findings that would establish it would assert measurements the abstract does not report. Death in Early Childhood - HP:0003819 and HP:0001522 sit in the HPO Mortality/Aging branch, outside the PhenotypeTerm dynamic enum; this follows the precedent in Autosomal_Recessive_Spondylometaphyseal_Dysplasia_Megarbane_Type, and the mortality is also recorded under progression.
+
+Deep research: falcon, on topic (ZPR1 50 mentions, p.Ile196Thr 15, no substituted disease; preflight-dr SKIPs because MONDO records no canonical gene, so substitution was checked by manual gene grep). Nothing was bound from the report; its own term validation flagged two mislabelled CURIEs.
+
+Validation: just validate (schema + terms + references) passed; 52/52 snippets verified, no prefix skips; check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms all clean. Every phenotype is wired; the only node with no incoming edge is the variant, which is the root.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

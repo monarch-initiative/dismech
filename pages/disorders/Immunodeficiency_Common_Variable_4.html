@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4679,6 +4732,13 @@ There is one citable negative, and it is clinical rather than serological: neith
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tnfrsf13c-loss-of-function" data-dismech-node="Biallelic TNFRSF13C Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TNFRSF13C Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. TNFRSF13C at 22q13 has three exons and encodes BAFF-R, a 184-amino-acid type III transmembrane member of the TNF receptor superfamily expressed on all surface-immunoglobulin-positive B cells but not on plasma cells. The reported null allele is a homozygous deletion removing most of the transmembrane segment, which precludes surface expression altogether.
 BAFF is the receptor&#39;s only ligand, and it is secreted by monocytes, macrophages, neutrophils and activated B cells as well as by non-haematopoietic cells - so the defect is in reception, not in supply. That distinction matters therapeutically: adding BAFF cannot help.</div>
 
@@ -4739,6 +4799,8 @@ This pathophysiological event involves TNFRSF13C (hgnc:17755). hgnc:17755 is a g
 
 
 
+
+
         <span class="tag tag-classification">allele_type: DELETION</span>
 
 
@@ -4754,6 +4816,9 @@ This pathophysiological event involves TNFRSF13C (hgnc:17755). hgnc:17755 is a g
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Loss of function established by the absence of surface BAFF-R rather than inferred from the deletion&#39;s coordinates. The deletion is in-frame but removes most of the transmembrane anchor, so the mechanism is failure of membrane insertion rather than nonsense-mediated decay.</div>
 
@@ -4849,6 +4914,13 @@ This pathophysiological event involves TNFRSF13C (hgnc:17755). hgnc:17755 is a g
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-baff-induced-non-canonical-nf-kb-signalling" data-dismech-node="Loss of BAFF-Induced Non-Canonical NF-kB Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of BAFF-Induced Non-Canonical NF-kB Signalling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The signalling step the receptor exists to perform. BAFF binding to BAFF-R activates the alternative NF-kB pathway: NIK-dependent, IKK-alpha-driven processing of the NF-kB2 precursor p100, which proceeds without NEMO and therefore independently of the canonical cascade. This was the first physiological inducer identified for that pathway, and the paper that identified it showed the cascade is what maturing splenic B cells need in order to survive and progress.
 Placing the lesion here rather than at &#34;B cell survival&#34; is what makes the node informative: it names a specific, NEMO-independent branch, which is why BAFF-R deficiency does not produce the broad inflammatory phenotype of canonical NF-kB defects.</div>
@@ -5046,6 +5118,13 @@ This pathophysiological event involves decreased non-canonical NF-kappaB signal 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-arrest-at-the-transitional-b-cell-stage" data-dismech-node="Developmental Arrest at the Transitional B Cell Stage" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Arrest at the Transitional B Cell Stage</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The checkpoint failure that defines the disease. Development proceeds normally to the immature/transitional stage and stops there; every subsequent B-cell stage is severely reduced. In BAFF-R-deficient mice the same block reduces follicular and marginal-zone B cells by more than 95 percent while leaving transitional numbers intact - the compartment immediately upstream is spared, which is what identifies this as a survival checkpoint rather than a generative defect.</div>
 
@@ -5282,6 +5361,13 @@ This pathophysiological event involves decreased B cell homeostasis (GO:0001782)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-antibody-production" data-dismech-node="Impaired Antibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Antibody Production</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Fewer mature B cells, so less antibody - but with a specific pattern rather than a uniform one. IgG and IgM are reduced; IgA is normal, which is unusual for CVID and is the finding that most cleanly separates BAFF-R deficiency from the class it is filed under. The murine explanation is direct: mucosal IgA-secreting plasma cells in the gut of BAFF-R-deficient mice develop normally and appear not to require BAFF-R signals.
 Functionally, the deficit that shows first is the T-independent one. Neither reported sibling mounted an antibody response to pneumococcal cell wall polysaccharide - consistent with the loss of the marginal-zone compartment, which is where T-independent responses are made.</div>
 
@@ -5445,6 +5531,13 @@ This pathophysiological event involves decreased mature B cell differentiation i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-sinopulmonary-infection" data-dismech-node="Recurrent Sinopulmonary Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Sinopulmonary Infection</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint - when it occurs. This node is graded PROVISIONAL not because the antibody-deficiency-to-infection link is doubtful in general, but because in this specific genotype it did not hold for one of the two reported homozygotes. The edge into it is marked as having known intermediates for the same reason: whatever compensates in the unaffected sibling sits between the antibody deficit and the clinical phenotype, and is not identified.</div>
 
 
@@ -5528,7 +5621,7 @@ This pathophysiological event involves decreased mature B cell differentiation i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TNFRSF13C Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. TNFRSF13C at 22q13 has three exons and encodes BAFF-R, a 184-amino-acid type III transmembrane member of the TNF receptor superfamily expressed on all surface-immunoglobulin-positive B cells but not on plasma cells. The reported null allele is a homozygous deletion removing most of the transmembrane segment, which precludes surface expression altogether.\\nBAFF is the receptor\u0027s only ligand, and it is secreted by monocytes, macrophages, neutrophils and activated B cells as well as by non-haematopoietic cells - so the defect is in reception, not in supply. That distinction matters therapeutically: adding BAFF cannot help.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNFRSF13C\"], \"gene_terms\": [{\"label\": \"TNFRSF13C\", \"id\": \"hgnc:17755\"}], \"genetic_context\": {\"allele_type\": \"DELETION\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established by the absence of surface BAFF-R rather than inferred from the deletion\u0027s coordinates. The deletion is in-frame but removes most of the transmembrane anchor, so the mechanism is failure of membrane insertion rather than nonsense-mediated decay.\"}, \"role\": \"trigger\"}}, {\"id\": \"Developmental Arrest at the Transitional B Cell Stage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The checkpoint failure that defines the disease. Development proceeds normally to the immature/transitional stage and stops there; every subsequent B-cell stage is severely reduced. In BAFF-R-deficient mice the same block reduces follicular and marginal-zone B cells by more than 95 percent while leaving transitional numbers intact - the compartment immediately upstream is spared, which is what identifies this as a survival checkpoint rather than a generative defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"transitional B cell\", \"marginal zone B cell\"], \"biological_processes\": [\"mature B cell differentiation\", \"B cell homeostasis\"], \"role\": \"central_effector\"}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard treatment for the antibody deficiency, and effective for it: the reported patient moved from twenty pneumonias and more than ten sinusitis episodes to a single course of antibiotics in the preceding year after starting intravenous and then subcutaneous immunoglobulin.\\nIt replaces the product, not the mechanism. The developmental block and the absent T-independent response are unchanged, and nothing in the reported literature addresses the receptor defect itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Antibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fewer mature B cells, so less antibody - but with a specific pattern rather than a uniform one. IgG and IgM are reduced; IgA is normal, which is unusual for CVID and is the finding that most cleanly separates BAFF-R deficiency from the class it is filed under. The murine explanation is direct: mucosal IgA-secreting plasma cells in the gut of BAFF-R-deficient mice develop normally and appear not to require BAFF-R signals.\\nFunctionally, the deficit that shows first is the T-independent one. Neither reported sibling mounted an antibody response to pneumococcal cell wall polysaccharide - consistent with the loss of the marginal-zone compartment, which is where T-independent responses are made.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mature B cell differentiation involved in immune response\"], \"role\": \"consequence\"}}, {\"id\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The signalling step the receptor exists to perform. BAFF binding to BAFF-R activates the alternative NF-kB pathway: NIK-dependent, IKK-alpha-driven processing of the NF-kB2 precursor p100, which proceeds without NEMO and therefore independently of the canonical cascade. This was the first physiological inducer identified for that pathway, and the paper that identified it showed the cascade is what maturing splenic B cells need in order to survive and progress.\\nPlacing the lesion here rather than at \\\"B cell survival\\\" is what makes the node informative: it names a specific, NEMO-independent branch, which is why BAFF-R deficiency does not produce the broad inflammatory phenotype of canonical NF-kB defects.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"transitional B cell\"], \"biological_processes\": [\"non-canonical NF-kappaB signal transduction\"], \"role\": \"central_effector\"}}, {\"id\": \"Recurrent Sinopulmonary Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint - when it occurs. This node is graded PROVISIONAL not because the antibody-deficiency-to-infection link is doubtful in general, but because in this specific genotype it did not hold for one of the two reported homozygotes. The edge into it is marked as having known intermediates for the same reason: whatever compensates in the unaffected sibling sits between the antibody deficit and the clinical phenotype, and is not identified.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"TNFRSF13C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFRSF13C\"], \"gene_terms\": [{\"label\": \"TNFRSF13C\", \"id\": \"hgnc:17755\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Biallelic TNFRSF13C Loss of Function\", \"target\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"target\": \"Developmental Arrest at the Transitional B Cell Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Developmental Arrest at the Transitional B Cell Stage\", \"target\": \"Impaired Antibody Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Antibody Production\", \"target\": \"Recurrent Sinopulmonary Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Impaired Antibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNFRSF13C\", \"target\": \"Biallelic TNFRSF13C Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TNFRSF13C Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. TNFRSF13C at 22q13 has three exons and encodes BAFF-R, a 184-amino-acid type III transmembrane member of the TNF receptor superfamily expressed on all surface-immunoglobulin-positive B cells but not on plasma cells. The reported null allele is a homozygous deletion removing most of the transmembrane segment, which precludes surface expression altogether.\\nBAFF is the receptor\u0027s only ligand, and it is secreted by monocytes, macrophages, neutrophils and activated B cells as well as by non-haematopoietic cells - so the defect is in reception, not in supply. That distinction matters therapeutically: adding BAFF cannot help.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNFRSF13C\"], \"gene_terms\": [{\"label\": \"TNFRSF13C\", \"id\": \"hgnc:17755\"}], \"genetic_context\": {\"allele_type\": \"DELETION\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established by the absence of surface BAFF-R rather than inferred from the deletion\u0027s coordinates. The deletion is in-frame but removes most of the transmembrane anchor, so the mechanism is failure of membrane insertion rather than nonsense-mediated decay.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Developmental Arrest at the Transitional B Cell Stage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The checkpoint failure that defines the disease. Development proceeds normally to the immature/transitional stage and stops there; every subsequent B-cell stage is severely reduced. In BAFF-R-deficient mice the same block reduces follicular and marginal-zone B cells by more than 95 percent while leaving transitional numbers intact - the compartment immediately upstream is spared, which is what identifies this as a survival checkpoint rather than a generative defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"transitional B cell\", \"marginal zone B cell\"], \"biological_processes\": [\"mature B cell differentiation\", \"B cell homeostasis\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard treatment for the antibody deficiency, and effective for it: the reported patient moved from twenty pneumonias and more than ten sinusitis episodes to a single course of antibiotics in the preceding year after starting intravenous and then subcutaneous immunoglobulin.\\nIt replaces the product, not the mechanism. The developmental block and the absent T-independent response are unchanged, and nothing in the reported literature addresses the receptor defect itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Antibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fewer mature B cells, so less antibody - but with a specific pattern rather than a uniform one. IgG and IgM are reduced; IgA is normal, which is unusual for CVID and is the finding that most cleanly separates BAFF-R deficiency from the class it is filed under. The murine explanation is direct: mucosal IgA-secreting plasma cells in the gut of BAFF-R-deficient mice develop normally and appear not to require BAFF-R signals.\\nFunctionally, the deficit that shows first is the T-independent one. Neither reported sibling mounted an antibody response to pneumococcal cell wall polysaccharide - consistent with the loss of the marginal-zone compartment, which is where T-independent responses are made.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mature B cell differentiation involved in immune response\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The signalling step the receptor exists to perform. BAFF binding to BAFF-R activates the alternative NF-kB pathway: NIK-dependent, IKK-alpha-driven processing of the NF-kB2 precursor p100, which proceeds without NEMO and therefore independently of the canonical cascade. This was the first physiological inducer identified for that pathway, and the paper that identified it showed the cascade is what maturing splenic B cells need in order to survive and progress.\\nPlacing the lesion here rather than at \\\"B cell survival\\\" is what makes the node informative: it names a specific, NEMO-independent branch, which is why BAFF-R deficiency does not produce the broad inflammatory phenotype of canonical NF-kB defects.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"transitional B cell\"], \"biological_processes\": [\"non-canonical NF-kappaB signal transduction\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Recurrent Sinopulmonary Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint - when it occurs. This node is graded PROVISIONAL not because the antibody-deficiency-to-infection link is doubtful in general, but because in this specific genotype it did not hold for one of the two reported homozygotes. The edge into it is marked as having known intermediates for the same reason: whatever compensates in the unaffected sibling sits between the antibody deficit and the clinical phenotype, and is not identified.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"TNFRSF13C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFRSF13C\"], \"gene_terms\": [{\"label\": \"TNFRSF13C\", \"id\": \"hgnc:17755\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Biallelic TNFRSF13C Loss of Function\", \"target\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of BAFF-Induced Non-Canonical NF-kB Signalling\", \"target\": \"Developmental Arrest at the Transitional B Cell Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Developmental Arrest at the Transitional B Cell Stage\", \"target\": \"Impaired Antibody Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Antibody Production\", \"target\": \"Recurrent Sinopulmonary Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Impaired Antibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNFRSF13C\", \"target\": \"Biallelic TNFRSF13C Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5547,9 +5640,9 @@ This pathophysiological event involves decreased mature B cell differentiation i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5559,7 +5652,7 @@ This pathophysiological event involves decreased mature B cell differentiation i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-igg" data-dismech-node="Decreased Circulating IgG" data-dismech-type="phenotype">
@@ -5589,6 +5682,9 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5667,6 +5763,9 @@ This clinical feature is Decreased circulating IgM concentration, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5708,79 +5807,6 @@ This clinical feature is Decreased circulating IgM concentration, annotated with
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-antibody-response-to-pneumococcal-polysaccharide" data-dismech-node="Absent Antibody Response to Pneumococcal Polysaccharide" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent Antibody Response to Pneumococcal Polysaccharide
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Complete or near-complete absence of specific antibody response to unconjugated pneumococcus polysaccharide</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0410300</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Complete or near-complete absence of specific antibody response to unconjugated pneumococcus polysaccharide (HP:0410300). HP:0410300 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19666484" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19666484" target="_blank">PMID:19666484</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They also did not mount a T-independent immune response against pneumococcal cell wall polysaccharides"</div>
-
-
-                <div class="evidence-explanation">The failed T-independent response in both siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-b-lymphopenia" data-dismech-node="B Lymphopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         B Lymphopenia
@@ -5799,15 +5825,18 @@ This clinical feature is Complete or near-complete absence of specific antibody 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010976</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0010976</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5870,15 +5899,18 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0030381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased transitional B cell proportion (HP:0030381). HP:0030381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5968,15 +6000,18 @@ This clinical feature is Increased transitional B cell proportion (HP:0030381). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030384</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030384</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased marginal zone B cell proportion (HP:0030384). HP:0030384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6066,15 +6101,18 @@ This clinical feature is Decreased marginal zone B cell proportion (HP:0030384).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased class-switched memory B cell proportion (HP:0030388). HP:0030388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6154,8 +6192,84 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-antibody-response-to-pneumococcal-polysaccharide" data-dismech-node="Absent Antibody Response to Pneumococcal Polysaccharide" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent Antibody Response to Pneumococcal Polysaccharide
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Complete or near-complete absence of specific antibody response to unconjugated pneumococcus polysaccharide</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0410300</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Complete or near-complete absence of specific antibody response to unconjugated pneumococcus polysaccharide (HP:0410300). HP:0410300 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19666484" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19666484" target="_blank">PMID:19666484</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They also did not mount a T-independent immune response against pneumococcal cell wall polysaccharides"</div>
+
+
+                <div class="evidence-explanation">The failed T-independent response in both siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-sinopulmonary-infections" data-dismech-node="Recurrent Sinopulmonary Infections" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6211,6 +6325,9 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425), qualif
 
 
                     </div>
+
+
+
 
 
 
@@ -6379,6 +6496,9 @@ This disease-associated gene is TNFRSF13C (hgnc:17755). hgnc:17755 is a gene fro
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6580,6 +6700,9 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6590,6 +6713,9 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -8175,6 +8301,70 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report plus independent PubMed searching. The report was used for framing only. Its reference-validation section reported 7 of 7 citations resolving, but only 4 of 7 assessed as on topic; its term-validation section reported 8 of 35 checked labels mismatched, including MONDO:0011107 offered as &#34;common variable immunodeficiency&#34; when MONDO calls that identifier &#34;congenital hypotrichosis with juvenile macular dystrophy&#34;. No CURIE was taken from the report; all bindings were resolved against the committed term caches and OLS.
+No GeneReviews chapter exists for TNFRSF13C or CVID4; a PubMed search for &#34;TNFRSF13C GeneReviews&#34; returned no results.
+One quoted snippet (in the TNFRSF13C loss-of-function node) contains words run together - &#34;theTNFRSF13Cgene&#34; - because the cached source has the gene symbol in italic markup that the cache strips. It is reproduced exactly as cached rather than tidied, since a snippet must be an exact substring of the cached reference.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address ai4c-reviewer items on PR 10025</strong> · 2026-08-29T07:27:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_Common_Variable_4/2026-08-29T072754Z-claude-code-512bc3.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed all five IMPORTANT items and three of four suggestions from the automated review of PR 10025. The reviewer&#39;s closing observation was the useful one: PMID:19666484 is cached as full text rather than as an abstract, and it answers findings 2, 3 and 4 directly. I had curated from the abstract without checking what else the cache held, which is the generalisable mistake in this round.
+
+Item 1, wrong GO term. Removed GO:0033209 tumor necrosis factor-mediated signaling pathway from the signalling node. The reviewer is right and the error is instructive: BAFF-R is a member of the TNF receptor superfamily, which is a structural classification, but its ligand is BAFF (TNFSF13B), not TNF, and GO defines that term by the ligand. GO:0038061 non-canonical NF-kappaB signal transduction already carried the claim precisely, so the term was dropped rather than swapped for another approximation.
+
+Item 2, missing diagnostic triad. Added three phenotypes, each VERY_FREQUENT and each with a measured quote from the cached full text: B lymphopenia (HP:0010976), increased transitional B cell proportion (HP:0030381), and decreased marginal zone B cell proportion (HP:0030384). The marginal-zone one supplies the mechanistic link the entry previously only asserted in prose - that the absent T-independent response follows from the lost MZ compartment.
+
+Item 3, onset. Removed the Late Adult Onset phenotype, which was bound to HP:0002718 Recurrent bacterial infections - not an onset claim at all - and duplicated the sinopulmonary infection phenotype. Onset is now an onset descriptor on that phenotype&#39;s phenotype_term. Bound to ADULT with min_age_years 37, not to LATE: the earliest documented onset in a null-allele patient is his first pneumonia at 37, and although diagnosis came at 57 and the paper calls this the first immunodeficiency diagnosed primarily in the second half of life, that sentence is about diagnosis rather than onset. Both quotes are recorded, with the distinction stated in the descriptor notes. The P21R patient&#39;s onset at 23 is deliberately no longer used to set the value.
+
+Item 4, prevalence. The note denied an estimate the cited paper gives. Now recorded as 1 in 3,000,000 to 1 in 6,000,000, prevalence_class BELOW_1_IN_1000000, rate_per_100000 0.025 with a 0.0167-0.0333 range, the screening denominator of 138 CVID patients captured, and the authors&#39; own caveat quoted as a PARTIAL evidence item - they say in the same sentence that the true population figure is probably higher, because a BAFF-R-deficient person who never came to immunological attention is invisible to a CVID-cohort screen.
+
+Item 5, contrast node in the mechanism graph. The BAFF-Driven B Cell Hyperplasia node has been moved out of pathophysiology into a discussions entry. The reviewer&#39;s argument is correct and worth recording: pathophysiology is what gets exported as this disease&#39;s mechanism graph, so a node saying in its own description that the mechanism cannot occur in a BAFF-R-null patient was, to a graph consumer, an assertion that it does - the exact misreading the node existed to prevent. role and mechanism_confidence do not carry a negation across an export boundary.
+
+Suggestions taken. The class-switched memory B cell phenotype now carries a second, SUPPORT-graded evidence item measuring it in both null-allele patients, so it stands on the causal genotype rather than on the modifier variant; the P21R item is kept for the normal-total-count dissociation. The autoimmunity HUMAN_MODEL_MISMATCH now carries a citable negative rather than resting on absence of evidence, graded REFUTE. The incomplete-penetrance discussion now records the original authors&#39; own modifier search - BTK sequencing and CD40L expression both normal in the discordant sibling pair - which excludes the two obvious X-linked candidates without closing the question.
+
+One suggestion not taken, because the premise is wrong. The reviewer identified PMID:15316526 as the primary P21R association source, titled Mutational Analysis of Human BAFF Receptor TNFRSF13C in Patients with Common Variable Immunodeficiency. The cached record for that PMID is Granulomatous-lymphocytic lung disease shortens survival in common variable immunodeficiency, a retrospective analysis of 69 CVID patients with no BAFF-R content. It is in the cache because the deep-research report&#39;s citation list resolved it, not because I fetched it. Citing it as a P21R source would have introduced exactly the kind of wrong-paper attribution the review process exists to catch.
+
+The fourth suggestion, antibiotic prophylaxis, is not taken for the reason the reviewer gives - it is generic CVID management and belongs on the parent entry.
+
+Validation after changes. Schema validation passes; 39 of 39 evidence snippets verified, up from 28; term validation, entity-ref and duplicate-key checks pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency Common Variable 4 (MONDO:0013284, TNFRSF13C)</strong> · 2026-08-29T06:51:44Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_Common_Variable_4/2026-08-29T065144Z-claude-code-d7e1d1.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for CVID4, BAFF-receptor (TNFRSF13C) deficiency.
+
+Lump/split decision. Curated as its own kb/disorders entry rather than as a has_subtypes entry on Common_Variable_Immunodeficiency. Two reasons. The parent entry carries BAFF-R only as a genetic entry and has no has_subtypes block at all, so there was no existing subtype structure to extend. More substantively, the pathograph is not the parent&#39;s: generic CVID is a failure of the late steps, class-switch recombination and plasma-cell differentiation, whereas this is a survival failure at the transitional-to-mature checkpoint, upstream of all of that. The immunoglobulin pattern shows the difference - BAFF-R-deficient siblings had normal IgA, which most CVID patients do not. The KB already holds several single-gene inborn-error-of-immunity entries at this granularity, including CTLA4_Haploinsufficiency, TRAF3_Haploinsufficiency and SOCS1_Haploinsufficiency.
+
+Curation inputs. One Perplexity deep-research run, committed alongside, plus independent PubMed E-utilities searching. The report contributed framing only. Its reference_validation block reported 7 of 7 citations resolving but only 4 of 7 assessed as on topic. Its term_validation block reported 8 of 35 checked labels mismatched, including MONDO:0011107 offered as common variable immunodeficiency when MONDO calls that identifier congenital hypotrichosis with juvenile macular dystrophy. No CURIE was taken from the report.
+
+GeneReviews baseline. A PubMed search for TNFRSF13C GeneReviews returned no results, so Step 3b does not apply.
+
+Structure. Six pathophysiology nodes: biallelic TNFRSF13C loss of function, loss of BAFF-induced non-canonical NF-kB signalling, developmental arrest at the transitional B cell stage, impaired antibody production, and recurrent sinopulmonary infection. The sixth is a deliberate contrast node, BAFF-driven B cell hyperplasia, which is the opposite-direction pathology on the same axis in receptor-sufficient CVID patients with interstitial lung disease. It is retained with its role marked as modifier and its description saying plainly that this pathology cannot occur in a BAFF-R-null patient, because a keyword search for this gene returns that literature repeatedly and it should not be misread as evidence about CVID4.
+
+The signalling node is placed at non-canonical NF-kB specifically rather than at the vaguer B cell survival, because the NEMO-independence is what explains why BAFF-R deficiency does not produce the broad inflammatory phenotype of canonical NF-kB defects.
+
+The genetic entry separates the two variant classes the literature conflates. Null alleles cause the disease; the six functionally characterised missense variants are modifiers, only P21R correlates positively with CVID in association study, and P21R is present in healthy individuals. Three evidence items carry that distinction, two of them graded PARTIAL because they qualify rather than support a causal claim.
+
+Two discussions. A KNOWLEDGE_GAP on incomplete clinical penetrance: both homozygous siblings had the full immunological phenotype and failed the pneumococcal polysaccharide response, but only one developed recurrent infections, and the defining paper says outright that the deletion does not necessarily lead to a clinically manifest immunodeficiency. A HUMAN_MODEL_MISMATCH on the lupus-like syndrome of BAFF-R-mutant A/WySnJ mice, which is genetically linked to the Baffr allele by a congenic control and has no human counterpart reported - recorded with the caveat that with two patients and no reported autoimmune serology, absence of evidence is doing all the work.
+
+Validation. Schema validation passes; 28 of 28 evidence snippets verified against cached primary references; term validation, duplicate-key and entity-ref checks pass.
+
+Two fixes made during validation, both recorded because they are generalisable. The term validator rejected HP:0002850 with the label OLS search returned, Decreased circulating IgM concentration; the authority&#39;s canonical label is Decreased circulating total IgM, and OLS search results are therefore not a safe source of the label field even when the CURIE is right. And one snippet failed because the sentence begins The patient had rather than He had; the paraphrase was mine, and it was fixed by quoting the source rather than by loosening the claim.
+
+One quoted snippet in the loss-of-function node contains words run together - theTNFRSF13Cgene - because the cached source has the gene symbol in italic markup that the cache strips. It is reproduced exactly as cached, and a note on the entry says so, since a snippet must be an exact substring.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

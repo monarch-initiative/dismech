@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5215,6 +5268,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-adnp-pathogenic-variation" data-dismech-node="Heterozygous ADNP Pathogenic Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous ADNP Pathogenic Variation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous pathogenic ADNP variant. Most established alleles are protein-truncating and usually de novo, but their molecular consequences differ by position and RNA processing. This root therefore represents pathogenic variation without presupposing uniform haploinsufficiency.</div>
 
 
@@ -5328,6 +5388,8 @@ This genetic context concerns ADNP (hgnc:15766). hgnc:15766 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5340,6 +5402,9 @@ This genetic context concerns ADNP (hgnc:15766). hgnc:15766 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous ADNP alleles, mostly last-exon truncations that escape nonsense-mediated decay. Recorded as UNKNOWN: true haploinsufficiency is demonstrated only for a splice allele (mechanistic_hypotheses#allele_specific_haploinsufficiency_branch), mutant protein has never been unambiguously shown in patients carrying the common truncations (mechanistic_hypotheses#nmd_escape_truncation_branch), and one missense allele shows gain-of-function-like behaviour in vitro. The gap_adnp_allele_specific_molecular_mechanism discussion records the allele-stratified experiment that would resolve this.</div>
 
@@ -5535,6 +5600,13 @@ This genetic context concerns ADNP (hgnc:15766). hgnc:15766 is a gene from the H
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmd-escaping-mutant-adnp-transcripts" data-dismech-node="NMD-Escaping Mutant ADNP Transcripts" data-dismech-type="pathophysiology">
                 <div class="item-name">NMD-Escaping Mutant ADNP Transcripts</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Common last-exon truncating alleles are transcribed and escape nonsense-mediated decay. Mutant RNA is established, but the abundance, stability, localization, and action of any corresponding truncated protein in patient tissues remain unresolved.</div>
 
 
@@ -5648,6 +5720,13 @@ This genetic context concerns ADNP (hgnc:15766). hgnc:15766 is a gene from the H
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-allele-specific-adnp-haploinsufficiency" data-dismech-node="Allele-Specific ADNP Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Allele-Specific ADNP Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A splice-acceptor deletion that causes exon 4 skipping and no detectable truncated protein establishes a true dosage-loss mechanism for that allele. The node is deliberately allele specific.</div>
 
 
@@ -5760,6 +5839,13 @@ This genetic context concerns ADNP (hgnc:15766). hgnc:15766 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adnp-chromatin-complex-dysfunction" data-dismech-node="ADNP Chromatin-Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ADNP Chromatin-Complex Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ADNP participates in HP1/BRG1-associated chromatin regulation and the CHD4-containing ChAHP complex. Pathogenic variation can alter ADNP abundance, localization, chromatin association, or binding specificity, but the exact perturbation is allele dependent. A 2026 male-mouse frameshift model showed reduced chromatin association, increased accessibility, and Wnt-pathway downregulation; these model findings are not treated as direct human proof.</div>
 
@@ -5966,6 +6052,13 @@ This pathophysiological event involves abnormal Regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adnp-eb-microtubule-dynamics-dysfunction" data-dismech-node="ADNP-EB Microtubule Dynamics Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ADNP-EB Microtubule Dynamics Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">ADNP and its NAP motif interact with end-binding proteins at growing microtubule plus ends. ADNP-mutant cell models show reduced microtubule content and phenocopy after pharmacologic microtubule disruption, supporting a microtubule branch while leaving allele-specific human intermediates incompletely resolved.</div>
 
 
@@ -6136,6 +6229,13 @@ This pathophysiological event involves abnormal Microtubule cytoskeleton organiz
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-transcription-and-differentiation-dysregulation" data-dismech-node="Neurodevelopmental Transcription and Differentiation Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Transcription and Differentiation Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Altered ADNP-dependent chromatin regulation perturbs transcriptional programs for nervous-system development and neuronal differentiation. Evidence spans an allele-specific human iPSC study and mouse multi-omics; Wnt dysregulation is currently model-qualified rather than an established universal human pathway.</div>
 
@@ -6406,6 +6506,13 @@ This pathophysiological event involves abnormal Wnt signaling pathway (male-mous
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dendritic-spine-and-synaptic-plasticity-dysfunction" data-dismech-node="Dendritic Spine and Synaptic Plasticity Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dendritic Spine and Synaptic Plasticity Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Adnp-deficient and frameshift mouse models show reduced dendritic spine density, altered synaptic gene expression, disrupted Camk2a/Dbn1 interactions, abnormal CaMKII phosphorylation, and excessive long-term potentiation. These findings support a synaptic branch but remain model-derived rather than direct measurements in affected human brain.</div>
 
 
@@ -6670,7 +6777,7 @@ This pathophysiological event involves decreased Dendritic spine development (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADNP Chromatin-Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADNP participates in HP1/BRG1-associated chromatin regulation and the CHD4-containing ChAHP complex. Pathogenic variation can alter ADNP abundance, localization, chromatin association, or binding specificity, but the exact perturbation is allele dependent. A 2026 male-mouse frameshift model showed reduced chromatin association, increased accessibility, and Wnt-pathway downregulation; these model findings are not treated as direct human proof.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Chromatin remodeling\", \"Regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"ADNP Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ADNP\"], \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADNP and its NAP motif interact with end-binding proteins at growing microtubule plus ends. ADNP-mutant cell models show reduced microtubule content and phenocopy after pharmacologic microtubule disruption, supporting a microtubule branch while leaving allele-specific human intermediates incompletely resolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Microtubule cytoskeleton organization\"]}}, {\"id\": \"Advanced Tooth Eruption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early eruption of the primary (deciduous) teeth is a recognizable, distinctive feature of the syndrome reported in the defining clinical cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006288\"}}, {\"id\": \"Allele-Specific ADNP Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A splice-acceptor deletion that causes exon 4 skipping and no detectable truncated protein establishes a true dosage-loss mechanism for that allele. The node is deliberately allele specific.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features were reported in 93% of the main cohort; a formal ASD diagnosis was recorded in a smaller subset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioral Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems were caregiver-reported in 77.6% of children in the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One or more congenital cardiac defects were reported in 38% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cerebral Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment was diagnosed in 41% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100704\"}}, {\"id\": \"Characteristic Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic facial features include a prominent forehead, high anterior hairline, wide and depressed nasal bridge, and a short nose with full, upturned nasal tip.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Davunetide (NAP, investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Davunetide (NAP, CP201) is an ADNP-derived peptide candidate with preclinical target engagement. It partially rescues spine, behavioral, microtubule, and cellular abnormalities in Adnp-deficient mouse and engineered-cell models. Human efficacy for ADNP-related syndrome has not been established.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"davunetide\"]}}, {\"id\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adnp-deficient and frameshift mouse models show reduced dendritic spine density, altered synaptic gene expression, disrupted Camk2a/Dbn1 interactions, abnormal CaMKII phosphorylation, and excessive long-term potentiation. These findings support a synaptic branch but remain model-derived rather than direct measurements in affected human brain.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Regulation of synaptic plasticity\", \"Dendritic spine development\"]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding issues are common, particularly in infancy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrointestinal Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are a common comorbidity in ADNP syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011024\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was present in all individuals in the main cohort; global delay with speech and motor dysfunction is a core presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild hearing loss in childhood was reported in 11.7% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous ADNP Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous pathogenic ADNP variant. Most established alleles are protein-truncating and usually de novo, but their molecular consequences differ by position and RNA processing. This root therefore represents pathogenic variation without presupposing uniform haploinsufficiency.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADNP\"], \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous ADNP alleles, mostly last-exon truncations that escape nonsense-mediated decay. Recorded as UNKNOWN: true haploinsufficiency is demonstrated only for a splice allele (mechanistic_hypotheses#allele_specific_haploinsufficiency_branch), mutant protein has never been unambiguously shown in patients carrying the common truncations (mechanistic_hypotheses#nmd_escape_truncation_branch), and one missense allele shows gain-of-function-like behaviour in vitro. The gap_adnp_allele_specific_molecular_mechanism discussion records the allele-stratified experiment that would resolve this.\", \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}]}}}, {\"id\": \"Hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypermetropia was reported in 40.3% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000540\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in 78% of children in the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual disability affected all individuals in the main 78-person cohort, with severity ranging from mild to severe.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-Dose Ketamine (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A single-dose open-label study of 0.5 mg/kg intravenous ketamine in 10 children reported no serious adverse events and nominal short-term behavioral changes. The small uncontrolled design makes efficacy findings hypothesis-generating. A blood-transcriptomic study found a transient, monocyte-enriched peripheral response that does not establish central nervous-system target engagement; the effect of increasing mutant ADNP expression remains unresolved.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ketamine\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor developmental delay is a near-universal defining feature; 86.8% of assessed children walked independently after 18 months.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Musculoskeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Musculoskeletal abnormalities were frequent in the main clinical cohort and included joint hypermobility, scoliosis, and hip problems.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033127\"}}, {\"id\": \"Mutation-Position-Dependent Blood DNA Methylation Episignatures\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Leukocyte (peripheral blood)\"], \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Heterozygous ADNP Pathogenic Variation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}]}}, {\"id\": \"NMD-Escaping Mutant ADNP Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common last-exon truncating alleles are transcribed and escape nonsense-mediated decay. Mutant RNA is established, but the abundance, stability, localization, and action of any corresponding truncated protein in patient tissues remain unresolved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered ADNP-dependent chromatin regulation perturbs transcriptional programs for nervous-system development and neuronal differentiation. Evidence spans an allele-specific human iPSC study and mouse multi-omics; Wnt dysregulation is currently model-qualified rather than an established universal human pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Nervous system development\", \"Neuron differentiation\", \"Wnt signaling pathway (male-mouse model)\"]}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy support motor development and hypotonia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections were reported in 51% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were reported in 16% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature was reported in 23% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep problems were reported in 65.2% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe delay in speech and language development is a near-universal feature and is distinct from the separately curated motor-delay phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech therapy addresses the severe speech delay characteristic of the syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus was reported in 49.2% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Brain Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI was obtained in 75.6% of the main cohort; 56% of that imaged subgroup had cerebral abnormalities. This is a conditional imaging denominator, not 56% of the full cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012443\"}}, {\"id\": \"Symptom-Directed Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is individualized and symptomatic, including developmental and educational supports, nutritional assistance, and standard care for gastrointestinal, ophthalmologic, musculoskeletal, infectious, endocrine, cardiac, hearing, seizure, and urinary manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Urinary Tract Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital renal anomalies were reported in 12.5% of the main cohort; the broader urogenital category has a higher reported frequency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000079\"}}], \"edges\": [{\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"NMD-Escaping Mutant ADNP Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Allele-Specific ADNP Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Characteristic Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Musculoskeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Advanced Tooth Eruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Gastrointestinal Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Cerebral Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Urinary Tract Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NMD-Escaping Mutant ADNP Transcripts\", \"target\": \"ADNP Chromatin-Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NMD-Escaping Mutant ADNP Transcripts\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Allele-Specific ADNP Haploinsufficiency\", \"target\": \"ADNP Chromatin-Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced full-length ADNP availability for HP1/BRG1 and ChAHP complexes\"]}, {\"source\": \"Allele-Specific ADNP Haploinsufficiency\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced ADNP-end-binding protein interaction capacity\"]}, {\"source\": \"ADNP Chromatin-Complex Dysfunction\", \"target\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"target\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered EB1/EB3 microtubule plus-end tracking\", \"reduced microtubule content and dendritic spine formation\"]}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Structural Brain Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Behavioral Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech Therapy\", \"target\": \"Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Davunetide (NAP, investigational)\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Davunetide (NAP, investigational)\", \"target\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Ketamine (investigational)\", \"target\": \"Autistic Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-Dose Ketamine (investigational)\", \"target\": \"Behavioral Problems\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Mutation-Position-Dependent Blood DNA Methylation Episignatures\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ADNP Pathogenic Variants\", \"target\": \"Heterozygous ADNP Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADNP Chromatin-Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADNP participates in HP1/BRG1-associated chromatin regulation and the CHD4-containing ChAHP complex. Pathogenic variation can alter ADNP abundance, localization, chromatin association, or binding specificity, but the exact perturbation is allele dependent. A 2026 male-mouse frameshift model showed reduced chromatin association, increased accessibility, and Wnt-pathway downregulation; these model findings are not treated as direct human proof.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Chromatin remodeling\", \"Regulation of transcription by RNA polymerase II\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"ADNP Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ADNP\"], \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADNP and its NAP motif interact with end-binding proteins at growing microtubule plus ends. ADNP-mutant cell models show reduced microtubule content and phenocopy after pharmacologic microtubule disruption, supporting a microtubule branch while leaving allele-specific human intermediates incompletely resolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Microtubule cytoskeleton organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Advanced Tooth Eruption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early eruption of the primary (deciduous) teeth is a recognizable, distinctive feature of the syndrome reported in the defining clinical cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006288\"}}, {\"id\": \"Allele-Specific ADNP Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A splice-acceptor deletion that causes exon 4 skipping and no detectable truncated protein establishes a true dosage-loss mechanism for that allele. The node is deliberately allele specific.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features were reported in 93% of the main cohort; a formal ASD diagnosis was recorded in a smaller subset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioral Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems were caregiver-reported in 77.6% of children in the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One or more congenital cardiac defects were reported in 38% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cerebral Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment was diagnosed in 41% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100704\"}}, {\"id\": \"Characteristic Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic facial features include a prominent forehead, high anterior hairline, wide and depressed nasal bridge, and a short nose with full, upturned nasal tip.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Davunetide (NAP, investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Davunetide (NAP, CP201) is an ADNP-derived peptide candidate with preclinical target engagement. It partially rescues spine, behavioral, microtubule, and cellular abnormalities in Adnp-deficient mouse and engineered-cell models. Human efficacy for ADNP-related syndrome has not been established.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"davunetide\"]}}, {\"id\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adnp-deficient and frameshift mouse models show reduced dendritic spine density, altered synaptic gene expression, disrupted Camk2a/Dbn1 interactions, abnormal CaMKII phosphorylation, and excessive long-term potentiation. These findings support a synaptic branch but remain model-derived rather than direct measurements in affected human brain.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Regulation of synaptic plasticity\", \"Dendritic spine development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding issues are common, particularly in infancy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrointestinal Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are a common comorbidity in ADNP syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011024\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was present in all individuals in the main cohort; global delay with speech and motor dysfunction is a core presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild hearing loss in childhood was reported in 11.7% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous ADNP Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous pathogenic ADNP variant. Most established alleles are protein-truncating and usually de novo, but their molecular consequences differ by position and RNA processing. This root therefore represents pathogenic variation without presupposing uniform haploinsufficiency.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADNP\"], \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous ADNP alleles, mostly last-exon truncations that escape nonsense-mediated decay. Recorded as UNKNOWN: true haploinsufficiency is demonstrated only for a splice allele (mechanistic_hypotheses#allele_specific_haploinsufficiency_branch), mutant protein has never been unambiguously shown in patients carrying the common truncations (mechanistic_hypotheses#nmd_escape_truncation_branch), and one missense allele shows gain-of-function-like behaviour in vitro. The gap_adnp_allele_specific_molecular_mechanism discussion records the allele-stratified experiment that would resolve this.\", \"gene_terms\": [{\"label\": \"ADNP\", \"id\": \"hgnc:15766\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypermetropia was reported in 40.3% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000540\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in 78% of children in the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual disability affected all individuals in the main 78-person cohort, with severity ranging from mild to severe.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-Dose Ketamine (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A single-dose open-label study of 0.5 mg/kg intravenous ketamine in 10 children reported no serious adverse events and nominal short-term behavioral changes. The small uncontrolled design makes efficacy findings hypothesis-generating. A blood-transcriptomic study found a transient, monocyte-enriched peripheral response that does not establish central nervous-system target engagement; the effect of increasing mutant ADNP expression remains unresolved.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ketamine\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor developmental delay is a near-universal defining feature; 86.8% of assessed children walked independently after 18 months.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Musculoskeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Musculoskeletal abnormalities were frequent in the main clinical cohort and included joint hypermobility, scoliosis, and hip problems.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033127\"}}, {\"id\": \"Mutation-Position-Dependent Blood DNA Methylation Episignatures\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Leukocyte (peripheral blood)\"], \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Heterozygous ADNP Pathogenic Variation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}]}}, {\"id\": \"NMD-Escaping Mutant ADNP Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common last-exon truncating alleles are transcribed and escape nonsense-mediated decay. Mutant RNA is established, but the abundance, stability, localization, and action of any corresponding truncated protein in patient tissues remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered ADNP-dependent chromatin regulation perturbs transcriptional programs for nervous-system development and neuronal differentiation. Evidence spans an allele-specific human iPSC study and mouse multi-omics; Wnt dysregulation is currently model-qualified rather than an established universal human pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Nervous system development\", \"Neuron differentiation\", \"Wnt signaling pathway (male-mouse model)\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy support motor development and hypotonia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections were reported in 51% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were reported in 16% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature was reported in 23% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep problems were reported in 65.2% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe delay in speech and language development is a near-universal feature and is distinct from the separately curated motor-delay phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech therapy addresses the severe speech delay characteristic of the syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus was reported in 49.2% of the main cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Brain Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI was obtained in 75.6% of the main cohort; 56% of that imaged subgroup had cerebral abnormalities. This is a conditional imaging denominator, not 56% of the full cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012443\"}}, {\"id\": \"Symptom-Directed Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is individualized and symptomatic, including developmental and educational supports, nutritional assistance, and standard care for gastrointestinal, ophthalmologic, musculoskeletal, infectious, endocrine, cardiac, hearing, seizure, and urinary manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Urinary Tract Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital renal anomalies were reported in 12.5% of the main cohort; the broader urogenital category has a higher reported frequency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000079\"}}], \"edges\": [{\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"NMD-Escaping Mutant ADNP Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Allele-Specific ADNP Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Characteristic Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Musculoskeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Advanced Tooth Eruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Gastrointestinal Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Cerebral Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Urinary Tract Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NMD-Escaping Mutant ADNP Transcripts\", \"target\": \"ADNP Chromatin-Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NMD-Escaping Mutant ADNP Transcripts\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"nmd_escape_truncation_branch\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Allele-Specific ADNP Haploinsufficiency\", \"target\": \"ADNP Chromatin-Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced full-length ADNP availability for HP1/BRG1 and ChAHP complexes\"]}, {\"source\": \"Allele-Specific ADNP Haploinsufficiency\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"allele_specific_haploinsufficiency_branch\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced ADNP-end-binding protein interaction capacity\"]}, {\"source\": \"ADNP Chromatin-Complex Dysfunction\", \"target\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"target\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered EB1/EB3 microtubule plus-end tracking\", \"reduced microtubule content and dendritic spine formation\"]}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Structural Brain Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Transcription and Differentiation Dysregulation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"target\": \"Behavioral Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech Therapy\", \"target\": \"Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Davunetide (NAP, investigational)\", \"target\": \"ADNP-EB Microtubule Dynamics Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Davunetide (NAP, investigational)\", \"target\": \"Dendritic Spine and Synaptic Plasticity Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Ketamine (investigational)\", \"target\": \"Autistic Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-Dose Ketamine (investigational)\", \"target\": \"Behavioral Problems\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterozygous ADNP Pathogenic Variation\", \"target\": \"Mutation-Position-Dependent Blood DNA Methylation Episignatures\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ADNP Pathogenic Variants\", \"target\": \"Heterozygous ADNP Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6747,6 +6854,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6882,6 +6992,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6949,6 +7062,9 @@ This clinical feature is Gastrointestinal problems, annotated with Abnormality o
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7032,6 +7148,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7143,6 +7262,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7240,6 +7362,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7332,6 +7457,9 @@ This clinical feature is Cortical visual impairment, annotated with Cerebral vis
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7445,6 +7573,9 @@ This clinical feature is Urinary tract anomalies, annotated with Abnormality of 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7551,6 +7682,9 @@ This clinical feature is Characteristic facial features, annotated with Abnormal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7620,6 +7754,9 @@ This clinical feature is Premature primary tooth eruption, annotated with Advanc
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7701,6 +7838,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7812,6 +7952,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7906,6 +8049,9 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8017,6 +8163,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8109,6 +8258,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8208,6 +8360,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8339,6 +8494,9 @@ This clinical feature is Motor delay (HP:0001270), qualified as infantile onset.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8462,6 +8620,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8561,6 +8722,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8653,6 +8817,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8784,6 +8951,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8852,6 +9022,9 @@ This clinical feature is Behavioral problems, annotated with Atypical behavior (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8958,6 +9131,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9102,6 +9278,9 @@ This disease-associated gene is ADNP (hgnc:15766). hgnc:15766 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9273,6 +9452,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9283,6 +9465,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9429,6 +9614,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9439,6 +9627,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -9560,6 +9751,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9570,6 +9764,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9712,6 +9909,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is recommended for families. ADNP-related syndrome is an autosomal dominant disorder, most often arising de novo. Once the ADNP variant is identified in an affected family member, prenatal and preimplantation genetic testing are possible.
 </div>
 
@@ -9826,6 +10029,9 @@ This treatment uses davunetide (CHEBI:177706). CHEBI:177706 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9836,6 +10042,9 @@ This treatment uses davunetide (CHEBI:177706). CHEBI:177706 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -10084,6 +10293,9 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10094,6 +10306,9 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -14905,6 +15120,19 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Edit: ADNP-Related Syndrome - promote assessed provider findings</strong> · 2026-09-07T18:57:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ADNP-Related_Syndrome/2026-09-07T185731Z-claude-code-c4326f.yaml">View source</a></p>
+                        <p class="research-review-text">Screened the entry&#39;s contested-mechanism hypothesis with the OpenScientist hypothesis deep-research runner, assessed the report into kb/hypotheses/&lt;disease&gt;/&lt;hypothesis_id&gt;/assessments/, and promoted only claims that survived that review. Bohring-Opitz gained three references: direct protein-level detection of truncated ASXL1 and sufficiency of a truncated fragment for neural-crest defects on the dominant/gain side, and constitutive Asxl1 deletion reproducing BOS-like malformations on the loss side, with the controversy rationale widened accordingly. Arboleda-Tham gained no new evidence; its late-truncating hypothesis was reframed as a severity modifier layered on a haploinsufficiency baseline rather than a competing primary mechanism. ADNP gained two items from one paper, mutant mRNA detected in patient blood supporting the branch premise and a systematic failure to detect mutant protein in patient material recorded as REFUTE, with the hypothesis description amended so it no longer implies the question is merely unexamined. The variant functional_impact_category stays UNKNOWN in all three: no run performed the comparison that would settle it, and nothing from any provider computational analysis was promoted because every bundle omitted the manifest and code it claimed. Validated with linkml-validate, the reference snippet audit, term validation, and the snippet-grading, enum, duplicate-key, entity-ref, title-snippet and reference-title checks.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5157,6 +5210,7 @@ The mechanistic argument cuts both ways. If the cancer risk in DBA follows from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tsr2-escortin-deficiency" data-dismech-node="TSR2 Escortin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">TSR2 Escortin Deficiency</div>
 
+
                 <div class="item-desc">A hemizygous missense variant places a glycine where a conserved glutamate sits in the TSR2 WGG domain. The mutant protein is present and correctly folded; what it has lost is affinity for its cargo. The node is therefore named for a functional deficiency of the escortin, not for absence of the protein and not for reduced gene dosage - there is no second allele to be dosed, and the biochemistry shows a normally folded product.</div>
 
 
@@ -5342,6 +5396,7 @@ This pathophysiological event involves TSR2 (hgnc:25455). hgnc:25455 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-escortin-handover-of-es26" data-dismech-node="Impaired Escortin Handover of eS26" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Escortin Handover of eS26</div>
 
+
                 <div class="item-desc">TSR2 does three things in sequence: it dissociates the importin:eS26 complex on the nuclear side by a RanGTP-independent route, it binds and shields the released eS26 from proteolysis, and it delivers it to the 90S pre-ribosome. The disease allele is impaired at the binding step - it holds eS26 and the eukaryote-specific segment that recruits it less tightly - which puts every downstream step of the handover at risk. What has not been measured is which of the three steps fails first in a patient cell; the pathway description is from yeast and reconstituted human proteins.</div>
 
 
@@ -5512,6 +5567,7 @@ This pathophysiological event involves decreased ribosomal small subunit assembl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-es26-incorporation-into-the-small-ribosomal-subunit" data-dismech-node="Deficient eS26 Incorporation into the Small Ribosomal Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient eS26 Incorporation into the Small Ribosomal Subunit</div>
 
+
                 <div class="item-desc">The consequence of a failed handover is a shortfall of eS26 on the assembling 40S subunit. This is the node at which DBA14 converges on DBA10: RPS26 haploinsufficiency reaches the same state by halving the supply of the protein, while TSR2 deficiency reaches it by failing to deliver a normal supply. That convergence is an inference from the two genes&#39; shared biology and is not something anyone has measured in a DBA14 patient cell.</div>
 
 
@@ -5671,6 +5727,7 @@ This pathophysiological event involves decreased ribosomal small subunit biogene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-small-subunit-maturation-and-18s-rrna-processing" data-dismech-node="Defective Small-Subunit Maturation and 18S rRNA Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Small-Subunit Maturation and 18S rRNA Processing</div>
+
 
                 <div class="item-desc">Cells expressing the human disease allele accumulate immature 20S pre-rRNA in the cytoplasm, the classic readout of a stalled small-subunit maturation pathway, and grow poorly. In human cells the equivalent intermediate is the 18S-E pre-rRNA; the measurement available for this allele is the yeast one, and this node states it at that level.</div>
 
@@ -5875,6 +5932,7 @@ This pathophysiological event involves decreased maturation of SSU-rRNA (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ribosomal-stress-response" data-dismech-node="Ribosomal Stress Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Ribosomal Stress Response</div>
 
+
                 <div class="item-desc">Impaired ribosome biogenesis in DBA activates p53 and a set of associated responses - translational dysfunction, inflammation, imbalanced globin and heme synthesis, autophagy dysregulation - that converge on the erythroid compartment. This node is curated at the level of the DBA class. Nobody has measured p53 activation, or any of the rest of it, in a TSR2-mutant cell, so the node carries the class-level claim and says so rather than being dropped: it is the step that connects a general biogenesis defect to a selectively erythroid outcome, and leaving it out would make the pathograph look better evidenced than it is.</div>
 
 
@@ -5952,6 +6010,7 @@ This pathophysiological event involves decreased maturation of SSU-rRNA (GO:0030
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-erythroid-progenitor-output" data-dismech-node="Impaired Erythroid Progenitor Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Erythroid Progenitor Output</div>
+
 
                 <div class="item-desc">Erythroid progenitors are the compartment that fails in DBA, producing a normochromic macrocytic anemia with reticulocytopenia while leukocytes and platelets are preserved. In the TSR2 kindred the severity of this node differs between the two carriers of the same allele: one required steroid treatment from ten months, the other never had overt anemia and showed only the biochemical markers.</div>
 
@@ -6153,6 +6212,7 @@ This pathophysiological event involves decreased erythrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-craniofacial-embryonic-development" data-dismech-node="Abnormal Craniofacial Embryonic Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Craniofacial Embryonic Development</div>
+
 
                 <div class="item-desc">Both affected males have a mandibulofacial dysostosis: derivatives of the first and second pharyngeal arches and the external ear are hypoplastic or absent. What produces it is unresolved. In Treacher Collins syndrome, the craniofacial ribosomopathy this phenotype most resembles, the lesion is referred to cranial neural crest; nothing analogous has been shown for TSR2, and this node deliberately stops at &#34;abnormal embryologic development&#34;, the level the gene-discovery paper states. See the `tsr2-craniofacial-mechanism` discussion.</div>
 
@@ -6395,6 +6455,9 @@ This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6493,6 +6556,9 @@ This clinical feature is Increased mean corpuscular volume (HP:0005518). HP:0005
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6564,6 +6630,9 @@ This clinical feature is Elevated erythrocyte adenosine deaminase activity, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6699,9 @@ This clinical feature is Elevated hemoglobin F, annotated with Persistence of he
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6712,6 +6784,9 @@ This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6822,6 +6897,9 @@ This clinical feature is Absent external auditory canal, annotated with Atresia 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6927,6 +7005,9 @@ This clinical feature is Abnormal middle ear morphology (HP:0008609). HP:0008609
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7004,6 +7085,9 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7116,6 +7200,9 @@ This clinical feature is Unilateral cryptorchidism, annotated with Cryptorchidis
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7193,6 +7280,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7298,6 +7388,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7398,6 +7491,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7493,6 +7589,9 @@ This clinical feature is Midfacial hypoplasia, annotated with Midface retrusion 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7642,6 +7741,9 @@ This disease-associated gene is TSR2 (hgnc:25455). hgnc:25455 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -7755,6 +7857,12 @@ This disease-associated gene is TSR2 (hgnc:25455). hgnc:25455 is a gene from the
         c.191A&gt;G (p.Glu64Gly)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The single reported disease allele, hemizygous in both affected male cousins and heterozygous in their unaffected mothers. It changes a glutamate conserved from C. elegans to human inside the WGG domain. Later biochemistry showed the mutant protein folds normally but binds eS26 weakly, so the allele is best read as a partial loss of the escortin&#39;s cargo-binding function rather than as a null.</div>
@@ -7952,6 +8060,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7962,6 +8073,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -8106,6 +8220,9 @@ This treatment is red blood cell transfusion, annotated with Blood Transfusion (
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8116,6 +8233,9 @@ This treatment is red blood cell transfusion, annotated with Blood Transfusion (
 
 
     </div>
+
+
+
 
 
 
@@ -8254,6 +8374,9 @@ This treatment uses deferasirox (CHEBI:49005). CHEBI:49005 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8264,6 +8387,9 @@ This treatment uses deferasirox (CHEBI:49005). CHEBI:49005 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8390,6 +8516,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8400,6 +8529,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -8517,6 +8649,9 @@ This treatment is craniofacial and otologic reconstructive surgery, annotated wi
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8527,6 +8662,9 @@ This treatment is craniofacial and otologic reconstructive surgery, annotated wi
 
 
     </div>
+
+
+
 
 
 
@@ -8653,6 +8791,9 @@ This treatment is hearing aid fitting and audiologic rehabilitation, annotated w
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8663,6 +8804,9 @@ This treatment is hearing aid fitting and audiologic rehabilitation, annotated w
 
 
     </div>
+
+
+
 
 
 
@@ -8780,6 +8924,9 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8790,6 +8937,9 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
     </div>
+
+
+
 
 
 
@@ -8889,6 +9039,9 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8899,6 +9052,9 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
     </div>
+
+
+
 
 
 
@@ -9024,6 +9180,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9034,6 +9193,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -13195,6 +13357,31 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">**No one-of-two phenotype in this entry carries a frequency band.** Six phenotypes rest on a denominator of two: the four biochemical and otologic findings reported in a single affected male, plus Macrocytic anemia and Cryptorchidism. None carries a band. A band was briefly recorded on the last two - `FREQUENT`, the HPO band containing 50% - and removed, because the entry does not otherwise reason that way: the seven findings present in both affected males are recorded `VERY_FREQUENT` (80-99%) rather than the `OBLIGATE` that 2 of 2 would literally give, which is the conservative call and the right one. Read consistently, a 1-of-2 observation is an absent band rather than 30-79%. The per-patient denominator lives in each description, where the small-n uncertainty belongs. This mirrors the convention recorded in `kb/disorders/COA5-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml` for a three-patient disease.
+**Why this is a separate entry rather than a subtype of Diamond-Blackfan anemia.** The design register&#39;s test is a distinct MONDO identity plus a substantially independent mechanism, and DBA14 meets both.
+MONDO:0010493 is its own term - `is_a` MONDO:0015253, with its own OMIM (300946), DOID:0111897 and GARD identifiers - and it is the term this entry binds. On mechanism: MONDO:0015253 is anchored on ribosomal protein haploinsufficiency, and TSR2 is not a ribosomal protein. It is the escortin that delivers one, so the lesion sits upstream of that step, in the delivery rather than in the gene dose, and the disease allele is a cargo-binding missense in a correctly folded protein rather than the loss of one of two copies. The inheritance differs in kind rather than degree - X-linked recessive against MONDO:0015253&#39;s predominantly autosomal dominant transmission - which changes recurrence risk, carrier testing, and who in a pedigree needs assessment. And mandibulofacial dysostosis, the feature the MONDO term is named for, is not a feature of MONDO:0015253.
+The counter-argument is real and worth stating: DBA14 is a numbered DBA subtype, and the two concepts converge downstream on the same erythroid failure. That convergence is modelled explicitly here rather than hidden - `Deficient eS26 Incorporation into the Small Ribosomal Subunit` is the node at which the two mechanisms meet. What tipped the decision is that folding this into the parent concept would have required either flattening the escortin mechanism into a haploinsufficiency node, which is false, or running a parallel mechanism chain inside an entry whose framing is haploinsufficiency, which would make that entry harder to read for the great majority of DBA it actually describes.
+This entry does not contradict the parent concept&#39;s framing. GeneReviews already treats a hemizygous TSR2 variant as establishing a molecular diagnosis of DBA, and that same sentence is quoted here; this entry is the expansion of that pointer, not a correction of it.
+**What was searched and not found.** No ClinGen gene-disease validity assertion for TSR2 was available in the reference cache, so no ClinGen classification is cited and this entry makes no claim about ClinGen&#39;s view. No second family and no de novo case were found. PubMed searches for a Tsr2 mouse or zebrafish model returned nothing: every hit was either an unrelated thrombospondin type-1 repeat (&#34;TSR2&#34; domain) paper, the bovine study curated below, or a review. Accordingly there is no whole-organism vertebrate model of this gene, which is why the humanized yeast strain carries the entire functional argument.
+**Deep research.** One deep-research run was made, with the `claude_code` provider (`research/Diamond-Blackfan_Anemia_14_With_Mandibulofacial_Dysostosis-deep-research-claude_code.md`). Its preflight returns WARN because it cites OMIM 606164 alongside the correct 300946; reading the report shows 606164 attached to a sibling entity it names explicitly, not to this disease, so the flag is not an identity mismatch. Three of its findings were not used. It asserts that no naturally occurring TSR2 disease exists in any non-human species, which the bovine report curated in `animal_models` contradicts. It attributes the humanized-yeast functional work to the 2014 gene-discovery paper, whose authors wrote that functional studies were outside their purview; that work is the 2018 paper and is cited as such here. And its suggested binding for elevated fetal haemoglobin resolves to a haemoglobin H term rather than a fetal haemoglobin one, so the HPO term was chosen independently. Its usable contributions were the eADA test-performance reference and the malignancy-surveillance question.
+**Named-entity hazards this entry navigated.** Three literatures collide on this disease and none of them is about it. Papers on RPS26 and DBA10 concern the cargo, not the escortin, and are cited here only where the quoted sentence is about TSR2 or about the shared pathway explicitly. The mandibulofacial dysostosis literature is dominated by TCOF1/POLR1 Treacher Collins and by EFTUD2 mandibulofacial dysostosis with microcephaly; both are carried as differential diagnoses and neither is used as evidence. And &#34;TSR2&#34; also names a thrombospondin type-1 repeat domain in a substantial matrix-biology literature, which is why every reference here was checked for the gene rather than matched on the string - that string match is what makes the model-organism search look productive when it is not.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Diamond-Blackfan anemia 14 with mandibulofacial dysostosis (DBA14, TSR2)</strong> · 2026-09-08T07:01:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Diamond-Blackfan_Anemia_14_With_Mandibulofacial_Dysostosis/2026-09-08T070109Z-claude-code-9b73f2.yaml">View source</a></p>
+                        <p class="research-review-text">New standalone Disease entry for MONDO:0010493 (DBA14, X-linked, hgnc:25455 TSR2, OMIM 300946). Lump/split call argued explicitly in entry notes and resolved as a separate entry rather than a has_subtypes row on MONDO:0015253: distinct MONDO/OMIM/DOID identity, X-linked recessive rather than autosomal dominant transmission, a chaperone/escortin lesion upstream of the parent concept&#39;s ribosomal-protein-haploinsufficiency anchor, and a mandibulofacial dysostosis phenotype absent from the parent concept. Pathograph runs TSR2 Escortin Deficiency -&gt; Impaired Escortin Handover of eS26 -&gt; Deficient eS26 Incorporation into the Small Ribosomal Subunit -&gt; Defective Small-Subunit Maturation and 18S rRNA Processing -&gt; Ribosomal Stress Response / Impaired Erythroid Progenitor Output / Abnormal Craniofacial Embryonic Development, with the eS26 node curated as the convergence point with RPS26-related DBA10. Evidence rests on two TSR2-specific primary papers (PMID:24942156 gene discovery in one kindred of two hemizygous male cousins; PMID:30201955 humanized-yeast and biochemical characterisation of the E64G allele, including the eS26-overexpression rescue), plus PMID:25144938 for escortin function, PMID:35213229 for the stress-response role recorded as an unmodelled second function, PMID:23252420 for eADA test performance, PMID:20301769 (GeneReviews) for class-level diagnosis and management, PMID:26203908 for the bovine TSR2 allele, and PMID:29022598 for TSR2 being subject to X-inactivation. Class-level DBA statements are graded directness: INDIRECT throughout and labelled as such in each explanation. penetrance left UNKNOWN (two affected hemizygotes is not a denominator); expressivity VARIABLE on within-family evidence. Six discussions record the open questions: single-family gene-disease evidence, the unexplained craniofacial mechanism, carrier-female status and X-inactivation skew, the bovine model mismatch (curated PERTURBS rather than FAILS_TO_RECAPITULATE because no haematology was reported in the cows), whether loss of TSR2&#39;s second, reversible stress-response function on mature ribosomes contributes to the disease, and whether the DBA class cancer risk applies. [Count corrected from &#34;Five&#34; in review round 1 of PR 11432; the stress-ribosome discussion was present in the entry from the first commit but omitted from this enumeration.] One deep-research run with the claude_code provider; three of its findings were rejected against the primary sources and the rejections are recorded in notes. Validation: linkml-validate no issues; validate-terms passed; 104/104 snippets verified against cached references; duplicate-keys, entity-refs, causal-targets, qualifier-terms (offline and online) and enum-values all OK; validate-disorders run as the authoritative gate.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

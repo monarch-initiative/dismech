@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Charcot-Marie-Tooth%20Disease%20Dominant%20Intermediate%20G"
@@ -3998,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4441,6 +4494,7 @@ This entry is curated as a Disease because the concept is real, uncurated and in
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-nefl-missense-variant" data-dismech-node="Heterozygous NEFL Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous NEFL Missense Variant</div>
 
+
                 <div class="item-desc">A single missense allele of NEFL, encoding neurofilament light polypeptide. Variants span the head, rod and tail domains, with recurrent hotspots at Pro8, Pro22 and Asn98; p.Glu396Lys, which lies just outside the rod domain and disrupts the heptad repeat that defines the coiled coil, is the variant reported in the pedigree on which the CMTDIG designation rests. ClinGen characterizes the pathogenic mechanism as a gain of function arising from misdistribution and aggregation of the protein — that is, the mutant subunit poisons the co-assembled network rather than simply being absent, which is consistent with the observation that heterozygous carriers of NEFL null alleles are unaffected.</div>
 
 
@@ -4496,6 +4550,8 @@ This genetic context concerns NEFL (hgnc:7739). hgnc:7739 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
 
 
@@ -4503,6 +4559,9 @@ This genetic context concerns NEFL (hgnc:7739). hgnc:7739 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4629,6 +4688,7 @@ This genetic context concerns NEFL (hgnc:7739). hgnc:7739 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurofilament-network-disruption-and-nfl-aggregation" data-dismech-node="Neurofilament Network Disruption and NFL Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurofilament Network Disruption and NFL Aggregation</div>
+
 
                 <div class="item-desc">Every CMTDIG-associated variant tested in vitro disrupts the neurofilament network and causes NFL to aggregate. In the Nefl N98S knock-in mouse the aggregates are visible as inclusions in the cell bodies and proximal axons of spinal cord neurons.</div>
 
@@ -4856,6 +4916,7 @@ This pathophysiological event involves neurofilament (GO:0005883). GO:0005883 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-neurofilament-delivery-to-distal-axons" data-dismech-node="Failure of Neurofilament Delivery to Distal Axons" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Neurofilament Delivery to Distal Axons</div>
 
+
                 <div class="item-desc">Neurofilaments are assembled in the cell body and delivered along the axon by microtubule-based transport. In the Nefl N98S mouse the sciatic nerve shows fewer neurofilaments, more microtubules, and smaller axons — the axonal content of the cytoskeleton is changed, not just its organization.</div>
 
 
@@ -5025,6 +5086,7 @@ This pathophysiological event involves decreased neurofilament bundle assembly (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-radial-axonal-growth" data-dismech-node="Failure of Radial Axonal Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Radial Axonal Growth</div>
+
 
                 <div class="item-desc">Neurofilaments are the structures responsible for radial growth of axons during development and for maintaining axonal diameter afterwards. Losing them from the axon leaves a thin axon. This is the step that makes CMTDIG intermediate rather than axonal or demyelinating, and it has been measured directly in the mouse carrying the CMTDIG variant, where sciatic axon area and diameter are reduced from postnatal day 21 onward.</div>
 
@@ -5197,6 +5259,7 @@ This pathophysiological event involves decreased radial growth and maintenance o
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intermediate-range-nerve-conduction-slowing" data-dismech-node="Intermediate-Range Nerve Conduction Slowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermediate-Range Nerve Conduction Slowing</div>
 
+
                 <div class="item-desc">Upper-limb motor conduction velocities fall in the intermediate band of roughly 25-45 m/s, in proximal as well as distal nerve segments, and this is what the CMTDIG label denotes. The important interpretive point is that a slow velocity is conventionally read as demyelination, but velocity also depends on axonal calibre — so a widespread reduction in calibre produces the same reading with normal myelin. NEFL is a neuronal protein and is not expressed in myelinating cells at all.</div>
 
 
@@ -5348,6 +5411,7 @@ This pathophysiological event involves decreased radial growth and maintenance o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-sensorimotor-axonal-degeneration" data-dismech-node="Length-Dependent Sensorimotor Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Sensorimotor Axonal Degeneration</div>
+
 
                 <div class="item-desc">The clinical neuropathy: distal-predominant weakness, wasting and sensory loss with foot deformity, which in the more severely affected reported families ascends to involve pelvic musculature and produces a waddling gait. Sural nerve biopsies in NEFL-related CMT show preferential loss of large myelinated fibres.</div>
 
@@ -5537,6 +5601,7 @@ This pathophysiological event involves decreased radial growth and maintenance o
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-involvement" data-dismech-node="Central Nervous System Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Involvement</div>
 
+
                 <div class="item-desc">CMTDIG is not confined to the peripheral nerve. In the defining pedigree, multimodal evoked potentials and blink reflex studies showed central sensorimotor pathway dysfunction, and the patients had a spastic gait. In a second dominant-intermediate pedigree the proband had cerebellar ataxia, nystagmus and dysarthria with cerebellar atrophy on MRI, and had been misdiagnosed as sporadic early-onset cerebellar ataxia. The route from NEFL aggregation to these findings is not established, which is why the edge into this node is typed as having unknown intermediates.</div>
 
 
@@ -5696,7 +5761,7 @@ This pathophysiological event involves decreased radial growth and maintenance o
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent tendon reflexes, recorded in the lower limbs of the mildly affected child of the N98S pedigree \\u2014 present before the weakness became disabling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait and kinetic cerebellar ataxia in the proband of the N98S dominant-intermediate pedigree, severe enough that she was worked up for hereditary ataxia before the NEFL diagnosis. Ataxia is also common across NEFL-related CMT as a whole, reported in 26 of 37 Korean patients (70.3%); that figure spans all three electrophysiological subgroups, so it is not used to band this phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Central Nervous System Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CMTDIG is not confined to the peripheral nerve. In the defining pedigree, multimodal evoked potentials and blink reflex studies showed central sensorimotor pathway dysfunction, and the patients had a spastic gait. In a second dominant-intermediate pedigree the proband had cerebellar ataxia, nystagmus and dysarthria with cerebellar atrophy on MRI, and had been misdiagnosed as sporadic early-onset cerebellar ataxia. The route from NEFL aggregation to these findings is not established, which is why the edge into this node is typed as having unknown intermediates.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy on cranial MRI in the N98S proband, the structural correlate of the ataxia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Claw Hand Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clawing of the hands in the N98S dominant-intermediate proband, from intrinsic hand muscle wasting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034337\"}}, {\"id\": \"Delayed Ability to Walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor milestones in both members of the N98S dominant-intermediate pedigree, including the mildly affected 5-year-old son. Across NEFL-related CMT, onset at or before age 3 occurred in 13.5% of the Korean series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031936\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal-predominant weakness and wasting, the core CMT phenotype. In the defining pedigree the CMT neuropathy score ranged from 14 to 26, which the authors describe as moderate to severe.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002460\"}}, {\"id\": \"Distal Sensory Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory loss accompanying the motor deficit. In the pooled NEFL literature sensory electrophysiological abnormalities are more prominent than motor ones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002936\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria in the N98S proband, part of the cerebellar syndrome rather than of the peripheral neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Failure of Neurofilament Delivery to Distal Axons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurofilaments are assembled in the cell body and delivered along the axon by microtubule-based transport. In the Nefl N98S mouse the sciatic nerve shows fewer neurofilaments, more microtubules, and smaller axons \\u2014 the axonal content of the cytoskeleton is changed, not just its organization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"peripheral nervous system neuron\"], \"biological_processes\": [\"neurofilament bundle assembly\"], \"animal_models\": [{\"name\": \"Nefl N98S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(N98S/+)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Sciatic nerve ultrastructure shows the axon depleted of neurofilaments and reduced in diameter, which is the step this entry places between the aggregation and the slowed conduction.\"}]}}, {\"id\": \"Failure of Radial Axonal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurofilaments are the structures responsible for radial growth of axons during development and for maintaining axonal diameter afterwards. Losing them from the axon leaves a thin axon. This is the step that makes CMTDIG intermediate rather than axonal or demyelinating, and it has been measured directly in the mouse carrying the CMTDIG variant, where sciatic axon area and diameter are reduced from postnatal day 21 onward.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"radial growth and maintenance of axon diameter\"], \"animal_models\": [{\"name\": \"Nefl E397K knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(+/E397K)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Sciatic axon area and diameter are significantly reduced from postnatal day 21 and worsen through twelve months, matching the failure of radial growth this entry places upstream of the conduction abnormality.\"}]}}, {\"id\": \"Heterozygous NEFL Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single missense allele of NEFL, encoding neurofilament light polypeptide. Variants span the head, rod and tail domains, with recurrent hotspots at Pro8, Pro22 and Asn98; p.Glu396Lys, which lies just outside the rod domain and disrupts the heptad repeat that defines the coiled coil, is the variant reported in the pedigree on which the CMTDIG designation rests. ClinGen characterizes the pathogenic mechanism as a gain of function arising from misdistribution and aggregation of the protein \\u2014 that is, the mutant subunit poisons the co-assembled network rather than simply being absent, which is consistent with the observation that heterozygous carriers of NEFL null alleles are unaffected.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"NEFL\", \"id\": \"hgnc:7739\"}]}}}, {\"id\": \"Intermediate-Range Motor Nerve Conduction Slowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb motor conduction velocity in the intermediate band of roughly 25-45 m/s, in proximal as well as distal segments. This is the criterion by which the CMTDIG label is applied, so it is obligate by definition rather than by observation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003431\"}}, {\"id\": \"Intermediate-Range Nerve Conduction Slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upper-limb motor conduction velocities fall in the intermediate band of roughly 25-45 m/s, in proximal as well as distal nerve segments, and this is what the CMTDIG label denotes. The important interpretive point is that a slow velocity is conventionally read as demyelination, but velocity also depends on axonal calibre \\u2014 so a widespread reduction in calibre produces the same reading with normal myelin. NEFL is a neuronal protein and is not expressed in myelinating cells at all.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Nefl E397K knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(+/E397K)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The human pedigree carrying this variant is defined by uniform slowing of conduction velocity into the intermediate range. The mouse carrying the equivalent variant is reported with an axonal electrophysiological signature \\u2014 distal latency and CMAP amplitude and negative area \\u2014 and its authors classify it as CMT2E. The one feature that makes CMTDIG a named entity is therefore not what this model reproduces.\"}]}}, {\"id\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical neuropathy: distal-predominant weakness, wasting and sensory loss with foot deformity, which in the more severely affected reported families ascends to involve pelvic musculature and produces a waddling gait. Sural nerve biopsies in NEFL-related CMT show preferential loss of large myelinated fibres.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Nefl E397K knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of the murine equivalent of human p.Glu396Lys, the variant of the pedigree that defines CMTDIG. It shows early and progressive axonal pathology, and it is the model that most directly tests whether the CMTDIG allele produces an intermediate phenotype.\"}, {\"id\": \"Nefl N98S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of the N98S hotspot variant at the endogenous mouse Nefl locus. N98S is one of the variants reported in a dominant-intermediate pedigree, and this model is the clearest demonstration that the peripheral axon loses its neurofilaments and its calibre.\"}, {\"id\": \"Neurofilament Network Disruption and NFL Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every CMTDIG-associated variant tested in vitro disrupts the neurofilament network and causes NFL to aggregate. In the Nefl N98S knock-in mouse the aggregates are visible as inclusions in the cell bodies and proximal axons of spinal cord neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurofilament cytoskeleton organization\"], \"animal_models\": [{\"name\": \"Nefl N98S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(N98S/+)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Neurofilament inclusions appear in neuronal cell bodies and proximal axons, matching the misdistribution-and-aggregation mechanism ClinGen describes for the human disease.\"}]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus in the N98S proband, again a central sign.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Onion Bulb Formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onion bulbs on sural nerve biopsy in a patient with a de novo NEFL missense variant, alongside axonal pathology and regeneration clusters. Across NEFL-related CMT, onion bulbs or thin myelin sheaths were present in 67% of 21 biopsies. Because NEFL is not expressed in Schwann cells, these are read as secondary to axonal disease rather than as primary demyelination.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003383\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foot deformity, present in both reported dominant-intermediate pedigrees.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001761\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascending weakness reaching pelvic musculature in the two older patients of the defining pedigree, with a waddling gait and imaging-confirmed atrophy of gluteus medius, gluteus minimus and piriformis. Proximal involvement is unusual in a length-dependent neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Spastic Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spastic gait in the defining pedigree, alongside evoked-potential evidence of central sensorimotor pathway dysfunction. A pyramidal sign in a patient labelled as having a peripheral neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002064\"}}], \"edges\": [{\"source\": \"Heterozygous NEFL Missense Variant\", \"target\": \"Neurofilament Network Disruption and NFL Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant subunit co-assembles into the neurofilament network and disrupts it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofilament Network Disruption and NFL Aggregation\", \"target\": \"Failure of Neurofilament Delivery to Distal Axons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurofilaments trapped in aggregates in the cell body and proximal axon do not travel down the axon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofilament Network Disruption and NFL Aggregation\", \"target\": \"Central Nervous System Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NEFL is expressed in central as well as peripheral neurons, and the mouse shows aggregation in cerebellum, cortex and pons; the steps between that and the human central findings have not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Neurofilament Delivery to Distal Axons\", \"target\": \"Failure of Radial Axonal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without axonal neurofilaments the axon cannot expand and maintain its diameter.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Radial Axonal Growth\", \"target\": \"Intermediate-Range Nerve Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conduction velocity scales with axonal calibre, so a thin axon conducts slowly even with an intact myelin sheath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Radial Axonal Growth\", \"target\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An axon that cannot build or maintain its cytoskeleton eventually degenerates, longest fibres first.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intermediate-Range Nerve Conduction Slowing\", \"target\": \"Intermediate-Range Motor Nerve Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured electrophysiological abnormality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated de- and remyelination around a failing axon produces onion bulbs without a primary myelin defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Claw Hand Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrinsic hand muscle weakness with preserved long flexors produces the clawed posture.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the afferent limb of the tendon reflex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Delayed Ability to Walk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the early-onset pedigree the neuropathy is present before walking is acquired, so it delays the milestone rather than degrading a skill already gained. The mildly affected child had hypotonia and areflexia at 5 years, which is why this edge comes from the peripheral node rather than from the central one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal motor involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Distal Sensory Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal sensory involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foot deformity from imbalanced weakness of intrinsic and extrinsic foot muscles.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ascending involvement of pelvic musculature in the more advanced reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia in the reported severe phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural correlate on MRI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the cerebellar syndrome in the same patient as the ataxia, not a bulbar consequence of the peripheral neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gaze-evoked nystagmus, recorded alongside the ataxia and dysarthria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Spastic Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal involvement in the defining pedigree.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nefl N98S knock-in mouse\", \"target\": \"Neurofilament Network Disruption and NFL Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Neurofilament inclusions appear in neuronal cell bodies and proximal axons, matching the misdistribution-and-aggregation mechanism ClinGen describes for the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The authors classify the model as CMT2E, not as dominant-intermediate CMT. N98S causes both presentations in humans, so the model is informative for the shared mechanism but cannot be read as a model of the intermediate conduction phenotype specifically.\"}, {\"source\": \"Nefl N98S knock-in mouse\", \"target\": \"Failure of Neurofilament Delivery to Distal Axons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sciatic nerve ultrastructure shows the axon depleted of neurofilaments and reduced in diameter, which is the step this entry places between the aggregation and the slowed conduction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Measured in the sciatic nerve of a mouse; no equivalent ultrastructural quantification exists from a CMTDIG patient nerve.\"}, {\"source\": \"Nefl E397K knock-in mouse\", \"target\": \"Failure of Radial Axonal Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sciatic axon area and diameter are significantly reduced from postnatal day 21 and worsen through twelve months, matching the failure of radial growth this entry places upstream of the conduction abnormality.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The g-ratio falls together with the axon diameter, so the finding is a shrunken axon rather than a thinned sheath, and cannot be read as demyelination. More importantly, the authors characterize the model as CMT2E and report an axonal electrophysiological phenotype dominated by reduced CMAP amplitude, not the intermediate-range velocity slowing that the human carriers of this variant show.\"}, {\"source\": \"Nefl E397K knock-in mouse\", \"target\": \"Intermediate-Range Nerve Conduction Slowing\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The human pedigree carrying this variant is defined by uniform slowing of conduction velocity into the intermediate range. The mouse carrying the equivalent variant is reported with an axonal electrophysiological signature \\u2014 distal latency and CMAP amplitude and negative area \\u2014 and its authors classify it as CMT2E. The one feature that makes CMTDIG a named entity is therefore not what this model reproduces.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The reported longitudinal electrophysiology is distal latency, CMAP amplitude and negative area; conduction velocity is not among the measures quoted, so this is an absence of the defining read-out rather than a measured normal velocity. It is recorded as a failure to recapitulate because the authors\u0027 own classification of the model is axonal, but a velocity measurement could change that reading.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent tendon reflexes, recorded in the lower limbs of the mildly affected child of the N98S pedigree \\u2014 present before the weakness became disabling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait and kinetic cerebellar ataxia in the proband of the N98S dominant-intermediate pedigree, severe enough that she was worked up for hereditary ataxia before the NEFL diagnosis. Ataxia is also common across NEFL-related CMT as a whole, reported in 26 of 37 Korean patients (70.3%); that figure spans all three electrophysiological subgroups, so it is not used to band this phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Central Nervous System Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CMTDIG is not confined to the peripheral nerve. In the defining pedigree, multimodal evoked potentials and blink reflex studies showed central sensorimotor pathway dysfunction, and the patients had a spastic gait. In a second dominant-intermediate pedigree the proband had cerebellar ataxia, nystagmus and dysarthria with cerebellar atrophy on MRI, and had been misdiagnosed as sporadic early-onset cerebellar ataxia. The route from NEFL aggregation to these findings is not established, which is why the edge into this node is typed as having unknown intermediates.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy on cranial MRI in the N98S proband, the structural correlate of the ataxia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Claw Hand Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clawing of the hands in the N98S dominant-intermediate proband, from intrinsic hand muscle wasting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034337\"}}, {\"id\": \"Delayed Ability to Walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor milestones in both members of the N98S dominant-intermediate pedigree, including the mildly affected 5-year-old son. Across NEFL-related CMT, onset at or before age 3 occurred in 13.5% of the Korean series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031936\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal-predominant weakness and wasting, the core CMT phenotype. In the defining pedigree the CMT neuropathy score ranged from 14 to 26, which the authors describe as moderate to severe.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002460\"}}, {\"id\": \"Distal Sensory Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory loss accompanying the motor deficit. In the pooled NEFL literature sensory electrophysiological abnormalities are more prominent than motor ones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002936\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria in the N98S proband, part of the cerebellar syndrome rather than of the peripheral neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Failure of Neurofilament Delivery to Distal Axons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurofilaments are assembled in the cell body and delivered along the axon by microtubule-based transport. In the Nefl N98S mouse the sciatic nerve shows fewer neurofilaments, more microtubules, and smaller axons \\u2014 the axonal content of the cytoskeleton is changed, not just its organization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"peripheral nervous system neuron\"], \"biological_processes\": [\"neurofilament bundle assembly\"], \"animal_models\": [{\"name\": \"Nefl N98S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(N98S/+)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Sciatic nerve ultrastructure shows the axon depleted of neurofilaments and reduced in diameter, which is the step this entry places between the aggregation and the slowed conduction.\"}]}}, {\"id\": \"Failure of Radial Axonal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurofilaments are the structures responsible for radial growth of axons during development and for maintaining axonal diameter afterwards. Losing them from the axon leaves a thin axon. This is the step that makes CMTDIG intermediate rather than axonal or demyelinating, and it has been measured directly in the mouse carrying the CMTDIG variant, where sciatic axon area and diameter are reduced from postnatal day 21 onward.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"radial growth and maintenance of axon diameter\"], \"animal_models\": [{\"name\": \"Nefl E397K knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(+/E397K)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Sciatic axon area and diameter are significantly reduced from postnatal day 21 and worsen through twelve months, matching the failure of radial growth this entry places upstream of the conduction abnormality.\"}]}}, {\"id\": \"Heterozygous NEFL Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single missense allele of NEFL, encoding neurofilament light polypeptide. Variants span the head, rod and tail domains, with recurrent hotspots at Pro8, Pro22 and Asn98; p.Glu396Lys, which lies just outside the rod domain and disrupts the heptad repeat that defines the coiled coil, is the variant reported in the pedigree on which the CMTDIG designation rests. ClinGen characterizes the pathogenic mechanism as a gain of function arising from misdistribution and aggregation of the protein \\u2014 that is, the mutant subunit poisons the co-assembled network rather than simply being absent, which is consistent with the observation that heterozygous carriers of NEFL null alleles are unaffected.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"NEFL\", \"id\": \"hgnc:7739\"}]}}}, {\"id\": \"Intermediate-Range Motor Nerve Conduction Slowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb motor conduction velocity in the intermediate band of roughly 25-45 m/s, in proximal as well as distal segments. This is the criterion by which the CMTDIG label is applied, so it is obligate by definition rather than by observation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003431\"}}, {\"id\": \"Intermediate-Range Nerve Conduction Slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upper-limb motor conduction velocities fall in the intermediate band of roughly 25-45 m/s, in proximal as well as distal nerve segments, and this is what the CMTDIG label denotes. The important interpretive point is that a slow velocity is conventionally read as demyelination, but velocity also depends on axonal calibre \\u2014 so a widespread reduction in calibre produces the same reading with normal myelin. NEFL is a neuronal protein and is not expressed in myelinating cells at all.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Nefl E397K knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(+/E397K)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The human pedigree carrying this variant is defined by uniform slowing of conduction velocity into the intermediate range. The mouse carrying the equivalent variant is reported with an axonal electrophysiological signature \\u2014 distal latency and CMAP amplitude and negative area \\u2014 and its authors classify it as CMT2E. The one feature that makes CMTDIG a named entity is therefore not what this model reproduces.\"}]}}, {\"id\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical neuropathy: distal-predominant weakness, wasting and sensory loss with foot deformity, which in the more severely affected reported families ascends to involve pelvic musculature and produces a waddling gait. Sural nerve biopsies in NEFL-related CMT show preferential loss of large myelinated fibres.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NEFL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NEFL\"], \"gene_terms\": [{\"label\": \"NEFL\", \"id\": \"hgnc:7739\"}], \"association\": \"Heterozygous Missense Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Nefl E397K knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of the murine equivalent of human p.Glu396Lys, the variant of the pedigree that defines CMTDIG. It shows early and progressive axonal pathology, and it is the model that most directly tests whether the CMTDIG allele produces an intermediate phenotype.\"}, {\"id\": \"Nefl N98S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of the N98S hotspot variant at the endogenous mouse Nefl locus. N98S is one of the variants reported in a dominant-intermediate pedigree, and this model is the clearest demonstration that the peripheral axon loses its neurofilaments and its calibre.\"}, {\"id\": \"Neurofilament Network Disruption and NFL Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every CMTDIG-associated variant tested in vitro disrupts the neurofilament network and causes NFL to aggregate. In the Nefl N98S knock-in mouse the aggregates are visible as inclusions in the cell bodies and proximal axons of spinal cord neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurofilament cytoskeleton organization\"], \"animal_models\": [{\"name\": \"Nefl N98S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Nefl(N98S/+)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Neurofilament inclusions appear in neuronal cell bodies and proximal axons, matching the misdistribution-and-aggregation mechanism ClinGen describes for the human disease.\"}]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus in the N98S proband, again a central sign.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Onion Bulb Formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onion bulbs on sural nerve biopsy in a patient with a de novo NEFL missense variant, alongside axonal pathology and regeneration clusters. Across NEFL-related CMT, onion bulbs or thin myelin sheaths were present in 67% of 21 biopsies. Because NEFL is not expressed in Schwann cells, these are read as secondary to axonal disease rather than as primary demyelination.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003383\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foot deformity, present in both reported dominant-intermediate pedigrees.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001761\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascending weakness reaching pelvic musculature in the two older patients of the defining pedigree, with a waddling gait and imaging-confirmed atrophy of gluteus medius, gluteus minimus and piriformis. Proximal involvement is unusual in a length-dependent neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Spastic Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spastic gait in the defining pedigree, alongside evoked-potential evidence of central sensorimotor pathway dysfunction. A pyramidal sign in a patient labelled as having a peripheral neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002064\"}}], \"edges\": [{\"source\": \"Heterozygous NEFL Missense Variant\", \"target\": \"Neurofilament Network Disruption and NFL Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant subunit co-assembles into the neurofilament network and disrupts it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofilament Network Disruption and NFL Aggregation\", \"target\": \"Failure of Neurofilament Delivery to Distal Axons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurofilaments trapped in aggregates in the cell body and proximal axon do not travel down the axon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofilament Network Disruption and NFL Aggregation\", \"target\": \"Central Nervous System Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NEFL is expressed in central as well as peripheral neurons, and the mouse shows aggregation in cerebellum, cortex and pons; the steps between that and the human central findings have not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Neurofilament Delivery to Distal Axons\", \"target\": \"Failure of Radial Axonal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without axonal neurofilaments the axon cannot expand and maintain its diameter.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Radial Axonal Growth\", \"target\": \"Intermediate-Range Nerve Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conduction velocity scales with axonal calibre, so a thin axon conducts slowly even with an intact myelin sheath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Radial Axonal Growth\", \"target\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An axon that cannot build or maintain its cytoskeleton eventually degenerates, longest fibres first.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intermediate-Range Nerve Conduction Slowing\", \"target\": \"Intermediate-Range Motor Nerve Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured electrophysiological abnormality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated de- and remyelination around a failing axon produces onion bulbs without a primary myelin defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Claw Hand Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrinsic hand muscle weakness with preserved long flexors produces the clawed posture.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the afferent limb of the tendon reflex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Delayed Ability to Walk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the early-onset pedigree the neuropathy is present before walking is acquired, so it delays the milestone rather than degrading a skill already gained. The mildly affected child had hypotonia and areflexia at 5 years, which is why this edge comes from the peripheral node rather than from the central one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal motor involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Distal Sensory Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal sensory involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foot deformity from imbalanced weakness of intrinsic and extrinsic foot muscles.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Sensorimotor Axonal Degeneration\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ascending involvement of pelvic musculature in the more advanced reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia in the reported severe phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural correlate on MRI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the cerebellar syndrome in the same patient as the ataxia, not a bulbar consequence of the peripheral neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gaze-evoked nystagmus, recorded alongside the ataxia and dysarthria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Involvement\", \"target\": \"Spastic Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal involvement in the defining pedigree.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nefl N98S knock-in mouse\", \"target\": \"Neurofilament Network Disruption and NFL Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Neurofilament inclusions appear in neuronal cell bodies and proximal axons, matching the misdistribution-and-aggregation mechanism ClinGen describes for the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The authors classify the model as CMT2E, not as dominant-intermediate CMT. N98S causes both presentations in humans, so the model is informative for the shared mechanism but cannot be read as a model of the intermediate conduction phenotype specifically.\"}, {\"source\": \"Nefl N98S knock-in mouse\", \"target\": \"Failure of Neurofilament Delivery to Distal Axons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sciatic nerve ultrastructure shows the axon depleted of neurofilaments and reduced in diameter, which is the step this entry places between the aggregation and the slowed conduction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Measured in the sciatic nerve of a mouse; no equivalent ultrastructural quantification exists from a CMTDIG patient nerve.\"}, {\"source\": \"Nefl E397K knock-in mouse\", \"target\": \"Failure of Radial Axonal Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sciatic axon area and diameter are significantly reduced from postnatal day 21 and worsen through twelve months, matching the failure of radial growth this entry places upstream of the conduction abnormality.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The g-ratio falls together with the axon diameter, so the finding is a shrunken axon rather than a thinned sheath, and cannot be read as demyelination. More importantly, the authors characterize the model as CMT2E and report an axonal electrophysiological phenotype dominated by reduced CMAP amplitude, not the intermediate-range velocity slowing that the human carriers of this variant show.\"}, {\"source\": \"Nefl E397K knock-in mouse\", \"target\": \"Intermediate-Range Nerve Conduction Slowing\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The human pedigree carrying this variant is defined by uniform slowing of conduction velocity into the intermediate range. The mouse carrying the equivalent variant is reported with an axonal electrophysiological signature \\u2014 distal latency and CMAP amplitude and negative area \\u2014 and its authors classify it as CMT2E. The one feature that makes CMTDIG a named entity is therefore not what this model reproduces.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The reported longitudinal electrophysiology is distal latency, CMAP amplitude and negative area; conduction velocity is not among the measures quoted, so this is an absence of the defining read-out rather than a measured normal velocity. It is recorded as a failure to recapitulate because the authors\u0027 own classification of the model is axonal, but a velocity measurement could change that reading.\"}, {\"source\": \"NEFL\", \"target\": \"Heterozygous NEFL Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5757,6 +5822,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,6 +5910,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5908,6 +5979,9 @@ This clinical feature is Claw hand deformity (HP:0034337). HP:0034337 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6011,6 +6085,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6082,6 +6159,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6148,6 +6228,9 @@ This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6237,6 +6320,9 @@ This clinical feature is Intermediate-range motor nerve conduction slowing, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6308,6 +6394,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6374,6 +6463,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6472,6 +6564,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6577,6 +6672,9 @@ This clinical feature is Delayed ability to walk (HP:0031936), qualified as infa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6648,6 +6746,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6714,6 +6815,9 @@ This clinical feature is Onion bulb formation on nerve biopsy, annotated with On
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6812,6 +6916,9 @@ This clinical feature is Lower-limb areflexia, annotated with Areflexia (HP:0001
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6930,6 +7037,9 @@ This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7091,6 +7201,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7101,6 +7214,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7153,6 +7269,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9750,6 +9872,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4364,6 +4417,7 @@ It is answerable cheaply: measure mtDNA copy number in the first patient&#39;s s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-micos13-loss-of-function" data-dismech-node="Biallelic MICOS13 Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MICOS13 Loss-of-Function</div>
 
+
                 <div class="item-desc">Several reported alleles, all loss of function and all removing the protein rather than altering it. The gene is small and every reported variant truncates it.
 The founding allele is the homozygous frameshift p.(Gly15Glufs*75), in a consanguineous brother and sister. Later reports add a splice-site variant in C19orf70, the homozygous frameshift c.13_29del (p.Trp6Profs*71) which truncates within the first ten residues, and c.209dupT (p.Ala73Argfs*32), which removes the second RDSWN motif required for MIC13 function.
 Fibroblasts from the c.13_29del patient have no detectable MICOS13, so these are true nulls rather than hypomorphs.</div>
@@ -4383,6 +4437,8 @@ Fibroblasts from the c.13_29del patient have no detectable MICOS13, so these are
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4395,6 +4451,9 @@ Fibroblasts from the c.13_29del patient have no detectable MICOS13, so these are
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4517,6 +4576,7 @@ Fibroblasts from the c.13_29del patient have no detectable MICOS13, so these are
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-micos-complex-assembly" data-dismech-node="Failure of MICOS Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of MICOS Complex Assembly</div>
+
 
                 <div class="item-desc">MICOS13 is a small subunit whose job is to build and hold together the rest of the complex. Its loss is therefore not the loss of one component among seven: a defined subcomplex comprising MIC10, MIC26, MIC27 and QIL1 fails to form.
 In Kishita et al.&#39;s patient the protein was directly shown to be absent from fibroblast mitochondria, so the assembly failure follows from protein loss rather than from a hypomorphic variant with residual function.
@@ -4734,6 +4794,7 @@ This pathophysiological event involves absent MICOS complex (GO:0061617). GO:006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cristae-junctions-and-inner-membrane-contact-sites" data-dismech-node="Loss of Cristae Junctions and Inner Membrane Contact Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cristae Junctions and Inner Membrane Contact Sites</div>
 
+
                 <div class="item-desc">The structural lesion of the disease. Cristae junctions are the narrow necks that connect each crista to the inner boundary membrane, and they do two things: they hold the folded surface area on which respiratory complexes are concentrated, and they partition the intermembrane space so that the crista lumen is a distinct compartment. Contact sites link the inner membrane to the outer.
 Losing them is therefore not simply a morphological finding. It removes the geometry that makes oxidative phosphorylation efficient, which is why an architectural defect presents as a bioenergetic disease.</div>
 
@@ -4881,6 +4942,7 @@ This pathophysiological event involves absent mitochondrial crista junction (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-deficiency" data-dismech-node="Combined Respiratory Chain Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Deficiency</div>
+
 
                 <div class="item-desc">Multiple OXPHOS complexes are deficient at once, in liver and muscle. &#34;Combined&#34; is the diagnostic label and it is also the mechanistic clue: a defect in one complex&#39;s subunits or assembly factors affects that complex, whereas a defect in the membrane they all occupy affects all of them.
 The strongest evidence that this is secondary to the architectural lesion rather than an independent problem is a rescue: expressing wild-type MICOS13 in the patient&#39;s own fibroblasts restored respiratory chain function.</div>
@@ -5070,6 +5132,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dna-depletion" data-dismech-node="Mitochondrial DNA Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial DNA Depletion</div>
 
+
                 <div class="item-desc">Reduced mitochondrial DNA copy number, found in Kishita et al.&#39;s patient - the reason that group proposed reclassifying MICOS13 as a cause of mitochondrial DNA depletion syndrome - and independently again in Ammar et al.&#39;s patient six years later.
 Two independent reports is what moves this from a single-patient observation towards a feature of the disease. It remains true that not every report measured copy number, so the denominator is the number who looked rather than the number who have it.
 This is unusual for the gene class. Depletion syndromes are typically caused by defects in deoxyribonucleotide metabolism or in the mtDNA replication machinery, and MICOS13 is neither. The authors say so themselves. Whether cristae collapse causes depletion, or the two are parallel consequences of a failing organelle, is not established.</div>
@@ -5224,6 +5287,7 @@ This pathophysiological event involves decreased mitochondrial DNA replication (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactic-acidosis-and-hepato-encephalopathy" data-dismech-node="Lactic Acidosis and Hepato-Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactic Acidosis and Hepato-Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical endpoint: a severe infantile encephalopathy with liver disease and lactic acidosis. Fatal in the first reported patient.</div>
 
@@ -5403,6 +5467,9 @@ This clinical feature is mild cardiac hypertrophy on echocardiography, annotated
                     </div>
 
 
+
+
+
                     <div class="item-desc">Binding caveat. The source says only &#34;mild hypertrophy&#34; on heart ultrasound and does not name a chamber. HP:0001714 Ventricular hypertrophy is one inferential step from that, since echocardiographic hypertrophy is ventricular in practice, and the source&#39;s own wording is kept in preferred_term. The broader HP:0001627 Abnormal heart morphology would be literal but would lose the finding.
 A separate reason to treat this cautiously: PMID:32749073 states in its introduction that &#34;Some patients show nephrolithiasis or mild cardiac hypertrophy&#34;, but that is a summary of the prior literature rather than an observation in that report&#39;s own patient, so it is not curated as independent support here.</div>
 
@@ -5488,6 +5555,9 @@ This clinical feature is Hepatopathy, annotated with Hepatic failure (HP:0001399
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0001399 Hepatic failure, which is more specific than the sources support - both describe &#34;hepatopathy&#34; or &#34;liver disease&#34; without staging the dysfunction. The binding is the closest available term for liver involvement in this context; preferred_term keeps the source&#39;s own, weaker word. A reader should not read decompensated liver failure into this row.</div>
 
 
@@ -5559,6 +5629,9 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5641,6 +5714,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5746,6 +5822,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5858,6 +5937,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5924,6 +6006,9 @@ This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6034,6 +6119,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6139,6 +6227,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6219,6 +6310,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6287,6 +6381,9 @@ This clinical feature is Psychomotor retardation, annotated with Psychomotor det
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The binding is imperfect and worth stating. &#34;Psychomotor retardation&#34; as used in the source is a developmental description; HP:0002361 Psychomotor deterioration implies loss of previously acquired skills, which the source does not establish. HPO has no plain &#34;psychomotor retardation&#34; term. The broader term is bound with the source&#39;s word kept in preferred_term, per the ontology-term contract, rather than a more confident term being chosen.</div>
@@ -6362,6 +6459,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6469,6 +6569,9 @@ This clinical feature is Decreased activity of mitochondrial respiratory chain (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6583,6 +6686,9 @@ This disease-associated gene is MICOS13 (hgnc:33702). hgnc:33702 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -6713,6 +6819,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6723,6 +6832,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6784,6 +6896,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6794,6 +6909,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9232,6 +9350,73 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep research, and what it cost and bought. The OpenScientist run for this disease failed twice before succeeding. The first attempt hit the provider&#39;s 3600 s timeout. The second returned a report about MRPS34 - a different gene and a different disease - while printing this entry&#39;s MONDO ID in its own header beside a non-matching OMIM number; `just preflight-dr` failed it outright with &#34;discard it rather than cherry-picking&#34;, which was the right call and is what prevented the wrong material entering here. Worth noting that the discarded report&#39;s own validation block read 11/11 references verified and confabulation_rate 0.0: that metric attests the references are real, not that the disease is right.
+The third run was correct and substantially improved this entry. It surfaced the founding 2016 report, which the initial literature search had missed entirely, and with it: the 3-methylglutaconic aciduria that is the disease&#39;s most useful diagnostic finding, human liver cristae ultrastructure, the selective loss of MIC13 and MIC10 with MIC60 retained, and a further patient in whom the mtDNA depletion was independently replicated. Every one was verified against its primary source before use.
+Evidence base. Five reports, at least seven patients: Zeharia et al. 2016 and Guarani et al. 2016, each a sibling pair, then single patients in Godiker et al. 2018, Kishita et al. 2020 and Ammar et al. 2026. Each clinical claim names which of them it comes from, so a reader can tell a consistent feature from a single observation.
+A correction made during review. An earlier draft treated optic atrophy, sensorineural hearing loss and microcephaly as new features contributed by the most recent report. The full text of Guarani et al. 2016 documents all three in an unrelated family nine years earlier, along with mild cardiac hypertrophy on echocardiography. The phenotype did not widen as much as the entry claimed; what widened was which reports this entry had read.
+What carries the mechanism. The causal chain from lost protein to respiratory deficiency rests on cell-based work in patient fibroblasts, and its strongest element is the lentiviral complementation in the patient&#39;s own cells in PMID:32749073, which establishes causation rather than correlation while controlling for genetic background. That work is graded IN_VITRO throughout.
+An earlier draft of this entry stated that no patient liver ultrastructure had been published and that the architectural lesion in affected organs was therefore inferred from fibroblasts. That was wrong: the founding report documents abnormal cristae morphology in patient liver, and it is curated here as HUMAN_CLINICAL. Patient brain ultrastructure does remain unreported, and that is where most of the disease burden lies.
+Two imperfect ontology bindings are recorded rather than hidden, each in its phenotype&#39;s notes. &#34;Hepatopathy&#34; is bound to HP:0001399 Hepatic failure, which is more specific than the sources support. &#34;Psychomotor retardation&#34; is bound to HP:0002361 Psychomotor deterioration, which implies loss of acquired skills that the sources do not establish. In both cases HPO has no better term and the source&#39;s own word is kept in preferred_term.
+A practical note for anyone extending this entry: the gene appears in the literature as MICOS13, QIL1, MIC13 and C19orf70, and a search on any one name returns only part of the evidence base.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: reconcile patient counts, add two uncited reports</strong> · 2026-09-13T20:58:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_37/2026-09-13T205846Z-claude-code-9f99f5.yaml">View source</a></p>
+                        <p class="research-review-text">Answered the three IMPORTANT findings on PR #11725 in one push.
+
+Finding 1, stale prose. The entry was drafted against two patient reports and later expanded to four without the prose being swept, so nine separate passages still described a two-patient literature while prevalence.notes said five patients in four reports. Reconciled all of them. The count is now five reports and at least seven patients, because finding 2 added a report the entry had missed.
+
+Finding 2, PMID:27623147 (Guarani 2016, eLife). Cached by this PR and cited nowhere. It is an independent sibling pair from a different group in the same year as the founding report, verified as a separate family by disjoint author lists and separate publication. Added as replicating evidence on the MICOS assembly node, and for its specificity control showing that over-expression of other MICOS subunits does not rescue assembly.
+
+Finding 3, PMID:27479602 (Anand 2016, CRISPR MIC13 knockout). Added as an experimental model with three mechanism links. Two RECAPITULATES for subcomplex assembly failure and cristae junction loss. One FAILS_TO_RECAPITULATE for the combined respiratory chain deficiency, because the knockout leaves respiratory chain assembly intact and reduces respiration only moderately. That negative result contradicts the simplest reading of this entry&#39;s causal chain and is recorded as such rather than omitted.
+
+Also took the PMID:34271005 suggestion, but not for the reason given: that paper concerns GxxxG and WN motifs, not the RDSWN motif, so it is cited for the bridging function and MIC10-subcomplex destabilization instead.
+
+Four things were found by reading the sources rather than by acting on the review, and they
+matter more than the findings did.
+
+Fetching PMID:27623147 upgraded its cache from abstract to full text, and the full text
+contradicts the entry. It documents optic atrophy, sensorineural deafness and acquired
+microcephaly in 2016, all three of which the entry described as contributed by the 2026
+report. So the entry&#39;s claim that the phenotype widened considerably with the most recent
+report was wrong; what widened was which reports the entry had read. Corrected in all
+three phenotype descriptions and stated as a correction in notes.
+
+The same full text reports mild cardiac hypertrophy on echocardiography in a named
+patient. The review suggested curating cardiac hypertrophy from PMID:32749073 instead, but
+that mention is in its introduction summarising prior literature, not an observation in
+its own patient. Curated from the primary observation, with the weaker source&#39;s status
+recorded in notes.
+
+Guarani et al.&#39;s patients have non-consanguineous parents, where the other families are
+consanguineous. Recorded in inheritance, because a negative family history does not argue
+against this diagnosis.
+
+Patients were identified in prose by nationality (the Japanese patient, the Tunisian
+patient). None of those nationalities is stated in any cached source. Replaced throughout
+with author-year keys taken from the cache frontmatter.
+
+Declined, with reasons given in the PR reply: the cofactor treatment regimen (no cited
+report describes treatment of any kind, and its NCIT codes came from a deep-research
+report rather than a lookup), pruning the uncited caches (several are the residue of the
+MRPS34 report that preflight-dr correctly rejected, and that footprint is worth keeping),
+and two general cell-biology mechanism nodes.
+
+Validation: 55/55 snippets verified (was 41/41), schema and term validation pass,
+duplicate-keys, entity-refs, causal-targets, qualifier-terms, enum-values, title-snippets,
+snippet-grading and reference-titles all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

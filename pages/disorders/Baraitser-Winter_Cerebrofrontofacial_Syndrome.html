@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4863,6 +4916,7 @@ This readout is measured by single-cell transcriptomic profiling.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-actb-actg1-gain-of-function-variants-alter-actin-dynamics" data-dismech-node="ACTB/ACTG1 Gain-of-Function Variants Alter Actin Dynamics" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTB/ACTG1 Gain-of-Function Variants Alter Actin Dynamics</div>
 
+
                 <div class="item-desc">Heterozygous de novo gain-of-function missense variants in ACTB (beta-actin) or ACTG1 (gamma-actin) alter the actin monomer conformation in a dominant manner, disrupting the G-actin to F-actin treadmilling equilibrium. The recurrent mutations shift the balance toward increased filamentous actin (F-actin) stability and impaired dynamic turnover, producing defective lamellipodia and filopodia formation in migrating cells throughout embryogenesis.
 </div>
 
@@ -5088,6 +5142,7 @@ This pathophysiological event involves actin filament polymerization (GO:0030041
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-radial-migration" data-dismech-node="Impaired Neuronal Radial Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Radial Migration</div>
+
 
                 <div class="item-desc">Proper radial migration of post-mitotic cortical neurons from the ventricular zone to their laminar destinations requires actin-driven lamellipodia protrusion guided by radial glial scaffolding. Gain-of-function actin mutations impair this motility, causing neurons to arrest at intermediate positions and producing pachygyria (the predominant brain malformation) or in severe cases lissencephaly. The characteristic anteroposterior severity gradient in BRWS reflects regional differences in the temporal window of actin-dependent migration.
 </div>
@@ -5324,6 +5379,7 @@ This pathophysiological event involves cytoskeleton organization (GO:0007010). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-actin-dependent-apical-progenitor-cleavage-plane-defect" data-dismech-node="Actin-Dependent Apical Progenitor Cleavage-Plane Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Actin-Dependent Apical Progenitor Cleavage-Plane Defect</div>
+
 
                 <div class="item-desc">Human iPSC-derived cerebral organoids carrying patient ACTB or ACTG1 missense variants support a progenitor branch in which actin cytoskeletal irregularities at the apical region of ventricular-zone progenitors alter cleavage-plane orientation. This reduces ventricular-zone progenitor abundance and links the actinopathy to microcephaly and cortical growth defects, complementing the postmitotic neuronal-migration branch.</div>
 
@@ -5681,6 +5737,7 @@ This pathophysiological event involves dysregulated mitotic spindle organization
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-dyslamination-leading-to-intellectual-disability-and-epilepsy" data-dismech-node="Cortical Dyslamination Leading to Intellectual Disability and Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Dyslamination Leading to Intellectual Disability and Epilepsy</div>
 
+
                 <div class="item-desc">Failure of neurons to reach their correct laminar positions produces a disorganised cortex with abnormally broad gyri (pachygyria) or absent gyri (lissencephaly). The resulting cortical dyslamination disrupts thalamocortical and cortico-cortical connectivity, manifesting as intellectual disability of variable severity and epileptogenesis with refractory seizures.
 </div>
 
@@ -5767,6 +5824,7 @@ This pathophysiological event involves dysregulated mitotic spindle organization
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-optic-fissure-closure-causing-coloboma" data-dismech-node="Disrupted Optic Fissure Closure Causing Coloboma" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Optic Fissure Closure Causing Coloboma</div>
+
 
                 <div class="item-desc">Closure of the choroidal fissure during embryonic weeks 5-7 requires coordinated actin-dependent cell migration in the optic cup. Gain-of-function actin mutations impair this process, preventing complete fissure closure and resulting in iris or retinal coloboma. This is a direct mechanistic consequence of disrupted actin dynamics, not an incidental feature.
 </div>
@@ -5876,6 +5934,7 @@ This pathophysiological event involves cytoskeleton organization (GO:0007010). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neural-crest-cell-migration-producing-craniofacial-features" data-dismech-node="Disrupted Neural Crest Cell Migration Producing Craniofacial Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neural Crest Cell Migration Producing Craniofacial Features</div>
+
 
                 <div class="item-desc">Cranial neural crest cells that populate the craniofacial mesenchyme use actin-driven lamellipodia for directed migration. Gain-of-function actin mutations impair this process, producing the characteristic craniofacial gestalt: hypertelorism, metopic ridge, bilateral ptosis, arched eyebrows, and broad nasal bridge. These features reflect defective neural crest morphogenetic movements during craniofacial development.
 </div>
@@ -6140,6 +6199,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6217,6 +6279,9 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6304,6 +6369,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6384,6 +6452,9 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6455,6 +6526,9 @@ This clinical feature is Congenital ptosis, annotated with Ptosis (HP:0000508). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6521,6 +6595,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6603,6 +6680,9 @@ This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6704,6 +6784,9 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6775,6 +6858,9 @@ This clinical feature is Trigonocephaly (HP:0000243). HP:0000243 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6841,6 +6927,9 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6926,6 +7015,9 @@ This clinical feature is Shoulder girdle muscle atrophy (HP:0003724). HP:0003724
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7006,6 +7098,9 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7072,6 +7167,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7148,6 +7246,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7214,6 +7315,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7294,6 +7398,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7414,6 +7521,9 @@ This disease-associated gene is ACTB (hgnc:132). hgnc:132 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -7494,6 +7604,9 @@ This disease-associated gene is ACTG1 (hgnc:144). hgnc:144 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7609,6 +7722,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizures in BRWS are often refractory and require optimisation of anti-epileptic drug management. No disease-specific therapies exist.
 </div>
 
@@ -7691,6 +7810,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8852,6 +8977,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

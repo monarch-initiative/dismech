@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4412,6 +4465,7 @@ One negative result deserves to survive from the original 1998 report, because i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ammecr1-loss-of-function" data-dismech-node="AMMECR1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">AMMECR1 Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion. Reported alleles span the range: microdeletions removing AMMECR1 alone or with its immediate neighbours TMEM164 and SNORD96B, nonsense variants, an X-autosome translocation with skewed inactivation of the normal X, and missense changes. AMMECR1 sits in the Xq22.3 interval deleted in AMME, and the disease-defining observation is that variants hitting AMMECR1 while sparing COL4A5 reproduce the non-renal AMME features without Alport syndrome.
 The gene encodes a 35.5 kDa protein from six exons with a ubiquitous transcript, conserved from yeast and nematode upward. When it was cloned, its function was unknown; a conserved six-amino-acid domain in exon 2 was noted with function unknown then, and it remains substantially unknown now.</div>
 
@@ -4473,6 +4527,8 @@ This pathophysiological event involves AMMECR1 (hgnc:467). hgnc:467 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4485,6 +4541,9 @@ This pathophysiological event involves AMMECR1 (hgnc:467). hgnc:467 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous in affected males - microdeletion, nonsense or missense. The functional impact is recorded as loss of function because the microdeletion and nonsense alleles are unambiguous and produce the same phenotype as the missense ones; whether every missense allele acts by simple loss of function is not established.</div>
 
@@ -4607,6 +4666,7 @@ This pathophysiological event involves AMMECR1 (hgnc:467). hgnc:467 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-nuclear-ammecr1-function" data-dismech-node="Loss of Nuclear AMMECR1 Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Nuclear AMMECR1 Function</div>
+
 
                 <div class="item-desc">AMMECR1 and its paralog AMMECR1L dimerize and localize to the nucleus, which their nucleic-acid-binding RAGNYA folds would predict. The one patient allele examined functionally, p.G177D, is not absent from the nucleus but distributed abnormally within it - and the second reported missense allele is described the same way, as altered intranuclear distribution with reduced expression.
 What the protein does there is unresolved. The strongest statement its investigators make is that it is potentially involved in cell cycle control, inferred from coexpression rather than from an assay of AMMECR1 itself. This node therefore records a demonstrated molecular abnormality with an undetermined downstream function, which is the honest shape of the evidence.</div>
@@ -4809,6 +4869,13 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-cell-cycle-associated-program-in-developing-tissues" data-dismech-node="Disturbed Cell-Cycle-Associated Program in Developing Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Cell-Cycle-Associated Program in Developing Tissues</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed bridge between a nuclear protein of unknown function and a multisystem developmental phenotype. AMMECR1 is coexpressed with genes implicated in cell cycle regulation, five of which already have growth and bone phenotypes of their own, and knocking down the zebrafish orthologue produces features reminiscent of the patients&#39;. That is the entire basis; no cell-cycle measurement has been made in patient material, and the proposal is stated by its authors as a possibility.
 Recorded as a node anyway, because the alternative is a graph in which a gene deletion connects directly to seven unrelated clinical findings with nothing in between, which would misrepresent the literature in the opposite direction.</div>
@@ -5072,6 +5139,13 @@ This edge is kept alongside the hypercalciuria route below rather than replaced 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elliptocytosis-without-a-membrane-skeleton-defect" data-dismech-node="Elliptocytosis Without a Membrane Skeleton Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Elliptocytosis Without a Membrane Skeleton Defect</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Elliptical red cells on the blood film, sometimes with anaemia. The important thing about this finding is what it is not: in the original AMME family the elliptocytosis was not accompanied by any detectable abnormality of red cell membrane proteins, and membrane stability and rigidity were normal on ektacytometry - the assay that is abnormal in hereditary elliptocytosis. So the shared name with hereditary elliptocytosis is a morphological coincidence, not a shared mechanism, and no mechanism has since been proposed.</div>
 
 
@@ -5229,7 +5303,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMMECR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AMMECR1\"], \"gene_terms\": [{\"label\": \"AMMECR1\", \"id\": \"hgnc:467\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"AMMECR1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Reported alleles span the range: microdeletions removing AMMECR1 alone or with its immediate neighbours TMEM164 and SNORD96B, nonsense variants, an X-autosome translocation with skewed inactivation of the normal X, and missense changes. AMMECR1 sits in the Xq22.3 interval deleted in AMME, and the disease-defining observation is that variants hitting AMMECR1 while sparing COL4A5 reproduce the non-renal AMME features without Alport syndrome.\\nThe gene encodes a 35.5 kDa protein from six exons with a ubiquitous transcript, conserved from yeast and nematode upward. When it was cloned, its function was unknown; a conserved six-amino-acid domain in exon 2 was noted with function unknown then, and it remains substantially unknown now.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"AMMECR1\"], \"gene_terms\": [{\"label\": \"AMMECR1\", \"id\": \"hgnc:467\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous in affected males - microdeletion, nonsense or missense. The functional impact is recorded as loss of function because the microdeletion and nonsense alleles are unambiguous and produce the same phenotype as the missense ones; whether every missense allele acts by simple loss of function is not established.\"}, \"role\": \"trigger\"}}, {\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities, reported in the five-individual loss-of-function series. They are not described in the earlier point-mutation families, so they are curated as part of the spectrum rather than as a defining feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline palatal defects: a submucous cleft palate with bifid uvula in the first point-mutation family, and a soft cleft palate in one carrier female.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cleft palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the submucous cleft palate and bifid uvula. Both point-mutation half-brothers had the palatal defect and the older one underwent surgical correction; his feeding and gross motor development improved afterwards, and the authors name the repair as one of two corrections that may account for his speech and language gains.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hip dysplasia, part of the skeletal component of the phenotype and, like the palatal defect, reported in a carrier female as well as in affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001374\"}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay, usually mild intellectual disability, with early speech and language delay and infantile hypotonia described in the first point-mutation family. This is the \\\"mental retardation\\\" of the 1998 AMME acronym, reassigned from the deletion as a whole to AMMECR1.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed bridge between a nuclear protein of unknown function and a multisystem developmental phenotype. AMMECR1 is coexpressed with genes implicated in cell cycle regulation, five of which already have growth and bone phenotypes of their own, and knocking down the zebrafish orthologue produces features reminiscent of the patients\u0027. That is the entire basis; no cell-cycle measurement has been made in patient material, and the proposal is stated by its authors as a possibility.\\nRecorded as a node anyway, because the alternative is a graph in which a gene deletion connects directly to seven unrelated clinical findings with nothing in between, which would misrepresent the literature in the opposite direction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cell cycle control, proposed rather than demonstrated\"], \"animal_models\": [{\"name\": \"Zebrafish ammecr1 morphant\", \"species\": \"Zebrafish\", \"genotype\": \"knockdown of the zebrafish AMMECR1 orthologue\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Establishes that the gene is required for normal development in a vertebrate, which is the main thing this node needs and nearly the only thing the model supplies.\"}]}}, {\"id\": \"Elliptocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elliptical red cells on the peripheral smear, with or without anaemia, and without the membrane-protein defect of hereditary elliptocytosis. Expressivity is variable even within a sibship - it was present in one of the two point-mutation half-brothers.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004445\"}}, {\"id\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elliptical red cells on the blood film, sometimes with anaemia. The important thing about this finding is what it is not: in the original AMME family the elliptocytosis was not accompanied by any detectable abnormality of red cell membrane proteins, and membrane stability and rigidity were normal on ektacytometry - the assay that is abnormal in hereditary elliptocytosis. So the shared name with hereditary elliptocytosis is a morphological coincidence, not a shared mechanism, and no mechanism has since been proposed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification for the sensorineural hearing loss. In the first point-mutation family the older half-brother had bilateral mixed hearing loss requiring hearing aids, and the authors attribute part of his subsequent speech and language improvement to the correction of his hearing and palate together.\\nThis is phenotype-directed and not disease-modifying, which is the only kind of treatment this entity has: nothing is known about what AMMECR1 does, so there is no mechanism to aim at. Because the loss is progressive rather than static, the clinical decision is not a one-off fitting but repeat audiometry with amplification adjusted as thresholds move - see the Audiometry entry under `diagnosis`.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised urinary calcium excretion against a persistently normal plasma calcium - so a renal calcium-handling problem, not a systemic hypercalcaemia. It is curated because it is the only candidate intermediate any source offers between AMMECR1 loss and the nephrocalcinosis in the disease name, and because the first-report authors treated it as such: they screened a panel of known idiopathic-hypercalciuria and nephrocalcinosis genes before concluding that AMMECR1 was the remaining candidate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002150\"}}, {\"id\": \"Infantile Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low muscle tone from shortly after birth, with poor feeding and delay in gross motor skills. The first-report authors list hypotonia among the features AMMECR1 loss contributes to, alongside speech and language delay and hearing loss - a stronger attribution than the \\\"may play a role\\\" they use for the nephrocalcinosis and cleft palate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Loss of Nuclear AMMECR1 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMMECR1 and its paralog AMMECR1L dimerize and localize to the nucleus, which their nucleic-acid-binding RAGNYA folds would predict. The one patient allele examined functionally, p.G177D, is not absent from the nucleus but distributed abnormally within it - and the second reported missense allele is described the same way, as altered intranuclear distribution with reduced expression.\\nWhat the protein does there is unresolved. The strongest statement its investigators make is that it is potentially involved in cell cycle control, inferred from coexpression rather than from an assay of AMMECR1 itself. This node therefore records a demonstrated molecular abnormality with an undetermined downstream function, which is the honest shape of the evidence.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"nucleic acid binding, predicted from the RAGNYA fold\"]}}, {\"id\": \"Midface Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the midface, the feature that supplies the first M of AMME and the first words of this entity\u0027s name.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium deposition in the renal parenchyma. This is the renal finding that belongs to AMMECR1; it is distinct from the Alport nephropathy of the contiguous-gene AMME deletion, which comes from COL4A5 and is not part of this entity.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000121\"}}, {\"id\": \"Pavlik harness for congenital hip dysplasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abduction bracing for the congenital hip dysplasia, applied in proband II(2). Curated because hip dysplasia is one of this entry\u0027s phenotypes and this is the only management of it any source reports; no outcome is given.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss, mild to moderate where audiograms are reported, with a variable pattern of affected frequencies. It is one of the few features with any tissue-level support: AMMECR1 is expressed in the human fetal inner ear.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proportionate short stature, one of the most consistent features across the reported families and the observation that motivated the growth-and-bone framing of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Zebrafish ammecr1 morphant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal work on this gene in the sources read here. Knocking down the zebrafish orthologue produced phenotypes the authors describe as reminiscent of the patients\u0027 features - which is a similarity claim, not a phenotype-by-phenotype recapitulation, and is treated as such below.\"}], \"edges\": [{\"source\": \"AMMECR1 Loss of Function\", \"target\": \"Loss of Nuclear AMMECR1 Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deleting the gene removes the protein outright; the studied missense allele leaves the protein present but abnormally distributed within the nucleus. Both routes converge on the absence of normal nuclear AMMECR1 activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Nuclear AMMECR1 Function\", \"target\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed consequence, and the weakest link in this chain. It rests on AMMECR1\u0027s coexpression with cell-cycle genes and on the zebrafish knockdown phenotype, not on any measurement of cell-cycle progression in patient cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Nuclear AMMECR1 Function\", \"target\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn separately from the developmental branch because the original family\u0027s red cells were shown *not* to have the membrane defect that ordinarily causes elliptocytosis, so this is not a downstream consequence of any established mechanism. The edge records that the blood phenotype tracks AMMECR1 loss; its intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Midface Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The facial phenotype that named the syndrome. No mechanism connecting AMMECR1 to midfacial growth has been proposed in any source read here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The one phenotype with a tissue-level foothold: AMMECR1 protein is expressed in the human fetal cochlea, so the gene is present where the deficit appears. Expression is not mechanism, and nothing further is claimed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proportionate short stature is one of the most consistent features across reports, and the growth phenotype is what led to the cell-cycle coexpression hypothesis in the first place.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The \\\"mental retardation\\\" of the original AMME acronym, now attributed to AMMECR1 rather than to COL4A5 or the wider deletion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities appear in the five-individual loss-of-function series and are not reported in the earlier families, which is why they are curated as part of the spectrum rather than as a core feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midline palatal defects - a submucous cleft with bifid uvula in the first point-mutation family, a soft cleft palate in a female carrier - alongside the midface hypoplasia, which is what makes the facial phenotype a midline developmental one rather than isolated retrusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Congenital Hip Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the skeletal component, reported both in affected males and in a carrier female.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal finding that is *not* Alport syndrome. It was the presenting problem in the first point-mutation family and recurs in the most recent missense case, but its investigators put the attribution no more strongly than that AMMECR1 may play a role in it.\\nThis edge is kept alongside the hypercalciuria route below rather than replaced by it, because the second half-brother\u0027s nephrocalcinosis has no reported hypercalciuria at all. Whatever the calcium-handling route explains, it does not explain every reported case.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive urinary calcium excretion with a normal plasma calcium - so a renal tubular handling problem rather than a systemic hypercalcaemia. It is the only candidate intermediate any source offers for the renal phenotype, and it is why the first-report authors screened a panel of idiopathic-hypercalciuria genes before settling on AMMECR1.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia from shortly after birth in one of the two point-mutation half-brothers, listed by the first-report authors among the features AMMECR1 loss contributes to. Explicitly absent in his half-brother, who met his motor milestones - so this edge describes a variably expressed consequence, not a constant one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"target\": \"Elliptocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The morphological finding itself, as seen on the peripheral blood smear.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalciuria\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"A candidate route, not a demonstrated one, and the entry should not be read as claiming otherwise. Urinary calcium excess causing parenchymal calcium deposition is ordinary renal physiology and is why the first-report authors screened hypercalciuria and nephrocalcinosis genes as one panel. But in this family the order of observation runs the wrong way for a simple causal story: proband II(1) had nephrocalcinosis on ultrasound in the newborn period and his hypercalciuria was documented at age 4, and proband II(2) had nephrocalcinosis from infancy with no hypercalciuria reported at all. So the edge records the only intermediate the evidence offers, typed with unknown intermediates, and the direct edge from the upstream node is deliberately kept in parallel.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft palate repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pavlik harness for congenital hip dysplasia\", \"target\": \"Congenital Hip Dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zebrafish ammecr1 morphant\", \"target\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Establishes that the gene is required for normal development in a vertebrate, which is the main thing this node needs and nearly the only thing the model supplies.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The phenotypes are characterised only as \\\"reminiscent\\\" of the human features, with no individual correspondence reported; knockdown is not the same lesion as the human microdeletions and point mutations; and no cell-cycle measurement was made in the fish, so the model does not test the mechanism this node proposes. Zebrafish also have no midface in the sense the human phenotype uses, so the syndrome\u0027s defining feature cannot be assessed in it at all.\"}, {\"source\": \"AMMECR1\", \"target\": \"AMMECR1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMMECR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AMMECR1\"], \"gene_terms\": [{\"label\": \"AMMECR1\", \"id\": \"hgnc:467\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"AMMECR1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Reported alleles span the range: microdeletions removing AMMECR1 alone or with its immediate neighbours TMEM164 and SNORD96B, nonsense variants, an X-autosome translocation with skewed inactivation of the normal X, and missense changes. AMMECR1 sits in the Xq22.3 interval deleted in AMME, and the disease-defining observation is that variants hitting AMMECR1 while sparing COL4A5 reproduce the non-renal AMME features without Alport syndrome.\\nThe gene encodes a 35.5 kDa protein from six exons with a ubiquitous transcript, conserved from yeast and nematode upward. When it was cloned, its function was unknown; a conserved six-amino-acid domain in exon 2 was noted with function unknown then, and it remains substantially unknown now.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"AMMECR1\"], \"gene_terms\": [{\"label\": \"AMMECR1\", \"id\": \"hgnc:467\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous in affected males - microdeletion, nonsense or missense. The functional impact is recorded as loss of function because the microdeletion and nonsense alleles are unambiguous and produce the same phenotype as the missense ones; whether every missense allele acts by simple loss of function is not established.\"}, \"role\": \"trigger\"}}, {\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities, reported in the five-individual loss-of-function series. They are not described in the earlier point-mutation families, so they are curated as part of the spectrum rather than as a defining feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline palatal defects: a submucous cleft palate with bifid uvula in the first point-mutation family, and a soft cleft palate in one carrier female.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cleft palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the submucous cleft palate and bifid uvula. Both point-mutation half-brothers had the palatal defect and the older one underwent surgical correction; his feeding and gross motor development improved afterwards, and the authors name the repair as one of two corrections that may account for his speech and language gains.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hip dysplasia, part of the skeletal component of the phenotype and, like the palatal defect, reported in a carrier female as well as in affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001374\"}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay, usually mild intellectual disability, with early speech and language delay and infantile hypotonia described in the first point-mutation family. This is the \\\"mental retardation\\\" of the 1998 AMME acronym, reassigned from the deletion as a whole to AMMECR1.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed bridge between a nuclear protein of unknown function and a multisystem developmental phenotype. AMMECR1 is coexpressed with genes implicated in cell cycle regulation, five of which already have growth and bone phenotypes of their own, and knocking down the zebrafish orthologue produces features reminiscent of the patients\u0027. That is the entire basis; no cell-cycle measurement has been made in patient material, and the proposal is stated by its authors as a possibility.\\nRecorded as a node anyway, because the alternative is a graph in which a gene deletion connects directly to seven unrelated clinical findings with nothing in between, which would misrepresent the literature in the opposite direction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cell cycle control, proposed rather than demonstrated\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Zebrafish ammecr1 morphant\", \"species\": \"Zebrafish\", \"genotype\": \"knockdown of the zebrafish AMMECR1 orthologue\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Establishes that the gene is required for normal development in a vertebrate, which is the main thing this node needs and nearly the only thing the model supplies.\"}]}}, {\"id\": \"Elliptocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elliptical red cells on the peripheral smear, with or without anaemia, and without the membrane-protein defect of hereditary elliptocytosis. Expressivity is variable even within a sibship - it was present in one of the two point-mutation half-brothers.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004445\"}}, {\"id\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elliptical red cells on the blood film, sometimes with anaemia. The important thing about this finding is what it is not: in the original AMME family the elliptocytosis was not accompanied by any detectable abnormality of red cell membrane proteins, and membrane stability and rigidity were normal on ektacytometry - the assay that is abnormal in hereditary elliptocytosis. So the shared name with hereditary elliptocytosis is a morphological coincidence, not a shared mechanism, and no mechanism has since been proposed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification for the sensorineural hearing loss. In the first point-mutation family the older half-brother had bilateral mixed hearing loss requiring hearing aids, and the authors attribute part of his subsequent speech and language improvement to the correction of his hearing and palate together.\\nThis is phenotype-directed and not disease-modifying, which is the only kind of treatment this entity has: nothing is known about what AMMECR1 does, so there is no mechanism to aim at. Because the loss is progressive rather than static, the clinical decision is not a one-off fitting but repeat audiometry with amplification adjusted as thresholds move - see the Audiometry entry under `diagnosis`.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised urinary calcium excretion against a persistently normal plasma calcium - so a renal calcium-handling problem, not a systemic hypercalcaemia. It is curated because it is the only candidate intermediate any source offers between AMMECR1 loss and the nephrocalcinosis in the disease name, and because the first-report authors treated it as such: they screened a panel of known idiopathic-hypercalciuria and nephrocalcinosis genes before concluding that AMMECR1 was the remaining candidate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002150\"}}, {\"id\": \"Infantile Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low muscle tone from shortly after birth, with poor feeding and delay in gross motor skills. The first-report authors list hypotonia among the features AMMECR1 loss contributes to, alongside speech and language delay and hearing loss - a stronger attribution than the \\\"may play a role\\\" they use for the nephrocalcinosis and cleft palate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Loss of Nuclear AMMECR1 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMMECR1 and its paralog AMMECR1L dimerize and localize to the nucleus, which their nucleic-acid-binding RAGNYA folds would predict. The one patient allele examined functionally, p.G177D, is not absent from the nucleus but distributed abnormally within it - and the second reported missense allele is described the same way, as altered intranuclear distribution with reduced expression.\\nWhat the protein does there is unresolved. The strongest statement its investigators make is that it is potentially involved in cell cycle control, inferred from coexpression rather than from an assay of AMMECR1 itself. This node therefore records a demonstrated molecular abnormality with an undetermined downstream function, which is the honest shape of the evidence.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"nucleic acid binding, predicted from the RAGNYA fold\"]}}, {\"id\": \"Midface Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the midface, the feature that supplies the first M of AMME and the first words of this entity\u0027s name.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium deposition in the renal parenchyma. This is the renal finding that belongs to AMMECR1; it is distinct from the Alport nephropathy of the contiguous-gene AMME deletion, which comes from COL4A5 and is not part of this entity.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000121\"}}, {\"id\": \"Pavlik harness for congenital hip dysplasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abduction bracing for the congenital hip dysplasia, applied in proband II(2). Curated because hip dysplasia is one of this entry\u0027s phenotypes and this is the only management of it any source reports; no outcome is given.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss, mild to moderate where audiograms are reported, with a variable pattern of affected frequencies. It is one of the few features with any tissue-level support: AMMECR1 is expressed in the human fetal inner ear.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proportionate short stature, one of the most consistent features across the reported families and the observation that motivated the growth-and-bone framing of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Zebrafish ammecr1 morphant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal work on this gene in the sources read here. Knocking down the zebrafish orthologue produced phenotypes the authors describe as reminiscent of the patients\u0027 features - which is a similarity claim, not a phenotype-by-phenotype recapitulation, and is treated as such below.\"}], \"edges\": [{\"source\": \"AMMECR1 Loss of Function\", \"target\": \"Loss of Nuclear AMMECR1 Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deleting the gene removes the protein outright; the studied missense allele leaves the protein present but abnormally distributed within the nucleus. Both routes converge on the absence of normal nuclear AMMECR1 activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Nuclear AMMECR1 Function\", \"target\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed consequence, and the weakest link in this chain. It rests on AMMECR1\u0027s coexpression with cell-cycle genes and on the zebrafish knockdown phenotype, not on any measurement of cell-cycle progression in patient cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Nuclear AMMECR1 Function\", \"target\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn separately from the developmental branch because the original family\u0027s red cells were shown *not* to have the membrane defect that ordinarily causes elliptocytosis, so this is not a downstream consequence of any established mechanism. The edge records that the blood phenotype tracks AMMECR1 loss; its intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Midface Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The facial phenotype that named the syndrome. No mechanism connecting AMMECR1 to midfacial growth has been proposed in any source read here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The one phenotype with a tissue-level foothold: AMMECR1 protein is expressed in the human fetal cochlea, so the gene is present where the deficit appears. Expression is not mechanism, and nothing further is claimed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proportionate short stature is one of the most consistent features across reports, and the growth phenotype is what led to the cell-cycle coexpression hypothesis in the first place.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The \\\"mental retardation\\\" of the original AMME acronym, now attributed to AMMECR1 rather than to COL4A5 or the wider deletion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities appear in the five-individual loss-of-function series and are not reported in the earlier families, which is why they are curated as part of the spectrum rather than as a core feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midline palatal defects - a submucous cleft with bifid uvula in the first point-mutation family, a soft cleft palate in a female carrier - alongside the midface hypoplasia, which is what makes the facial phenotype a midline developmental one rather than isolated retrusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Congenital Hip Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the skeletal component, reported both in affected males and in a carrier female.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal finding that is *not* Alport syndrome. It was the presenting problem in the first point-mutation family and recurs in the most recent missense case, but its investigators put the attribution no more strongly than that AMMECR1 may play a role in it.\\nThis edge is kept alongside the hypercalciuria route below rather than replaced by it, because the second half-brother\u0027s nephrocalcinosis has no reported hypercalciuria at all. Whatever the calcium-handling route explains, it does not explain every reported case.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive urinary calcium excretion with a normal plasma calcium - so a renal tubular handling problem rather than a systemic hypercalcaemia. It is the only candidate intermediate any source offers for the renal phenotype, and it is why the first-report authors screened a panel of idiopathic-hypercalciuria genes before settling on AMMECR1.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia from shortly after birth in one of the two point-mutation half-brothers, listed by the first-report authors among the features AMMECR1 loss contributes to. Explicitly absent in his half-brother, who met his motor milestones - so this edge describes a variably expressed consequence, not a constant one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elliptocytosis Without a Membrane Skeleton Defect\", \"target\": \"Elliptocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The morphological finding itself, as seen on the peripheral blood smear.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalciuria\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"A candidate route, not a demonstrated one, and the entry should not be read as claiming otherwise. Urinary calcium excess causing parenchymal calcium deposition is ordinary renal physiology and is why the first-report authors screened hypercalciuria and nephrocalcinosis genes as one panel. But in this family the order of observation runs the wrong way for a simple causal story: proband II(1) had nephrocalcinosis on ultrasound in the newborn period and his hypercalciuria was documented at age 4, and proband II(2) had nephrocalcinosis from infancy with no hypercalciuria reported at all. So the edge records the only intermediate the evidence offers, typed with unknown intermediates, and the direct edge from the upstream node is deliberately kept in parallel.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft palate repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pavlik harness for congenital hip dysplasia\", \"target\": \"Congenital Hip Dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zebrafish ammecr1 morphant\", \"target\": \"Disturbed Cell-Cycle-Associated Program in Developing Tissues\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Establishes that the gene is required for normal development in a vertebrate, which is the main thing this node needs and nearly the only thing the model supplies.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The phenotypes are characterised only as \\\"reminiscent\\\" of the human features, with no individual correspondence reported; knockdown is not the same lesion as the human microdeletions and point mutations; and no cell-cycle measurement was made in the fish, so the model does not test the mechanism this node proposes. Zebrafish also have no midface in the sense the human phenotype uses, so the syndrome\u0027s defining feature cannot be assessed in it at all.\"}, {\"source\": \"AMMECR1\", \"target\": \"AMMECR1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5300,6 +5374,9 @@ This clinical feature is Elliptocytosis (HP:0004445). HP:0004445 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the original AMME family (PMID:9598718), one of two point-mutation half-brothers (PMID:27811305), the X-linked elliptocytosis family where it was the presenting feature (PMID:28089922), the microdeletion pair (PMID:30737907) and the second missense case (PMID:42386221). The five-individual series explicitly describes the syndrome as occurring with *or without* elliptocytosis, so it is not obligate.</div>
@@ -5405,6 +5482,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. The source describes &#34;cardiac and skeletal abnormalities&#34; collectively across five individuals without specifying lesions, so the bound term is deliberately the general abnormal-heart-morphology term and nothing narrower is claimed.</div>
@@ -5516,6 +5596,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the loss-of-function series (PMID:29193635), the microdeletion pair (PMID:30737907), the X-linked elliptocytosis family (PMID:28089922), the second missense case as partial hearing impairment (PMID:42386221), and in all three carrier females (PMID:35084080). The audiometric detail comes from the carrier report, so it describes carriers rather than affected males.
@@ -5651,6 +5734,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the point-mutation half-brothers, where it was the presenting problem (PMID:27811305), and in the second missense case (PMID:42386221). The first-report authors state the attribution cautiously, as AMMECR1 possibly playing a role, and that hedge is preserved here.
@@ -5796,6 +5882,9 @@ This clinical feature is Hypercalciuria (HP:0002150), qualified as temporality r
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band; see the entry `notes`. Documented in one individual only - proband II(1) of PMID:27811305, where it was repeated and intermittent. It is not reported in his half brother II(2), who nonetheless had nephrocalcinosis from infancy, and their carrier mother was specifically tested and had no hypercalciuria. `temporality: RECURRENT` follows the source&#39;s word, &#34;intermittent&#34;, rather than describing a sustained abnormality.
 The parenthesis in the &#34;may be entirely incidental&#34; sentence quoted on the Nephrocalcinosis phenotype attaches to the cataracts, not to the hypercalciuria - &#34;cataracts (in proband II(2))&#34; - so that sentence does not localise the hypercalciuria to either brother. The localisation here comes from the case narrative instead.</div>
 
@@ -5915,6 +6004,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band; see the entry `notes` for why. Observed in: the original AMME family (PMID:9598718), the first point-mutation half-brothers (PMID:27811305), the X-linked elliptocytosis family (PMID:28089922), the two array-CGH microdeletion patients (PMID:30737907) and the second missense case (PMID:42386221).</div>
 
 
@@ -6009,6 +6101,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the point-mutation half-brothers as a submucous cleft with bifid uvula (PMID:27811305) and in one carrier female as a soft cleft palate (PMID:35084080). The bound term is the general cleft-palate term; `HP:0000176` for a submucous cleft would fit the first family but not the carrier, and the entry does not split a two-patient observation across two terms.
@@ -6119,6 +6214,9 @@ This clinical feature is Congenital hip dysplasia, annotated with Congenital hip
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band; see the entry `notes`. The carrier report names hip dysplasia in one of three women and states that it had been reported before in male AMMECR1 point-mutation carriers. The bound HP term is `Congenital hip dislocation`, which is HPO&#39;s label for this concept; `preferred_term` keeps the clinical wording used in the source.</div>
 
 
@@ -6226,6 +6324,9 @@ This clinical feature is Infantile hypotonia, annotated with Hypotonia (HP:00012
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Present in proband II(1) of PMID:27811305 and explicitly absent in his half-brother II(2), who met his motor milestones - one of the clearest instances of variable expressivity in this disease, in two boys carrying the same allele. The first-report authors also suggest part of it may be secondary to the joint hypermobility that persisted through childhood, which is a caveat rather than an alternative explanation and is not curated as a separate mechanism.
@@ -6340,6 +6441,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the original AMME family (PMID:9598718), the point-mutation half-brothers as speech and language delay (PMID:27811305) and the microdeletion pair as mild intellectual disability or neurodevelopmental delay (PMID:30737907). The bound term is the developmental-delay term rather than the intellectual-disability term because several reports describe delay in young children rather than an established cognitive outcome.</div>
 
 
@@ -6443,6 +6547,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band; see the entry `notes`. Observed in the five-individual loss-of-function series (PMID:29193635), the microdeletion pair (PMID:30737907) and the X-linked elliptocytosis family, where it is specified as proportionate (PMID:28089922).</div>
@@ -6559,6 +6666,9 @@ This disease-associated gene is AMMECR1 (hgnc:467). hgnc:467 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6682,6 +6792,9 @@ This disease-associated gene is AMMECR1 (hgnc:467). hgnc:467 is a gene from the 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6692,6 +6805,9 @@ This disease-associated gene is AMMECR1 (hgnc:467). hgnc:467 is a gene from the 
 
 
     </div>
+
+
+
 
 
 
@@ -6839,6 +6955,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6849,6 +6968,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
     </div>
+
+
+
 
 
 
@@ -6963,6 +7085,9 @@ This treatment targets Cleft palate (HP:0000175). HP:0000175 is a phenotype from
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6973,6 +7098,9 @@ This treatment targets Cleft palate (HP:0000175). HP:0000175 is a phenotype from
 
 
     </div>
+
+
+
 
 
 
@@ -8933,6 +9061,25 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Identifiers. OMIM #300990 (MFHIEN) and OMIM 300195 (AMMECR1); the parent contiguous-gene syndrome AMME is OMIM 300194. Recorded in prose because the schema&#39;s `mappings` block carries `mondo_mappings` only and has no OMIM slot.
+Relationship to AMME and to Alport syndrome. This entry is the AMMECR1-attributable part of the AMME phenotype, and deliberately not AMME itself. AMME is a contiguous-gene deletion syndrome whose renal component comes from COL4A5; a patient whose deletion removes both genes has Alport syndrome as well, and that belongs to the Alport entries in this KB rather than here. The nephrocalcinosis curated below is a separate finding from Alport nephropathy and is reported in patients whose COL4A5 is intact.
+Why no phenotype carries a frequency band. The published experience is roughly a dozen affected males spread across six reports, and no two reports ascertain the same way: one is a nephrocalcinosis-led pair of half-brothers, one a growth-and-bone series, one a pair of array-CGH microdeletions, one a family reported for elliptocytosis, one a single missense case. There is no cohort and therefore no denominator, so every phenotype below records which reports observed it in `notes` instead of carrying a manufactured band. Assigning bands across incommensurable case reports would produce numbers that look like frequencies and are not.
+Evidence base. Six PMIDs: the founding contiguous-gene description (PMID:9598718), the cloning of AMMECR1 out of the deleted interval (PMID:10049589), the first point mutation with functional work (PMID:27811305), a second family reported as X-linked elliptocytosis with impaired growth (PMID:28089922), the five-individual loss-of-function series with the zebrafish knockdown (PMID:29193635), two AMMECR1-only microdeletions (PMID:30737907), the female-carrier report with fetal cochlear immunohistochemistry (PMID:35084080), and the second missense case (PMID:42386221).
+A corrigendum to PMID:28089922 was published as PMID:29174631. It has no fetchable abstract, so nothing is cited from it and no claim here rests on it; it is named so a reader checking that paper knows the correction exists.
+What is not asserted. No mechanism is claimed between AMMECR1 loss and any individual phenotype: the causal edges below are typed as having unknown intermediates and say so in their descriptions. No genotype-phenotype correlation is asserted - the most recent report states that additional cases and functional studies are needed to establish one.
+Treatments. An earlier draft of this entry carried no `treatments:` block and said no source described an intervention. That was wrong and is corrected here: the first point-mutation report describes hearing aids and submucous cleft palate repair in proband II(1), with a reported outcome, and those are now curated. What remains true is the reason the block looked unnecessary - there is no disease-modifying treatment and there cannot yet be one, because the gene&#39;s function is unknown. Both entries are phenotype-directed, both join the pathograph through `target_phenotypes` rather than `target_mechanisms`, and none should be read as acting on a mechanism. One intervention in the source is deliberately not curated: the bilateral percutaneous achilles tenotomies proband II(1) had at two months, because the talipes they treated is not curated as a phenotype in this entry - it appears only inside a quoted list of previously reported findings.
+Deep research. A Falcon deep-research report is committed alongside this entry. It passed `just preflight-dr` against MONDO:0010516 with AMMECR1 mentioned 41 times, the correct OMIM number recovered independently, and COL4A5 a distant second at 9 - which for this disease is the right shape, since COL4A5 is the neighbouring gene the entity had to be separated from. Reference validation resolved 4 of 4 citations with a confabulation rate of 0, and term validation resolved 29 of 30 with none unresolved. The report was used as a lead source only - every snippet below is anchored to a PMID fetched into `references_cache/` and read directly.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

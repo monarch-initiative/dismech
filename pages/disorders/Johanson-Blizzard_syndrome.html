@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4330,6 +4383,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ubr1-loss-of-function" data-dismech-node="Biallelic UBR1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic UBR1 Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous variants in UBR1 abolish or strongly reduce the activity of the encoded E3 ubiquitin ligase. Most JBS alleles are nonsense, frameshift or splice-site changes that abolish activity; missense changes in the conserved UBR-box and RING-H2 domains reduce it. In patient pancreas UBR1 protein is not expressed.</div>
 
 
@@ -4424,6 +4478,8 @@ This genetic context concerns UBR1 (hgnc:16808). hgnc:16808 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: nonsense, frameshift, splice-site, missense, or whole-exon deletion/duplication</span>
 
 
@@ -4437,6 +4493,9 @@ This genetic context concerns UBR1 (hgnc:16808). hgnc:16808 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4571,6 +4630,7 @@ This pathophysiological event involves UBR1 ubiquitin-protein ligase activity, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-n-end-rule-proteolysis" data-dismech-node="Impaired N-end Rule Proteolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired N-end Rule Proteolysis</div>
 
+
                 <div class="item-desc">UBR1 recognizes destabilizing N-terminal residues (N-degrons) and targets those substrates for ubiquitin-dependent degradation. Its loss impairs regulated N-degron proteolysis, with metabolic stabilization of specific N-end rule substrates in affected tissues. The identity of the disease-relevant substrate(s) in human pancreas and developing organs is not established.</div>
 
 
@@ -4692,6 +4752,7 @@ This pathophysiological event involves decreased N-end rule pathway proteolysis,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrauterine-destructive-pancreatitis" data-dismech-node="Intrauterine Destructive Pancreatitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrauterine Destructive Pancreatitis</div>
+
 
                 <div class="item-desc">The pancreas of affected individuals does not express UBR1 and shows an intrauterine-onset destructive pancreatitis, with acinar cell injury and progressive fibro-fatty replacement of the exocrine parenchyma.</div>
 
@@ -4841,6 +4902,7 @@ This pathophysiological event involves dysregulated acinar cell apoptosis, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exocrine-pancreatic-failure" data-dismech-node="Exocrine Pancreatic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Exocrine Pancreatic Failure</div>
 
+
                 <div class="item-desc">Near-total loss of exocrine (enzyme-secreting) pancreatic function is the defining functional consequence, presenting in the neonatal or early infantile period with steatorrhea and poor growth. (Named &#34;Exocrine Pancreatic Failure&#34; to keep this mechanism node distinct from the &#34;Exocrine pancreatic insufficiency&#34; clinical phenotype in the flat pathograph namespace.)</div>
 
 
@@ -4937,6 +4999,7 @@ This pathophysiological event involves dysregulated acinar cell apoptosis, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malabsorption-and-failure-to-thrive" data-dismech-node="Malabsorption and Failure to Thrive" data-dismech-type="pathophysiology">
                 <div class="item-name">Malabsorption and Failure to Thrive</div>
 
+
                 <div class="item-desc">Fat and fat-soluble vitamin malabsorption secondary to exocrine pancreatic insufficiency, the nutritional route to poor growth in infancy.</div>
 
 
@@ -5020,6 +5083,7 @@ This pathophysiological event involves dysregulated acinar cell apoptosis, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-and-organ-dysfunction" data-dismech-node="Multisystem Developmental and Organ Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental and Organ Dysfunction</div>
+
 
                 <div class="item-desc">A convergence node for the extra-pancreatic manifestations of UBR1 loss: craniofacial and ectodermal maldevelopment (nasal alae, scalp, teeth), cochlear dysfunction, and endocrine gland involvement. Each downstream edge is an association rather than a demonstrated tissue-specific mechanism, so all are annotated with unknown intermediates.</div>
 
@@ -5269,6 +5333,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5349,6 +5416,9 @@ This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5413,6 +5483,9 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5500,6 +5573,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5573,6 +5649,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5658,6 +5737,9 @@ This clinical feature is Genitourinary anomaly, annotated with Abnormality of th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5735,6 +5817,9 @@ This clinical feature is Hypoplasia of the nasal alae, annotated with Underdevel
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5834,6 +5919,9 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5898,6 +5986,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5981,6 +6072,9 @@ This clinical feature is Aplasia cutis congenita of scalp (HP:0007385). HP:00073
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6054,6 +6148,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6137,6 +6234,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6201,6 +6301,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6315,6 +6418,9 @@ This disease-associated gene is UBR1 (hgnc:16808). hgnc:16808 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6467,6 +6573,9 @@ This treatment uses pancrelipase (NCIT:C29345). NCIT:C29345 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6477,6 +6586,9 @@ This treatment uses pancrelipase (NCIT:C29345). NCIT:C29345 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6668,6 +6780,9 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6678,6 +6793,9 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -6848,6 +6966,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6858,6 +6979,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -8710,6 +8834,132 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated de novo from a Claude Code deep-research report (see research/Johanson-Blizzard_Syndrome-deep-research-claude_code.md) with every ontology term and evidence snippet independently verified. Two CURIEs suggested by the report were rejected during term verification: HP:0001060 (proposed for aplasia cutis; it is actually &#34;Axillary pterygium&#34; - the scalp defect is bound here to HP:0007385) and CHEBI:6710 (proposed for levothyroxine; it is actually meclofenamic acid - levothyroxine is bound here to NCIT:C62080). The specific N-end rule substrate(s) stabilized in human pancreas and developing organs remain undefined, so the extra-pancreatic developmental edges are annotated INDIRECT_UNKNOWN_INTERMEDIATES.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: ai4c-reviewer findings</strong> · 2026-09-04T15:03:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Johanson-Blizzard_Syndrome/2026-09-04T150314Z-claude-code-0e702a.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #10938 in a single
+bundled push. Per finding:
+
+1. Apoptosis direction. The &#34;Intrauterine Destructive Pancreatitis&#34; node&#39;s
+acinar-apoptosis process was modifier INCREASED with no supporting snippet;
+the cited abstracts describe the lesion only as &#34;destructive pancreatitis&#34;
+and give no apoptosis direction (the &#34;impaired apoptosis / induced necrosis&#34;
+reading lives in the DR report, not a citable paper). Re-annotated to modifier
+DYSREGULATED (a real ModifierEnum value and the honest reading), renamed the
+process preferred_term accordingly, and added an explanation line stating the
+abstracts do not report a direction. Did not add necrosis/inflammation GO
+terms: no exact-quote evidence for them exists in the cached references.
+
+2. Added a diagnosis: section with three entries, each with an exact-quote
+snippet already in the cache: molecular UBR1 testing (NCIT:C15709,
+PMID:22072859), audiologic evaluation via auditory brainstem response
+(NCIT:C184949, PMID:34760428), and prenatal ultrasonography (NCIT:C17230,
+PMID:10423811). Pancreatic exocrine function testing was intentionally omitted
+- no quotable fecal-elastase/function-test snippet was available and inventing
+one would violate evidence discipline.
+
+3. Added cardiac (HP:0001627 Abnormal heart morphology) and genitourinary
+(HP:0000119 Abnormality of the genitourinary system) phenotypes, both citing
+the generic &#34;...anomalies in cardiac and genitourinary systems&#34; clause of
+PMID:22072859. Bound the general system-level terms rather than specific
+defects (ASD/hypospadias) because the snippet is generic - binding a narrower
+term would over-claim beyond the source.
+
+4. Connected the three orphaned phenotypes (Intellectual disability,
+Microcephaly, Anal atresia) plus the two new cardiac/GU phenotypes with
+INDIRECT_UNKNOWN_INTERMEDIATES downstream edges from the &#34;Multisystem
+Developmental and Organ Dysfunction&#34; hub, each with supporting evidence. Fixed
+the namespace hazard by renaming the pathophysiology node &#34;Exocrine Pancreatic
+Insufficiency&#34; to &#34;Exocrine Pancreatic Failure&#34; (distinct from the &#34;Exocrine
+pancreatic insufficiency&#34; phenotype) and updating all three bare-name
+references to it (upstream pancreatitis edge, PERT treatment target_mechanism,
+Ubr1-null mouse modeled_mechanism + readout).
+
+5. Dropped the unsupported Hypothyroidism frequency (OCCASIONAL had no snippet
+and contradicted the &#34;commonest endocrine manifestation&#34; description); no
+quotable frequency figure exists, so no band is asserted. Also softened the
+&#34;commonest endocrine manifestation&#34; superlative on both the phenotype and the
+hub edge to &#34;a recognized endocrine manifestation&#34;.
+
+Suggestions taken: prevalence population changed from &#34;Europe&#34; (unsupported by
+the geography-free PMID:34760428 snippet) to &#34;General population&#34; with a note;
+zygosity: HOMOZYGOUS removed from genetic_context because both homozygous and
+compound-heterozygous cases occur and the slot is single-valued (biallelic
+LOF remains captured in the node description and functional_impact_category).
+
+Suggestions deferred with reason: Oligodontia frequency band (research says
+80-99% but no quotable source); top-level references block citing the Clinical
+Utility Gene Card PMID:23652379 (its cache content is &#34;unavailable&#34; - title
+only, nothing quotable); quantified mutational spectrum in the genetic section
+(its source, PMID:23652379, has no quotable cached body); and additional
+treatments (growth-hormone therapy, protein-hydrolysate diet, anoplasty) - no
+exact-quote support in the cached references.
+
+Validation: validate, validate-terms, validate-disorders (batched) all passed;
+54/54 evidence snippets verified; check-duplicate-keys, check-entity-refs,
+check-causal-targets (no new broken targets), check-qualifier-terms, and
+check-enum-values all passed. History record validated.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Johanson-Blizzard syndrome</strong> · 2026-09-04T14:28:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Johanson-Blizzard_Syndrome/2026-09-04T142852Z-claude-code-3b7856.yaml">View source</a></p>
+                        <p class="research-review-text">De novo creation of the Johanson-Blizzard syndrome (JBS, MONDO:0009479)
+Disease entry, closing claim issue #10934 and deleting the corresponding
+curation stub.
+
+Curation was research-first: a Claude Code deep-research report was generated
+(research/Johanson-Blizzard_Syndrome-deep-research-claude_code.md) and used
+only as a set of leads. Every ontology CURIE and every evidence snippet was
+independently verified before use.
+
+Pathograph (8 pathophysiology nodes): biallelic UBR1 loss of function (an E3
+ubiquitin ligase of the N-end rule / N-degron pathway) -&gt; impaired N-end rule
+proteolysis -&gt; intrauterine destructive pancreatitis -&gt; exocrine pancreatic
+insufficiency -&gt; malabsorption and failure to thrive; plus a multisystem
+developmental/organ-dysfunction hub whose extra-pancreatic edges (nasal alae
+hypoplasia, scalp aplasia cutis, oligodontia, sensorineural hearing loss,
+hypothyroidism) are annotated INDIRECT_UNKNOWN_INTERMEDIATES because the
+disease-relevant N-end rule substrate is undefined. All causal downstream
+targets use bare names.
+
+12 phenotypes with HP terms; genetic section (UBR1, hgnc:16808, autosomal
+recessive, functional_impact_category LOSS_OF_FUNCTION with a genetic_context
+block on the trigger node); prevalence (1 in 250,000, BIRTH_PREVALENCE);
+3 treatments (pancreatic enzyme replacement therapy, levothyroxine, cochlear
+device implantation using the device-vs-action qualifier pattern); a Ubr1-null
+mouse animal model linked via modeled_mechanisms (PARTIALLY_RECAPITULATES);
+and a HUMAN_MODEL_MISMATCH discussion capturing that the Ubr1(-/-) mouse does
+not reproduce the destructive prenatal pancreatitis or the malformation
+spectrum.
+
+Two report-suggested CURIEs were rejected during term verification and are
+recorded in the entry notes: HP:0001060 (proposed for aplasia cutis; it is
+actually &#34;Axillary pterygium&#34; - scalp defect bound instead to HP:0007385) and
+CHEBI:6710 (proposed for levothyroxine; it is actually meclofenamic acid -
+levothyroxine bound instead to NCIT:C62080).
+
+Validation: schema validate passed; validate-terms passed; 44/44 evidence
+snippets verified against cached references; check-duplicate-keys,
+check-entity-refs, check-causal-targets (no new broken targets),
+check-qualifier-terms-online (2/2 device qualifier labels match), and
+check-enum-values all passed; batched validate-disorders passed.
+Key foundational reference: Zenker et al. 2005 (PMID:16311597, UBR1
+discovery and Ubr1-null mouse).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

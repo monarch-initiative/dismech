@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5759,6 +5812,7 @@ This experiment is of type engineered heart tissue nutrient-switch assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mrpl44-loss-of-function-and-ml44-protein-depletion" data-dismech-node="Biallelic MRPL44 Loss of Function and mL44 Protein Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MRPL44 Loss of Function and mL44 Protein Depletion</div>
 
+
                 <div class="item-desc">Pathogenic MRPL44 genotypes reduce steady-state mL44 abundance in examined patient tissues and fibroblasts. The recurrent p.Leu156Arg allele is associated with protein instability. The p.Thr161Serfs*2 allele is predicted to be null; p.Leu156Pro was observed in trans with p.Leu156Arg, so residual protein cannot be assigned specifically to the proline allele. These functional observations are not extended to the p.Arg78Gln or 2025 delins alleles. mL44 is a mitochondrial large-subunit protein; murine-expression experiments support matrix localization and multimer formation.</div>
 
 
@@ -5947,6 +6001,7 @@ This pathophysiological event involves mitochondrial large ribosomal subunit (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-large-mitoribosomal-subunit-assembly-defect" data-dismech-node="Large Mitoribosomal Subunit Assembly Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Large Mitoribosomal Subunit Assembly Defect</div>
 
+
                 <div class="item-desc">Loss of mL44 reduces the amount of assembled large (39S) mitoribosomal subunit and destabilizes the mtDNA-encoded 16S rRNA that forms its scaffold, while leaving the small (28S) subunit largely intact. Retroviral re-expression of wild-type MRPL44 in patient fibroblasts restores the large subunit assembly defect, establishing the causal direction.
 </div>
 
@@ -6132,6 +6187,7 @@ This pathophysiological event involves mitochondrial large ribosomal subunit (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
+
 
                 <div class="item-desc">Patient fibroblast assays demonstrate reduced mtDNA-encoded protein synthesis, with variation by genotype and assay. In the 2021 series, Patient 1 retained 33% of control incorporation (p&lt;0.01) and Patient 2 56% (p=0.08). This two-patient comparison suggests residual-function differences but does not validate clinical severity prediction; both infants died. The original family had a milder fibroblast translation defect despite impaired large-subunit assembly, raising an additional nascent-polypeptide stability hypothesis.</div>
 
@@ -6500,6 +6556,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-compensatory-mtdna-replication-and-transcription" data-dismech-node="Failed Compensatory mtDNA Replication and Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Compensatory mtDNA Replication and Transcription</div>
 
+
                 <div class="item-desc">In glucose-rich medium, a single p.Leu156Arg patient iPSC-cardiomyocyte line showed about 2.5-fold higher mtDNA copy number, elevated mitochondrial transcripts and increased mitochondrial content, despite reduced complex I protein. Compensation is the authors’ interpretation of these readouts. The observations do not demonstrate that increased DNA replication itself causes the stress response seen under a different nutrient condition, or that all patient tissues share this response.</div>
 
 
@@ -6724,6 +6781,7 @@ sion had no impact on the mitochondrial DNA content of cells ( S4 Fig)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nutrient-dependent-metabolic-stress-response-in-cardiomyocytes" data-dismech-node="Nutrient-Dependent Metabolic Stress Response in Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Nutrient-Dependent Metabolic Stress Response in Cardiomyocytes</div>
 
+
                 <div class="item-desc">Lipid-enriched medium induced mitochondrial stress-response and partial ER-stress transcripts in the p.Leu156Arg iPSC-cardiomyocyte line, with lipid droplets and altered lipid-uptake/cholesterol genes. ATF5 targets increased; FGF21 induction and XBP1 splicing were absent. Fatty-acid utilization was inferred from these data rather than directly measured as oxidation flux. Ingenuity pathway analysis predicted mTOR changes; direct mTORC1 activation was not measured. The authors propose that nutrient-dependent stress promotes hypertrophic growth, a preprint hypothesis requiring replication and in-vivo testing.</div>
 
 
@@ -6884,6 +6942,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-complex-i-and-iv-deficiency" data-dismech-node="Combined Complex I and IV Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Complex I and IV Deficiency</div>
+
 
                 <div class="item-desc">Combined respiratory-chain deficiency emphasizes complexes I and IV but varies by patient, tissue and preparation. Patient 1 had profound cardiac complex IV and strong complex I deficiency, milder muscle deficits and borderline fibroblast complex IV activity, with abnormal complex I/V assembly. Patient 2 had multiple muscle deficiencies but normal fibroblast complex I/V assembly and complex IV holocomplex; complex IV activity was low only in the mitochondrial isolate. Reduced synthesis of mtDNA-encoded subunits supports the OXPHOS defect, but does not fully explain disproportionate complex IV involvement.</div>
 
@@ -7124,6 +7183,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-contractile-element-loss" data-dismech-node="Cardiomyocyte Contractile Element Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Contractile Element Loss</div>
+
 
                 <div class="item-desc">The first 2021 infant’s myocardial biopsy showed areas of contractile element loss and diffuse proliferation of enlarged mitochondria with abnormal cristae. This provides a cellular substrate for contractile dysfunction. Compensation and displacement are proposed interpretations of the morphology; the biopsy does not directly quantify ATP depletion or prove the cause of hypertrophic growth.</div>
 
@@ -7561,6 +7621,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7655,6 +7718,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7740,6 +7806,9 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7818,6 +7887,9 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7882,6 +7954,9 @@ This clinical feature is Cardiogenic shock (HP:0030149). HP:0030149 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -7972,6 +8047,9 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
 
 
@@ -8055,6 +8133,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8119,6 +8200,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -8197,6 +8281,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -8282,6 +8369,9 @@ This clinical feature is Pigmentary retinopathy (HP:0000580). HP:0000580 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8360,6 +8450,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8433,6 +8526,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8557,6 +8653,9 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8628,6 +8727,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8692,6 +8794,9 @@ This clinical feature is Hypothermia (HP:0002045). HP:0002045 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -8763,6 +8868,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8841,6 +8949,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8933,6 +9044,9 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8997,6 +9111,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This is the adult p.Leu156Arg homozygote with complete maternal chromosome 2 isodisomy; the 2021 infant paper summarizes the original Horga report.</div>
@@ -9082,6 +9199,9 @@ This clinical feature is Hemiplegic migraine, annotated with Migraine (HP:000207
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9146,6 +9266,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This is the adult p.Leu156Arg homozygote with complete maternal chromosome 2 isodisomy; the 2021 infant paper summarizes the original Horga report.</div>
@@ -9217,6 +9340,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Learning difficulties refer to the adolescent case; slower processing and impaired executive function refer to the adult with maternal chromosome 2 isodisomy. These are different clinical observations, not a combined frequency denominator.</div>
@@ -9315,6 +9441,9 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
 
 
@@ -9384,6 +9513,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This is the adult p.Leu156Arg homozygote with complete maternal chromosome 2 isodisomy; the 2021 infant paper summarizes the original Horga report.</div>
@@ -9457,6 +9589,9 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">This is the adult p.Leu156Arg homozygote with complete maternal chromosome 2 isodisomy; the 2021 infant paper summarizes the original Horga report.</div>
 
 
@@ -9526,6 +9661,9 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This is the adult p.Leu156Arg homozygote with complete maternal chromosome 2 isodisomy; the 2021 infant paper summarizes the original Horga report.</div>
@@ -9611,6 +9749,9 @@ This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9675,6 +9816,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -9746,6 +9890,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This was Patient 1 (p.Leu156Arg/p.Thr161Serfs*2), who also had a 16q23.3 deletion; the finding is case-scoped and not solely attributed to MRPL44.</div>
@@ -9826,6 +9973,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9925,6 +10075,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9998,6 +10151,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10116,6 +10272,9 @@ This disease-associated gene is MRPL44 (hgnc:16650). hgnc:16650 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -10174,6 +10333,7 @@ This disease-associated gene is MRPL44 (hgnc:16650). hgnc:16650 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10195,7 +10355,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent missense allele, present in 9 of the first 10 published disease alleles. It is located in the conserved hydrophobic pocket of the RNase III-like domain and strongly reduces mL44 protein levels while leaving some residual protein and activity. Homozygotes have been reported with both fatal infantile cardiomyopathy and with later-onset multisystem disease, so genotype alone does not predict the clinical course.
@@ -10282,6 +10448,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10303,7 +10470,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense allele identified in compound heterozygosity with the recurrent p.Leu156Arg variant in a patient with childhood-onset hypertrophic cardiomyopathy plus late multisystem features. No clinical_significance is recorded here deliberately: unlike the other four alleles, p.Arg78Gln has never been assigned a formal ACMG classification in the literature and has not been functionally assayed (no protein-abundance, mitoribosome-assembly, or translation data exist for it), so any classification would be curator invention rather than a sourced claim.
@@ -10367,6 +10540,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10388,7 +10562,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele predicted to trigger nonsense-mediated decay or produce a premature stop codon, i.e. a true null. In trans with p.Leu156Arg it produced the most severe biochemical phenotype in the published series - mitochondrial protein synthesis at roughly a third of controls - and fatal infantile cardiomyopathy.
@@ -10452,6 +10632,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10473,7 +10654,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A second substitution at Leu156, observed in trans with p.Leu156Arg. The authors predict a disruptive proline substitution. Reduced mL44 abundance was measured in the compound-heterozygous cells, without assigning residual protein specifically to the proline allele.</div>
@@ -10536,6 +10723,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10557,7 +10745,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous delins allele reported in a Tunisian family with severe hypertrophic cardiomyopathy affecting two siblings. It shortens the protein and was absent from ClinVar and HGMD at the time of reporting; formal ACMG classification was VUS, with pathogenicity supported by co-segregation and in silico structural modelling rather than by functional assays.
@@ -10732,6 +10926,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Care is supportive and cardiac-directed: beta blockade and standard anti-failure pharmacotherapy, nutritional support via nasogastric or gastrostomy feeding, avoidance of catabolic stress, and surveillance echocardiography. Intercurrent infection is a recognized trigger of fatal cardiac decompensation.
 </div>
 
@@ -10865,6 +11065,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10875,6 +11078,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
     </div>
+
+
+
 
 
 
@@ -10998,6 +11204,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counselling with a specific caveat: one reported patient was homozygous through complete maternal uniparental isodisomy of chromosome 2 rather than biparental transmission. A homozygous MRPL44 result with only one carrier parent should therefore prompt uniparental disomy testing, since the recurrence risk differs substantially from the standard 25%.
 </div>
 
@@ -11088,6 +11300,9 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11098,6 +11313,9 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
 
 
     </div>
+
+
+
 
 
 
@@ -11237,6 +11455,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11247,6 +11468,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -11334,6 +11558,12 @@ This treatment is investigational pharmacotherapy, annotated with Pharmacotherap
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12652,10 +12882,10 @@ This treatment is investigational pharmacotherapy, annotated with Pharmacotherap
 
                 </div>
 
-                <div class="evidence-snippet">"transient episodes of neurological dysfunction of hemiparesis and confusion, spasticity and ataxia, and on brain MRI lesions in basal ganglia, thalami and midbrain and subcortical and cerebellar white matter"</div>
+                <div class="evidence-snippet">"Five patients have been described with compound heterozygous or homozygous pathogenic variants in MRPL44 ... The fourth patient from age 14 years on developed cardiomyopathy, hemiplegic migraines, learning difficulties, myopathy, tapetoretinal dystrophy, and Leigh-like lesions in thalami, basal..."</div>
 
 
-                <div class="evidence-explanation">Describes the distribution of the Leigh-like MRI lesions.</div>
+                <div class="evidence-explanation">Restores MRPL44 attribution and the older patients&#39; ages, including the explicitly Leigh-like case before the more detailed regional MRI findings. The excerpt does not establish an absence of infant CNS disease from sparse imaging.</div>
 
 
 
@@ -15465,11 +15695,19 @@ imaging_findings:
       translation defect.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;transient episodes of neurological dysfunction of hemiparesis and confusion, spasticity
-      and ataxia, and on brain MRI lesions in basal ganglia, thalami and midbrain and subcortical and
-      cerebellar white matter&#34;
+    snippet: &gt;-
+      Five patients have been described with compound heterozygous or homozygous pathogenic variants
+      in MRPL44 ... The fourth patient from age 14 years on developed cardiomyopathy, hemiplegic
+      migraines, learning difficulties, myopathy, tapetoretinal dystrophy, and Leigh-like lesions in
+      thalami, basal ganglia and cerebellum on brain MRI ... A fifth patient presented as a young
+      adult with skeletal myopathy and exercise intolerance, subclinical cardiac hypertrophy
+      recognized at age 21 years, migraine, transient episodes of neurological dysfunction of
+      hemiparesis and confusion, spasticity and ataxia, and on brain MRI lesions in basal ganglia,
+      thalami and midbrain and subcortical and cerebellar white matter
     explanation: &gt;-
-      Describes the distribution of the Leigh-like MRI lesions.
+      Restores MRPL44 attribution and the older patients&#39; ages, including the explicitly Leigh-like
+      case before the more detailed regional MRI findings. The excerpt does not establish an absence
+      of infant CNS disease from sparse imaging.
   - reference: ORPHA:352563
     reference_title: &#34;Infantile hypertrophic cardiomyopathy due to MRPL44 deficiency&#34;
     supports: SUPPORT
@@ -17002,6 +17240,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: MRPL44 Deficiency</strong> · 2026-08-01T17:29:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MRPL44_Deficiency/2026-08-01T172939Z-claude-code-6ae64b.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MRPL44 Deficiency (COXPD16, MONDO:0014162, OMIM 615395, ORPHA:352563, gene MRPL44 / hgnc:16650), an ultra-rare autosomal recessive mitoribosomal large-subunit 39S translation defect causing infantile hypertrophic cardiomyopathy with combined complex I and IV deficiency. NEC preflight was run against MONDO:0014162 via OAK and confirmed gene MRPL44, OMIM:615395, and the COXPD16 synonym; the entry is explicitly distinguished from MTO1 deficiency (MONDO:0013865) and from SLC25A3 cardiomyopathy-hypotonia-lactic acidosis syndrome, which are separate entries. Duplicate preflight against origin/main, all PRs, and all issues found no prior coverage. Deep research used Edison/Falcon via just research-disorder falcon MRPL44_Deficiency (640 s, 22 citations); the report was verified on-target and used only as leads. All literature was independently fetched with just fetch-reference and every snippet verified as an exact substring of the cached text. Primary sources: PMID:23315540 Carroll 2013 index family with L156R, 39S assembly and 16S rRNA defect, retroviral rescue; PMID:25797485 Distelmaier 2015 late multisystem and neuro-ophthalmological spectrum; PMID:34140213 Friederich 2021 full text with tissue-graded combined CI/CIV deficiency, quantitative mitochondrial translation assay, cardiac electron microscopy and allelic series; PMID:33742325 Horga 2021 maternal uniparental isodisomy of chromosome 2 as a route to homozygosity; PMID:40402202 Gargouri 2025 novel Tunisian delins allele classified ACMG VUS; PMID:26221731 and PMID:38950860 Mrpl44 and yeast MrpL3 functional work; PMID:30384889 KidCMP childhood cardiomyopathy cohort; ORPHA:352563 Orphanet clinical definition with the cache rebuilt via just structured-rebuild-orphanet; and DOI:10.1101/2025.09.24.678132 Pradhan 2025 bioRxiv preprint on patient iPSC-cardiomyocyte nutrient-dependent pathology. An eight-node pathograph was curated running from biallelic MRPL44 loss through 39S assembly failure, impaired mitochondrial translation, failed compensatory mtDNA replication, combined CI/CIV deficiency, cardiomyocyte bioenergetic failure, progressive heart failure, and late multisystem involvement, plus an EMERGING mechanistic_hypotheses entry nutrient_dependent_postnatal_manifestation tagging the preprint-supported ISRmt and lipid arm. Added 16 phenotypes, 2 imaging findings, 2 histopathology findings, 5 biochemical markers, 5 variants with an autosomal recessive inheritance block flagging uniparental disomy, 4 treatments, and 4 discussions comprising 3 KNOWLEDGE_GAP and 1 HUMAN_MODEL_MISMATCH covering the yeast and mouse model divergence. No GeneReviews article exists for MRPL44; the PubMed search returned zero hits and this was documented rather than substituted. Validation: just validate, just validate-references and just validate-terms all pass. 75 of 82 snippets were machine-verified; the 7 DOI-prefixed snippets are skipped by validator config and were verified manually as exact substrings. validate-graphs shows no MRPL44 issues and compliance is 87.3 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -17391,7 +17642,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MRPL44 Deficiency", "mondoId": "MONDO:0014162", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MRPL44_Deficiency", "yamlRevision": "28d9507f2365"};
+        const OS_CONFIG = {"diseaseName": "MRPL44 Deficiency", "mondoId": "MONDO:0014162", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MRPL44_Deficiency", "yamlRevision": "43dfc1c5c76a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

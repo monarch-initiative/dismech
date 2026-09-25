@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5069,6 +5122,7 @@ This subtype is caused by variation in DDX3X (hgnc:2745). hgnc:2745 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-escape-from-x-chromosome-inactivation" data-dismech-node="Partial Escape from X-Chromosome Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Escape from X-Chromosome Inactivation</div>
 
+
                 <div class="item-desc">DDX3X partially escapes X-chromosome inactivation, so both alleles are transcribed in a heterozygous female. The usual protection that functional mosaicism or wild-type-favouring skewing gives a female carrier of an X-linked allele therefore does not apply here, which is the structural reason the recognised patient population is female-biased rather than male-biased as it is for most X-linked intellectual disability genes.</div>
 
 
@@ -5213,6 +5267,7 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemizygous-partial-loss-of-ddx3x-function-in-males" data-dismech-node="Hemizygous Partial Loss of DDX3X Function in Males" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemizygous Partial Loss of DDX3X Function in Males</div>
 
+
                 <div class="item-desc">A male has one DDX3X allele and no functional somatic backup, so complete loss of function is not compatible with a liveborn phenotype; every reported germline male allele is missense or splice-altering and retains partial activity. This is the male entry point into the same downstream chain, and it is why the male allelic spectrum is narrower than the female one rather than simply rarer.</div>
 
 
@@ -5273,6 +5328,8 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5285,6 +5342,9 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous germline missense or splice-altering alleles with retained residual helicase function. The p.Arg79Lys allele, which lies outside the core helicase domain, was shown to be hypomorphic in a zebrafish functional assay.</div>
 
@@ -5403,6 +5463,13 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ddx3x-rna-helicase-deficiency" data-dismech-node="DDX3X RNA Helicase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DDX3X RNA Helicase Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced ATP-dependent RNA-helicase activity of DDX3X, arising either from reduced dosage (protein-truncating alleles, haploinsufficiency) or from direct impairment of the catalytic machinery by helicase-domain missense alleles. This is the shared lesion that the female and male routes converge on.</div>
 
 
@@ -5463,6 +5530,8 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5473,6 +5542,9 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline alleles spanning nonsense, frameshift, canonical and non-canonical splice, missense and in-frame indel classes. Truncating female alleles are consistent with haploinsufficiency; severe helicase-domain missense alleles impair catalysis directly and additionally seed ectopic granules, so they are not simply stronger null alleles.</div>
 
@@ -5607,6 +5679,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-translation-of-structured-transcripts" data-dismech-node="Impaired Translation of Structured Transcripts" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Translation of Structured Transcripts</div>
+
 
                 <div class="item-desc">DDX3X is required for cap-dependent initiation on messages with structured 5&#39; untranslated regions. When helicase activity falls, that subset of the neural translatome is selectively under-produced; ribosome profiling in vivo identifies the DDX3X-dependent transcripts and shows several are required for neurogenesis.</div>
 
@@ -5790,6 +5863,13 @@ This pathophysiological event involves dysregulated RNA processing (GO:0006396).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-rna-protein-granule-formation" data-dismech-node="Ectopic RNA-Protein Granule Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic RNA-Protein Granule Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Severe missense DDX3X protein assembles into ectopic cytoplasmic ribonucleoprotein granules in neural progenitors and neurons, sequestering message and further disturbing translation. This is the mechanistic feature that separates the severe missense group from simple dosage loss and tracks with polymicrogyria and the worst clinical outcomes.</div>
 
 
@@ -5959,6 +6039,13 @@ This pathophysiological event involves increased ectopic cytoplasmic ribonucleop
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-crebbp-mrna-stability-and-notch-signalling" data-dismech-node="Reduced CREBBP mRNA Stability and Notch Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced CREBBP mRNA Stability and Notch Signalling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">DDX3X deficiency destabilises crebbp mRNA, and the resulting fall in CREBBP lowers Notch signalling in the developing brain. Demonstrated in a ddx3x-deficient zebrafish with single-nucleus transcriptomics and biological validation; the human counterpart has not been shown.</div>
 
 
@@ -6101,6 +6188,13 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-canonical-wnt-signalling" data-dismech-node="Attenuated Canonical Wnt Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Canonical Wnt Signalling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Canonical Wnt output falls when DDX3X function is reduced. In the founding study this was a zebrafish surrogate assay of allele function, and the size of the effect differed between the female and male dosage contexts. It is retained here as a genuine but provisional arm: it grounds the sex-dependent dosage argument, and it has not been shown to be the route to any specific human brain phenotype.</div>
 
 
@@ -6214,6 +6308,13 @@ This pathophysiological event involves decreased canonical Wnt signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-neural-progenitor-cell-cycle-and-neurogenic-division" data-dismech-node="Altered Neural Progenitor Cell Cycle and Neurogenic Division" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Neural Progenitor Cell Cycle and Neurogenic Division</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Radial glial and neural progenitor cells lose precise control of cell-cycle duration and of the choice between self-renewing and neurogenic division. Live imaging of Ddx3x-deficient progenitors shows both parameters shift, and they together set how many neurons the cortex produces. This is the DDX3X substitution into the module&#39;s progenitor-division node: the perturbation reaching the cell cycle is translational rather than centrosomal.</div>
 
@@ -6471,6 +6572,7 @@ This pathophysiological event involves dysregulated asymmetric neurogenic divisi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-stem-and-progenitor-pool-depletion" data-dismech-node="Neural Stem and Progenitor Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Stem and Progenitor Pool Depletion</div>
+
 
                 <div class="item-desc">The cortical neural stem and progenitor pool is reduced, and with it the total number of neurons generated. Dosage-dependent: complete progenitor loss in females gives frank microcephaly, whereas the heterozygous female and hemizygous male states reduce neurogenesis without marked microcephaly, which matches the human observation that most patients are not microcephalic.</div>
 
@@ -6768,6 +6870,13 @@ This pathophysiological event involves dysregulated maintenance of neural stem c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitatory-inhibitory-neuronal-differentiation-imbalance" data-dismech-node="Excitatory-Inhibitory Neuronal Differentiation Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitatory-Inhibitory Neuronal Differentiation Imbalance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The ratio in which excitatory and inhibitory neurons are produced is disturbed. In the zebrafish model this imbalance is what the behavioural deficits track, and partial rescue by glutamate or a glutamate receptor agonist argues the deficit is functional rather than purely structural. The human counterpart has not been measured.</div>
 
 
@@ -6990,6 +7099,7 @@ This pathophysiological event involves dysregulated cerebral cortex neuron diffe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cortical-neuron-output-and-cortical-malformation" data-dismech-node="Aberrant Cortical Neuron Output and Cortical Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cortical Neuron Output and Cortical Malformation</div>
+
 
                 <div class="item-desc">The number, timing and laminar allocation of cortical neurons are abnormal, producing the structural findings seen on brain MRI: cortical thinning and defective lamination in the mouse; and in patients, polymicrogyria, callosal dysgenesis, ventriculomegaly, delayed myelination and reduced brain volume. Around two-thirds of one diagnostic cohort had a structural abnormality, so a normal MRI does not exclude the diagnosis.</div>
 
@@ -7301,7 +7411,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The number, timing and laminar allocation of cortical neurons are abnormal, producing the structural findings seen on brain MRI: cortical thinning and defective lamination in the mouse; and in patients, polymicrogyria, callosal dysgenesis, ventriculomegaly, delayed myelination and reduced brain volume. Around two-thirds of one diagnostic cohort had a structural abnormality, so a normal MRI does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"cerebral cortex development\", \"neurogenesis\"], \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Ddx3x heterozygous null mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Ddx3x+/- female\", \"background\": \"Constitutive heterozygous null, construct validity for human loss-of-function alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cortical thinning with defective lamination and reduced regional brain volume, the mouse counterpart of the human structural phenotype.\"}]}}, {\"id\": \"Absent Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A substantial minority of affected girls remain nonverbal beyond age five, which is the clinical argument for introducing augmentative and alternative communication early rather than waiting for speech to emerge.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Radial glial and neural progenitor cells lose precise control of cell-cycle duration and of the choice between self-renewing and neurogenic division. Live imaging of Ddx3x-deficient progenitors shows both parameters shift, and they together set how many neurons the cortex produces. This is the DDX3X substitution into the module\u0027s progenitor-division node: the perturbation reaching the cell cycle is translational rather than centrosomal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical radial glial cell\", \"cortical neural progenitor cell\"], \"biological_processes\": [\"mitotic cell cycle\", \"asymmetric neurogenic division\"], \"animal_models\": [{\"name\": \"Ddx3x conditional neural progenitor knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Conditional Ddx3x loss from neural progenitors (female homozygous, female heterozygous, male hemizygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Live imaging of progenitors demonstrates altered cell-cycle duration and a shifted balance of neurogenic divisions, and ribosome profiling identifies the DDX3X-dependent translated transcripts underlying it.\"}]}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard antiseizure medication selected by seizure type for the minority who develop epilepsy. No DDX3X-specific drug choice or response rate has been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety is significantly higher than in matched genetic intellectual disability controls and is a major contributor to family and school burden.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attenuated Canonical Wnt Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical Wnt output falls when DDX3X function is reduced. In the founding study this was a zebrafish surrogate assay of allele function, and the size of the effect differed between the female and male dosage contexts. It is retained here as a genuine but provisional arm: it grounds the sex-dependent dosage argument, and it has not been shown to be the route to any specific human brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical Wnt signaling pathway\"]}}, {\"id\": \"Autistic Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder and autistic traits are common. A comparative study found that autism characteristics in DDX3X were no higher than in other genetic intellectual disability, so autism is part of the picture but is not what distinguishes this disorder behaviourally.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioural and Mental-Health Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured management of anxiety, self-injurious behaviour, ADHD, sleep disturbance and irritability. Anxiety and self-injury are raised relative to other genetic intellectual disability, so they warrant active attention rather than being treated as background features of intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Corpus Callosum Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia or dysgenesis, one of the recurrent MRI findings named in the founding cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007370\"}}, {\"id\": \"DDX3X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DDX3X RNA Helicase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ATP-dependent RNA-helicase activity of DDX3X, arising either from reduced dosage (protein-truncating alleles, haploinsufficiency) or from direct impairment of the catalytic machinery by helicase-domain missense alleles. This is the shared lesion that the female and male routes converge on.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"RNA helicase activity\"], \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline alleles spanning nonsense, frameshift, canonical and non-canonical splice, missense and in-frame indel classes. Truncating female alleles are consistent with haploinsufficiency; severe helicase-domain missense alleles impair catalysis directly and additionally seed ectopic granules, so they are not simply stronger null alleles.\"}}}, {\"id\": \"Ddx3x conditional neural progenitor knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dosage series of Ddx3x loss restricted to neural progenitors, used with live imaging and in vivo ribosome profiling. It is the model that separates the cell-cycle and translational arms of the mechanism and that shows the male-specific Ddx3y contribution.\"}, {\"id\": \"Ddx3x heterozygous null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A constitutive Ddx3x haploinsufficient female mouse, built to match the human protein-truncating allele class. It reproduces developmental delay, adult hyperactivity and anxiety-like behaviour, motor deficits, reduced brain volume, cortical thinning and defective lamination.\"}, {\"id\": \"Delayed Myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain MRI, often alongside other structural findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is disproportionately affected relative to overall cognitive level, and speech-language impairment is often what brings the child to attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Early Developmental Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early, individualised developmental and special-educational intervention is the foundation of care. It does not modify the molecular lesion; the argument for starting early is developmental rather than mechanistic.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ectopic RNA-Protein Granule Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe missense DDX3X protein assembles into ectopic cytoplasmic ribonucleoprotein granules in neural progenitors and neurons, sequestering message and further disturbing translation. This is the mechanistic feature that separates the severe missense group from simple dosage loss and tracks with polymicrogyria and the worst clinical outcomes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neural progenitor cell\", \"neuron\"]}}, {\"id\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ratio in which excitatory and inhibitory neurons are produced is disturbed. In the zebrafish model this imbalance is what the behavioural deficits track, and partial rescue by glutamate or a glutamate receptor agonist argues the deficit is functional rather than purely structural. The human counterpart has not been measured.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical excitatory neuron\", \"inhibitory interneuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"animal_models\": [{\"name\": \"ddx3x-deficient zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x loss-of-function allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Single-nucleus transcriptomics shows imbalanced excitatory and inhibitory neuron differentiation, and glutamatergic supplementation partly rescues the behavioural consequence.\"}]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty in infancy, commonly in the context of hypotonia, and a driver of nutritional and growth problems.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding and Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy and nutritional support for the infantile feeding difficulty that accompanies hypotonia, with attention to growth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language, adaptive and social domains, usually the presenting complaint in infancy or early childhood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A male has one DDX3X allele and no functional somatic backup, so complete loss of function is not compatible with a liveborn phenotype; every reported germline male allele is missense or splice-altering and retains partial activity. This is the male entry point into the same downstream chain, and it is why the male allelic spectrum is narrower than the female one rather than simply rarer.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Hemizygous germline missense or splice-altering alleles with retained residual helicase function. The p.Arg79Lys allele, which lies outside the core helicase domain, was shown to be hypomorphic in a zebrafish functional assay.\"}, \"animal_models\": [{\"name\": \"p.Arg79Lys zebrafish rescue assay\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x morphant rescued with human DDX3X p.Arg79Lys mRNA\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies residual DDX3X activity for a specific male allele, which is the property this pathophysiology node asserts.\"}]}}, {\"id\": \"Impaired Translation of Structured Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X is required for cap-dependent initiation on messages with structured 5\u0027 untranslated regions. When helicase activity falls, that subset of the neural translatome is selectively under-produced; ribosome profiling in vivo identifies the DDX3X-dependent transcripts and shows several are required for neurogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neural progenitor cell\"], \"biological_processes\": [\"translational initiation\", \"RNA processing\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability or global developmental delay is the defining feature, with severity ranging from mild to profound. It was present in every individual in a consecutive 23-patient diagnostic cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neural Stem and Progenitor Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical neural stem and progenitor pool is reduced, and with it the total number of neurons generated. Dosage-dependent: complete progenitor loss in females gives frank microcephaly, whereas the heterozygous female and hemizygous male states reduce neurogenesis without marked microcephaly, which matches the human observation that most patients are not microcephalic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"cortical neural progenitor cell\", \"cortical radial glial cell\"], \"biological_processes\": [\"neurogenesis\", \"progenitor population proliferation\", \"maintenance of neural stem cell number\"], \"animal_models\": [{\"name\": \"Ddx3x conditional neural progenitor knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Conditional Ddx3x loss from neural progenitors (female homozygous, female heterozygous, male hemizygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced neurogenesis across the dosage series, with frank microcephaly only at complete female progenitor loss.\"}]}}, {\"id\": \"Partial Escape from X-Chromosome Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X partially escapes X-chromosome inactivation, so both alleles are transcribed in a heterozygous female. The usual protection that functional mosaicism or wild-type-favouring skewing gives a female carrier of an X-linked allele therefore does not apply here, which is the structural reason the recognised patient population is female-biased rather than male-biased as it is for most X-linked intellectual disability genes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}]}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria marks the severe end of the spectrum and is strongly associated with the recurrent dominant missense alleles rather than with protein-truncating ones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X deficiency destabilises crebbp mRNA, and the resulting fall in CREBBP lowers Notch signalling in the developing brain. Demonstrated in a ddx3x-deficient zebrafish with single-nucleus transcriptomics and biological validation; the human counterpart has not been shown.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Notch signaling pathway\"], \"animal_models\": [{\"name\": \"ddx3x-deficient zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x loss-of-function allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The molecular arm of the mechanism - crebbp mRNA destabilisation and reduced Notch signalling - was demonstrated in this model.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures affect a minority. Electroencephalographic abnormality is commoner than clinical epilepsy, so an abnormal EEG can be found without seizures.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-Injurious Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injurious behaviour is elevated in DDX3X relative to a matched intellectual disability comparison group, making it one of the two behavioural features that appear specific rather than generic to intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech-Language Therapy and Augmentative Communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language assessment with early introduction of augmentative and alternative communication. About half of affected girls remain nonverbal beyond age five, so waiting for speech to emerge before providing an alternative delays communication access for the group with the greatest need.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral ventricular enlargement on brain MRI.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"ddx3x-deficient zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A ddx3x-deficient zebrafish with developmental delay, microcephaly, social and adaptation deficits and impaired spatial recognition memory, profiled by single-nucleus RNA sequencing. It is the system in which the CREBBP-Notch arm and the excitatory/inhibitory imbalance were established, and in which glutamatergic supplementation partly rescued the behavioural phenotype.\"}, {\"id\": \"p.Arg79Lys zebrafish rescue assay\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An established zebrafish assay of DDX3X activity used to classify the inherited male p.Arg79Lys allele. It is a variant-interpretation assay rather than a disease model, and it is what turned a hemizygous missense variant of uncertain significance into a demonstrated hypomorph.\"}], \"edges\": [{\"source\": \"Partial Escape from X-Chromosome Inactivation\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the variant allele continues to be expressed from the inactive X, a heterozygous female retains a substantial mutant transcript fraction and the functional deficiency is established despite skewing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A hemizygous hypomorphic allele produces the same helicase deficiency, at a severity set by how much activity the allele retains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Impaired Translation of Structured Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of unwinding activity leaves structured 5\u0027 untranslated regions unresolved, so the transcripts that depend on DDX3X for initiation are under-translated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Ectopic RNA-Protein Granule Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-missense branch. Mutant DDX3X protein nucleates ectopic ribonucleoprotein granules in neural progenitors and neurons, a behaviour the truncating alleles do not have.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DDX3X loss destabilises crebbp mRNA and thereby lowers Notch signalling. Shown in zebrafish; not yet demonstrated in human tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Attenuated Canonical Wnt Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Every de novo allele tested reduced canonical Wnt output in a zebrafish assay. The assay was used as a surrogate readout of DDX3X function rather than as a demonstration that Wnt is the route to the human brain phenotype, so the intermediates between this node and corticogenesis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Translation of Structured Transcripts\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Translational control of the progenitor transcriptome is one of the two arms by which DDX3X sets cortical neuron output in the mouse model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic RNA-Protein Granule Formation\", \"target\": \"Impaired Translation of Structured Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granule formation is reported together with aberrant translation in the same cells, so the severe missense branch reaches the translational defect by a second route beyond loss of catalytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic RNA-Protein Granule Formation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alleles that produce granules are the alleles that correlate with polymicrogyria in the 107-individual clinical cohort. The correlation is genotype-phenotype, so the steps between granule formation and the cortical malformation are inferred rather than demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch signalling maintains the neural stem cell pool; its loss reduces that pool in the ddx3x-deficient zebrafish.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"target\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion shifts the ratio in which excitatory and inhibitory neurons are produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Canonical Wnt Signalling\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Canonical Wnt is a standard regulator of cortical progenitor proliferation, so this edge is the plausible connection to the progenitor node. No study has demonstrated it for DDX3X, and the edge is drawn with unknown intermediates for that reason.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered division parameters change the size and composition of the progenitor pool, the module\u0027s next step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Stem and Progenitor Pool Depletion\", \"target\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer and mistimed neurons produce an abnormally built cortex, the module\u0027s terminal developmental node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"target\": \"Autistic Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Social-interaction and adaptation deficits in the zebrafish model are attributed to the imbalance and are partly reversible by glutamatergic supplementation. Extrapolating from that to human autistic behaviour is an inference across species and across behavioural constructs.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered cortical neuron output and lamination manifests radiologically as polymicrogyria in the severe end of the spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Corpus Callosum Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia or dysgenesis was in the founding cohort\u0027s phenotype list and recurs in every subsequent series.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lateral ventricle enlargement is among the recurrent structural findings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Delayed Myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination accompanies the malformation spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical construction is the presumed substrate of the cognitive phenotype. The step from circuit abnormality to measured cognition is not demonstrated in humans and is drawn here as an inference.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malformations of cortical development, polymicrogyria in particular, are an established epileptogenic substrate, and seizures occur in a minority of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Early Developmental Intervention\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech-Language Therapy and Augmentative Communication\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech-Language Therapy and Augmentative Communication\", \"target\": \"Absent Speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and Mental-Health Management\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and Mental-Health Management\", \"target\": \"Self-Injurious Behaviour\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ddx3x heterozygous null mouse\", \"target\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cortical thinning with defective lamination and reduced regional brain volume, the mouse counterpart of the human structural phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse cortex is lissencephalic, so it cannot model polymicrogyria - the malformation most tightly linked to the severe human missense alleles. Construct validity is for haploinsufficiency only; this allele does not model the granule-forming missense class.\"}, {\"source\": \"Ddx3x conditional neural progenitor knockout mouse\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging of progenitors demonstrates altered cell-cycle duration and a shifted balance of neurogenic divisions, and ribosome profiling identifies the DDX3X-dependent translated transcripts underlying it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse corticogenesis lacks the expanded human outer subventricular zone and outer radial glia, so the quantitative relationship between progenitor behaviour and cortical output may not transfer. Conditional deletion also removes Ddx3x more completely than any human allele does.\"}, {\"source\": \"Ddx3x conditional neural progenitor knockout mouse\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced neurogenesis across the dosage series, with frank microcephaly only at complete female progenitor loss.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The genotype that produces microcephaly (complete progenitor loss in females) has no human counterpart; the human-equivalent genotypes give reduced neurogenesis without marked microcephaly, which is the honest match.\"}, {\"source\": \"ddx3x-deficient zebrafish\", \"target\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The molecular arm of the mechanism - crebbp mRNA destabilisation and reduced Notch signalling - was demonstrated in this model.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Established only in zebrafish; there is no human tissue or human cellular confirmation of the CREBBP-Notch step, and zebrafish forebrain development differs substantially from mammalian corticogenesis.\"}, {\"source\": \"ddx3x-deficient zebrafish\", \"target\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Single-nucleus transcriptomics shows imbalanced excitatory and inhibitory neuron differentiation, and glutamatergic supplementation partly rescues the behavioural consequence.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is rated low because the human excitatory/inhibitory balance has not been measured in this disorder, and because the behavioural constructs rescued in zebrafish (adaptation, social interaction) map only loosely onto the human behavioural phenotype.\"}, {\"source\": \"p.Arg79Lys zebrafish rescue assay\", \"target\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies residual DDX3X activity for a specific male allele, which is the property this pathophysiology node asserts.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A heterologous rescue readout in fish, not a measurement in human neural tissue; it establishes relative allele activity, not the absolute residual function in a patient\u0027s brain.\"}, {\"source\": \"DDX3X\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"Partial Escape from X-Chromosome Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The number, timing and laminar allocation of cortical neurons are abnormal, producing the structural findings seen on brain MRI: cortical thinning and defective lamination in the mouse; and in patients, polymicrogyria, callosal dysgenesis, ventriculomegaly, delayed myelination and reduced brain volume. Around two-thirds of one diagnostic cohort had a structural abnormality, so a normal MRI does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"cerebral cortex development\", \"neurogenesis\"], \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Ddx3x heterozygous null mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Ddx3x+/- female\", \"background\": \"Constitutive heterozygous null, construct validity for human loss-of-function alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cortical thinning with defective lamination and reduced regional brain volume, the mouse counterpart of the human structural phenotype.\"}]}}, {\"id\": \"Absent Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A substantial minority of affected girls remain nonverbal beyond age five, which is the clinical argument for introducing augmentative and alternative communication early rather than waiting for speech to emerge.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Radial glial and neural progenitor cells lose precise control of cell-cycle duration and of the choice between self-renewing and neurogenic division. Live imaging of Ddx3x-deficient progenitors shows both parameters shift, and they together set how many neurons the cortex produces. This is the DDX3X substitution into the module\u0027s progenitor-division node: the perturbation reaching the cell cycle is translational rather than centrosomal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical radial glial cell\", \"cortical neural progenitor cell\"], \"biological_processes\": [\"mitotic cell cycle\", \"asymmetric neurogenic division\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ddx3x conditional neural progenitor knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Conditional Ddx3x loss from neural progenitors (female homozygous, female heterozygous, male hemizygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Live imaging of progenitors demonstrates altered cell-cycle duration and a shifted balance of neurogenic divisions, and ribosome profiling identifies the DDX3X-dependent translated transcripts underlying it.\"}]}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard antiseizure medication selected by seizure type for the minority who develop epilepsy. No DDX3X-specific drug choice or response rate has been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety is significantly higher than in matched genetic intellectual disability controls and is a major contributor to family and school burden.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attenuated Canonical Wnt Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical Wnt output falls when DDX3X function is reduced. In the founding study this was a zebrafish surrogate assay of allele function, and the size of the effect differed between the female and male dosage contexts. It is retained here as a genuine but provisional arm: it grounds the sex-dependent dosage argument, and it has not been shown to be the route to any specific human brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Autistic Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder and autistic traits are common. A comparative study found that autism characteristics in DDX3X were no higher than in other genetic intellectual disability, so autism is part of the picture but is not what distinguishes this disorder behaviourally.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioural and Mental-Health Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured management of anxiety, self-injurious behaviour, ADHD, sleep disturbance and irritability. Anxiety and self-injury are raised relative to other genetic intellectual disability, so they warrant active attention rather than being treated as background features of intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Corpus Callosum Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia or dysgenesis, one of the recurrent MRI findings named in the founding cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007370\"}}, {\"id\": \"DDX3X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DDX3X RNA Helicase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ATP-dependent RNA-helicase activity of DDX3X, arising either from reduced dosage (protein-truncating alleles, haploinsufficiency) or from direct impairment of the catalytic machinery by helicase-domain missense alleles. This is the shared lesion that the female and male routes converge on.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"RNA helicase activity\"], \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline alleles spanning nonsense, frameshift, canonical and non-canonical splice, missense and in-frame indel classes. Truncating female alleles are consistent with haploinsufficiency; severe helicase-domain missense alleles impair catalysis directly and additionally seed ectopic granules, so they are not simply stronger null alleles.\"}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ddx3x conditional neural progenitor knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dosage series of Ddx3x loss restricted to neural progenitors, used with live imaging and in vivo ribosome profiling. It is the model that separates the cell-cycle and translational arms of the mechanism and that shows the male-specific Ddx3y contribution.\"}, {\"id\": \"Ddx3x heterozygous null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A constitutive Ddx3x haploinsufficient female mouse, built to match the human protein-truncating allele class. It reproduces developmental delay, adult hyperactivity and anxiety-like behaviour, motor deficits, reduced brain volume, cortical thinning and defective lamination.\"}, {\"id\": \"Delayed Myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain MRI, often alongside other structural findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is disproportionately affected relative to overall cognitive level, and speech-language impairment is often what brings the child to attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Early Developmental Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early, individualised developmental and special-educational intervention is the foundation of care. It does not modify the molecular lesion; the argument for starting early is developmental rather than mechanistic.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ectopic RNA-Protein Granule Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe missense DDX3X protein assembles into ectopic cytoplasmic ribonucleoprotein granules in neural progenitors and neurons, sequestering message and further disturbing translation. This is the mechanistic feature that separates the severe missense group from simple dosage loss and tracks with polymicrogyria and the worst clinical outcomes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neural progenitor cell\", \"neuron\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ratio in which excitatory and inhibitory neurons are produced is disturbed. In the zebrafish model this imbalance is what the behavioural deficits track, and partial rescue by glutamate or a glutamate receptor agonist argues the deficit is functional rather than purely structural. The human counterpart has not been measured.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical excitatory neuron\", \"inhibitory interneuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"ddx3x-deficient zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x loss-of-function allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Single-nucleus transcriptomics shows imbalanced excitatory and inhibitory neuron differentiation, and glutamatergic supplementation partly rescues the behavioural consequence.\"}]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty in infancy, commonly in the context of hypotonia, and a driver of nutritional and growth problems.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding and Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy and nutritional support for the infantile feeding difficulty that accompanies hypotonia, with attention to growth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language, adaptive and social domains, usually the presenting complaint in infancy or early childhood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A male has one DDX3X allele and no functional somatic backup, so complete loss of function is not compatible with a liveborn phenotype; every reported germline male allele is missense or splice-altering and retains partial activity. This is the male entry point into the same downstream chain, and it is why the male allelic spectrum is narrower than the female one rather than simply rarer.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Hemizygous germline missense or splice-altering alleles with retained residual helicase function. The p.Arg79Lys allele, which lies outside the core helicase domain, was shown to be hypomorphic in a zebrafish functional assay.\"}, \"animal_models\": [{\"name\": \"p.Arg79Lys zebrafish rescue assay\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x morphant rescued with human DDX3X p.Arg79Lys mRNA\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies residual DDX3X activity for a specific male allele, which is the property this pathophysiology node asserts.\"}]}}, {\"id\": \"Impaired Translation of Structured Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X is required for cap-dependent initiation on messages with structured 5\u0027 untranslated regions. When helicase activity falls, that subset of the neural translatome is selectively under-produced; ribosome profiling in vivo identifies the DDX3X-dependent transcripts and shows several are required for neurogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neural progenitor cell\"], \"biological_processes\": [\"translational initiation\", \"RNA processing\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability or global developmental delay is the defining feature, with severity ranging from mild to profound. It was present in every individual in a consecutive 23-patient diagnostic cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neural Stem and Progenitor Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical neural stem and progenitor pool is reduced, and with it the total number of neurons generated. Dosage-dependent: complete progenitor loss in females gives frank microcephaly, whereas the heterozygous female and hemizygous male states reduce neurogenesis without marked microcephaly, which matches the human observation that most patients are not microcephalic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"cortical neural progenitor cell\", \"cortical radial glial cell\"], \"biological_processes\": [\"neurogenesis\", \"progenitor population proliferation\", \"maintenance of neural stem cell number\"], \"animal_models\": [{\"name\": \"Ddx3x conditional neural progenitor knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Conditional Ddx3x loss from neural progenitors (female homozygous, female heterozygous, male hemizygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced neurogenesis across the dosage series, with frank microcephaly only at complete female progenitor loss.\"}]}}, {\"id\": \"Partial Escape from X-Chromosome Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X partially escapes X-chromosome inactivation, so both alleles are transcribed in a heterozygous female. The usual protection that functional mosaicism or wild-type-favouring skewing gives a female carrier of an X-linked allele therefore does not apply here, which is the structural reason the recognised patient population is female-biased rather than male-biased as it is for most X-linked intellectual disability genes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}]}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria marks the severe end of the spectrum and is strongly associated with the recurrent dominant missense alleles rather than with protein-truncating ones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X deficiency destabilises crebbp mRNA, and the resulting fall in CREBBP lowers Notch signalling in the developing brain. Demonstrated in a ddx3x-deficient zebrafish with single-nucleus transcriptomics and biological validation; the human counterpart has not been shown.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Notch signaling pathway\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"ddx3x-deficient zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"ddx3x loss-of-function allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The molecular arm of the mechanism - crebbp mRNA destabilisation and reduced Notch signalling - was demonstrated in this model.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures affect a minority. Electroencephalographic abnormality is commoner than clinical epilepsy, so an abnormal EEG can be found without seizures.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-Injurious Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injurious behaviour is elevated in DDX3X relative to a matched intellectual disability comparison group, making it one of the two behavioural features that appear specific rather than generic to intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech-Language Therapy and Augmentative Communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language assessment with early introduction of augmentative and alternative communication. About half of affected girls remain nonverbal beyond age five, so waiting for speech to emerge before providing an alternative delays communication access for the group with the greatest need.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral ventricular enlargement on brain MRI.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"ddx3x-deficient zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A ddx3x-deficient zebrafish with developmental delay, microcephaly, social and adaptation deficits and impaired spatial recognition memory, profiled by single-nucleus RNA sequencing. It is the system in which the CREBBP-Notch arm and the excitatory/inhibitory imbalance were established, and in which glutamatergic supplementation partly rescued the behavioural phenotype.\"}, {\"id\": \"p.Arg79Lys zebrafish rescue assay\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An established zebrafish assay of DDX3X activity used to classify the inherited male p.Arg79Lys allele. It is a variant-interpretation assay rather than a disease model, and it is what turned a hemizygous missense variant of uncertain significance into a demonstrated hypomorph.\"}], \"edges\": [{\"source\": \"Partial Escape from X-Chromosome Inactivation\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the variant allele continues to be expressed from the inactive X, a heterozygous female retains a substantial mutant transcript fraction and the functional deficiency is established despite skewing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A hemizygous hypomorphic allele produces the same helicase deficiency, at a severity set by how much activity the allele retains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Impaired Translation of Structured Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of unwinding activity leaves structured 5\u0027 untranslated regions unresolved, so the transcripts that depend on DDX3X for initiation are under-translated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Ectopic RNA-Protein Granule Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-missense branch. Mutant DDX3X protein nucleates ectopic ribonucleoprotein granules in neural progenitors and neurons, a behaviour the truncating alleles do not have.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DDX3X loss destabilises crebbp mRNA and thereby lowers Notch signalling. Shown in zebrafish; not yet demonstrated in human tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"DDX3X RNA Helicase Deficiency\", \"target\": \"Attenuated Canonical Wnt Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Every de novo allele tested reduced canonical Wnt output in a zebrafish assay. The assay was used as a surrogate readout of DDX3X function rather than as a demonstration that Wnt is the route to the human brain phenotype, so the intermediates between this node and corticogenesis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Translation of Structured Transcripts\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Translational control of the progenitor transcriptome is one of the two arms by which DDX3X sets cortical neuron output in the mouse model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic RNA-Protein Granule Formation\", \"target\": \"Impaired Translation of Structured Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granule formation is reported together with aberrant translation in the same cells, so the severe missense branch reaches the translational defect by a second route beyond loss of catalytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic RNA-Protein Granule Formation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alleles that produce granules are the alleles that correlate with polymicrogyria in the 107-individual clinical cohort. The correlation is genotype-phenotype, so the steps between granule formation and the cortical malformation are inferred rather than demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch signalling maintains the neural stem cell pool; its loss reduces that pool in the ddx3x-deficient zebrafish.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"target\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion shifts the ratio in which excitatory and inhibitory neurons are produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Canonical Wnt Signalling\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Canonical Wnt is a standard regulator of cortical progenitor proliferation, so this edge is the plausible connection to the progenitor node. No study has demonstrated it for DDX3X, and the edge is drawn with unknown intermediates for that reason.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered division parameters change the size and composition of the progenitor pool, the module\u0027s next step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Stem and Progenitor Pool Depletion\", \"target\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer and mistimed neurons produce an abnormally built cortex, the module\u0027s terminal developmental node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"target\": \"Autistic Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Social-interaction and adaptation deficits in the zebrafish model are attributed to the imbalance and are partly reversible by glutamatergic supplementation. Extrapolating from that to human autistic behaviour is an inference across species and across behavioural constructs.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered cortical neuron output and lamination manifests radiologically as polymicrogyria in the severe end of the spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Corpus Callosum Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia or dysgenesis was in the founding cohort\u0027s phenotype list and recurs in every subsequent series.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lateral ventricle enlargement is among the recurrent structural findings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Delayed Myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination accompanies the malformation spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical construction is the presumed substrate of the cognitive phenotype. The step from circuit abnormality to measured cognition is not demonstrated in humans and is drawn here as an inference.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malformations of cortical development, polymicrogyria in particular, are an established epileptogenic substrate, and seizures occur in a minority of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Early Developmental Intervention\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech-Language Therapy and Augmentative Communication\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech-Language Therapy and Augmentative Communication\", \"target\": \"Absent Speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and Mental-Health Management\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and Mental-Health Management\", \"target\": \"Self-Injurious Behaviour\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ddx3x heterozygous null mouse\", \"target\": \"Aberrant Cortical Neuron Output and Cortical Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cortical thinning with defective lamination and reduced regional brain volume, the mouse counterpart of the human structural phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse cortex is lissencephalic, so it cannot model polymicrogyria - the malformation most tightly linked to the severe human missense alleles. Construct validity is for haploinsufficiency only; this allele does not model the granule-forming missense class.\"}, {\"source\": \"Ddx3x conditional neural progenitor knockout mouse\", \"target\": \"Altered Neural Progenitor Cell Cycle and Neurogenic Division\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging of progenitors demonstrates altered cell-cycle duration and a shifted balance of neurogenic divisions, and ribosome profiling identifies the DDX3X-dependent translated transcripts underlying it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse corticogenesis lacks the expanded human outer subventricular zone and outer radial glia, so the quantitative relationship between progenitor behaviour and cortical output may not transfer. Conditional deletion also removes Ddx3x more completely than any human allele does.\"}, {\"source\": \"Ddx3x conditional neural progenitor knockout mouse\", \"target\": \"Neural Stem and Progenitor Pool Depletion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced neurogenesis across the dosage series, with frank microcephaly only at complete female progenitor loss.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The genotype that produces microcephaly (complete progenitor loss in females) has no human counterpart; the human-equivalent genotypes give reduced neurogenesis without marked microcephaly, which is the honest match.\"}, {\"source\": \"ddx3x-deficient zebrafish\", \"target\": \"Reduced CREBBP mRNA Stability and Notch Signalling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The molecular arm of the mechanism - crebbp mRNA destabilisation and reduced Notch signalling - was demonstrated in this model.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Established only in zebrafish; there is no human tissue or human cellular confirmation of the CREBBP-Notch step, and zebrafish forebrain development differs substantially from mammalian corticogenesis.\"}, {\"source\": \"ddx3x-deficient zebrafish\", \"target\": \"Excitatory-Inhibitory Neuronal Differentiation Imbalance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Single-nucleus transcriptomics shows imbalanced excitatory and inhibitory neuron differentiation, and glutamatergic supplementation partly rescues the behavioural consequence.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is rated low because the human excitatory/inhibitory balance has not been measured in this disorder, and because the behavioural constructs rescued in zebrafish (adaptation, social interaction) map only loosely onto the human behavioural phenotype.\"}, {\"source\": \"p.Arg79Lys zebrafish rescue assay\", \"target\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies residual DDX3X activity for a specific male allele, which is the property this pathophysiology node asserts.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A heterologous rescue readout in fish, not a measurement in human neural tissue; it establishes relative allele activity, not the absolute residual function in a patient\u0027s brain.\"}, {\"source\": \"DDX3X\", \"target\": \"DDX3X RNA Helicase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"Hemizygous Partial Loss of DDX3X Function in Males\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"Partial Escape from X-Chromosome Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7374,6 +7484,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is recorded. GeneReviews gives no rate, and the only quantitative characterisation available calls the finding rare without reporting a denominator.</div>
@@ -7511,6 +7624,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7584,6 +7700,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7691,6 +7810,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Single-cohort finding awaiting independent replication; the frequency band is taken from that cohort and may not generalise.</div>
 
 
@@ -7778,6 +7900,9 @@ This clinical feature is Ophthalmologic abnormality, annotated with Abnormality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7853,6 +7978,9 @@ This clinical feature is Muscle tone abnormality, annotated with Abnormal muscle
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7970,6 +8098,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8039,6 +8170,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8103,6 +8237,9 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8188,6 +8325,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8257,6 +8397,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8321,6 +8464,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8397,6 +8543,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8461,6 +8610,9 @@ This clinical feature is Childhood apraxia of speech, annotated with Speech apra
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8537,6 +8689,9 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8603,6 +8758,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8679,6 +8837,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8743,6 +8904,9 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8819,6 +8983,9 @@ This clinical feature is Corpus callosum hypoplasia, annotated with Aplasia/Hypo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8883,6 +9050,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8957,6 +9127,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9023,6 +9196,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9124,6 +9300,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9195,6 +9374,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9259,6 +9441,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9339,6 +9524,9 @@ This clinical feature is Respiratory difficulties, annotated with Abnormal respi
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is recorded, for the same reason as the cardiac record: neither source reports a rate.</div>
@@ -9471,6 +9659,9 @@ This clinical feature is Neuroblastoma (HP:0003006). HP:0003006 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9614,6 +9805,9 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9770,6 +9964,9 @@ This treatment is Early Intervention (NCIT:C159524). NCIT:C159524 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9780,6 +9977,9 @@ This treatment is Early Intervention (NCIT:C159524). NCIT:C159524 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9899,6 +10099,9 @@ This treatment is speech-language therapy with augmentative and alternative comm
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9909,6 +10112,9 @@ This treatment is speech-language therapy with augmentative and alternative comm
 
 
     </div>
+
+
+
 
 
 
@@ -10044,6 +10250,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10054,6 +10263,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10172,6 +10384,9 @@ This treatment is Occupational Therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10182,6 +10397,9 @@ This treatment is Occupational Therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -10300,6 +10518,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10310,6 +10531,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -10420,6 +10644,12 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10545,6 +10775,9 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10555,6 +10788,9 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -10684,6 +10920,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10829,6 +11071,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -15607,6 +15855,57 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry is about the DDX3X-related disorder itself. DDX3X appears as a comparator or gene-list member in several other dismech entries (Non-Syndromic_X-Linked_Intellectual_Disability, Neurodevelopmental_Disorder_with_Hypotonia_and_Speech_Delay and others); none of those is about this disease and none was edited here.
+MONDO label. MONDO:0010497 is placed under non-syndromic X-linked intellectual disability by the disease-series-by-gene design pattern, while its own synonym list also contains the Snijders Blok syndromic label. The syndromic phenotype is curated; see the non_syndromic_label_mismatch discussion. The MONDO term is retained as disease_term because it is the term the curation queue targets and its causal-gene edge (RO:0004003 to HGNC:2745) is correct. The syndromic concept MONDO:0018709 is recorded in mappings.mondo_mappings as a skos:closeMatch so that the relationship is machine-visible rather than prose-only. closeMatch is deliberate: it is a cross-reference, so it does not retire MONDO:0018709 from the curation queue the way an exactMatch or narrowMatch would.
+Somatic versus germline. Somatic DDX3X variants recur in medulloblastoma and in lymphoid malignancies, at some of the same residues. Those are a separate biological context; nothing in this entry is derived from a somatic DDX3X dataset.
+Deep-research provenance and corrected identifiers. Built from research/Intellectual_Disability_X-linked_102-deep-research-falcon.md, which passed the Named Entity Confusion preflight against MONDO:0010497 (DDX3X mentioned 68 times, OMIM 300958 matching). Three classes of defect in that report were corrected here. First, its frontmatter mondo_id is empty, so the preflight was run manually. Second, it cites only DOIs and no PMIDs; every reference used here was resolved to its PMID through a PubMed DOI search and cited as PMID. Third, two of its proposed HPO bindings name the wrong term: it offers HP:0007370 as &#34;Abnormality of the corpus callosum&#34; when HPO calls that term Aplasia/Hypoplasia of the corpus callosum, and it offers HP:0001344 as &#34;Severe expressive language delay&#34; when HP:0001344 is Absent speech - a different clinical concept. Both were re-derived against OLS before binding. The report also proposes MONDO:0018709 as the disease term rather than the MONDO:0010497 this entry is keyed on, and it attributes the anxiety and self-injury comparative study to the wrong first author; the correct source is Ng-Cordell et al. (PMID:35536379), which is what is cited here.
+Claims deliberately not curated for want of a quotable source. The report&#39;s prospective-cohort figures of 60% autism and 53% ADHD are attributed to a reference whose abstract does not contain them, so autism and ADHD are curated without a frequency band. Its polymicrogyria prevalence of 7-12% and its pooled 53-patient series figures likewise have no traceable quotable source in the cached records, so polymicrogyria carries no frequency. The claim that DDX3X-related disorder is among the syndromes correctly ranked first by facial phenotyping tools was not curated: no citation was given for it.
+Modules. Three pathophysiology nodes conform to neural_progenitor_centrosome_spindle_dysfunction. The module&#39;s entry node, Centrosome and Mitotic Spindle Perturbation, is deliberately not claimed: DDX3X reaches the progenitor cell cycle through translational control, not through the centrosome or spindle, and the module&#39;s own description admits cell-cycle as well as centrosomal entry points. Conformance therefore starts at Abnormal Progenitor Division and Fate Choice.
+Gaps. No disease-modifying therapy, no biochemical or methylation biomarker (the episignature study NCT04436588 has not reported), no population prevalence, no validated prognostic marker, and no natural-history data on whether the reported late motor decline in some individuals is a real progressive component or ascertainment. Environmental factors are not curated because none is established: this is a de novo or inherited germline disorder with no reported environmental contribution, and an environmental block with no citable content would be worse than its absence.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Intellectual_Disability_X-linked_102</strong> · 2026-09-04T04:10:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_X-linked_102/2026-09-04T041027Z-claude-code-9937f2.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of the DDX3X-related neurodevelopmental disorder (MONDO:0010497, MRX102, Snijders Blok type) from a single Edison/falcon deep-research report plus independent literature retrieval. The seed placeholder file was replaced entirely.
+
+Source screening. research/Intellectual_Disability_X-linked_102-deep-research-falcon.md passed `just preflight-dr` against MONDO:0010497 (PASS; DDX3X mentioned 68 times; OMIM 300958 agreeing between MONDO and the report). The preflight had to be run manually because the report&#39;s frontmatter carries an empty mondo_id (dismech#10335). The report&#39;s reference_validation reports 13/13 resolved and its term_validation 34/36 resolved with 2 unverifiable (OMIM, ORPHA prefixes, which have no resolver).
+
+Three defects in that report were found and corrected rather than propagated.
+1. The report cites DOIs only and no PMIDs. Each DOI actually used was resolved to its PMID via a PubMed [DOI] esearch and cited as PMID:, so no evidence item sits on the DOI: prefix that reference-validation CI skips.
+2. Two proposed HPO bindings name the wrong term while the report&#39;s own Term Validation section reports them clean. The report offers HP:0007370 labelled &#39;Abnormality of the corpus callosum&#39;; HPO&#39;s canonical label is &#39;Aplasia/Hypoplasia of the corpus callosum&#39;. It offers HP:0001344 labelled &#39;Severe expressive language delay&#39;; HP:0001344 is &#39;Absent speech&#39;, a different clinical concept. Every HP, GO, CL, UBERON and NCIT CURIE bound in this entry was independently re-derived against the EBI OLS4 API before use, and the canonical label copied from there.
+3. The report proposes MONDO:0018709 as the disease term rather than the MONDO:0010497 the curation queue targets, and attributes the anxiety/self-injury comparative study to the wrong first author. The correct source is Ng-Cordell et al. 2023 (PMID:35536379), which is what is cited.
+
+Claims deliberately not curated, all recorded in the entry&#39;s notes: the report&#39;s prospective-cohort figures of 60% autism and 53% ADHD (attributed to a reference whose cached abstract does not contain them, so autism and ADHD carry no frequency band), its 7-12% polymicrogyria prevalence and its pooled 53-patient series figures (no traceable quotable source in the cached records, so polymicrogyria carries no frequency), and its facial-phenotyping benchmark claim (no citation given).
+
+Two curation decisions worth recording.
+
+First, the MONDO term&#39;s placement. MONDO:0010497 is a child of MONDO:0019181 (non-syndromic X-linked intellectual disability) and carries the design-pattern synonym &#39;DDX3X non-syndromic X-linked intellectual disability&#39;, while also carrying the synonym &#39;intellectual developmental disorder, X-linked, syndrome, Snijders Blok type&#39;. The literature is unambiguously syndromic: the founding cohort (PMID:26235985) reports hypotonia, movement disorders, behaviour problems, corpus callosum hypoplasia and epilepsy, and PMID:30936465 describes the same 1-3% population as syndromic intellectual disability. The syndromic phenotype is curated and the conflict recorded as an INTERPRETATION discussion (non_syndromic_label_mismatch) rather than resolved silently. MONDO:0010497 is retained as disease_term because its causal-gene edge (RO:0004003 to HGNC:2745) is correct and it is the term the queue targets.
+
+Second, the sex difference is modelled as two separate pathophysiology entry points onto a shared node, not merged. &#39;Partial Escape from X-Chromosome Inactivation&#39; (PMID:40164730, PMID:36299587) and &#39;Hemizygous Partial Loss of DDX3X Function in Males&#39; (PMID:29490693, PMID:40164730) both feed &#39;DDX3X RNA Helicase Deficiency&#39;. Allele class is branched independently of sex: the severe-missense granule branch (PMID:32135084) is kept distinct from dosage loss, because it is that allele class that correlates with polymicrogyria.
+
+Module conformance. Three progenitor nodes declare conforms_to against neural_progenitor_centrosome_spindle_dysfunction (Abnormal Progenitor Division and Fate Choice; Progenitor Pool Distortion; Abnormal Cortical Neuron Output and Gyration), with the module&#39;s GO annotations reproduced. The module&#39;s entry node, Centrosome and Mitotic Spindle Perturbation, is deliberately not claimed: DDX3X reaches the progenitor cell cycle through translational control rather than the centrosome, and the module&#39;s own description admits cell-cycle as well as centrosomal entry points.
+
+Clinical trials were checked directly against the ClinicalTrials.gov v2 API rather than taken from the report. Five studies mention DDX3X; two selinexor DLBCL trials are unrelated somatic-context studies and were excluded. NCT03718910 (completed observational, Mount Sinai) and NCT04436588 (observational episignature study, status UNKNOWN) are curated. NCT01238250 (Simons Searchlight) was fetched but not curated: it is a generic multi-condition registry rather than a DDX3X study.
+
+Evidence discipline. 107 snippets, all exact substrings of cached references, all verified. One intended GeneReviews quote was dropped because the cached text contains a non-breaking space inside it; a shorter exact span was quoted instead. No environmental block was created: no environmental contribution to this disorder is established, and an uncitable block would be worse than its absence.
+
+Validation, all run to completion. just validate (passed), just validate-disorders (schema + terms + references batched, 107/107 snippets verified), just validate-terms (passed), just count-verified-snippets (107/107), just check-entity-refs (OK), just check-causal-targets (OK, no new broken targets), just check-duplicate-keys (OK), just check-qualifier-terms (OK), just check-enum-values (OK), just check-folded-hyphens (OK), just check-snippet-length (OK), just check-title-snippets (OK), just check-snippet-grading (OK), just check-environmental-evidence (OK), just check-reference-titles (OK), just check-not4curation (OK), just check-term-cache-integrity (OK). No baseline file was modified.
+
+One schema correction was needed during curation: differential_diagnoses[].distinguishing_features is multivalued, and the initial draft supplied a string.
+
+stubs/Intellectual_Disability_X-linked_102.yaml deleted. The nine existing kb/disorders entries that mention DDX3X were read and left untouched; in all of them DDX3X is a comparator or gene-list member and none is about this disease.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

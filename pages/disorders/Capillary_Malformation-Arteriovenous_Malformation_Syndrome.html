@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Capillary%20Malformation-Arteriovenous%20Malformation%20Syndrome"
@@ -3990,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4036,6 +4089,14 @@
 
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4184,6 +4245,29 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                RASA1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9871</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RASA1 (hgnc:9871). hgnc:9871 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
+
+
+
+
                     </div>
 
                     <div class="item-desc">RASA1-related subtype with multifocal capillary malformations and risk of fast-flow lesions.</div>
@@ -4191,6 +4275,43 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21348050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21348050" target="_blank">PMID:21348050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For RASA1-CM-AVM syndrome, about 70% of affected individuals have an affected parent; about 30% have a de novo pathogenic variant."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter names RASA1-CM-AVM syndrome as a distinct gene-defined form of the syndrome and gives its inheritance pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4214,6 +4335,29 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                EPHB4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3395" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3395</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EPHB4 (hgnc:3395). hgnc:3395 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
+
+
+
+
                     </div>
 
                     <div class="item-desc">EPHB4-related subtype with capillary malformations, telangiectasia, Bier spots, and fast-flow lesion risk.</div>
@@ -4221,6 +4365,43 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21348050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21348050" target="_blank">PMID:21348050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For EPHB4-CM-AVM syndrome, about 80% of affected individuals have an affected parent; about 20% have a de novo pathogenic variant."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter names EPHB4-CM-AVM syndrome as a distinct gene-defined form of the syndrome and gives its inheritance pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4250,6 +4431,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-rasa1-and-ephb4-loss-of-vascular-ras-suppression" data-dismech-node="Germline RASA1 and EPHB4 loss of vascular Ras suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline RASA1 and EPHB4 loss of vascular Ras suppression</div>
 
+
                 <div class="item-desc">Heterozygous pathogenic variants in RASA1 or EPHB4 reduce signaling control of endothelial vascular development, including negative regulation of Ras signaling, creating systemic susceptibility to CM-AVM fast-flow lesions.</div>
 
 
@@ -4264,11 +4446,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4290,6 +4472,88 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RASA1
+
+
+    <a href="https://bioregistry.io/hgnc:9871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9871</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RASA1 (hgnc:9871). hgnc:9871 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EPHB4
+
+
+    <a href="https://bioregistry.io/hgnc:3395" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:3395</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EPHB4 (hgnc:3395). hgnc:3395 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4305,11 +4569,11 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046580" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0046580</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046580" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0046580</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of Ras protein signal transduction (GO:0046580). GO:0046580 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4339,11 +4603,11 @@ This pathophysiological event involves decreased negative regulation of Ras prot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048514</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0048514). GO:0048514 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4481,6 +4745,7 @@ This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-second-hit-allele-loss-in-focal-lesions" data-dismech-node="Somatic second-hit allele loss in focal lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic second-hit allele loss in focal lesions</div>
 
+
                 <div class="item-desc">Lesion tissue can lose the remaining wild-type RASA1 allele, supporting a two-hit model in which inherited susceptibility is followed by focal allele loss in malformation tissue.</div>
 
 
@@ -4495,11 +4760,11 @@ This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4521,6 +4786,49 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RASA1
+
+
+    <a href="https://bioregistry.io/hgnc:9871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9871</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RASA1 (hgnc:9871). hgnc:9871 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4536,11 +4844,11 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046580" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046580</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046580" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0046580</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of Ras protein signal transduction (GO:0046580). GO:0046580 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4629,6 +4937,7 @@ This pathophysiological event involves decreased negative regulation of Ras prot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-mapk-erk-driven-arteriovenous-malformation-formation" data-dismech-node="RAS-MAPK/ERK-driven arteriovenous malformation formation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS-MAPK/ERK-driven arteriovenous malformation formation</div>
 
+
                 <div class="item-desc">Impaired Ras suppression and EPHB4-RASA1 vascular developmental signaling converge on abnormal ERK/MAPK signaling and blood vessel morphogenesis, promoting arteriovenous malformation and fistula formation.</div>
 
 
@@ -4643,11 +4952,11 @@ This pathophysiological event involves decreased negative regulation of Ras prot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4684,11 +4993,11 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070371</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4718,11 +5027,11 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0048514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0048514</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0048514). GO:0048514 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4849,7 +5158,7 @@ This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arteriovenous malformation or fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fast-flow arteriovenous malformations and fistulas can involve skin, soft tissue, brain, spine, and other vascular beds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100026\"}}, {\"id\": \"Bier spots\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bier spots are reported as a distinct cutaneous finding in EPHB4-related CM-AVM2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CM-AVM2\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Cerebral arteriovenous malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral arteriovenous malformations and vein of Galen malformations occur within the CM-AVM fast-flow lesion spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002408\"}}, {\"id\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in RASA1 or EPHB4 reduce signaling control of endothelial vascular development, including negative regulation of Ras signaling, creating systemic susceptibility to CM-AVM fast-flow lesions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"negative regulation of Ras protein signal transduction\", \"blood vessel morphogenesis\"]}}, {\"id\": \"Multifocal capillary malformations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple small capillary malformations are the most characteristic cutaneous finding and often prompt molecular testing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025104\"}}, {\"id\": \"Parkes Weber syndrome or limb arteriovenous shunting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RASA1-related disease can include Parkes Weber syndrome with limb overgrowth and high-flow arteriovenous shunting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004947\"}}, {\"id\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired Ras suppression and EPHB4-RASA1 vascular developmental signaling converge on abnormal ERK/MAPK signaling and blood vessel morphogenesis, promoting arteriovenous malformation and fistula formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"blood vessel morphogenesis\"]}}, {\"id\": \"Somatic second-hit allele loss in focal lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesion tissue can lose the remaining wild-type RASA1 allele, supporting a two-hit model in which inherited susceptibility is followed by focal allele loss in malformation tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"negative regulation of Ras protein signal transduction\"]}}, {\"id\": \"Telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Telangiectasias occur particularly in EPHB4-related CM-AVM2 and can overlap clinically with HHT.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001009\"}}], \"edges\": [{\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Somatic second-hit allele loss in focal lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline susceptibility can be followed by focal allele loss in vascular lesion tissue.\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Multifocal capillary malformations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline RASA1-related CM-AVM susceptibility manifests as multifocal capillary malformations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Bier spots\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EPHB4-related vascular signaling disruption can manifest with Bier spots in CM-AVM2.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EPHB4-related vascular signaling disruption can manifest with telangiectasia in CM-AVM2.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic second-hit allele loss in focal lesions\", \"target\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal loss of residual pathway control promotes abnormal ERK/MAPK-driven vascular morphogenesis.\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Arteriovenous malformation or fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ERK/MAPK-driven vessel morphogenesis produces fast-flow arteriovenous malformations or fistulas in CM-AVM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Cerebral arteriovenous malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same arteriovenous malformation mechanism can involve the cerebral vasculature, including vein of Galen malformations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Parkes Weber syndrome or limb arteriovenous shunting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-flow arteriovenous shunting can produce the Parkes Weber syndrome branch of the CM-AVM spectrum.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arteriovenous malformation or fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fast-flow arteriovenous malformations and fistulas can involve skin, soft tissue, brain, spine, and other vascular beds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100026\"}}, {\"id\": \"Bier spots\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bier spots are reported as a distinct cutaneous finding in EPHB4-related CM-AVM2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CM-AVM2\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Cerebral arteriovenous malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral arteriovenous malformations and vein of Galen malformations occur within the CM-AVM fast-flow lesion spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002408\"}}, {\"id\": \"EPHB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EPHB4\"], \"gene_terms\": [{\"label\": \"EPHB4\", \"id\": \"hgnc:3395\"}], \"subtypes\": [\"CM-AVM2\"], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in RASA1 or EPHB4 reduce signaling control of endothelial vascular development, including negative regulation of Ras signaling, creating systemic susceptibility to CM-AVM fast-flow lesions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"negative regulation of Ras protein signal transduction\", \"blood vessel morphogenesis\"], \"genes\": [\"RASA1\", \"EPHB4\"], \"gene_terms\": [{\"label\": \"RASA1\", \"id\": \"hgnc:9871\"}, {\"label\": \"EPHB4\", \"id\": \"hgnc:3395\"}]}}, {\"id\": \"Multifocal capillary malformations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple small capillary malformations are the most characteristic cutaneous finding and often prompt molecular testing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025104\"}}, {\"id\": \"Parkes Weber syndrome or limb arteriovenous shunting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RASA1-related disease can include Parkes Weber syndrome with limb overgrowth and high-flow arteriovenous shunting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004947\"}}, {\"id\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired Ras suppression and EPHB4-RASA1 vascular developmental signaling converge on abnormal ERK/MAPK signaling and blood vessel morphogenesis, promoting arteriovenous malformation and fistula formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"blood vessel morphogenesis\"]}}, {\"id\": \"RASA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RASA1\"], \"gene_terms\": [{\"label\": \"RASA1\", \"id\": \"hgnc:9871\"}], \"subtypes\": [\"CM-AVM1\"], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Somatic second-hit allele loss in focal lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesion tissue can lose the remaining wild-type RASA1 allele, supporting a two-hit model in which inherited susceptibility is followed by focal allele loss in malformation tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"negative regulation of Ras protein signal transduction\"], \"genes\": [\"RASA1\"], \"gene_terms\": [{\"label\": \"RASA1\", \"id\": \"hgnc:9871\"}]}}, {\"id\": \"Telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Telangiectasias occur particularly in EPHB4-related CM-AVM2 and can overlap clinically with HHT.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001009\"}}], \"edges\": [{\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Somatic second-hit allele loss in focal lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline susceptibility can be followed by focal allele loss in vascular lesion tissue.\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Multifocal capillary malformations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline RASA1-related CM-AVM susceptibility manifests as multifocal capillary malformations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Bier spots\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EPHB4-related vascular signaling disruption can manifest with Bier spots in CM-AVM2.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"target\": \"Telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EPHB4-related vascular signaling disruption can manifest with telangiectasia in CM-AVM2.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic second-hit allele loss in focal lesions\", \"target\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal loss of residual pathway control promotes abnormal ERK/MAPK-driven vascular morphogenesis.\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Arteriovenous malformation or fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ERK/MAPK-driven vessel morphogenesis produces fast-flow arteriovenous malformations or fistulas in CM-AVM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Cerebral arteriovenous malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same arteriovenous malformation mechanism can involve the cerebral vasculature, including vein of Galen malformations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-MAPK/ERK-driven arteriovenous malformation formation\", \"target\": \"Parkes Weber syndrome or limb arteriovenous shunting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-flow arteriovenous shunting can produce the Parkes Weber syndrome branch of the CM-AVM spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RASA1\", \"target\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RASA1\", \"target\": \"Somatic second-hit allele loss in focal lesions\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EPHB4\", \"target\": \"Germline RASA1 and EPHB4 loss of vascular Ras suppression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4899,15 +5208,18 @@ This pathophysiological event involves abnormal blood vessel morphogenesis (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0100026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100026</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4968,15 +5280,18 @@ This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002408</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002408</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:0002408 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5039,15 +5354,18 @@ This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004947</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004947</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkes Weber syndrome or limb arteriovenous shunting, annotated with Arteriovenous fistula (HP:0004947). HP:0004947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5108,15 +5426,18 @@ This clinical feature is Parkes Weber syndrome or limb arteriovenous shunting, a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001009</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5188,15 +5509,18 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0025104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0025104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5261,15 +5585,18 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bier spots, annotated with Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5373,17 +5700,22 @@ This clinical feature is Bier spots, annotated with Hypopigmentation of the skin
                         Gene: RASA1
 
 
-    <a href="https://bioregistry.io/hgnc:9871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:9871</a>
+    <a href="https://bioregistry.io/hgnc:9871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:9871</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is RASA1 (hgnc:9871). hgnc:9871 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5451,17 +5783,22 @@ This disease-associated gene is RASA1 (hgnc:9871). hgnc:9871 is a gene from the 
                         Gene: EPHB4
 
 
-    <a href="https://bioregistry.io/hgnc:3395" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:3395</a>
+    <a href="https://bioregistry.io/hgnc:3395" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:3395</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EPHB4 (hgnc:3395). hgnc:3395 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5537,7 +5874,7 @@ This disease-associated gene is EPHB4 (hgnc:3395). hgnc:3395 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5565,6 +5902,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -5631,7 +5974,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5672,16 +6015,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:75998</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:75998</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5778,11 +6127,11 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -5913,11 +6262,11 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100026</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Arteriovenous malformation (HP:0100026). HP:0100026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5989,11 +6338,11 @@ This clinical trial targets Arteriovenous malformation (HP:0100026). HP:0100026 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100026</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Arteriovenous malformation (HP:0100026). HP:0100026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6065,11 +6414,11 @@ This clinical trial targets Arteriovenous malformation (HP:0100026). HP:0100026 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100026</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Arteriovenous malformation (HP:0100026). HP:0100026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6160,6 +6509,11 @@ synonyms:
 - CM-AVM2
 parents:
 - Vascular disorder
+references:
+- reference: PMID:21348050
+  title: &#34;Capillary Malformation-Arteriovenous Malformation Syndrome.&#34;
+  tags:
+  - GeneReviews
 has_subtypes:
 - name: CM-AVM1
   display_name: CM-AVM Type 1 (RASA1)
@@ -6170,6 +6524,29 @@ has_subtypes:
       label: capillary malformation-arteriovenous malformation 1
   review_notes: MONDO:0020783 carries OMIM:608354 as a cross-reference.
   description: RASA1-related subtype with multifocal capillary malformations and risk of fast-flow lesions.
+  genes:
+  - preferred_term: RASA1
+    term:
+      id: hgnc:9871
+      label: RASA1
+  inheritance:
+  - name: Autosomal dominant inheritance
+    inheritance_term:
+      preferred_term: Autosomal dominant inheritance
+      term:
+        id: HP:0000006
+        label: Autosomal dominant inheritance
+  evidence:
+  - reference: PMID:21348050
+    reference_title: &#34;Capillary Malformation-Arteriovenous Malformation Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      For RASA1-CM-AVM syndrome, about 70% of affected individuals have an affected parent; about 30% have a de novo pathogenic variant.
+    explanation: &gt;-
+      The GeneReviews chapter names RASA1-CM-AVM syndrome as a distinct
+      gene-defined form of the syndrome and gives its inheritance pattern.
 - name: CM-AVM2
   display_name: CM-AVM Type 2 (EPHB4)
   subtype_term:
@@ -6179,6 +6556,29 @@ has_subtypes:
       label: capillary malformation-arteriovenous malformation 2
   review_notes: MONDO:0020785 carries OMIM:618196 as a cross-reference.
   description: EPHB4-related subtype with capillary malformations, telangiectasia, Bier spots, and fast-flow lesion risk.
+  genes:
+  - preferred_term: EPHB4
+    term:
+      id: hgnc:3395
+      label: EPHB4
+  inheritance:
+  - name: Autosomal dominant inheritance
+    inheritance_term:
+      preferred_term: Autosomal dominant inheritance
+      term:
+        id: HP:0000006
+        label: Autosomal dominant inheritance
+  evidence:
+  - reference: PMID:21348050
+    reference_title: &#34;Capillary Malformation-Arteriovenous Malformation Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      For EPHB4-CM-AVM syndrome, about 80% of affected individuals have an affected parent; about 20% have a de novo pathogenic variant.
+    explanation: &gt;-
+      The GeneReviews chapter names EPHB4-CM-AVM syndrome as a distinct
+      gene-defined form of the syndrome and gives its inheritance pattern.
 inheritance:
 - name: Autosomal dominant inheritance
   inheritance_term:
@@ -6203,6 +6603,15 @@ pathophysiology:
     Heterozygous pathogenic variants in RASA1 or EPHB4 reduce signaling control
     of endothelial vascular development, including negative regulation of Ras
     signaling, creating systemic susceptibility to CM-AVM fast-flow lesions.
+  genes:
+  - preferred_term: RASA1
+    term:
+      id: hgnc:9871
+      label: RASA1
+  - preferred_term: EPHB4
+    term:
+      id: hgnc:3395
+      label: EPHB4
   cell_types:
   - preferred_term: endothelial cell
     term:
@@ -6306,6 +6715,11 @@ pathophysiology:
     snippet: &gt;-
       The analysis of the tissue showed loss of the wild-type RASA1 allele.
     explanation: Loss of the wild-type allele in lesion tissue supports a focal second-hit mechanism.
+  genes:
+  - preferred_term: RASA1
+    term:
+      id: hgnc:9871
+      label: RASA1
   downstream:
   - target: RAS-MAPK/ERK-driven arteriovenous malformation formation
     description: Focal loss of residual pathway control promotes abnormal ERK/MAPK-driven vascular morphogenesis.
@@ -6500,6 +6914,7 @@ phenotypes:
 genetic:
 - name: RASA1
   association: Causative
+  relationship_type: CAUSATIVE
   presence: Positive
   subtype: CM-AVM1
   gene_term:
@@ -6529,6 +6944,7 @@ genetic:
     explanation: This cohort establishes RASA1 variants as specific to the CM-AVM phenotype among tested groups.
 - name: EPHB4
   association: Causative
+  relationship_type: CAUSATIVE
   presence: Positive
   subtype: CM-AVM2
   gene_term:
@@ -6679,12 +7095,97 @@ clinical_trials:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21348050" target="_blank">PMID:21348050</a>
+                            </div>
+
+                            <div class="reference-title">Capillary Malformation-Arteriovenous Malformation Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Capillary Malformation-Arteriovenous Malformation Syndrome (Changes required)</strong> · 2026-05-31T03:02:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Capillary_Malformation-Arteriovenous_Malformation_Syndrome/2026-05-31T030202Z-github-review-3586.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3586
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:02Z
+Issue updated: 2026-05-31T03:02:02Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Capillary Malformation-Arteriovenous Malformation Syndrome**
+- Entry: `kb/disorders/Capillary_Malformation-Arteriovenous_Malformation_Syndrome.yaml`
+- Selection basis: #118 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Subtype completeness: `has_subtypes` is present (CM-AVM1, CM-AVM2). Verify that subtype-specific phenotypes, mechanisms, treatments, diagnosis, and genetic contexts are attached to the correct subtype rather than left as broad disease-level claims.
+4. Pathophysiology review: the main modeled mechanisms include Germline RASA1 and EPHB4 loss of vascular Ras suppression, Somatic second-hit allele loss in focal lesions, RAS-MAPK/ERK-driven arteriovenous malformation formation. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include PMID:24038909, PMID:37978175, PMID:29891884, PMID:35088870. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: subtypes present; verify subtype-specific anchoring.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Capillary_Malformation-Arteriovenous_Malformation_Syndrome-deep-research-falcon.md`
+- PMID:24038909: https://pubmed.ncbi.nlm.nih.gov/24038909/
+- PMID:37978175: https://pubmed.ncbi.nlm.nih.gov/37978175/
+- PMID:29891884: https://pubmed.ncbi.nlm.nih.gov/29891884/
+- PMID:35088870: https://pubmed.ncbi.nlm.nih.gov/35088870/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7378,7 +7879,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Capillary Malformation-Arteriovenous Malformation Syndrome", "mondoId": "MONDO:0012016", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Capillary_Malformation-Arteriovenous_Malformation_Syndrome", "yamlRevision": "3a0e9f0a5860"};
+        const OS_CONFIG = {"diseaseName": "Capillary Malformation-Arteriovenous Malformation Syndrome", "mondoId": "MONDO:0012016", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Capillary_Malformation-Arteriovenous_Malformation_Syndrome", "yamlRevision": "8dcbcfdb3590"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

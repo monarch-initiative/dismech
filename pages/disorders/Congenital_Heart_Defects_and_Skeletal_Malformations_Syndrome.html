@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5044,6 +5097,7 @@ to thrive."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abl1-autoinhibitory-regulatory-core-disruption" data-dismech-node="ABL1 Autoinhibitory Regulatory Core Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">ABL1 Autoinhibitory Regulatory Core Disruption</div>
 
+
                 <div class="item-desc">Wild-type ABL1 is held in a low-activity state by an assembled SH3-SH2-kinase regulatory core. Three intramolecular &#34;linchpins&#34; enforce this: docking of the SH3 domain onto the SH2-kinase linker, insertion of the N-terminal myristoyl group of isoform 1b into a pocket in the kinase domain, and an N-terminal brace over the SH3-SH2 unit. The CHDSKM missense substitutions whose position has been mapped fall in these regulatory elements - four of the five alleles in the largest functionally characterised series lie in the myristoyl-binding pocket, with others in the SH2-kinase linker and the C-terminal alpha-I helix - and destabilise the assembled core. Several later-reported alleles (p.Trp67Arg, p.Thr136Met, p.Gln300Glu, p.Ile508Leu) have not been assigned to a defined autoinhibitory element by their source reports, so the clustering claim is scoped to the characterised alleles. This is the same autoinhibition failure that the somatic BCR::ABL1 fusion achieves by deleting the myristoylated N-terminus, which is why the two conditions share a molecular logic while remaining entirely distinct diseases.
 </div>
 
@@ -5137,6 +5191,8 @@ This genetic context concerns ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Ge
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5152,6 +5208,9 @@ This genetic context concerns ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Ge
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline missense variants clustering in the myristoyl-binding pocket of the ABL1 regulatory core. Recorded as GAIN_OF_FUNCTION: loss of autoinhibition increases tyrosine kinase activity and substrate phosphorylation.</div>
 
@@ -5321,6 +5380,7 @@ pharmacological inhibition using imatinib."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-abl1-tyrosine-kinase-hyperactivity" data-dismech-node="Constitutive ABL1 Tyrosine Kinase Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive ABL1 Tyrosine Kinase Hyperactivity</div>
+
 
                 <div class="item-desc">With autoinhibition relieved, the mutant kinase is catalytically more active than wild type. This has been demonstrated repeatedly and independently: by transient transfection of HEK293T cells with each of the reported disease alleles, and by purified-protein biophysics for the alpha-I-helix allele p.Glu528Lys. Crucially, the increased activity is pharmacologically suppressible - imatinib abolished the excess phosphorylation across all tested constructs in vitro, which is the entire (preclinical) basis for interest in ABL-directed tyrosine kinase inhibitors in this syndrome.
 </div>
@@ -5529,6 +5589,7 @@ the three novel variants showed an increased ABL1 kinase activity."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-substrate-tyrosine-phosphorylation" data-dismech-node="Increased Substrate Tyrosine Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Substrate Tyrosine Phosphorylation</div>
+
 
                 <div class="item-desc">Hyperactive ABL1 raises global cellular phosphotyrosine and specifically hyperphosphorylates canonical ABL1 substrates, of which STAT5/STAT5B is the best-characterised readout across all three functional studies. An unbiased phosphoproteomic survey of one patient-derived allele additionally found increased phosphorylation of UFD1, AXIN1, and ATRX, nominating candidate effectors that could link kinase hyperactivity to the cardiac, digital, and growth phenotypes - notably UFD1, which the authors relate to the cardiac phenotype of 22q11.2 deletion syndrome. These effector assignments are hypotheses generated in a cell line, not validated patient-tissue mechanisms.
 </div>
@@ -5742,6 +5803,7 @@ the phenotypes, was enhanced in the mutant group."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cardiac-septation-and-outflow-tract-development" data-dismech-node="Disrupted Cardiac Septation and Outflow Tract Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cardiac Septation and Outflow Tract Development</div>
+
 
                 <div class="item-desc">Dysregulated ABL1 signalling during cardiac morphogenesis produces structural heart disease in the great majority of patients. The reported lesions are concentrated at the septa and the left and right outflow tracts: atrial and ventricular septal defects, patent ductus arteriosus, supravalvular pulmonary stenosis, bicuspid aortic valve, and aortic root dilatation. The specific developmental lineage through which kinase hyperactivity produces these defects has not been established; the phosphoproteomic nomination of UFD1, the 22q11.2 cardiac gene, is the only concrete candidate link so far.
 </div>
@@ -6045,6 +6107,7 @@ syndrome."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-skeletal-and-connective-tissue-morphogenesis" data-dismech-node="Disrupted Skeletal and Connective Tissue Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Skeletal and Connective Tissue Morphogenesis</div>
 
+
                 <div class="item-desc">The skeletal arm of the syndrome affects the digits most consistently, then the axial skeleton and thoracic cage: camptodactyly and finger contractures, fifth-finger clinodactyly, 2-3 toe syndactyly, hindfoot deformity, scoliosis, and pectus excavatum. A connective-tissue dimension runs in parallel - thin skin, joint hypermobility, arachnodactyly, high-arched palate, and spontaneous pneumothorax - which is why these patients are routinely referred to connective-tissue clinics before the molecular diagnosis is made. Notably, the canonical connective-tissue mechanism of increased TGF-beta signalling was tested and NOT found: SMAD2 and SMAD3 phosphorylation were unchanged in the mutant constructs, so CHDSKM does not conform to the TGF-beta-dysregulation aortopathy pattern of Marfan and Loeys-Dietz syndromes despite the clinical resemblance. That negative is the reason this entry declares no conforms_to link to the aortopathy_tgfbeta_dysregulation module.
 </div>
 
@@ -6317,6 +6380,7 @@ This pathophysiological event involves abnormal skeletal system morphogenesis (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-root-dilatation" data-dismech-node="Progressive Aortic Root Dilatation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic Root Dilatation</div>
 
+
                 <div class="item-desc">Aortic root enlargement is reported chiefly in older children and adults, consistent with a progressive rather than a static congenital lesion, and at least one patient has had severe and rapidly progressive dilatation. The true risk of aneurysm and dissection is not known: as of the 2021 pooled 18-case review the authors reported no awareness of any affected individual having required surgical intervention for rapid progressive dilatation, which they suggested may indicate a more indolent course than Marfan syndrome - though a 2023 case has since described exactly that pattern, so the indolent-course reading should be treated as provisional. The uncertainty itself is the clinically actionable point: published expert recommendation is baseline and serial aortic root measurement modelled on Marfan surveillance until natural-history data exist.
 </div>
 
@@ -6443,6 +6507,7 @@ dilatation"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-prenatal-and-postnatal-growth" data-dismech-node="Impaired Prenatal and Postnatal Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Prenatal and Postnatal Growth</div>
+
 
                 <div class="item-desc">Growth impairment begins prenatally as intrauterine growth restriction and continues postnatally as failure to thrive with feeding difficulty. In the pooled series failure to thrive is tied with congenital heart disease as the third most frequent feature, behind facial dysmorphism and digital anomalies. Adult stature is variable and does not track the infantile growth failure - most adults are short but tall stature has been reported, so short stature is not a reliable diagnostic handle.
 </div>
@@ -6702,6 +6767,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6826,6 +6894,9 @@ This clinical feature is Atrial septal defect (HP:0001631), qualified as congeni
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6920,6 +6991,9 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
                     </div>
+
+
+
 
 
 
@@ -7023,6 +7097,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643), qualified as con
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7108,6 +7185,9 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
 
 
                     </div>
+
+
+
 
 
 
@@ -7210,6 +7290,9 @@ This clinical feature is Supravalvular pulmonary stenosis, annotated with Suprav
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7283,6 +7366,9 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7396,6 +7482,9 @@ This clinical feature is Abnormal ear morphology (HP:0031703). HP:0031703 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7460,6 +7549,9 @@ This clinical feature is Conductive or mixed hearing impairment, annotated with 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7597,6 +7689,9 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7701,6 +7796,9 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7765,6 +7863,9 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7881,6 +7982,9 @@ This clinical feature is Characteristic narrow face with pointed chin, annotated
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7976,6 +8080,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8051,6 +8158,9 @@ This clinical feature is Palatal deformity, usually high-arched palate, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8118,6 +8228,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8227,6 +8340,9 @@ This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8305,6 +8421,9 @@ This clinical feature is Finger and toe abnormalities, annotated with Abnormal d
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8406,6 +8525,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8473,6 +8595,9 @@ This clinical feature is Finger joint contracture (HP:0034681). HP:0034681 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8547,6 +8672,9 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8613,6 +8741,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8696,6 +8827,9 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8760,6 +8894,9 @@ This clinical feature is Lipodystrophy-like features, annotated with Lipodystrop
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8832,6 +8969,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8931,6 +9071,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8995,6 +9138,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9108,6 +9254,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9182,6 +9331,9 @@ This clinical feature is Spontaneous pneumothorax (HP:0002108). HP:0002108 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9322,6 +9474,9 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as infantile 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9425,6 +9580,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9490,6 +9648,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9607,6 +9768,9 @@ This disease-associated gene is ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO 
 
 
                 </div>
+
+
+
 
 
 
@@ -9729,6 +9893,7 @@ c.1066G&gt;A (p.Ala356Thr), in six patients"</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9748,11 +9913,17 @@ This variant is in ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomencla
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">NM_007313.2:c.734A&gt;G, p.(Tyr245Cys). The founding recurrent CHDSKM allele. Tyr245 lies in the SH2-kinase linker, whose docking to the SH3 domain is one of the linchpins holding ABL1 in the inactive closed conformation. Paradoxically, phosphorylation of Tyr245 is required for maximal wild-type kinase activity and the p.Tyr245Phe substitution reduces activity, yet p.Tyr245Cys increases overall tyrosine phosphorylation - so the two substitutions at the same residue have opposite functional effects.
@@ -9817,6 +9988,7 @@ This variant is in ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomencla
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9836,11 +10008,17 @@ This variant is in ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomencla
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">NM_007313.2:c.1066G&gt;A, p.(Ala356Thr). The second recurrent CHDSKM allele and the prototype of the myristoyl-binding-pocket cluster. Ala356 sits in the pocket that binds the N-terminal myristoyl group of isoform 1b, the intramolecular interaction that locks the kinase in its autoinhibited conformation; substitution by the polar threonine disrupts the hydrophobic contacts that hold the myristoyl group in place.
@@ -9904,6 +10082,7 @@ This variant is in ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomencla
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9923,11 +10102,17 @@ This variant is in ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomencla
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">NM_007313.2:c.1582G&gt;A, p.(Glu528Lys). A de novo CHDSKM allele in the C-terminal alpha-I helix. Structural and biophysical work has since shown that Glu528 forms a salt bridge with the kinase-domain C-lobe; breaking it increases the mechanical force the alpha-I helix exerts on the SH2 domain, disassembling the regulatory core and strongly activating the kinase. This is the best mechanistically resolved CHDSKM allele.
@@ -10045,6 +10230,9 @@ This treatment is cardiac surgical procedure, annotated with Cardiac Surgery (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10055,6 +10243,9 @@ This treatment is cardiac surgical procedure, annotated with Cardiac Surgery (NC
 
 
     </div>
+
+
+
 
 
 
@@ -10215,6 +10406,12 @@ This treatment is echocardiography, annotated with Echocardiography Test (NCIT:C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Baseline measurement of the aortic root diameter at diagnosis and ongoing serial imaging, explicitly modelled on Marfan syndrome surveillance. The expert recommendation is explicitly precautionary: the true risk of aneurysm and dissection in CHDSKM is unknown, and as of the 2021 pooled series no patient had been reported to require surgical intervention for rapid progressive dilatation. A 2023 case has since documented severe and rapidly progressive dilatation, which strengthens rather than weakens the case for surveillance; the recommendation stands until natural-history data become available.
 </div>
 
@@ -10333,6 +10530,12 @@ root from a young age in CHDSKM"</div>
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Formal audiology at diagnosis and thereafter, with hearing aids or ENT intervention as indicated. The rationale is the high frequency of conductive and mixed hearing impairment in the syndrome, which was under-recognised in the original description. No NCIT clinical-action term for audiological assessment is reachable from NCIT:C25218, so this treatment carries a free-text preferred_term only.
 </div>
 
@@ -10417,6 +10620,12 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10545,6 +10754,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10555,6 +10767,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -10693,6 +10908,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10703,6 +10921,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10845,6 +11066,9 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10855,6 +11079,9 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -11029,6 +11256,12 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Systematic clinical screening for ABL1-associated cancers, recommended by the authors of the original description on the precautionary grounds that the germline alleles increase the activity of a proto-oncogene. This is a prudential recommendation, not an evidence-based protocol: no malignancy has been reported in any CHDSKM patient, no screening modality or interval has been specified or validated, and the lifetime risk is unquantified. The corresponding evidence gap is tracked in the chdskm_malignancy_risk discussion.
 </div>
 
@@ -11114,6 +11347,12 @@ This treatment is renal ultrasound (NCIT:C159885). NCIT:C159885 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11224,6 +11463,12 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Eye examination at diagnosis, indicated by the distinct ocular abnormalities added to the CHDSKM spectrum by the expanded series. The source does not enumerate the findings in its abstract, so this is a detection-oriented baseline rather than a search for a specified lesion.
 </div>
 
@@ -11308,6 +11553,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -14237,6 +14488,25 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Identity anchors used for the Named Entity Confusion (NEC) preflight before any deep-research content was accepted: MONDO:0060532, OMIM:617602, Orphanet:643503, and the MONDO structured gene relationship RO:0004003 hgnc:76 (ABL1). The descriptive label &#34;congenital heart defects and skeletal malformations&#34; is shared, as a phenotype pair, with several well-known but mechanistically unrelated syndromes (Holt-Oram/TBX5, Ellis-van Creveld/EVC-EVC2, Char syndrome/TFAP2B, VACTERL association); none of those are in scope here. Two allelic distinctions also matter and are deliberately kept as separate entities: the somatic BCR::ABL1 fusion neoplasms (chronic myeloid leukaemia, Ph-positive ALL), and human ABL1 deficiency syndrome (HADS), which is caused by biallelic loss-of-function ABL1 alleles and is phenotypically the opposite of CHDSKM in many respects. No GeneReviews chapter exists for ABL1 or CHDSKM (PubMed searches for &#34;ABL1 GeneReviews&#34; and &#34;congenital heart defects and skeletal malformations GeneReviews&#34; returned no matching chapter), so the mandatory GeneReviews phenotype baseline does not apply; the phenotype baseline used instead is the pooled 18-case series tabulated by Blakes et al. (PMID:33223528). Orphanet epidemiology was not quoted because the local Orphadata refresh is currently failing a manifest checksum; the prevalence record therefore uses a qualitative band with a literature case count.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Congenital Heart Defects and Skeletal Malformations Syndrome (CHDSKM, ABL1)</strong> · 2026-08-01T19:26:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Heart_Defects_and_Skeletal_Malformations_Syndrome/2026-08-01T192637Z-claude-code-6c7ffc.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of CHDSKM MONDO:0060532 / OMIM:617602, caused by heterozygous germline gain-of-function missense variants in ABL1 hgnc:76. Causal gene was established BEFORE deep research from the MONDO structured gene relationship RO:0004003 hgnc:76 plus the OMIM:617602 xref, because the MONDO record has no def text. NEC preflight passed: the Edison/falcon deep-research report mentions ABL1 62 times versus TBX5 5 times, all of the latter inside an explicit scope-exclusion paragraph, and the report asserts the matching MONDO and OMIM ids. Deep research provider: Edison via just research-disorder falcon, 462 s, 23 citations. The DR bibliography was thin - only 3 distinct primary papers - so an independent PubMed sweep added 7 more, of which 6 are cited. Curated 7 pathophysiology nodes chaining autoinhibitory regulatory core disruption to kinase hyperactivity to substrate hyperphosphorylation to cardiac, skeletal, aortic and growth arms; 32 phenotypes with pooled 18-case frequency evidence from PMID:33223528; 3 variant records; 11 treatments including an explicitly investigational ABL-inhibitor entry with teratogenicity caveats and four non-therapeutic surveillance actions; 4 differential diagnoses; and 3 discussions covering the lineage knowledge gap, a HUMAN_MODEL_MISMATCH for the loss-of-function-only mouse models, and the unquantified malignancy risk. A deliberate negative finding is recorded: SMAD2 and SMAD3 phosphorylation were unchanged in the mutant constructs, so no conforms_to link to aortopathy_tgfbeta_dysregulation is declared despite the Marfan-like presentation. A pre-PR red-team review and the automated PR review both ran; their findings (overstated allele clustering, a claim-evidence mismatch on the cardiac-repair treatment, frequency bands sitting on terms narrower than their denominators, a one-sided reading of the TKI source, and several unmodelled spectrum features) were all addressed before merge. Validation after those fixes: just validate passed, just validate-terms passed, just validate-references reported 106 of 106 snippets verified against cached references, and tests/test_data.py passed apart from the pre-existing SETD5 failure tracked in issue 7729. Term validation caught and corrected one wrong MONDO id for van den Ende-Gupta syndrome.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

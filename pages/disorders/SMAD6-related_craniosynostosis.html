@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4416,6 +4469,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-smad6-loss-with-impaired-bmp-restraint" data-dismech-node="Germline SMAD6 loss with impaired BMP restraint" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline SMAD6 loss with impaired BMP restraint</div>
 
+
                 <div class="item-desc">Heterozygous deleterious SMAD6 variants reduce inhibitory control of BMP signaling, forming the shared upstream lesion of the craniosynostosis branch.</div>
 
 
@@ -4562,6 +4616,7 @@ This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-bmp-signaling-in-cranial-suture-mesenchyme" data-dismech-node="Excess BMP signaling in cranial suture mesenchyme" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess BMP signaling in cranial suture mesenchyme</div>
 
+
                 <div class="item-desc">Failure of SMAD6-mediated negative feedback permits excessive BMP-driven osteogenic signaling in the mesenchymal compartment that normally preserves suture patency. This is the pro-osteogenic-drive (BMP) route into the conserved cranial-suture osteogenic-acceleration endpoint, parallel to the FGFR-MAPK drive of the FGFR craniosynostoses.</div>
 
 
@@ -4696,6 +4751,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-osteoblast-differentiation-and-suture-ossification" data-dismech-node="Accelerated osteoblast differentiation and suture ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated osteoblast differentiation and suture ossification</div>
+
 
                 <div class="item-desc">The immediate cranial mechanism is premature osteogenic maturation and ossification at cranial sutures, with strongest enrichment in midline sutures. This is the BMP-driven instance of the conserved cranial-suture osteogenic-acceleration endpoint, reached by excess pro-osteogenic drive from lost SMAD6 restraint rather than by the FGFR-MAPK or TWIST1-restraint-loss routes.</div>
 
@@ -4866,6 +4922,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-midline-cranial-suture-fusion" data-dismech-node="Premature midline cranial suture fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature midline cranial suture fusion</div>
 
+
                 <div class="item-desc">Excess BMP-driven osteogenesis prematurely fuses the midline cranial sutures (metopic most strongly, also sagittal), the premature-fusion endpoint of the SMAD6 route with a midline rather than coronal predominance. This is the BMP-route instance of the conserved premature-suture-fusion endpoint.</div>
 
 
@@ -5016,6 +5073,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-modifier-dependent-penetrance-and-phenotype-variability" data-dismech-node="Modifier-dependent penetrance and phenotype variability" data-dismech-type="pathophysiology">
                 <div class="item-name">Modifier-dependent penetrance and phenotype variability</div>
 
+
                 <div class="item-desc">The craniosynostosis phenotype is incompletely penetrant and variably expressed, implying strong influence from modifier loci or developmental context beyond the primary SMAD6 variant.</div>
 
 
@@ -5128,6 +5186,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-vault-growth-restriction-and-raised-intracranial-pressure-risk" data-dismech-node="Cranial vault growth restriction and raised intracranial pressure risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial vault growth restriction and raised intracranial pressure risk</div>
+
 
                 <div class="item-desc">Premature suture fusion can constrain cranial vault expansion and create a risk of raised intracranial pressure, particularly in multisuture or postoperative contexts.</div>
 
@@ -5274,6 +5333,9 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5343,6 +5405,9 @@ This clinical feature is Sagittal craniosynostosis (HP:0004442). HP:0004442 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5407,6 +5472,9 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5492,6 +5560,9 @@ This clinical feature is Developmental or intellectual delay, annotated with Int
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5558,6 +5629,9 @@ This clinical feature is Raised intracranial pressure, annotated with Increased 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5676,6 +5750,9 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5749,6 +5826,7 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5768,11 +5846,17 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating SMAD6 variant reported in a sagittal craniosynostosis proband.</div>
@@ -5834,6 +5918,7 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5853,11 +5938,17 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating SMAD6 variant reported in a metopic synostosis proband.</div>
@@ -6019,6 +6110,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6029,6 +6123,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6116,6 +6213,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6223,6 +6326,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling should explain autosomal dominant inheritance, incomplete penetrance, variable expressivity, and the possibility that an affected child inherited SMAD6 from a clinically unaffected parent.</div>
 
 
@@ -6304,6 +6413,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6727,10 +6842,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"Premature fusion of the cranial sutures (craniosynostosis), affecting 1 in 2000 newborns, is treated surgically in infancy to prevent adverse neurologic outcomes."</div>
+                <div class="evidence-snippet">"Premature fusion of the cranial sutures (craniosynostosis), affecting 1 in 2000 newborns, is treated surgically in infancy to prevent adverse neurologic outcomes. To identify mutations contributing to common non-syndromic midline (sagittal and metopic) craniosynostosis, we performed exome..."</div>
 
 
-                <div class="evidence-explanation">This supports congenital onset and early infant recognition of the craniosynostosis phenotype.</div>
+                <div class="evidence-explanation">Links newborn craniosynostosis and surgery in infancy to damaging SMAD6 variants, with SMAD6 described as an inhibitor of BMP-induced osteoblast differentiation.</div>
 
 
 
@@ -6979,11 +7094,15 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Premature fusion of the cranial sutures (craniosynostosis), affecting 1 in 2000
-      newborns, is treated surgically in infancy to prevent adverse neurologic outcomes.
+      Premature fusion of the cranial sutures (craniosynostosis), affecting 1 in 2000 newborns, is
+      treated surgically in infancy to prevent adverse neurologic outcomes. To identify mutations
+      contributing to common non-syndromic midline (sagittal and metopic) craniosynostosis, we
+      performed exome sequencing of 132 parent-offspring trios and 59 additional probands. Thirteen
+      probands (7%) had damaging de novo or rare transmitted mutations in SMAD6, an inhibitor of BMP
+      - induced osteoblast differentiation (p&lt;10-20).
     explanation: &gt;-
-      This supports congenital onset and early infant recognition of the
-      craniosynostosis phenotype.
+      Links newborn craniosynostosis and surgery in infancy to damaging SMAD6 variants, with SMAD6
+      described as an inhibitor of BMP-induced osteoblast differentiation.
 - phase: Secondary cranial growth restriction phase
   age_range: infancy through childhood
   notes: &gt;-
@@ -7632,6 +7751,65 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: SMAD6-related craniosynostosis (Changes required)</strong> · 2026-05-30T02:51:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SMAD6-related_Craniosynostosis/2026-05-30T025131Z-github-review-3404.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3404
+Issue state: OPEN
+Issue created: 2026-05-30T02:51:31Z
+Issue updated: 2026-05-30T02:55:17Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **SMAD6-related craniosynostosis**
+- Entry: `kb/disorders/SMAD6-related_Craniosynostosis.yaml`
+- Selection basis: #17 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **No diagnosis or management content is present.** The entry has inheritance, two phenotypes, four pathophysiology nodes, and genetics, but no diagnostic evaluation, craniofacial management, imaging, surgical planning, neurodevelopmental/intracranial-pressure monitoring, or genetic counseling.
+2. **Penetrance/modifier biology needs stronger clinical connection.** The pathophysiology has `Modifier-dependent penetrance and phenotype variability`, but the entry should explicitly model or describe the well-known reduced penetrance and two-locus/common BMP2-risk-allele contribution reported for SMAD6-associated midline craniosynostosis.
+3. **Phenotype coverage is too narrow.** Metopic and sagittal synostosis are central, but SMAD6 variants have been reported across nonsyndromic and syndromic craniosynostosis contexts, and some carriers have additional congenital heart / aortic / radioulnar-synostosis associations in the literature. The entry should decide which of these are in scope.
+4. **Inheritance counseling should mention unaffected carriers.** Autosomal dominant is present, but reduced penetrance means inherited variants may come from unaffected parents; this is important for recurrence risk and family testing.
+5. **Pathophysiology is good but lacks downstream clinical endpoints.** BMP restraint failure and excess BMP signaling in cranial suture mesenchyme are appropriate; connect these to suture osteoblast differentiation, cranial vault growth restriction, and clinical craniosynostosis complications.
+
+## Research-artifact cross-check
+
+Checked `research/SMAD6-related_Craniosynostosis-deep-research-openai.md` and `.citations.md`. The YAML uses the central BMP/SMAD mechanism but under-consumes diagnosis/management and the penetrance/modifier implications.
+
+## Content-completeness summary
+
+- **Phenotypes:** narrow; add scope decision for syndromic/other SMAD6 associations.
+- **Subtype/lumping:** define whether this is nonsyndromic midline craniosynostosis only.
+- **Pathophysiology:** strong but should connect to clinical outcomes.
+- **Management/diagnosis:** missing craniofacial diagnosis/surveillance/surgery/genetic counseling.
+- **Genetics:** add reduced penetrance and modifier-family testing nuance.
+
+## Suggested remediation
+
+Add diagnosis/management; expand penetrance/modifier and unaffected-carrier counseling; and clarify disease boundary around nonsyndromic midline craniosynostosis versus broader SMAD6-associated disease.
+
+## Sources used
+
+- SMAD6 genotype/phenotype review: https://pmc.ncbi.nlm.nih.gov/articles/PMC7462747/
+- SMAD6/BMP2 two-locus inheritance: https://pmc.ncbi.nlm.nih.gov/articles/PMC5045293/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7825,7 +8003,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SMAD6-related craniosynostosis", "mondoId": "MONDO:0044315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SMAD6-related_craniosynostosis", "yamlRevision": "c56384741e3e"};
+        const OS_CONFIG = {"diseaseName": "SMAD6-related craniosynostosis", "mondoId": "MONDO:0044315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SMAD6-related_craniosynostosis", "yamlRevision": "6d6434f5c87c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4664,6 +4717,7 @@ Two consequences for how the entry reads. The severe phenotype is curated as OCC
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pkhd1l1-biallelic-loss-of-function" data-dismech-node="PKHD1L1 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PKHD1L1 Biallelic Loss of Function</div>
 
+
                 <div class="item-desc">Two damaged copies of PKHD1L1, which encodes a 4243-amino-acid protein that is almost entirely extracellular - a large ectodomain of IPT repeats, a single transmembrane helix, and a cytoplasmic tail of only a handful of residues. The reported human alleles span the mutation classes: a nonsense variant p.(Arg3381Ter) predicted to trigger nonsense-mediated decay, a frameshift p.(Leu2818TyrfsTer5), a variant annotated as missense, p.(Gly605Arg), that a minigene assay shows is really a splice allele causing exon 17 skipping, and two missense alleles whose recombinant protein fragments are measurably destabilised.</div>
 
 
@@ -4764,6 +4818,8 @@ This genetic context concerns PKHD1L1 (hgnc:20313). hgnc:20313 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">allele_type: nonsense, frameshift, splice-disrupting and destabilising missense variants</span>
 
 
@@ -4779,6 +4835,9 @@ This genetic context concerns PKHD1L1 (hgnc:20313). hgnc:20313 is a gene from th
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Two families are homozygous and two compound heterozygous. The zygosity slot records COMPOUND_HETEROZYGOUS because that is the configuration in the family with the fullest functional workup; the homozygous families are described here rather than by a second value, since the slot is single-valued.</div>
 
@@ -4903,6 +4962,7 @@ This genetic context concerns PKHD1L1 (hgnc:20313). hgnc:20313 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-stereocilia-surface-coat-at-stereocilia-tips" data-dismech-node="Loss of the Stereocilia Surface Coat at Stereocilia Tips" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Stereocilia Surface Coat at Stereocilia Tips</div>
+
 
                 <div class="item-desc">PKHD1L1 is the first identified molecular component of the electron-dense surface coat on hair-cell stereocilia. Immunogold electron microscopy puts it towards the stereocilia tips, at highest density in the top 300 nanometres, in all three rows and preferentially in the high-frequency base of the cochlea. Mice lacking it in hair cells lose the coat at the upper part of the stereocilia while the coat at the bases is unaffected - so the coat is not one substance, and PKHD1L1 accounts for the upper portion of it.</div>
 
@@ -5179,6 +5239,7 @@ This pathophysiological event occurs in organ of Corti, annotated with spiral or
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-stereocilia-bundle-maintenance-after-normal-development" data-dismech-node="Failure of Stereocilia Bundle Maintenance After Normal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Stereocilia Bundle Maintenance After Normal Development</div>
 
+
                 <div class="item-desc">The ordering claim of the entry, and a negative result carries most of it. In PKHD1L1-deficient mice the bundle develops normally: cohesion is undisturbed, tectorial-membrane attachment crowns form, stereocilin localises correctly to the tips of the tall row, the imprints of the bundle in the tectorial membrane are still present at six months, and planar cell polarity is normal. Mechanotransduction is intact too - FM1-43, which enters hair cells through open transduction channels, loads normally. Only afterwards, from about six weeks of age, does the bundle begin to fail. The disease is therefore a failure to maintain a correctly built bundle, not a failure to build one.
 The expression time course sharpens what &#34;maintain&#34; can mean here, and it is worth being precise. PKHD1L1 protein is present on the bundle only in the first ten postnatal days, is largely gone by day 10 and is completely cleared from mature hair cells by day 21 - three weeks before the bundle starts to fail. The protein is therefore not present to perform ongoing maintenance. What its presence during development must be setting is the durability of the finished bundle, which is how the authors themselves put it: expression during development establishes bundles robust enough to last.</div>
 
@@ -5431,6 +5492,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-stereocilia-loss-and-bundle-disorganisation" data-dismech-node="Progressive Stereocilia Loss and Bundle Disorganisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Stereocilia Loss and Bundle Disorganisation</div>
 
+
                 <div class="item-desc">Stereocilia go missing, beginning in the shortest row and progressing to the taller rows with age, and most prominently but not exclusively in the high-frequency basal region. Bundle disorganisation is not visible at six weeks, is present at fourteen weeks, and is more severe by nine months. The short-row-first pattern is itself an argument against a tectorial-membrane mechanism, because attachment crowns form only on the tallest row.</div>
 
 
@@ -5616,6 +5678,13 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-resilience-to-acoustic-overexposure" data-dismech-node="Reduced Resilience to Acoustic Overexposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Resilience to Acoustic Overexposure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A noise dose calibrated to cause only a temporary threshold shift in wild-type mice causes a permanent one in PKHD1L1-deficient mice. Control thresholds recover to baseline by two weeks; mutant thresholds do not, at two weeks or at eight. Morphologically the difference shows as tall-row stereocilia loss and disorganisation after noise, on top of the short-row loss that ageing alone produces. The bundle that develops without a coat is therefore not just slower to fail with age - it is less able to absorb an acoustic insult.</div>
 
 
@@ -5800,6 +5869,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-hair-cell-dysfunction-and-loss-of-cochlear-amplification" data-dismech-node="Outer Hair Cell Dysfunction and Loss of Cochlear Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Hair Cell Dysfunction and Loss of Cochlear Amplification</div>
 
+
                 <div class="item-desc">Distortion product otoacoustic emissions are the direct readout of outer hair cell function, and they fail. In the mouse, DPOAE thresholds are elevated from three weeks in the high-frequency region and progress with age. In humans, the proband of the Chinese family had absent DPOAEs with normal tympanograms, which the authors read as outer hair cell dysfunction. Because mechanotransduction is intact in the mutant, this is a failure of the amplifier through a degrading bundle rather than a failure of the transduction apparatus.</div>
 
 
@@ -5955,6 +6025,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cochlear-hearing-loss" data-dismech-node="Progressive Cochlear Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cochlear Hearing Loss</div>
+
 
                 <div class="item-desc">The clinical endpoint: bilateral sensorineural hearing loss of cochlear origin, ranging from mild-moderate to severe. In the mouse it begins at high frequencies and spreads to lower ones with age, in both the conditional and the constitutive knockout. In humans it is present from early childhood and worsens slowly rather than steeply.</div>
 
@@ -6174,7 +6245,7 @@ This pathophysiological event involves decreased sensory perception of sound (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Otoacoustic Emissions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent distortion product otoacoustic emissions with normal tympanometry in the proband of Family 4, which localises the failure to the outer hair cells rather than the middle ear. Emissions were by contrast present bilaterally in the proband of Family 2 despite moderate-to-severe loss.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:6000182\"}}, {\"id\": \"Bilateral Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and, in all four reported families, the only feature. Loss is bilateral and sensorineural, spanning mild-moderate to severe across the four probands.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Congenital Onset of Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is present from birth or infancy. The proband of Family 1 failed newborn hearing screening bilaterally; the proband of Family 2 was clinically diagnosed at two and a half months. In Family 4 the loss is believed congenital by parental report but newborn screening was not performed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\"}}, {\"id\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ordering claim of the entry, and a negative result carries most of it. In PKHD1L1-deficient mice the bundle develops normally: cohesion is undisturbed, tectorial-membrane attachment crowns form, stereocilin localises correctly to the tips of the tall row, the imprints of the bundle in the tectorial membrane are still present at six months, and planar cell polarity is normal. Mechanotransduction is intact too - FM1-43, which enters hair cells through open transduction channels, loads normally. Only afterwards, from about six weeks of age, does the bundle begin to fail. The disease is therefore a failure to maintain a correctly built bundle, not a failure to build one.\\nThe expression time course sharpens what \\\"maintain\\\" can mean here, and it is worth being precise. PKHD1L1 protein is present on the bundle only in the first ten postnatal days, is largely gone by day 10 and is completely cleared from mature hair cells by day 21 - three weeks before the bundle starts to fail. The protein is therefore not present to perform ongoing maintenance. What its presence during development must be setting is the durability of the finished bundle, which is how the authors themselves put it: expression during development establishes bundles robust enough to last.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cochlear outer hair cell\"], \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The full time course - normal development, then progressive loss of stereocilia and bundle coherence from six weeks - was established in this line, together with the negative controls that rule out an attachment-crown or transduction mechanism.\"}]}}, {\"id\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that carries nearly all of the mechanism in this entry. Deleting Pkhd1l1 in hair cells removes the stereocilia surface coat at the tips while leaving development, mechanotransduction and tectorial-membrane attachment intact, and produces progressive hearing loss beginning at high frequencies. The same line, followed for longer in a second study, gives the bundle-maintenance and noise-susceptibility results; a constitutive knockout made subsequently reproduces the hearing phenotype, which addresses the possibility that the Atoh1-Cre transgene rather than the deletion drives it.\"}, {\"id\": \"Hearing Amplification and Audiological Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are the reported management. The proband of Family 2, whose loss is moderate to severe, uses them bilaterally; nothing else is reported for any of the four patients. Amplification does not act on the mechanism - it raises the signal reaching a cochlea whose amplifier is failing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKHD1L1 is the first identified molecular component of the electron-dense surface coat on hair-cell stereocilia. Immunogold electron microscopy puts it towards the stereocilia tips, at highest density in the top 300 nanometres, in all three rows and preferentially in the high-frequency base of the cochlea. Mice lacking it in hair cells lose the coat at the upper part of the stereocilia while the coat at the bases is unaffected - so the coat is not one substance, and PKHD1L1 accounts for the upper portion of it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cochlear outer hair cell\", \"cochlear inner hair cell\"], \"locations\": [\"organ of Corti\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This model is how the coat was identified as a PKHD1L1 structure at all: the coat at the tips is absent in the mutant and present in littermate controls, on tannic-acid stained transmission electron microscopy.\"}]}}, {\"id\": \"Moderate acoustic overexposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A noise dose in the temporary-threshold-shift range. In PKHD1L1-deficient mice a two-hour exposure to 94 dB SPL bandpass noise at six weeks of age produces a permanent threshold shift, where genotype-matched controls given the same exposure recover to baseline within two weeks. This is the one modifiable factor identified for this disease, and it has been tested only in mice.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distortion product otoacoustic emissions are the direct readout of outer hair cell function, and they fail. In the mouse, DPOAE thresholds are elevated from three weeks in the high-frequency region and progress with age. In humans, the proband of the Chinese family had absent DPOAEs with normal tympanograms, which the authors read as outer hair cell dysfunction. Because mechanotransduction is intact in the mutant, this is a failure of the amplifier through a degrading bundle rather than a failure of the transduction apparatus.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"PKHD1L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PKHD1L1\"], \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PKHD1L1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of PKHD1L1, which encodes a 4243-amino-acid protein that is almost entirely extracellular - a large ectodomain of IPT repeats, a single transmembrane helix, and a cytoplasmic tail of only a handful of residues. The reported human alleles span the mutation classes: a nonsense variant p.(Arg3381Ter) predicted to trigger nonsense-mediated decay, a frameshift p.(Leu2818TyrfsTer5), a variant annotated as missense, p.(Gly605Arg), that a minigene assay shows is really a splice allele causing exon 17 skipping, and two missense alleles whose recombinant protein fragments are measurably destabilised.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"PKHD1L1\"], \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}], \"genetic_context\": {\"allele_type\": \"nonsense, frameshift, splice-disrupting and destabilising missense variants\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Two families are homozygous and two compound heterozygous. The zygosity slot records COMPOUND_HETEROZYGOUS because that is the configuration in the family with the fullest functional workup; the homozygous families are described here rather than by a second value, since the slot is single-valued.\", \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}]}}}, {\"id\": \"Progressive Cochlear Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral sensorineural hearing loss of cochlear origin, ranging from mild-moderate to severe. In the mouse it begins at high frequencies and spreads to lower ones with age, in both the conditional and the constitutive knockout. In humans it is present from early childhood and worsens slowly rather than steeply.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sensory perception of sound\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model produces sensorineural hearing loss of cochlear origin, which is the human endpoint, but on a different schedule. Mouse hearing is normal at first and then declines from about three weeks at high frequencies, spreading to lower ones with age. Human hearing loss is present at birth or within months and then worsens only slowly.\"}, {\"name\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"pkhd1l1a and pkhd1l1b CRISPR-Cas9 loss-of-function alleles, double homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Auditory function is impaired, establishing that the gene\u0027s role in hearing is conserved across vertebrates, and the early onset is the closer match to the human congenital presentation.\"}]}}, {\"id\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stereocilia go missing, beginning in the shortest row and progressing to the taller rows with age, and most prominently but not exclusively in the high-frequency basal region. Bundle disorganisation is not visible at six weeks, is present at fourteen weeks, and is more severe by nine months. The short-row-first pattern is itself an argument against a tectorial-membrane mechanism, because attachment crowns form only on the tallest row.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cochlear outer hair cell\"]}}, {\"id\": \"Reduced Resilience to Acoustic Overexposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A noise dose calibrated to cause only a temporary threshold shift in wild-type mice causes a permanent one in PKHD1L1-deficient mice. Control thresholds recover to baseline by two weeks; mutant thresholds do not, at two weeks or at eight. Morphologically the difference shows as tall-row stereocilia loss and disorganisation after noise, on top of the short-row loss that ageing alone produces. The bundle that develops without a coat is therefore not just slower to fail with age - it is less able to absorb an acoustic insult.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"The noise arm. Six-week-old mutants and littermate controls received the same two-hour 94 dB SPL bandpass exposure; controls recovered to baseline by two weeks and mutants did not, at two weeks or at eight.\"}]}}, {\"id\": \"Severe Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The severe end of the range. The proband of Family 3 had bilateral severe loss, and the proband of Family 2 moderate-to-severe loss at all frequencies by age nine.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008625\"}}, {\"id\": \"Slowly Progressive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Where serial audiometry exists, thresholds worsen slowly. The proband of Family 1 was followed roughly every six months from age four to age thirteen and gained 5 dB of pure-tone average in the right ear and 8 dB in the left over that period - progression, but at a pace an order of magnitude below the several decibels a year seen in DFNB103.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000408\"}}, {\"id\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish carry two pkhd1l1 paralogues, and knocking out both gives auditory impairment that is already present in the larva. The line matters here for one specific reason: its time course resembles the human disease more closely than the mouse\u0027s does, which is what makes the mouse-human onset difference a species question rather than a curation error.\"}], \"edges\": [{\"source\": \"PKHD1L1 Biallelic Loss of Function\", \"target\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"target\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"What the coat does mechanically is not known, so the step from its absence to the loss of bundle integrity is a demonstrated association without an identified intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"target\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Resilience to Acoustic Overexposure\", \"target\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Resilience to Acoustic Overexposure\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Congenital Onset of Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Slowly Progressive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Severe Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Absent Otoacoustic Emissions\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Moderate acoustic overexposure\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The exposure is what converts the latent bundle fragility into permanent damage. It does not cause the disease - the mutant bundle deteriorates with age without any noise challenge - so the effect is EXACERBATES rather than TRIGGERS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification and Audiological Management\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This model is how the coat was identified as a PKHD1L1 structure at all: the coat at the tips is absent in the mutant and present in littermate controls, on tannic-acid stained transmission electron microscopy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The coat has never been examined in human hair cells, in a patient or otherwise, so the identity of the human structure with the mouse one is assumed from protein orthology. The loss is also partial in a specific sense that should not be lost: only the upper coat goes, and the paper suggests the lower coat is made of different proteins.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The full time course - normal development, then progressive loss of stereocilia and bundle coherence from six weeks - was established in this line, together with the negative controls that rule out an attachment-crown or transduction mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The background carries Cdh23ahl, the age-related hearing loss allele of C57BL/6, which is a confound for any age-dependent cochlear phenotype; the first study addressed it by comparing littermates rather than by moving the allele off the background. Bundle damage was scored by counting missing stereocilia on scanning electron microscopy in small numbers of cochleae. And no human bundle has been examined, so the correspondence to the human disease is inferred entirely from the shared gene.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The noise arm. Six-week-old mutants and littermate controls received the same two-hour 94 dB SPL bandpass exposure; controls recovered to baseline by two weeks and mutants did not, at two weeks or at eight.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity is UNKNOWN, not LOW, and the distinction is deliberate: the experiment is well controlled and the result is clear, but there is no human observation of any kind to compare it against, so how faithfully it represents a human patient cannot be assessed. Two further limits belong on the result itself. Threshold shifts were measured against an 80 dB SPL ceiling, and the mutants\u0027 baseline high-frequency thresholds already sit near that ceiling, so the measured shift understates the damage at exactly the frequencies where the disease is worst. And the exposure paradigm is a single laboratory dose, not the chronic, variable noise history a person accumulates.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model produces sensorineural hearing loss of cochlear origin, which is the human endpoint, but on a different schedule. Mouse hearing is normal at first and then declines from about three weeks at high frequencies, spreading to lower ones with age. Human hearing loss is present at birth or within months and then worsens only slowly.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The onset divergence is the substantive limitation and is the subject of an open human-model mismatch discussion. There is a second, quieter one: the two studies of this same line disagree in degree, the later one finding threshold elevations less pronounced and slower to spread than the earlier, which the authors attribute to the recordings being made in different institutions. Any quantitative claim taken from this model should carry that.\"}, {\"source\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Auditory function is impaired, establishing that the gene\u0027s role in hearing is conserved across vertebrates, and the early onset is the closer match to the human congenital presentation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for structural reasons rather than experimental ones. Zebrafish have no cochlea, no outer hair cells and no tectorial membrane, so nothing in this model can speak to the amplification and bundle-maintenance mechanism the mouse establishes; the readout is a behavioural startle response, not an audiogram. Two paralogues had to be removed together, which has no human counterpart. And the resemblance of its time course to the human one is a resemblance, not evidence about mechanism.\"}, {\"source\": \"PKHD1L1\", \"target\": \"PKHD1L1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Otoacoustic Emissions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent distortion product otoacoustic emissions with normal tympanometry in the proband of Family 4, which localises the failure to the outer hair cells rather than the middle ear. Emissions were by contrast present bilaterally in the proband of Family 2 despite moderate-to-severe loss.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:6000182\"}}, {\"id\": \"Bilateral Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and, in all four reported families, the only feature. Loss is bilateral and sensorineural, spanning mild-moderate to severe across the four probands.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Congenital Onset of Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is present from birth or infancy. The proband of Family 1 failed newborn hearing screening bilaterally; the proband of Family 2 was clinically diagnosed at two and a half months. In Family 4 the loss is believed congenital by parental report but newborn screening was not performed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\"}}, {\"id\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ordering claim of the entry, and a negative result carries most of it. In PKHD1L1-deficient mice the bundle develops normally: cohesion is undisturbed, tectorial-membrane attachment crowns form, stereocilin localises correctly to the tips of the tall row, the imprints of the bundle in the tectorial membrane are still present at six months, and planar cell polarity is normal. Mechanotransduction is intact too - FM1-43, which enters hair cells through open transduction channels, loads normally. Only afterwards, from about six weeks of age, does the bundle begin to fail. The disease is therefore a failure to maintain a correctly built bundle, not a failure to build one.\\nThe expression time course sharpens what \\\"maintain\\\" can mean here, and it is worth being precise. PKHD1L1 protein is present on the bundle only in the first ten postnatal days, is largely gone by day 10 and is completely cleared from mature hair cells by day 21 - three weeks before the bundle starts to fail. The protein is therefore not present to perform ongoing maintenance. What its presence during development must be setting is the durability of the finished bundle, which is how the authors themselves put it: expression during development establishes bundles robust enough to last.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cochlear outer hair cell\"], \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The full time course - normal development, then progressive loss of stereocilia and bundle coherence from six weeks - was established in this line, together with the negative controls that rule out an attachment-crown or transduction mechanism.\"}]}}, {\"id\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that carries nearly all of the mechanism in this entry. Deleting Pkhd1l1 in hair cells removes the stereocilia surface coat at the tips while leaving development, mechanotransduction and tectorial-membrane attachment intact, and produces progressive hearing loss beginning at high frequencies. The same line, followed for longer in a second study, gives the bundle-maintenance and noise-susceptibility results; a constitutive knockout made subsequently reproduces the hearing phenotype, which addresses the possibility that the Atoh1-Cre transgene rather than the deletion drives it.\"}, {\"id\": \"Hearing Amplification and Audiological Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are the reported management. The proband of Family 2, whose loss is moderate to severe, uses them bilaterally; nothing else is reported for any of the four patients. Amplification does not act on the mechanism - it raises the signal reaching a cochlea whose amplifier is failing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKHD1L1 is the first identified molecular component of the electron-dense surface coat on hair-cell stereocilia. Immunogold electron microscopy puts it towards the stereocilia tips, at highest density in the top 300 nanometres, in all three rows and preferentially in the high-frequency base of the cochlea. Mice lacking it in hair cells lose the coat at the upper part of the stereocilia while the coat at the bases is unaffected - so the coat is not one substance, and PKHD1L1 accounts for the upper portion of it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cochlear outer hair cell\", \"cochlear inner hair cell\"], \"locations\": [\"organ of Corti\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This model is how the coat was identified as a PKHD1L1 structure at all: the coat at the tips is absent in the mutant and present in littermate controls, on tannic-acid stained transmission electron microscopy.\"}]}}, {\"id\": \"Moderate acoustic overexposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A noise dose in the temporary-threshold-shift range. In PKHD1L1-deficient mice a two-hour exposure to 94 dB SPL bandpass noise at six weeks of age produces a permanent threshold shift, where genotype-matched controls given the same exposure recover to baseline within two weeks. This is the one modifiable factor identified for this disease, and it has been tested only in mice.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distortion product otoacoustic emissions are the direct readout of outer hair cell function, and they fail. In the mouse, DPOAE thresholds are elevated from three weeks in the high-frequency region and progress with age. In humans, the proband of the Chinese family had absent DPOAEs with normal tympanograms, which the authors read as outer hair cell dysfunction. Because mechanotransduction is intact in the mutant, this is a failure of the amplifier through a degrading bundle rather than a failure of the transduction apparatus.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"PKHD1L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PKHD1L1\"], \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PKHD1L1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of PKHD1L1, which encodes a 4243-amino-acid protein that is almost entirely extracellular - a large ectodomain of IPT repeats, a single transmembrane helix, and a cytoplasmic tail of only a handful of residues. The reported human alleles span the mutation classes: a nonsense variant p.(Arg3381Ter) predicted to trigger nonsense-mediated decay, a frameshift p.(Leu2818TyrfsTer5), a variant annotated as missense, p.(Gly605Arg), that a minigene assay shows is really a splice allele causing exon 17 skipping, and two missense alleles whose recombinant protein fragments are measurably destabilised.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"PKHD1L1\"], \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}], \"genetic_context\": {\"allele_type\": \"nonsense, frameshift, splice-disrupting and destabilising missense variants\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Two families are homozygous and two compound heterozygous. The zygosity slot records COMPOUND_HETEROZYGOUS because that is the configuration in the family with the fullest functional workup; the homozygous families are described here rather than by a second value, since the slot is single-valued.\", \"gene_terms\": [{\"label\": \"PKHD1L1\", \"id\": \"hgnc:20313\"}]}}}, {\"id\": \"Progressive Cochlear Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral sensorineural hearing loss of cochlear origin, ranging from mild-moderate to severe. In the mouse it begins at high frequencies and spreads to lower ones with age, in both the conditional and the constitutive knockout. In humans it is present from early childhood and worsens slowly rather than steeply.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sensory perception of sound\"], \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model produces sensorineural hearing loss of cochlear origin, which is the human endpoint, but on a different schedule. Mouse hearing is normal at first and then declines from about three weeks at high frequencies, spreading to lower ones with age. Human hearing loss is present at birth or within months and then worsens only slowly.\"}, {\"name\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"pkhd1l1a and pkhd1l1b CRISPR-Cas9 loss-of-function alleles, double homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Auditory function is impaired, establishing that the gene\u0027s role in hearing is conserved across vertebrates, and the early onset is the closer match to the human congenital presentation.\"}]}}, {\"id\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stereocilia go missing, beginning in the shortest row and progressing to the taller rows with age, and most prominently but not exclusively in the high-frequency basal region. Bundle disorganisation is not visible at six weeks, is present at fourteen weeks, and is more severe by nine months. The short-row-first pattern is itself an argument against a tectorial-membrane mechanism, because attachment crowns form only on the tallest row.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cochlear outer hair cell\"]}}, {\"id\": \"Reduced Resilience to Acoustic Overexposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A noise dose calibrated to cause only a temporary threshold shift in wild-type mice causes a permanent one in PKHD1L1-deficient mice. Control thresholds recover to baseline by two weeks; mutant thresholds do not, at two weeks or at eight. Morphologically the difference shows as tall-row stereocilia loss and disorganisation after noise, on top of the short-row loss that ageing alone produces. The bundle that develops without a coat is therefore not just slower to fail with age - it is less able to absorb an acoustic insult.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pkhd1l1 fl/fl; Atoh1-Cre+ (hair-cell-specific deletion of exon 10)\", \"background\": \"C57BL/6J-derived, carrying the Cdh23ahl age-related hearing loss allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"The noise arm. Six-week-old mutants and littermate controls received the same two-hour 94 dB SPL bandpass exposure; controls recovered to baseline by two weeks and mutants did not, at two weeks or at eight.\"}]}}, {\"id\": \"Severe Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The severe end of the range. The proband of Family 3 had bilateral severe loss, and the proband of Family 2 moderate-to-severe loss at all frequencies by age nine.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008625\"}}, {\"id\": \"Slowly Progressive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Where serial audiometry exists, thresholds worsen slowly. The proband of Family 1 was followed roughly every six months from age four to age thirteen and gained 5 dB of pure-tone average in the right ear and 8 dB in the left over that period - progression, but at a pace an order of magnitude below the several decibels a year seen in DFNB103.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000408\"}}, {\"id\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish carry two pkhd1l1 paralogues, and knocking out both gives auditory impairment that is already present in the larva. The line matters here for one specific reason: its time course resembles the human disease more closely than the mouse\u0027s does, which is what makes the mouse-human onset difference a species question rather than a curation error.\"}], \"edges\": [{\"source\": \"PKHD1L1 Biallelic Loss of Function\", \"target\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"target\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"What the coat does mechanically is not known, so the step from its absence to the loss of bundle integrity is a demonstrated association without an identified intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"target\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Resilience to Acoustic Overexposure\", \"target\": \"Progressive Stereocilia Loss and Bundle Disorganisation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Resilience to Acoustic Overexposure\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Congenital Onset of Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Slowly Progressive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Severe Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Cochlear Hearing Loss\", \"target\": \"Absent Otoacoustic Emissions\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Moderate acoustic overexposure\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The exposure is what converts the latent bundle fragility into permanent damage. It does not cause the disease - the mutant bundle deteriorates with age without any noise challenge - so the effect is EXACERBATES rather than TRIGGERS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification and Audiological Management\", \"target\": \"Outer Hair Cell Dysfunction and Loss of Cochlear Amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Loss of the Stereocilia Surface Coat at Stereocilia Tips\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This model is how the coat was identified as a PKHD1L1 structure at all: the coat at the tips is absent in the mutant and present in littermate controls, on tannic-acid stained transmission electron microscopy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The coat has never been examined in human hair cells, in a patient or otherwise, so the identity of the human structure with the mouse one is assumed from protein orthology. The loss is also partial in a specific sense that should not be lost: only the upper coat goes, and the paper suggests the lower coat is made of different proteins.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Failure of Stereocilia Bundle Maintenance After Normal Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The full time course - normal development, then progressive loss of stereocilia and bundle coherence from six weeks - was established in this line, together with the negative controls that rule out an attachment-crown or transduction mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The background carries Cdh23ahl, the age-related hearing loss allele of C57BL/6, which is a confound for any age-dependent cochlear phenotype; the first study addressed it by comparing littermates rather than by moving the allele off the background. Bundle damage was scored by counting missing stereocilia on scanning electron microscopy in small numbers of cochleae. And no human bundle has been examined, so the correspondence to the human disease is inferred entirely from the shared gene.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Reduced Resilience to Acoustic Overexposure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The noise arm. Six-week-old mutants and littermate controls received the same two-hour 94 dB SPL bandpass exposure; controls recovered to baseline by two weeks and mutants did not, at two weeks or at eight.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity is UNKNOWN, not LOW, and the distinction is deliberate: the experiment is well controlled and the result is clear, but there is no human observation of any kind to compare it against, so how faithfully it represents a human patient cannot be assessed. Two further limits belong on the result itself. Threshold shifts were measured against an 80 dB SPL ceiling, and the mutants\u0027 baseline high-frequency thresholds already sit near that ceiling, so the measured shift understates the damage at exactly the frequencies where the disease is worst. And the exposure paradigm is a single laboratory dose, not the chronic, variable noise history a person accumulates.\"}, {\"source\": \"Hair-cell-specific Pkhd1l1 conditional knockout mouse\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model produces sensorineural hearing loss of cochlear origin, which is the human endpoint, but on a different schedule. Mouse hearing is normal at first and then declines from about three weeks at high frequencies, spreading to lower ones with age. Human hearing loss is present at birth or within months and then worsens only slowly.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The onset divergence is the substantive limitation and is the subject of an open human-model mismatch discussion. There is a second, quieter one: the two studies of this same line disagree in degree, the later one finding threshold elevations less pronounced and slower to spread than the earlier, which the authors attribute to the recordings being made in different institutions. Any quantitative claim taken from this model should carry that.\"}, {\"source\": \"pkhd1l1a/pkhd1l1b double mutant zebrafish\", \"target\": \"Progressive Cochlear Hearing Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Auditory function is impaired, establishing that the gene\u0027s role in hearing is conserved across vertebrates, and the early onset is the closer match to the human congenital presentation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for structural reasons rather than experimental ones. Zebrafish have no cochlea, no outer hair cells and no tectorial membrane, so nothing in this model can speak to the amplification and bundle-maintenance mechanism the mouse establishes; the readout is a behavioural startle response, not an audiogram. Two paralogues had to be removed together, which has no human counterpart. And the resemblance of its time course to the human one is a resemblance, not evidence about mechanism.\"}, {\"source\": \"PKHD1L1\", \"target\": \"PKHD1L1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6217,6 +6288,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">OBLIGATE is used because the source states this of all four probands, and because a nonsyndromic deafness entity is ascertained through the hearing loss so no unaffected biallelic carrier could have been reported. The denominator is nevertheless four probands.</div>
@@ -6317,6 +6391,9 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
                 </div>
 
 
+
+
+
                 <div class="item-desc">The source is not perfectly self-consistent on this point and the entry follows the more cautious of its two statements. Its introduction says all four probands presented with bilateral congenital hearing loss; its discussion says the presentation is congenital &#34;in the majority of patients&#34;. VERY_FREQUENT rather than OBLIGATE records the weaker claim, which is also the one supported by the case descriptions, where one family&#39;s congenital onset rests on parental report without a newborn screen.</div>
 
 
@@ -6415,6 +6492,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
                 </div>
 
 
+
+
+
                 <div class="item-desc">FREQUENT rather than more, because serial audiometry over years is reported for one proband. The other three are single or short-interval assessments, which cannot establish progression either way.</div>
 
 
@@ -6486,6 +6566,9 @@ This clinical feature is Severe sensorineural hearing impairment (HP:0008625). H
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">A caveat belongs with this phenotype rather than in a footnote. The severe proband, Family 3, is also the one where causation is least secure: he carries a homozygous MYO7A p.(Leu375Val) variant in addition to the homozygous PKHD1L1 p.(His2479Gln), and the authors state that the PKHD1L1 variant could be incidental, or that both could contribute to a more severe loss. So the severe pole of this disease&#39;s range is supported by the least clean of the four families. That is why the frequency is OCCASIONAL and why the caveat is recorded here.</div>
@@ -6584,6 +6667,9 @@ This clinical feature is Absent otoacoustic emissions (HP:6000182). HP:6000182 i
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Curated because it is the only human measurement in the series that speaks to cell type, and because it is not uniform: one proband has absent emissions and another has preserved ones. Both facts are recorded rather than the convenient one alone.</div>
@@ -6701,6 +6787,9 @@ This disease-associated gene is PKHD1L1 (hgnc:20313). hgnc:20313 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6933,6 +7022,9 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6943,6 +7035,9 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
     </div>
+
+
+
 
 
 
@@ -7056,6 +7151,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7066,6 +7164,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10158,6 +10259,63 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope decision: curated as a DISEASE. One gene, one proximal lesion - the missing surface coat on the upper stereocilia - and one clinical picture. There are no member diseases to unite and this is not a subtype of any curated entry. Its MONDO parent, MONDO:0019588 hearing loss, autosomal recessive, is an ontology grouping of dozens of unrelated DFNB loci and is not a dismech entry. The stub is deleted by this change.
+On the HPOA annotations for MONDO:0968981, which are not used. The Monarch/HPOA set for this term carries five phenotypes, all sourced to PMID:38459354: sensorineural hearing impairment, abnormal vestibular function, abnormality of the eye, intellectual disability, and abnormality of the cardiovascular system. The bottom three contradict the paper they cite - it reports the ophthalmology exam, the electrocardiogram and development as normal, and states in terms that syndromic involvement was excluded in all four probands. That sentence is quoted on the hearing phenotype in this entry. The most likely explanation is an import that lost the negation from an OMIM clinical synopsis. The vestibular annotation traces to a single episode of benign paroxysmal positional vertigo in one proband which resolved after an Epley manoeuvre, and which the paper does not treat as part of the phenotype. None of the four is curated here. This is worth reporting upstream; it is plausibly systematic rather than specific to this term.
+On module conformance. Only the terminal node conforms to sensorineural_hair_cell_loss, and the reasoning is on that node. The short version is that conforming to the module&#39;s &#34;Hair Cell Mechanotransduction Failure and Death&#34; node would assert a mechanism the data contradict - FM1-43 loads normally in PKHD1L1-deficient hair cells - and that its ionic and oxidative-stress node has simply never been investigated in this disease. Note that the neighbouring cochlear entries Autosomal_Recessive_Nonsyndromic_Hearing_Loss_103 and Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104 declare no conformance at all, while Noise_Induced_Hearing_Loss conforms at five nodes; this entry sits between them deliberately rather than by omission.
+Where this entry and the neighbouring cochlear entries should agree, and where they should not. DFNB103 (CLIC5) is a lesion at the stereocilia taper, on the inside of the membrane, tethering it to the actin core. DFNB124 is on the outside, at the tips, and is a coat rather than a tether. Neither is a transduction or synaptic disease. The one substantive claim this entry makes about the bundle surface that a reader might want to carry across is narrow: PKHD1L1 forms the upper part of the coat and not the lower, so &#34;the stereocilia coat&#34; is not one thing, and an entry elsewhere that treats it as a single structure would be overreaching.
+What is deliberately not curated. There is no biochemical, histopathology or imaging block; no patient tissue or cochlear imaging has been published. There are no clinical trials - none is registered for this gene or disorder. Cochlear implantation is not curated as a treatment, and noise avoidance is not curated as a treatment; both are argued in the treatments notes and the noise discussion. The Cell Image Library deposits behind the immunogold FIB-SEM localisation (PMID:32555200) are not curated as a datasets record because this repository has no prefix for that archive and the dataset verifier could not resolve one; the paper is cited in the top-level references instead.
+On the deep-research report. research/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124-deep-research-falcon.md is committed with this entry. Its Named Entity Confusion preflight passes: PKHD1L1 is mentioned 50 times against 7 for the next token, and it correctly identifies MYO7A as the competing gene in Family 3 rather than as a second cause of the disease. All eleven of its references resolved. It added nothing this entry does not contain, which is expected given that the disease has one clinical paper; its useful contribution was independent confirmation that no clinical trial and no Orphanet record exist. Its one obsolete term suggestion, GO:0032429, is not used, and every ontology term here was resolved through OLS and checked against the label the service returned.
+On PKHD1L1&#39;s non-cochlear biology, which is extensive and none of which is DFNB124: it is summarised in the genetic notes rather than here, because the point is about the gene rather than about curation scope.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Nonsyndromic Hearing Loss 124 (MONDO:0968981, PKHD1L1)</strong> · 2026-09-04T00:08:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124/2026-09-04T000832Z-claude-code-4a5a08.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124.yaml
+(MONDO:0968981, PKHD1L1, OMIM 620794). Scope decision: DISEASE - one gene, one
+proximal lesion (loss of the stereocilia surface coat on the upper stereocilia),
+one clinical picture. Stub deleted.
+
+Deep research: falcon (Edison), run through scripts/run_deep_research_client.sh
+directly. NEC preflight passes (PKHD1L1 mentioned 50 times; MYO7A correctly
+identified as the competing gene in one family rather than a second cause). It
+added nothing the primary literature does not carry.
+
+Sources: PMID:38459354 (Redfield 2024, full text) is the defining human paper -
+four families; PMID:31444330 (Wu 2019) identifies PKHD1L1 as the coat protein;
+PMID:39482437 (Strelkova 2024) supplies the bundle-maintenance time course, the
+negative controls and the noise result; PMID:36960824 is the zebrafish model.
+
+Curation decisions worth recording. Only the terminal pathophysiology node
+conforms to sensorineural_hair_cell_loss: conforming to that module&#39;s
+mechanotransduction node would assert a mechanism the data contradict, since
+FM1-43 loads normally in PKHD1L1-deficient hair cells, and its ionic/oxidative
+node has never been investigated here. The noise result is curated structurally
+as an environmental entry with an EXACERBATES influences_mechanisms link plus a
+PROVISIONAL node, and deliberately NOT as a treatment, because it is a mouse
+result and the human paper names it as an open question. The mouse-human onset
+divergence is a HUMAN_MODEL_MISMATCH discussion. The Family 3 MYO7A confound is
+recorded on the severe phenotype and in its own discussion rather than glossed.
+The four HPOA annotations on MONDO:0968981 that contradict &#34;nonsyndromic&#34; are
+not curated; the reasoning is in the entry notes and is worth reporting upstream.
+
+Validation: just validate exit 0; 62/62 snippets verified; check-duplicate-keys,
+check-entity-refs, check-causal-targets, check-snippet-length,
+check-title-snippets, check-snippet-grading, check-environmental-evidence,
+check-folded-hyphens all exit 0. One bracketed-phase snippet from the abstract
+was replaced with two case-description quotes because the reference validator
+strips bracketed spans before matching.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

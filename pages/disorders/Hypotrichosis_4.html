@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypotrichosis%204"
@@ -4023,7 +4076,7 @@ What excess hairless then does to the follicle is established only in the mouse.
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4746,6 +4799,7 @@ What excess hairless then does to the follicle is established only in the mouse.
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hrurf-upstream-open-reading-frame-disruption" data-dismech-node="HRURF Upstream Open Reading Frame Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">HRURF Upstream Open Reading Frame Disruption</div>
 
+
                 <div class="item-desc">A heterozygous germline variant disrupts the 34-codon inhibitory upstream open reading frame HRURF (U2HR) in the 5&#39; untranslated region of the HR transcript. Loss-of-initiation, delayed-termination, nonsense and missense changes all destroy the uORF peptide&#39;s normal function. The variant is loss-of-function *for the uORF*; its effect on hairless is the opposite (see the next node).
 </div>
 
@@ -4799,6 +4853,8 @@ This genetic context concerns HRURF (hgnc:55085). hgnc:55085 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4811,6 +4867,9 @@ This genetic context concerns HRURF (hgnc:55085). hgnc:55085 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The category applies to HRURF, whose repressive uORF function is abolished. The downstream consequence for HR is increased protein output, which is a different claim about a different gene product and is modeled as a separate node.
 </div>
@@ -4974,6 +5033,7 @@ This pathophysiological event involves uORF-mediated repression of translational
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translational-de-repression-of-the-main-hr-open-reading-frame" data-dismech-node="Translational De-repression of the Main HR Open Reading Frame" data-dismech-type="pathophysiology">
                 <div class="item-name">Translational De-repression of the Main HR Open Reading Frame</div>
 
+
                 <div class="item-desc">With the inhibitory uORF disabled, ribosomes translate the downstream main HR open reading frame more efficiently. This is the pivotal direction in the entry: translation of HR goes *up*, not down.
 </div>
 
@@ -5134,6 +5194,7 @@ This pathophysiological event involves increased translation of the main HR open
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hairless-corepressor-protein-overexpression" data-dismech-node="Hairless Corepressor Protein Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">Hairless Corepressor Protein Overexpression</div>
+
 
                 <div class="item-desc">Hairless is a nuclear-receptor transcriptional corepressor expressed mainly in skin and brain that governs hair-follicle morphogenesis and cycling. In MUHH1 the protein itself is structurally normal; there is simply too much of it. Because HR acts by repressing transcription, excess HR means excess corepression at its target genes. Hair growth depends on HR being present in the right amount rather than merely present, which is why both loss and gain of HR produce alopecia.
 </div>
@@ -5344,6 +5405,7 @@ This pathophysiological event involves increased hairless-mediated transcription
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-wnt-pathway-modulation-in-the-hair-follicle" data-dismech-node="Dysregulated Wnt Pathway Modulation in the Hair Follicle" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Wnt Pathway Modulation in the Hair Follicle</div>
 
+
                 <div class="item-desc">In the hairpoor mouse, HR overexpression changes the expression of secreted Wnt inhibitors in follicular skin. The two published results are not concordant in sign: Sfrp2 falls (which the authors read as excess Wnt activation), while Dkk1 rises (a Wnt inhibitor and catagen inducer). The node therefore records the pathway as dysregulated rather than asserting a direction, and the discrepancy is tracked as an open controversy. Nothing here has been shown in human MUHH1 skin.
 </div>
 
@@ -5540,6 +5602,7 @@ This pathophysiological event involves dysregulated secreted Wnt-inhibitor (Sfrp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-catagen-entry-and-hair-follicle-shortening" data-dismech-node="Premature Catagen Entry and Hair Follicle Shortening" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Catagen Entry and Hair Follicle Shortening</div>
 
+
                 <div class="item-desc">Heterozygous hairpoor mice enter catagen earlier and grow shorter hair follicles than wild type. This is the mechanistic proposal for why MUHH1 hair is short and why follicles progressively fail; it is a mouse result and has not been shown in human MUHH1 scalp.
 </div>
 
@@ -5676,6 +5739,7 @@ This pathophysiological event involves abnormal hair cycle (anagen-catagen trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-loss-of-hair-follicle-density" data-dismech-node="Progressive Loss of Hair Follicle Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Loss of Hair Follicle Density</div>
+
 
                 <div class="item-desc">Scalp biopsy in MUHH1 shows a markedly reduced number of follicles per unit area with only a mild to moderate inflammatory infiltrate, little fibrosis and no scarring - a non-scarring alopecia. The mechanism by which follicles are lost was explicitly stated as unknown in the largest histopathological pedigree study and remains so.
 </div>
@@ -5896,6 +5960,7 @@ This pathophysiological event involves abnormal hair follicle development and ma
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-hair-shaft-formation" data-dismech-node="Abnormal Hair Shaft Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Hair Shaft Formation</div>
+
 
                 <div class="item-desc">The hair that does grow is structurally abnormal: shafts of uniformly increased and variable diameter (up to 0.12 mm), deeply pigmented, twisted, bent at odd angles, longitudinally grooved on scanning electron microscopy, and irregular in cross-section. Dermoscopy shows pili torti. This produces the coarse, wiry, unruly hair of the childhood phase.
 </div>
@@ -6136,7 +6201,7 @@ This pathophysiological event involves abnormal hair follicle development and ma
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Hair Shaft Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hair that does grow is structurally abnormal: shafts of uniformly increased and variable diameter (up to 0.12 mm), deeply pigmented, twisted, bent at odd angles, longitudinally grooved on scanning electron microscopy, and irregular in cross-section. Dermoscopy shows pili torti. This produces the coarse, wiry, unruly hair of the childhood phase.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Coarse Wiry Scalp Hair in Childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"During early infancy and childhood the scalp hair becomes coarse, wiry and unruly, standing out from the head. This is the most distinctive phase of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002208\"}}, {\"id\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the hairpoor mouse, HR overexpression changes the expression of secreted Wnt inhibitors in follicular skin. The two published results are not concordant in sign: Sfrp2 falls (which the authors read as excess Wnt activation), while Dkk1 rises (a Wnt inhibitor and catagen inducer). The node therefore records the pathway as dysregulated rather than asserting a direction, and the discrepancy is tracked as an open controversy. Nothing here has been shown in human MUHH1 skin.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway modulation in follicular skin\", \"secreted Wnt-inhibitor (Sfrp2, Dkk1) expression\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"This model is the sole source of the Wnt-modulation claim; it measures Sfrp2 and Dkk1 transcript and protein levels in mutant skin.\\n\"}]}}, {\"id\": \"HRURF Upstream Open Reading Frame Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous germline variant disrupts the 34-codon inhibitory upstream open reading frame HRURF (U2HR) in the 5\u0027 untranslated region of the HR transcript. Loss-of-initiation, delayed-termination, nonsense and missense changes all destroy the uORF peptide\u0027s normal function. The variant is loss-of-function *for the uORF*; its effect on hairless is the opposite (see the next node).\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"uORF-mediated repression of translational initiation at the main HR ORF\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The category applies to HRURF, whose repressive uORF function is abolished. The downstream consequence for HR is increased protein output, which is a different claim about a different gene product and is modeled as a separate node.\\n\", \"gene_terms\": [{\"label\": \"HRURF\", \"id\": \"hgnc:55085\"}]}}}, {\"id\": \"Hairless Corepressor Protein Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hairless is a nuclear-receptor transcriptional corepressor expressed mainly in skin and brain that governs hair-follicle morphogenesis and cycling. In MUHH1 the protein itself is structurally normal; there is simply too much of it. Because HR acts by repressing transcription, excess HR means excess corepression at its target genes. Hair growth depends on HR being present in the right amount rather than merely present, which is why both loss and gain of HR produce alopecia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hair follicle keratinocyte\"], \"biological_processes\": [\"hairless-mediated transcriptional corepression at nuclear-receptor target genes\"]}}, {\"id\": \"Hairpoor mouse (Hr^Hp)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-derived mouse carrying the mutation orthologous to human MUHH1 variants - in the start codon of the second uORF in the Hr 5\u0027 UTR. It is the only in vivo model of the uORF-dosage mechanism, and every downstream mechanistic claim in this entry beyond \\\"translation of HR increases\\\" comes from it.\\n\"}, {\"id\": \"Pili Torti\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dermoscopy of the scalp in molecularly confirmed MUHH1 shows pili torti (hairs twisted about their long axis) together with yellow dots.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003777\"}}, {\"id\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous hairpoor mice enter catagen earlier and grow shorter hair follicles than wild type. This is the mechanistic proposal for why MUHH1 hair is short and why follicles progressively fail; it is a mouse result and has not been shown in human MUHH1 scalp.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hair cycle (anagen-catagen transition)\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous hairpoor mice enter catagen earlier and have shorter follicles than wild type, measured directly by hair-cycle staging and follicle length.\\n\"}]}}, {\"id\": \"Progressive Loss of Hair Follicle Density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scalp biopsy in MUHH1 shows a markedly reduced number of follicles per unit area with only a mild to moderate inflammatory infiltrate, little fibrosis and no scarring - a non-scarring alopecia. The mechanism by which follicles are lost was explicitly stated as unknown in the largest histopathological pedigree study and remains so.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hair follicle keratinocyte\"], \"biological_processes\": [\"hair follicle development and maintenance\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Heterozygous mutants have sparse, short hair progressing towards near alopecia, broadly paralleling the human progressive loss.\\n\"}]}}, {\"id\": \"Progressive Scalp Hair Loss After Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"From around puberty, scalp hair is progressively lost in a patterned distribution that can mimic androgenetic or female-pattern hair loss, in the most advanced cases leaving only a sparse fringe in the tonsorial distribution.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002287\"}}, {\"id\": \"Translational De-repression of the Main HR Open Reading Frame\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the inhibitory uORF disabled, ribosomes translate the downstream main HR open reading frame more efficiently. This is the pivotal direction in the entry: translation of HR goes *up*, not down.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"translation of the main HR open reading frame\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse uATG mutation abolishes the same uORF and produces HR overexpression by translational derepression, the same molecular event as in human MUHH1.\\n\"}]}}], \"edges\": [{\"source\": \"HRURF Upstream Open Reading Frame Disruption\", \"target\": \"Translational De-repression of the Main HR Open Reading Frame\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destroying the uORF removes the translational brake it imposes on the downstream main HR ORF.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translational De-repression of the Main HR Open Reading Frame\", \"target\": \"Hairless Corepressor Protein Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More efficient translation of the main ORF raises HR protein levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hairless Corepressor Protein Overexpression\", \"target\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess HR corepressor alters transcription of Wnt-pathway modulator genes in follicular skin. Demonstrated in the hairpoor mouse only.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hairless Corepressor Protein Overexpression\", \"target\": \"Abnormal Hair Shaft Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The coarse, twisted, variable-calibre shafts of MUHH1 arise in follicles operating under excess HR corepression. The intervening steps between HR dosage and shaft geometry are not established; the link is recorded as indirect and the specific cellular step is flagged in `discussions`.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"target\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upregulation of the catagen-inducing Wnt inhibitor Dkk1 accompanies early catagen entry and shorter follicles in heterozygous hairpoor mice.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"target\": \"Progressive Loss of Hair Follicle Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated cycles truncated at catagen are the proposed route to permanent follicle loss. The step is inferred: no study follows individual human MUHH1 follicles from shortened cycling to loss.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Loss of Hair Follicle Density\", \"target\": \"Progressive Scalp Hair Loss After Puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of follicles is what the patterned post-pubertal alopecia consists of.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Hair Shaft Formation\", \"target\": \"Coarse Wiry Scalp Hair in Childhood\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered shaft geometry is what makes the hair coarse, wiry and unruly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Hair Shaft Formation\", \"target\": \"Pili Torti\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Twisting of the shaft on its own axis is seen dermoscopically as pili torti.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coarse Wiry Scalp Hair in Childhood\", \"target\": \"Progressive Scalp Hair Loss After Puberty\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The coarse childhood hair is subsequently lost from around puberty.\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Translational De-repression of the Main HR Open Reading Frame\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse uATG mutation abolishes the same uORF and produces HR overexpression by translational derepression, the same molecular event as in human MUHH1.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The allele behaves as semidominant in the mouse - homozygotes are completely bald with cyst-like follicles, a state with no human counterpart, since human MUHH1 is described only in heterozygotes. Several mechanistic results in this model were obtained from homozygotes or from HR-overexpressing keratinocytes rather than from the heterozygote that corresponds to the human genotype.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"This model is the sole source of the Wnt-modulation claim; it measures Sfrp2 and Dkk1 transcript and protein levels in mutant skin.\\n\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"The link extrapolates upward: the measurements are transcript and protein levels in mouse skin, while the node asserts a cell-level change in Wnt pathway activity in the hair follicle. No Wnt pathway readout has been reported in human MUHH1 scalp at all, and the two reported modulator changes point in opposite directions on net Wnt activity.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous hairpoor mice enter catagen earlier and have shorter follicles than wild type, measured directly by hair-cycle staging and follicle length.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Premature catagen entry has never been demonstrated in human MUHH1 scalp; the only human histopathology available is a cross-sectional follicle count. The mouse hair cycle is synchronized and wave-like whereas the human scalp cycles asynchronously, so timing results do not transfer directly.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Progressive Loss of Hair Follicle Density\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous mutants have sparse, short hair progressing towards near alopecia, broadly paralleling the human progressive loss.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse phenotype is not the human natural history. Human MUHH1 is triphasic - sparse at birth, coarse and wiry in childhood, then patterned loss from puberty - and the model has no counterpart to the childhood coarse-wiry phase or to the pubertal inflection point. No follicle-density quantification in the mutant was reported for comparison with the human count of nine hairs per 4 mm section.\\n\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Hair Shaft Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hair that does grow is structurally abnormal: shafts of uniformly increased and variable diameter (up to 0.12 mm), deeply pigmented, twisted, bent at odd angles, longitudinally grooved on scanning electron microscopy, and irregular in cross-section. Dermoscopy shows pili torti. This produces the coarse, wiry, unruly hair of the childhood phase.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Coarse Wiry Scalp Hair in Childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"During early infancy and childhood the scalp hair becomes coarse, wiry and unruly, standing out from the head. This is the most distinctive phase of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002208\"}}, {\"id\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the hairpoor mouse, HR overexpression changes the expression of secreted Wnt inhibitors in follicular skin. The two published results are not concordant in sign: Sfrp2 falls (which the authors read as excess Wnt activation), while Dkk1 rises (a Wnt inhibitor and catagen inducer). The node therefore records the pathway as dysregulated rather than asserting a direction, and the discrepancy is tracked as an open controversy. Nothing here has been shown in human MUHH1 skin.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway modulation in follicular skin\", \"secreted Wnt-inhibitor (Sfrp2, Dkk1) expression\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"This model is the sole source of the Wnt-modulation claim; it measures Sfrp2 and Dkk1 transcript and protein levels in mutant skin.\\n\"}]}}, {\"id\": \"HRURF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HRURF\"], \"gene_terms\": [{\"label\": \"HRURF\", \"id\": \"hgnc:55085\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HRURF Upstream Open Reading Frame Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous germline variant disrupts the 34-codon inhibitory upstream open reading frame HRURF (U2HR) in the 5\u0027 untranslated region of the HR transcript. Loss-of-initiation, delayed-termination, nonsense and missense changes all destroy the uORF peptide\u0027s normal function. The variant is loss-of-function *for the uORF*; its effect on hairless is the opposite (see the next node).\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"uORF-mediated repression of translational initiation at the main HR ORF\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The category applies to HRURF, whose repressive uORF function is abolished. The downstream consequence for HR is increased protein output, which is a different claim about a different gene product and is modeled as a separate node.\\n\", \"gene_terms\": [{\"label\": \"HRURF\", \"id\": \"hgnc:55085\"}]}}}, {\"id\": \"Hairless Corepressor Protein Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hairless is a nuclear-receptor transcriptional corepressor expressed mainly in skin and brain that governs hair-follicle morphogenesis and cycling. In MUHH1 the protein itself is structurally normal; there is simply too much of it. Because HR acts by repressing transcription, excess HR means excess corepression at its target genes. Hair growth depends on HR being present in the right amount rather than merely present, which is why both loss and gain of HR produce alopecia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hair follicle keratinocyte\"], \"biological_processes\": [\"hairless-mediated transcriptional corepression at nuclear-receptor target genes\"]}}, {\"id\": \"Hairpoor mouse (Hr^Hp)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-derived mouse carrying the mutation orthologous to human MUHH1 variants - in the start codon of the second uORF in the Hr 5\u0027 UTR. It is the only in vivo model of the uORF-dosage mechanism, and every downstream mechanistic claim in this entry beyond \\\"translation of HR increases\\\" comes from it.\\n\"}, {\"id\": \"Pili Torti\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dermoscopy of the scalp in molecularly confirmed MUHH1 shows pili torti (hairs twisted about their long axis) together with yellow dots.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003777\"}}, {\"id\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous hairpoor mice enter catagen earlier and grow shorter hair follicles than wild type. This is the mechanistic proposal for why MUHH1 hair is short and why follicles progressively fail; it is a mouse result and has not been shown in human MUHH1 scalp.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hair cycle (anagen-catagen transition)\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous hairpoor mice enter catagen earlier and have shorter follicles than wild type, measured directly by hair-cycle staging and follicle length.\\n\"}]}}, {\"id\": \"Progressive Loss of Hair Follicle Density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scalp biopsy in MUHH1 shows a markedly reduced number of follicles per unit area with only a mild to moderate inflammatory infiltrate, little fibrosis and no scarring - a non-scarring alopecia. The mechanism by which follicles are lost was explicitly stated as unknown in the largest histopathological pedigree study and remains so.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hair follicle keratinocyte\"], \"biological_processes\": [\"hair follicle development and maintenance\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Heterozygous mutants have sparse, short hair progressing towards near alopecia, broadly paralleling the human progressive loss.\\n\"}]}}, {\"id\": \"Progressive Scalp Hair Loss After Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"From around puberty, scalp hair is progressively lost in a patterned distribution that can mimic androgenetic or female-pattern hair loss, in the most advanced cases leaving only a sparse fringe in the tonsorial distribution.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002287\"}}, {\"id\": \"Translational De-repression of the Main HR Open Reading Frame\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the inhibitory uORF disabled, ribosomes translate the downstream main HR open reading frame more efficiently. This is the pivotal direction in the entry: translation of HR goes *up*, not down.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"translation of the main HR open reading frame\"], \"animal_models\": [{\"name\": \"Hairpoor mouse (Hr^Hp)\", \"species\": \"Mouse\", \"genotype\": \"Hr^Hp/+ heterozygous and Hr^Hp/Hr^Hp homozygous; T-to-A transversion at nucleotide 403 abolishing the uATG of the second uORF in the Hr 5\u0027 UTR\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse uATG mutation abolishes the same uORF and produces HR overexpression by translational derepression, the same molecular event as in human MUHH1.\\n\"}]}}], \"edges\": [{\"source\": \"HRURF Upstream Open Reading Frame Disruption\", \"target\": \"Translational De-repression of the Main HR Open Reading Frame\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destroying the uORF removes the translational brake it imposes on the downstream main HR ORF.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translational De-repression of the Main HR Open Reading Frame\", \"target\": \"Hairless Corepressor Protein Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More efficient translation of the main ORF raises HR protein levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hairless Corepressor Protein Overexpression\", \"target\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess HR corepressor alters transcription of Wnt-pathway modulator genes in follicular skin. Demonstrated in the hairpoor mouse only.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hairless Corepressor Protein Overexpression\", \"target\": \"Abnormal Hair Shaft Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The coarse, twisted, variable-calibre shafts of MUHH1 arise in follicles operating under excess HR corepression. The intervening steps between HR dosage and shaft geometry are not established; the link is recorded as indirect and the specific cellular step is flagged in `discussions`.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"target\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upregulation of the catagen-inducing Wnt inhibitor Dkk1 accompanies early catagen entry and shorter follicles in heterozygous hairpoor mice.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"target\": \"Progressive Loss of Hair Follicle Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated cycles truncated at catagen are the proposed route to permanent follicle loss. The step is inferred: no study follows individual human MUHH1 follicles from shortened cycling to loss.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Loss of Hair Follicle Density\", \"target\": \"Progressive Scalp Hair Loss After Puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of follicles is what the patterned post-pubertal alopecia consists of.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Hair Shaft Formation\", \"target\": \"Coarse Wiry Scalp Hair in Childhood\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered shaft geometry is what makes the hair coarse, wiry and unruly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Hair Shaft Formation\", \"target\": \"Pili Torti\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Twisting of the shaft on its own axis is seen dermoscopically as pili torti.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coarse Wiry Scalp Hair in Childhood\", \"target\": \"Progressive Scalp Hair Loss After Puberty\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The coarse childhood hair is subsequently lost from around puberty.\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Translational De-repression of the Main HR Open Reading Frame\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse uATG mutation abolishes the same uORF and produces HR overexpression by translational derepression, the same molecular event as in human MUHH1.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The allele behaves as semidominant in the mouse - homozygotes are completely bald with cyst-like follicles, a state with no human counterpart, since human MUHH1 is described only in heterozygotes. Several mechanistic results in this model were obtained from homozygotes or from HR-overexpressing keratinocytes rather than from the heterozygote that corresponds to the human genotype.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Dysregulated Wnt Pathway Modulation in the Hair Follicle\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"This model is the sole source of the Wnt-modulation claim; it measures Sfrp2 and Dkk1 transcript and protein levels in mutant skin.\\n\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"The link extrapolates upward: the measurements are transcript and protein levels in mouse skin, while the node asserts a cell-level change in Wnt pathway activity in the hair follicle. No Wnt pathway readout has been reported in human MUHH1 scalp at all, and the two reported modulator changes point in opposite directions on net Wnt activity.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Premature Catagen Entry and Hair Follicle Shortening\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous hairpoor mice enter catagen earlier and have shorter follicles than wild type, measured directly by hair-cycle staging and follicle length.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Premature catagen entry has never been demonstrated in human MUHH1 scalp; the only human histopathology available is a cross-sectional follicle count. The mouse hair cycle is synchronized and wave-like whereas the human scalp cycles asynchronously, so timing results do not transfer directly.\\n\"}, {\"source\": \"Hairpoor mouse (Hr^Hp)\", \"target\": \"Progressive Loss of Hair Follicle Density\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous mutants have sparse, short hair progressing towards near alopecia, broadly paralleling the human progressive loss.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse phenotype is not the human natural history. Human MUHH1 is triphasic - sparse at birth, coarse and wiry in childhood, then patterned loss from puberty - and the model has no counterpart to the childhood coarse-wiry phase or to the pubertal inflection point. No follicle-density quantification in the mutant was reported for comparison with the human count of nine hairs per 4 mm section.\\n\"}, {\"source\": \"HRURF\", \"target\": \"HRURF Upstream Open Reading Frame Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6193,6 +6258,9 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6292,6 +6360,9 @@ This clinical feature is Sparse eyebrow (HP:0045075). HP:0045075 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6386,6 +6457,9 @@ This clinical feature is Sparse eyelashes (HP:0000653). HP:0000653 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6454,6 +6528,9 @@ This clinical feature is Widely-spaced incisors (HP:0006304). HP:0006304 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6534,6 +6611,9 @@ This clinical feature is Coarse hair (HP:0002208). HP:0002208 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6642,6 +6722,9 @@ This clinical feature is Progressive alopecia (HP:0002287). HP:0002287 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6736,6 +6819,9 @@ This clinical feature is Sparse body hair (HP:0002231). HP:0002231 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6805,6 +6891,9 @@ This clinical feature is Pili torti (HP:0003777). HP:0003777 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6869,6 +6958,9 @@ This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6985,6 +7077,9 @@ This disease-associated gene is HRURF (hgnc:55085). hgnc:55085 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7115,6 +7210,9 @@ This disease-associated gene is HR (hgnc:5172). hgnc:5172 is a gene from the HUG
 
 
 
+
+
+
             </div>
 
         </div>
@@ -7179,6 +7277,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7189,6 +7290,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7307,6 +7411,9 @@ This treatment uses minoxidil (CHEBI:6942). CHEBI:6942 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7317,6 +7424,9 @@ This treatment uses minoxidil (CHEBI:6942). CHEBI:6942 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -8819,7 +8929,7 @@ parents:
 - Congenital Hypotrichosis
 references:
 - reference: DOI:10.1111/jocd.70382
-  title: &#34;Significant Hair Regrowth With 5% Topical Minoxidil in a Child With Marie Unna Hereditary Hypotrichosis Caused by a Recurrent HRURF Variant&#34;
+  title: &#34;Significant Hair Regrowth With 5% Topical Minoxidil in a Child With Marie Unna Hereditary Hypotrichosis Caused by a Recurrent &lt;scp&gt;&lt;i&gt;HRURF&lt;/i&gt;&lt;/scp&gt; Variant&#34;
 - reference: PMID:22584530
   title: &#34;A newly identified missense mutation of the HR gene is associated with a novel, unusual phenotype of Marie Unna Hereditary Hypotrichosis 1 including limb deformities.&#34;
 mappings:
@@ -9696,11 +9806,11 @@ treatments:
   notes: &gt;
     Deliberately carries no evidence item. The source is Cui et al., J Cosmet Dermatol
     2025, DOI:10.1111/jocd.70382 (PMC12340736), listed in the top-level `references:`
-    block. The record is cached here as DOI_10.1111_jocd.70382.md, but it has no
-    abstract in PubMed, Europe PMC or Crossref and no PubMed record at all, so there is
-    no quotable text and no exact snippet could be extracted. Rather than quote the
-    title as if it were a finding, the claim is left unevidenced and the limitation
-    stated here. Anyone acting on this lead should read the paper directly.
+    block. The local DOI_10.1111_jocd.70382.md cache contains bibliographic metadata
+    without an abstract or full text. Europe PMC indexes the letter as PMC12340736
+    without a PMID and provides open full text; the missing local body does not mean
+    that the source has no quotable text. The claim remains unevidenced here pending
+    retrieval and verification of a substantive passage from that full text.
 animal_models:
 - name: Hairpoor mouse (Hr^Hp)
   species: Mouse
@@ -10004,7 +10114,7 @@ notes: &gt;
                                 <a href="https://bioregistry.io/DOI:10.1111/jocd.70382" target="_blank">DOI:10.1111/jocd.70382</a>
                             </div>
 
-                            <div class="reference-title">Significant Hair Regrowth With 5% Topical Minoxidil in a Child With Marie Unna Hereditary Hypotrichosis Caused by a Recurrent HRURF Variant</div>
+                            <div class="reference-title">Significant Hair Regrowth With 5% Topical Minoxidil in a Child With Marie Unna Hereditary Hypotrichosis Caused by a Recurrent &lt;scp&gt;&lt;i&gt;HRURF&lt;/i&gt;&lt;/scp&gt; Variant</div>
 
                         </div>
 
@@ -10039,6 +10149,46 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split. MONDO:0100522 is curated here as a disease, not as a subtype or a grouping. Its MONDO parent, MONDO:0018631 &#34;Marie Unna hereditary hypotrichosis&#34;, has exactly two children - this concept (MUHH1, causal gene HGNC:55085 HRURF at 8p21.3) and MONDO:0013017 hypotrichosis 5 (MUHH2, attributed to EPS8L3 at 1p21.1-1q21.3). Two different loci with different causal genes make those siblings, not subtypes of one another, and make the parent a union of two diseases rather than a disease itself. MUHH2 is therefore recorded under `differential_diagnoses`, not under `has_subtypes`, and the parent is recorded as a `skos:broadMatch` cross-reference. If MONDO:0018631 is ever curated it belongs in `kb/groupings/`.
+No `conforms_to` module target was found. There is no hair-follicle-cycle or hair-follicle-morphogenesis module in `kb/modules/`. The nearest candidates were checked and rejected: `eda_edar_nfkb_ectodermal_appendage` scopes itself to the EDA-EDAR-EDARADD-NF-kappaB pathway ectodermal dysplasias, and MUHH1 involves no part of that pathway; `keratin_intermediate_filament_fragility` requires a keratin variant and there is none here.
+Claims found in sources but not curated. A single Hungarian patient with alopecia universalis and four-limb deformities was reported with a heterozygous HR exon-3 missense variant under the MUHH1 label (PMID:22584530); the authors called for further study, the phenotype is not the MUHH1 course, and no family has replicated it, so it is described in `genetic` notes rather than curated as a mechanism. A five-generation Chinese family had MUHH co-occurring with multiple familial trichoepithelioma, but the authors concluded the accompanying FABP12 variant was probably coincidental (PMID:30809827), so no comorbidity is asserted. Follicular hyperkeratosis with milia-like facial papules is mentioned in secondary sources as a variable accessory feature; no cached source stated it in quotable form, so it is not curated.
+Deep research. The committed report is a `claude_code` report (`research/Hypotrichosis_4-deep-research-claude_code.md`). Falcon returns HTTP 402 and openscientist was timing out server-side at the time of curation, so neither was used. `just preflight-dr` returned WARN because HR is mentioned more often than HRURF; that is intrinsic to a disease whose causal element sits inside another gene&#39;s 5&#39; UTR, and disease identity was confirmed independently - MONDO:0100522 carries OMIM:146550 and RO:0004003 HGNC:55085, both matching the report.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypotrichosis_4</strong> · 2026-09-07T22:31:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypotrichosis_4/2026-09-07T223145Z-claude-code-293f4d.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for hypotrichosis 4 (HYPT4 / Marie Unna hereditary hypotrichosis 1, MONDO:0100522).
+
+Lump/split. Curated as a DISEASE, not a subtype or grouping. MONDO:0018631 &#39;Marie Unna hereditary hypotrichosis&#39; has exactly two children in MONDO: MONDO:0100522 (MUHH1, causal gene HGNC:55085 HRURF at 8p21.3, confirmed as the RO:0004003 edge in the local MONDO build) and MONDO:0013017 (hypotrichosis 5 / MUHH2, attributed to EPS8L3 at 1p21.1-1q21.3). Two distinct causal loci make those siblings, so MUHH2 is recorded under differential_diagnoses rather than has_subtypes, and the parent is a skos:broadMatch cross-reference only. If MONDO:0018631 is ever curated it belongs in kb/groupings/.
+
+Mechanism direction. The lesion is translational DE-REPRESSION, not loss of hairless function, and the entry is written to keep that straight. Node 1 (HRURF uORF disruption) carries genetic_context functional_impact_category LOSS_OF_FUNCTION against HRURF, whose repressive uORF function is destroyed, with an explicit description saying the category applies to the uORF and not to HR. Node 2 (translational de-repression) carries GO:0006412 translation with modifier INCREASED, cited to two independent functional-assay results (PMID:19122663 &#39;increased translation of the main HR physiological ORF&#39;; PMID:20163456 &#39;increased translation of the main HR ORF&#39;). Node 3 is HR corepressor overexpression with GO:0000122 modifier INCREASED. No node anywhere asserts reduced HR function.
+
+Gene attribution, checked against the primary literature rather than assumed. Every primary report from 2009 (PMID:19122663) through 2023 (PMID:37012647) attributes the variants to U2HR, described as an inhibitory uORF inside the 5&#39; UTR of HR. HGNC approved HRURF (HGNC:55085, alias U2HR) as a separate gene record only in 2020-12-16; reports from 2025 on (PMID:40433810, PMID:39872230) use HRURF and gloss it as formerly U2HR. Both hgnc:55085 and hgnc:5172 were confirmed present in the HGNC build. The entry binds hgnc:55085 as CAUSATIVE, matching MONDO, and records a discussion (muhh1_gene_symbol_attribution) on the practical consequence: an HR coding-exon panel does not test this element.
+
+HR is recorded as a second genetic entry with relationship_type DISPUTED and no evidence, purely to make the relationship explicit. The one report of a coding HR missense variant under a MUHH1 label (PMID:22584530, alopecia universalis plus four-limb deformities) is described in notes, not curated as a mechanism: the authors themselves called for further study, the phenotype is not the MUHH1 triphasic course, and no family has replicated it.
+
+Downstream mechanism honesty. Everything between increased HR translation and reduced human follicle density comes from the hairpoor mouse alone. Two discussions record this: muhh1_wnt_direction (CONTROVERSY) because the same group reported Sfrp2 DOWN in 2010, read as excess Wnt, and Dkk1 UP in 2014, a Wnt inhibitor and catagen inducer, so the Wnt node is curated DYSREGULATED rather than INCREASED; and muhh1_human_mechanism_gap (HUMAN_MODEL_MISMATCH) because no Wnt or hair-cycle readout exists in human MUHH1 scalp and PMID:10674378 states outright that the mechanism of hair loss is unknown. The hairpoor mouse is curated in animal_models with four modeled_mechanisms links carrying model_scale, fidelity, limitations and readouts; the Wnt link is MEASURES/LOW with an explicit upward-extrapolation caveat.
+
+A REFUTE evidence item is curated on the &#39;Sparse Scalp Hair at Birth&#39; phenotype: PMID:10674378 describes affected individuals as &#39;born with adequate, normal to coarse hair&#39;, contradicting the usual statement that congenital sparse hair is universal.
+
+Deep research. The committed report is a claude_code report (research/Hypotrichosis_4-deep-research-claude_code.md; 5m14s, 16 web searches, 26 citations). falcon was not attempted because it returns HTTP 402 (out of credits) and openscientist because it was timing out server-side; no fallback substitution was made. just validate-research-reference and validate-research-terms were run and their sections committed with the report: 14/14 references resolved, 0 unresolved, 0 off topic; term validation flagged MONDO:0007806 as obsolete (replaced by MONDO:0100522, which this entry binds), GO:0070577 as obsolete (not used), and HP:0002293 as mislabelled by the report (&#39;Hypotrichosis&#39;; HPO calls it &#39;Alopecia of scalp&#39;) - that term was NOT bound. just preflight-dr returned WARN because HR is mentioned 71 times against HRURF 22; that is intrinsic to a disease whose causal element sits inside another gene&#39;s 5&#39; UTR, and identity was confirmed independently against MONDO (OMIM:146550 and RO:0004003 HGNC:55085 both match). The report&#39;s atrichia-with-papular-lesions and hairless-mouse coding-mutant content was deliberately excluded from the mechanism and kept only as a labelled differential diagnosis.
+
+Claims dropped or left unevidenced. The topical-minoxidil lead (Cui et al., DOI:10.1111/jocd.70382, PMC12340736) is curated as a treatment with NO evidence item: the record has no abstract in PubMed, Europe PMC or Crossref and no PubMed record at all, so no exact snippet exists. Rather than quote its title as a finding, the limitation is stated in the treatment notes and the paper is listed in the top-level references block. Follicular hyperkeratosis with milia-like papules was not curated because no cached source stated it quotably. No Orphanet evidence could be curated: ORPHA:444 is not in the Orphadata leaf-disorder bulk file this repo caches, so just fetch-reference ORPHA:444 failed and prevalence is curated as measure_type UNKNOWN / prevalence_class RARE with no rate. No conforms_to target was added; there is no hair-follicle-cycle module in kb/modules/, and eda_edar_nfkb_ectodermal_appendage and keratin_intermediate_filament_fragility were inspected and rejected as out of scope.
+
+Validation run to completion. just validate, just validate-terms, just count-verified-snippets (71/71 verified), just check-duplicate-keys, just check-entity-refs, just check-causal-targets, just check-qualifier-terms, just check-enum-values, just check-title-snippets, just check-snippet-length, just check-snippet-grading, just check-folded-hyphens, just check-environmental-evidence, just check-not4curation, just check-reference-titles, just normalize-cache, just check-term-cache-integrity - all pass. just validate-disorders kb/disorders/Hypotrichosis_4.yaml: schema &#39;No issues found&#39;, terms &#39;Validation passed&#39;, references &#39;All validations passed&#39;, &#39;Snippets checked: 71/71 verified against cached references&#39;. just qc was NOT run (exceeds the tool timeout); the individual gates were run instead.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10633,7 +10783,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypotrichosis 4", "mondoId": "MONDO:0100522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypotrichosis_4", "yamlRevision": "e71e7875bf38"};
+        const OS_CONFIG = {"diseaseName": "Hypotrichosis 4", "mondoId": "MONDO:0100522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypotrichosis_4", "yamlRevision": "ed9a61883b1b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

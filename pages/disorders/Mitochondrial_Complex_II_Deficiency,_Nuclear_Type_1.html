@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4418,6 +4471,7 @@ This experiment is of type iPSC-derived neuron perturbation assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sdha-loss-and-complex-ii-succinate-dehydrogenase-deficiency" data-dismech-node="SDHA Loss and Complex II (Succinate Dehydrogenase) Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SDHA Loss and Complex II (Succinate Dehydrogenase) Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in SDHA reduce or destabilize the catalytic flavoprotein subunit of succinate dehydrogenase, lowering steady-state levels of assembled complex II and the amount of catalytically active enzyme in the inner mitochondrial membrane.
 </div>
 
@@ -4601,6 +4655,7 @@ This pathophysiological event involves decreased respiratory chain complex II as
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-succinate-oxidation-and-electron-transfer-to-ubiquinone" data-dismech-node="Impaired Succinate Oxidation and Electron Transfer to Ubiquinone" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Succinate Oxidation and Electron Transfer to Ubiquinone</div>
 
+
                 <div class="item-desc">Deficient complex II activity impairs FAD-dependent oxidation of succinate to fumarate and the transfer of electrons through the SDHB iron-sulfur clusters to ubiquinone, disrupting the junction between the TCA cycle and the respiratory electron transport chain.
 </div>
 
@@ -4774,6 +4829,7 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-and-multisystem-energy-deficit" data-dismech-node="Bioenergetic Failure and Multisystem Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure and Multisystem Energy Deficit</div>
+
 
                 <div class="item-desc">Reduced electron flux through the respiratory chain lowers oxidative phosphorylation and forces a shift to anaerobic glycolysis, elevating lactate and producing lactic acidosis. Energy-demanding post-mitotic tissues (brain, skeletal muscle, optic nerve, and sometimes heart) are preferentially affected, giving the characteristic Leigh-spectrum and multisystem phenotype.
 </div>
@@ -5024,6 +5080,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5097,6 +5156,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5180,6 +5242,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5244,6 +5309,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5327,6 +5395,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5391,6 +5462,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5465,6 +5539,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5529,6 +5606,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5607,6 +5687,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5721,6 +5804,9 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -5741,6 +5827,7 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
         SDHA p.Arg554Trp (first reported nuclear OXPHOS mutation)
 
     </div>
+
 
     <div class="item-meta">
 
@@ -5763,7 +5850,13 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous Arg554Trp substitution in the flavoprotein subunit reported by Bourgeron et al. in two siblings with complex II deficiency presenting as Leigh syndrome - the first nuclear gene mutation shown to cause a human mitochondrial respiratory chain deficiency.
@@ -5850,6 +5943,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5871,7 +5965,13 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant near the FAD-binding region that severely reduces complex II activity; pathogenicity confirmed by lentiviral complementation of patient fibroblasts.
@@ -5933,6 +6033,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5954,7 +6055,13 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The first reported SDHA splicing mutations; both disrupt mRNA splicing and abolish protein expression.
@@ -6079,6 +6186,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No curative or disease-modifying therapy exists; management is supportive, multidisciplinary, and phenotype-directed, including treatment of lactic acidosis and seizures, nutritional support, cardiac and ophthalmologic surveillance, and avoidance of metabolic decompensation (fasting, dehydration, prolonged catabolism).
 </div>
 
@@ -6161,6 +6274,12 @@ This treatment is riboflavin supplementation, annotated with Nutritional Support
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7056,6 +7175,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex II Deficiency Nuclear Type 1 SDHA</strong> · 2026-07-25T00:19:29Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_II_Deficiency_Nuclear_Type_1/2026-07-25T001929Z-claude-code-f78a9c.yaml">View source</a></p>
+                        <p class="research-review-text">Curated SDHA-related nuclear complex II deficiency MONDO:0100294. Parametric draft then enhanced with Edison falcon deep research plus primary-literature abstracts: Renkema 2015 PMID:24781757, Bourgeron 1995 PMID:7550341, Horvath 2006 PMID:16361598, Alston 2012 PMID:22972948, Baysal 2001 PMID:11692162, Bugiani 2006 PMID:16737791, Levitas 2010 PMID:20551992, GeneReviews PMID:26425749. Validated schema/terms/references; added MONDO:0100294 to DiseaseTerm enum cache.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
