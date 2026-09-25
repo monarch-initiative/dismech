@@ -38772,6 +38772,68 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 31",
+    "disease_id": "MONDO:0011767",
+    "category": "Mendelian",
+    "parents": [
+      "Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB31 is nonsyndromic sensorineural hearing loss caused by biallelic variants in WHRN, which encodes whirlin - a PDZ-domain scaffold protein at the tips of hair-cell stereocilia. It was identified through the whirler mouse, a spontaneous mutant that does not respond to sound and whose hair cells carry abnormally short stereocilia; transgene correction and mutation analysis identified whirlin, and the same gene was shown to underlie the human DFNB31 locus.\nThe mechanism is a failure of stereocilia elongation and bundle organization rather than a defect in the mechanotransduction channel itself. Whirlin sits at the stereocilium tip, the site of actin polymerization, where it forms a complex with EPS8 that sets stereocilium length; its appearance and fade-out across the rows of a growing bundle is graded, and removing it leaves the bundle short and disordered. The transduction apparatus is not the lesion - the structure it needs is.\nWhat makes this entry more than a per-locus record is that the same gene also causes Usher syndrome type 2D, and the two are allelic. Clinically they are clearly different: DFNB31 patients have profound hearing loss and normal vision, while USH2D patients have moderate hearing loss with retinitis pigmentosa. WHRN has two major isoforms, a long form encoded by exons 1-13 and a short form from exons 6-13 that lacks the N-terminal PDZ1 and PDZ2 domains. The reported human alleles line up with that split - the DFNB31 alleles fall in the C-terminal half, the USH2D alleles in the long-isoform-specific N terminus - and the proposal that mutations causing Usher syndrome are restricted to the long-isoform-specific exons is the mechanistic account of why one gene gives a syndromic and a non-syndromic disease. It remains a proposal drawn from a small number of clinical reports, not a validated rule, and at least one reported nonsyndromic case carries a missense variant inside the N-terminal region the rule would assign to Usher syndrome.\nDFNB31 is rare even among recessive nonsyndromic hearing loss. The Tunisian study that reported the second family screened 62 further unrelated ARNSHL families and found no linkage to the locus at all.",
+    "pathophysiology": [
+      "Biallelic WHRN Loss of Function",
+      "Loss of Whirlin from the Stereocilia Tip Complex",
+      "Failure of Stereocilia Elongation and Bundle Organization",
+      "Hair Bundle Mechanotransduction Failure"
+    ],
+    "cell_types": [
+      "cochlear hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "stereocilia elongation by actin polymerization",
+      "auditory hair cell stereocilium organization",
+      "stereocilium maintenance",
+      "detection of mechanical stimulus involved in hearing"
+    ],
+    "phenotypes": [
+      "Profound Sensorineural Hearing Impairment",
+      "Congenital Onset of Hearing Loss"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0011476",
+      "HP:0008527"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WHRN variants"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Early Identification and Habilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_31.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_31.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 35",
     "disease_id": "MONDO:0012060",
     "category": "Mendelian",
@@ -69744,6 +69806,104 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Charcot-Marie-Tooth Disease, Axonal, Autosomal Recessive, Type 2A2B",
+    "disease_id": "MONDO:0014906",
+    "category": "Mendelian",
+    "parents": [
+      "Charcot-Marie-Tooth Disease Type 2",
+      "Charcot-Marie-Tooth Disease"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CMT2A2B is the biallelic form of MFN2-related axonal Charcot-Marie-Tooth disease: the same gene as the far commoner dominant CMT2A2A, but two damaged alleles instead of one, and a markedly more severe, earlier-onset neuropathy as a result.\nThe interesting thing about this entity is that \"autosomal recessive\" is a convenient label rather than an accurate mechanism, and the literature that defined it says so. The founding study examined the parents of three children with severe early-onset axonal neuropathy and homozygous or compound heterozygous MFN2 variants. Every parent carried one of the variants, and every parent was asymptomatic *or mildly symptomatic with signs of peripheral neuropathy* - a minimal phenotype rather than no phenotype. The authors' conclusion was that the disease can present as apparently recessive while the underlying mechanism is semi-dominant. A later family sharpened the point from the other direction: a compound heterozygote with a semidominant missense allele and a nonsense allele had severe disease, her mother carrying the missense allele alone had a very late-onset minimal neuropathy, and her father carrying the nonsense allele alone had no neuropathy at all clinically or electrophysiologically - so MFN2 haploinsufficiency is not itself disease-causing. What matters is not how many alleles are broken but how much dysfunctional mitofusin-2 protein is present relative to functional protein. Expert curation reflects this: ClinGen assigns the MFN2 gene-disease relationship a semidominant mode of inheritance rather than either \"autosomal dominant\" or \"autosomal recessive\".\nMitofusin-2 is a transmembrane GTPase of the mitochondrial outer membrane that mediates membrane fusion and shapes the mitochondrial network. When it fails, mitochondria fragment; in fibroblasts from one severely affected fetus they were seen clumped and tethered but unable to fuse. Fusion failure degrades mitochondrial quality control and the delivery of mitochondria down long axons, and the peripheral nerves of the arms and legs - the cells with the largest distance between soma and synapse - die back first. Why peripheral nerve in particular remains, in a 2020 review's words, largely unmet as a mechanistic question.\nClinically the biallelic form is at the severe end of the MFN2 spectrum: onset in infancy or early childhood, progressive distal weakness with gait failure, loss of ambulation, and respiratory involvement later. Reported extensions include rapidly progressive diaphragmatic paresis requiring tracheostomy in a seven-month-old, cerebellar peduncle abnormalities on neuroimaging, and - at the extreme - a homozygous fetus with lissencephaly, polymicrogyria and cerebellar atrophy. There is no disease-modifying treatment. Mitofusin-activating peptides and small molecules exist and are discussed as a therapeutic direction for CMT2A generally; none has been tested in this entity.",
+    "pathophysiology": [
+      "Biallelic MFN2 Variants",
+      "Dysfunctional Mitofusin-2 Above the Semidominant Dosage Threshold",
+      "Failure of Mitochondrial Outer Membrane Fusion",
+      "Fragmented and Clumped Mitochondrial Network",
+      "Respiratory Chain Deficiency in Patient Fibroblasts",
+      "Impaired Mitochondrial Quality Control",
+      "Impaired Axonal Delivery of Mitochondria",
+      "Length-Dependent Dying-Back Axonal Degeneration"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "sensory neuron of dorsal root ganglion"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:1001451"
+    ],
+    "biological_processes": [
+      "mitochondrial fusion",
+      "oxidative phosphorylation",
+      "mitochondrion transport along microtubule"
+    ],
+    "phenotypes": [
+      "Peripheral Axonal Neuropathy",
+      "Distal Muscle Weakness",
+      "Gait Disturbance",
+      "Loss of Ambulation",
+      "Respiratory Insufficiency",
+      "Diaphragmatic Weakness",
+      "Hypotonia",
+      "Motor Delay",
+      "Optic Atrophy",
+      "Postural Tremor",
+      "Pes Cavus"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Musculoskeletal",
+      "Respiratory",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003477",
+      "HP:0002460",
+      "HP:0001288",
+      "HP:0002505",
+      "HP:0002093",
+      "HP:0009113",
+      "HP:0001252",
+      "HP:0001270",
+      "HP:0000648",
+      "HP:0002174",
+      "HP:0001761"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MFN2"
+    ],
+    "treatments": [
+      "Supportive and rehabilitative care",
+      "Avoidance of neurotoxic medications and exacerbating factors",
+      "Pharmacological enhancement of mitochondrial fusion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Axonal_Autosomal_Recessive_Type_2A2B.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease,_Axonal,_Autosomal_Recessive,_Type_2A2B.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Axonal Type 2C",
@@ -116317,6 +116477,166 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Eosinophilia-Myalgia Syndrome",
+    "disease_id": "MONDO:0004941",
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-09-25T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Eosinophilia-myalgia syndrome is an acquired multisystem inflammatory and fibrosing disease caused by eating manufactured L-tryptophan that carried trace process impurities. It appeared as a point-source epidemic in the United States in the second half of 1989, and 1531 cases with 27 deaths had been reported to national surveillance by July 1990. New cases fell away after the product was recalled that November.\nThe presenting illness is incapacitating generalised myalgia with a blood eosinophil count above 1.0 x 10^9 cells per litre, and those two features are the surveillance case definition rather than two findings among many. Arthralgia, rash, cough or dyspnoea, peripheral oedema, a raised aldolase and abnormal liver tests fill out the acute picture. Eosinophil granule proteins are deposited in tissue and recoverable from serum and urine, which is the evidence that the eosinophil is doing something rather than merely being counted.\nThe chronic disease is a fibrosis. Biopsies show inflammatory infiltration of the septa, fascia and perimysium, dermal thickening with homogenised collagen indistinguishable from scleroderma, and cultured lesional fibroblasts that overproduce type I collagen and keep doing so years later. Sclerodermatous skin thickening, sensorimotor polyneuropathy, proximal myopathy and episodic myalgia are the sequelae that disable. Mortality concentrates in the first eighteen months and runs through progressive polyneuropathy and myopathy rather than through the fibrosis.\nThe etiologic agent has never been settled. Six compounds were associated with case lots, and 1,1'-ethylidenebis[tryptophan], first named peak E, is the one with the most experimental work behind it. It activates fibroblasts and produces fascial fibrosis in mice and rats. It also failed to reach significance in the one study that stratified lots by date of manufacture, and no animal reproduces the human syndrome.",
+    "pathophysiology": [
+      "Ingestion of Contaminated Manufactured L-Tryptophan",
+      "Systemic Exposure to L-Tryptophan Process Contaminants",
+      "Hepatic Conversion of PAP to 3-(Phenylamino)alanine",
+      "Type 2 Cytokine Response to Peak E",
+      "Eosinophil Chemotaxis and Endothelial Adhesion",
+      "Eosinophil Expansion with Tissue Degranulation",
+      "T Cell Mediated Immunity Against Extracellular Matrix",
+      "Inflammatory Infiltration of Fascia, Perimysium and Dermis",
+      "Pulmonary Eosinophilic and Lymphocytic Inflammation",
+      "Microangiopathy of Small Vessels",
+      "Fibroblast Activation and Type I Collagen Overproduction",
+      "Fascial and Dermal Fibrosis",
+      "Perineural Inflammation and Axonal Injury",
+      "Cardiac Arterial and Conduction System Fibrosis"
+    ],
+    "cell_types": [
+      "eosinophil",
+      "endothelial cell",
+      "CD8-positive, alpha-beta T cell",
+      "macrophage",
+      "mast cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000771",
+      "CL:0000115",
+      "CL:0000625",
+      "CL:0000235",
+      "CL:0000097",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "response to xenobiotic stimulus",
+      "interleukin-5 production",
+      "eosinophil migration",
+      "eosinophil degranulation",
+      "eosinophil activation",
+      "T cell mediated immunity",
+      "inflammatory response",
+      "fibroblast proliferation",
+      "collagen biosynthetic process",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Myalgia",
+      "Peripheral eosinophilia",
+      "Arthralgia",
+      "Skin rash",
+      "Peripheral edema",
+      "Dyspnea",
+      "Decreased DLCO",
+      "Pulmonary arterial hypertension",
+      "Fever",
+      "Muscle weakness",
+      "Proximal myopathy",
+      "Sclerodermatous skin induration",
+      "Eosinophilic fasciitis",
+      "Alopecia",
+      "Peripheral neuropathy",
+      "Demyelinating sensorimotor polyneuropathy",
+      "Paresthesia",
+      "Xerostomia",
+      "Dysphagia",
+      "Elevated circulating aldolase concentration",
+      "Elevated circulating hepatic transaminase concentration",
+      "Oral ulcer",
+      "Cognitive impairment",
+      "Fatigue",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Hematologic",
+      "Dermatologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Constitutional",
+      "Neurologic",
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003326",
+      "HP:0001880",
+      "HP:0002829",
+      "HP:0000988",
+      "HP:0012398",
+      "HP:0002094",
+      "HP:0045051",
+      "HP:0002092",
+      "HP:0001945",
+      "HP:0001324",
+      "HP:0003198",
+      "HP:0100324",
+      "HP:0045029",
+      "HP:0001596",
+      "HP:0009830",
+      "HP:0007108",
+      "HP:0003401",
+      "HP:0000217",
+      "HP:0002015",
+      "HP:0012544",
+      "HP:0002910",
+      "HP:0000155",
+      "HP:0100543",
+      "HP:0012378",
+      "HP:0001645"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "HLA-DRB1 alleles as susceptibility markers",
+      "HLA-DQA1 alleles as protective markers"
+    ],
+    "treatments": [
+      "Withdrawal of the Implicated Supplement",
+      "Systemic Glucocorticoid Therapy",
+      "Steroid-Sparing Immunosuppression",
+      "Supportive and Symptomatic Care",
+      "Rehabilitation"
+    ],
+    "environmental": [
+      "Ingestion of manufactured L-tryptophan supplement containing process impurities"
+    ],
+    "biochemical": [],
+    "source_file": "Eosinophilia-Myalgia_Syndrome.yaml",
+    "page_url": "../pages/disorders/Eosinophilia-Myalgia_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 14,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Eosinophilic Esophagitis",
@@ -252910,6 +253230,96 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Peroxisome Biogenesis Disorder 8B",
+    "disease_id": "MONDO:0013943",
+    "category": "Mendelian",
+    "parents": [
+      "Zellweger Spectrum Disorders",
+      "peroxisome biogenesis disorder",
+      "inborn errors of metabolism"
+    ],
+    "creation_date": "2026-09-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peroxisome biogenesis disorder 8B (PBD8B, OMIM 614877) is the non-classic (\"B\") end of the PEX16-related Zellweger spectrum. PEX16 defines complementation group D (group 9 in the US series) of the peroxisome biogenesis disorders and encodes an integral peroxisomal membrane peroxin that acts in membrane assembly rather than in matrix protein import.\nThat places PBD8B at a different point in the pathway from every other non-classic Zellweger-spectrum entry curated here. PBD1B, PBD2B and PBD4B are defects of the matrix import machinery - a receptor, or the module that recycles it - and their peroxisomes are present but cannot take up cargo. A complete PEX16 defect is upstream of all of that: it removes the organelle itself. The founding PEX16 patients had no peroxisomal remnants at all, which is what made PEX16 the gene that demonstrated peroxisomes can be built without a pre-existing peroxisome.\nPBD8B is what happens when that lesion is incomplete, and the resulting cellular picture is genuinely counterintuitive. Fibroblasts from these patients do not show a milder version of \"no peroxisomes\". They show peroxisomes that are fewer in number but enlarged, and competent to import matrix protein - so the assay that establishes a classic peroxisome biogenesis disorder can read close to normal here. Residual PEX16 protein is detectable on immunoblot in atypical patients and absent in a patient with the severe presentation, which is the molecular counterpart of that morphology.\nClinically it does not look like a Zellweger-spectrum disease either. Presentation is in the preschool years with progressive spastic paraparesis and ataxia, a leucodystrophy-plus-atrophy pattern on MRI, and later cataracts and peripheral neuropathy; dystonia and tremor are reported; cognition is often preserved and survival is prolonged. The sensory loss and amelogenesis imperfecta that characterise the rest of the spectrum can be entirely absent. Plasma very-long-chain fatty acids may be only subtly raised or frankly normal. The practical consequence, which the source reports make themselves, is that these individuals are reached by sequencing rather than by biochemical screening, and are more likely to be worked up as hereditary spastic paraplegia or an undiagnosed leukodystrophy than as a peroxisomal disease.",
+    "pathophysiology": [
+      "Hypomorphic PEX16 Variants with Residual Peroxin Function",
+      "Partially Preserved Peroxisomal Membrane Assembly",
+      "Reduced Peroxisome Number with Compensatory Enlargement",
+      "Reduced Peroxisomal Catalase Activity",
+      "Attenuated Peroxisomal Metabolic Block",
+      "Progressive Central White Matter and Long Tract Degeneration"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "peroxisome membrane biogenesis",
+      "protein import into peroxisome membrane",
+      "peroxisome organization",
+      "hydrogen peroxide catabolic process",
+      "very long-chain fatty acid catabolic process",
+      "ether lipid biosynthetic process"
+    ],
+    "phenotypes": [
+      "Progressive Spastic Paraparesis",
+      "Cerebellar Ataxia",
+      "Leukodystrophy",
+      "Cerebral Atrophy",
+      "Dystonia",
+      "Tremor",
+      "Dysarthria",
+      "Cataract",
+      "Peripheral Neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007020",
+      "HP:0001251",
+      "HP:0002415",
+      "HP:0002059",
+      "HP:0001332",
+      "HP:0001337",
+      "HP:0001260",
+      "HP:0000518",
+      "HP:0009830"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PEX16"
+    ],
+    "treatments": [
+      "Levodopa/Carbidopa for Dystonia",
+      "Symptomatic and Supportive Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids",
+      "Peroxisome number and size in patient cells",
+      "Catalase activity"
+    ],
+    "source_file": "Peroxisome_Biogenesis_Disorder_8B.yaml",
+    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder_8B.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Perrault Syndrome",
     "disease_id": "MONDO:0017312",
     "category": "Mendelian",
@@ -331662,17 +332072,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3144,
+  "total_disorder_pages": 3148,
   "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7174,
-  "total_unique_evidence_sources": 45604,
-  "total_unique_publications": 42859,
+  "total_disorders_and_subtypes": 7178,
+  "total_unique_evidence_sources": 45672,
+  "total_unique_publications": 42925,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 284,
-  "total_pathographs": 3139,
-  "total_unique_pathological_events": 19760,
+  "total_pathographs": 3143,
+  "total_unique_pathological_events": 19790,
   "total_modules": 178,
-  "total_research_reports": 3252,
+  "total_research_reports": 3256,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
