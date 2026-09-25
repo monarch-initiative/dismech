@@ -77,6 +77,42 @@ def test_validate_data_exit_codes(
     assert calls == ["run linkml-term-validator validate-data x.yaml -t Disease"]
 
 
+OUTAGE_OUTPUT = (
+    "\n🌐 Unable to validate at this time: ontology service unavailable.\n"
+    "   could not reach ontology service to resolve HP:0000001 "
+    "(ReadTimeout: HTTPSConnectionPool(host='www.ebi.ac.uk', port=443): "
+    "Read timed out. (read timeout=5))\n"
+    "   Terms could not be checked; this is not a data error."
+)
+
+
+@pytest.mark.parametrize(
+    ("stdout", "exit_code", "expected"),
+    [
+        (OUTAGE_OUTPUT, 2, 75),
+        # Exit 2 without the outage message is a usage error (click's code for a
+        # bad option), not an outage, and must keep its own code.
+        ("Error: No such option: --bogus", 2, 2),
+        # The message alone does not make a genuine failure an outage.
+        (
+            "❌ ERROR: Term 'HP:1' not found in ontology\nontology service unavailable",
+            1,
+            1,
+        ),
+    ],
+    ids=["outage-is-75", "usage-error-stays-2", "real-error-stays-1"],
+)
+def test_ontology_service_outage_gets_its_own_exit_code(
+    tmp_path: Path, stdout: str, exit_code: int, expected: int
+) -> None:
+    """An OLS timeout is reported as 'not checked', not as a bad term (#12634)."""
+    _fake_uv(tmp_path, stdout, exit_code)
+    result = _run(tmp_path, "validate-data", "x.yaml", "-t", "Disease")
+    assert result.returncode == expected, result.stdout + result.stderr
+    # The validator's own output is always passed through for the caller.
+    assert stdout.splitlines()[-1] in result.stdout
+
+
 def test_other_subcommands_pass_straight_through(tmp_path: Path) -> None:
     log = _fake_uv(tmp_path, "usage", 3)
     result = _run(tmp_path, "some-other-command", "--flag")

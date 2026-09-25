@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5105,6 +5158,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-mto1-wobble-uridine-taurinomethylation-of-mitochondrial-trnas" data-dismech-node="Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">MTO1 and its GTPase partner GTPBP3 jointly catalyse installation of 5-taurinomethyluridine (tau-m5U) at the anticodon first (wobble) position, U34, of five mitochondrially encoded tRNAs: those for glutamine, glutamate, lysine, leucine(UUR) and tryptophan. The reaction consumes taurine and 5,10-methylene-tetrahydrofolate as substrates; older literature describes the homologous bacterial/yeast product as 5-carboxymethylaminomethyluridine (cmnm5U), the glycine-substituted counterpart that appears in human cells when taurine is depleted. Biallelic MTO1 missense or truncating variants reduce or abolish the enzyme&#39;s modifying activity. No reported patient carries two truncating alleles, indicating that some residual MTO1 activity is required for human viability; this is the molecular origin of the whole disease cascade.</div>
 
 
@@ -5333,6 +5393,13 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The tau-m5U/cmnm5U wobble modification increases the accuracy and efficiency of mtDNA translation by stabilising tRNA structure, ribosome binding and correct codon-anticodon pairing. When it is lost, synthesis of the 13 mtDNA-encoded polypeptides is attenuated. In the mto1 knock-out zebrafish the mechanism is broader than decoding alone: the mutant tRNAs show altered conformation, increased nuclease sensitivity and globally reduced aminoacylation, and MTO1 additionally interacts with the mitochondrial poly(A) polymerase MTPAP so that its loss alters polyadenylation of cox1, cox3 and nd1 mRNAs. The translation defect was demonstrated directly in a recombinant yeast model carrying the patient alleles.</div>
 
 
@@ -5498,6 +5565,13 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-complex-deficiency" data-dismech-node="Combined Respiratory Chain Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Complex Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Attenuated mitochondrial translation produces a combined, rather than isolated, respiratory chain enzyme deficiency, because the 13 mtDNA-encoded proteins are distributed across complexes I (seven subunits), III (one), IV (three) and V (two), while complex II is entirely nuclear-encoded and unaffected. In patient skeletal muscle the most frequent pattern is a combined complex I and complex IV deficiency; complex IV was deficient in 28/30 muscle biopsies and a combined deficiency was present in 27/30. Fibroblasts are an unreliable tissue for this assay - respiratory chain enzymes were normal in 4/10 patient fibroblast lines - so a normal fibroblast result does not exclude the diagnosis.</div>
 
@@ -5764,6 +5838,13 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-energy-deficit-and-lactate-overproduction" data-dismech-node="Cellular Energy Deficit and Lactate Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Energy Deficit and Lactate Overproduction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">With oxidative phosphorylation constrained, cells shift to glycolysis and reduce accumulating pyruvate to lactate, producing the lactic acidosis that is the single most consistent biochemical feature of the disorder (eventually present in 35/35 patients, with peak plasma lactate averaging 13.6 mmol/L and reaching 57.8 mmol/L). Pyruvate accumulation also drives transamination to alanine, producing the characteristic hyperalaninemia, and a broad panel of mitochondrial markers - ketones, TCA-cycle intermediates, tyrosine metabolites, dicarboxylic acids and 3-methylglutaconate - appears in urine.</div>
 
 
@@ -5919,6 +6000,13 @@ This pathophysiological event involves increased lactate biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-reprogramming-via-the-hif-ppargamma-ucp2-ampk-axis" data-dismech-node="Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Patient fibroblasts and MTO1-silenced cells show a specific compensatory reprogramming: AMPK is inactivated, UCP2 and PPARgamma are downregulated, and HIF-1 is activated. Glycolysis and oxidative phosphorylation become uncoupled and fatty-acid metabolism is altered, with accumulation of lipid droplets in MTO1 fibroblasts. Notably this response is the mirror image of that seen in GTPBP3-depleted cells - which activate AMPK, raise UCP2/PPARgamma and inactivate HIF-1 - even though the two proteins act on the same modification, suggesting one of them has an additional, non-tRNA-modifying role. This node is curated as PROVISIONAL because it rests on fibroblast and knockdown data from a single group and has not been demonstrated in patient heart or muscle.</div>
 
 
@@ -6063,6 +6151,13 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-bioenergetic-failure-and-hypertrophic-remodeling" data-dismech-node="Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cardiomyocytes have an extremely high and continuous ATP requirement, so they are the tissue most sensitive to a combined respiratory chain defect; infantile hypertrophic cardiomyopathy is a key clinical feature across many mitochondrial disorders and is the presenting feature of MTO1 deficiency in almost half of patients. In the Mto1 gene-trap mouse the myocardial damage was attributed specifically to complex I deficiency and mitochondrial dysfunction, and in the mto1 knock-out zebrafish the ablation produced heart developmental defects, cardiomyocyte hypertrophy and myocardial fibre disarray in the ventricles, recapitulating the human histological picture.</div>
 
@@ -6255,6 +6350,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-conduction-instability" data-dismech-node="Cardiac Conduction Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Conduction Instability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond structural hypertrophy, MTO1 deficiency destabilises cardiac rhythm. The MTO1-deficient mouse showed bradycardia alongside cardiomyopathy and, of direct translational relevance, a marked worsening of arrhythmias during induction of and recovery from anaesthesia - prompting the authors to caution against anaesthesia-related arrhythmia in patients. In humans, two patients in the reference cohort had Wolff-Parkinson-White pre-excitation, one had tachycardia, and the two index siblings of the original 2012 report died in the first days of life of sudden bradycardia. The peri-anaesthetic risk itself is supported only by mouse data and is therefore curated as PROVISIONAL with an accompanying HUMAN_MODEL_MISMATCH discussion.</div>
 
 
@@ -6401,6 +6503,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-and-retinal-ganglion-cell-energy-failure" data-dismech-node="Neuronal and Retinal Ganglion Cell Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal and Retinal Ganglion Cell Energy Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neurons and retinal ganglion cells, like cardiomyocytes, are high-oxidative-demand, poorly regenerating cell types, and they constitute the second major target of the translation defect. Clinically this produces the near-universal global developmental delay/intellectual disability, plus hypotonia, seizures, ataxia and optic atrophy; imaging shows basal ganglia, cerebellar peduncle and corpus callosum abnormalities in most patients scanned. Optic neuropathy is prominent enough in some families that the acronym ONCE (Optic Neuropathy, Cardiomyopathy and Encephalopathy with lactic acidosis and combined oxidative phosphorylation deficiency) was coined for the homozygous p.Arg504Cys presentation.</div>
 
@@ -6670,7 +6779,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Basal Ganglia Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain imaging was abnormal in 14/20 (70%) of patients scanned. Reported abnormalities include lesions of the basal ganglia and cerebellar peduncles, hypoplasia of the corpus callosum, and anomalies of the claustrum, thalami and subcortical white matter. In one patient a metabolic crisis produced hyperintense T2/FLAIR signal in the cerebral peduncles, basal ganglia and cortex that largely resolved within a week.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia was present in 3/34 (9%) at presentation and 7/34 (21%) over follow-up, often of myopathic character with dysmetria, intention tremor and dysarthria in longer-surviving patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cardiac Conduction Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond structural hypertrophy, MTO1 deficiency destabilises cardiac rhythm. The MTO1-deficient mouse showed bradycardia alongside cardiomyopathy and, of direct translational relevance, a marked worsening of arrhythmias during induction of and recovery from anaesthesia - prompting the authors to caution against anaesthesia-related arrhythmia in patients. In humans, two patients in the reference cohort had Wolff-Parkinson-White pre-excitation, one had tachycardia, and the two index siblings of the original 2012 report died in the first days of life of sudden bradycardia. The peri-anaesthetic risk itself is supported only by mouse data and is therefore curated as PROVISIONAL with an accompanying HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"heart\"]}}, {\"id\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocytes have an extremely high and continuous ATP requirement, so they are the tissue most sensitive to a combined respiratory chain defect; infantile hypertrophic cardiomyopathy is a key clinical feature across many mitochondrial disorders and is the presenting feature of MTO1 deficiency in almost half of patients. In the Mto1 gene-trap mouse the myocardial damage was attributed specifically to complex I deficiency and mitochondrial dysfunction, and in the mto1 knock-out zebrafish the ablation produced heart developmental defects, cardiomyocyte hypertrophy and myocardial fibre disarray in the ventricles, recapitulating the human histological picture.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cellular Energy Deficit and Lactate Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative phosphorylation constrained, cells shift to glycolysis and reduce accumulating pyruvate to lactate, producing the lactic acidosis that is the single most consistent biochemical feature of the disorder (eventually present in 35/35 patients, with peak plasma lactate averaging 13.6 mmol/L and reaching 57.8 mmol/L). Pyruvate accumulation also drives transamination to alanine, producing the characteristic hyperalaninemia, and a broad panel of mitochondrial markers - ketones, TCA-cycle intermediates, tyrosine metabolites, dicarboxylic acids and 3-methylglutaconate - appears in urine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lactate biosynthetic process\"]}}, {\"id\": \"Combined Respiratory Chain Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Attenuated mitochondrial translation produces a combined, rather than isolated, respiratory chain enzyme deficiency, because the 13 mtDNA-encoded proteins are distributed across complexes I (seven subunits), III (one), IV (three) and V (two), while complex II is entirely nuclear-encoded and unaffected. In patient skeletal muscle the most frequent pattern is a combined complex I and complex IV deficiency; complex IV was deficient in 28/30 muscle biopsies and a combined deficiency was present in 27/30. Fibroblasts are an unreliable tissue for this assay - respiratory chain enzymes were normal in 4/10 patient fibroblast lines - so a normal fibroblast result does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex I deficiency accompanies the complex IV defect in the most common biochemical signature of the disorder, combined complex I plus IV deficiency, seen in 20 of 30 patients biopsied; counting the further 6 patients with combined complex I, III and IV deficiency, complex I activity was reduced in at least 26 of 30 muscle biopsies. The table also lists an isolated complex I deficiency, so 26/30 is a lower bound derived from the combined patterns.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Combined Respiratory Chain Complex Deficiency\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"Muscle complex I activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\"}], \"term_id\": \"HP:0011923\"}}, {\"id\": \"Decreased Activity of Mitochondrial Complex IV\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytochrome c oxidase (complex IV) deficiency in skeletal muscle was the most consistent enzymatic abnormality, present in 28 of 30 patients biopsied. It is usually part of a combined deficiency rather than isolated.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Combined Respiratory Chain Complex Deficiency\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"Muscle complex IV activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\"}], \"term_id\": \"HP:0008347\"}}, {\"id\": \"Dichloroacetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dichloroacetate (DCA) was given to 8/25 treated patients with the intent of lowering lactate. One patient, homozygous for p.Ala428Thr, improved dramatically on permanent DCA plus cofactors and was alive at 20 years with compensated stable hypertrophic cardiomyopathy and normal scholastic performance. The cohort authors caution that DCA is expected to improve lactic acidosis without a clear effect on seizures or neurological outcome, and that the concurrent cardiac improvement in that patient may have been natural disease course rather than drug effect. This is uncontrolled single-patient evidence.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language and social domains was documented in the index child. The cohort reports global developmental delay or intellectual disability together in 28/29 (97%) evaluable patients; it does not provide a separate frequency for global developmental delay. The two distinct HPO concepts are retained without assigning the combined frequency to either.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement is infrequent in MTO1 deficiency (3/35, 9%), which distinguishes it from TRMU deficiency - a disorder of the 2-thiolation of the same wobble uridine - in which severe infantile hepatopathy is characteristic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001410\"}}, {\"id\": \"Hyperalaninemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma alanine, the transamination product of accumulating pyruvate, was present in 21/24 (88%) of patients tested, averaging 1346 micromol/L (range 630-6560). It is one of the two most useful screening biochemical markers alongside lactate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003348\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is the classical cardinal feature and the most common presenting sign (15/34, 44%), rising to 27/34 (79%) over follow-up. It is nonetheless not obligatory: the cohort identified six patients, including two adolescent sisters described in detail, who had no cardiomyopathy at ages ranging from 8 months to 22 years. One patient developed a dilated rather than hypertrophic form, which the authors suggest may be a late progression of an earlier hypertrophic phase.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoplasia of the Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia was among the structural brain abnormalities seen on MRI in this cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was present in 10/35 (29%) at presentation and eventually in 22/35 (63%). Some patients had dystonia in addition to, or instead of, hypotonia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Mitochondrial Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tau-m5U/cmnm5U wobble modification increases the accuracy and efficiency of mtDNA translation by stabilising tRNA structure, ribosome binding and correct codon-anticodon pairing. When it is lost, synthesis of the 13 mtDNA-encoded polypeptides is attenuated. In the mto1 knock-out zebrafish the mechanism is broader than decoding alone: the mutant tRNAs show altered conformation, increased nuclease sensitivity and globally reduced aminoacylation, and MTO1 additionally interacts with the mitochondrial poly(A) polymerase MTPAP so that its loss alters polyadenylation of cox1, cox3 and nd1 mRNAs. The translation defect was demonstrated directly in a recombinant yeast model carrying the patient alleles.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"mitochondrial translation\"]}}, {\"id\": \"Increased CSF Lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CSF lactate was elevated in 5 of the 6 patients in whom it was measured, reflecting the central nervous system component of the bioenergetic deficit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002490\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is documented in older children, including moderate intellectual disability in the two sisters at ages 12 and 16. These case observations do not establish a uniform progression from developmental delay to intellectual disability or a typical severity across the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate with metabolic acidosis is the most consistent feature of the disorder. It was the most frequent presenting biochemical abnormality (21/34, 62%) and was eventually documented in every patient tested (35/35). Peak plasma lactate averaged 13.6 mmol/L with a range of 3.4 to 57.8 mmol/L.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTO1 and its GTPase partner GTPBP3 jointly catalyse installation of 5-taurinomethyluridine (tau-m5U) at the anticodon first (wobble) position, U34, of five mitochondrially encoded tRNAs: those for glutamine, glutamate, lysine, leucine(UUR) and tryptophan. The reaction consumes taurine and 5,10-methylene-tetrahydrofolate as substrates; older literature describes the homologous bacterial/yeast product as 5-carboxymethylaminomethyluridine (cmnm5U), the glycine-substituted counterpart that appears in human cells when taurine is depleted. Biallelic MTO1 missense or truncating variants reduce or abolish the enzyme\u0027s modifying activity. No reported patient carries two truncating alleles, indicating that some residual MTO1 activity is required for human viability; this is the molecular origin of the whole disease cascade.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"mitochondrial tRNA wobble uridine modification\"], \"genes\": [\"MTO1\"], \"gene_terms\": [{\"label\": \"MTO1\", \"id\": \"hgnc:19261\"}]}}, {\"id\": \"MTO1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"MTO1\"], \"gene_terms\": [{\"label\": \"MTO1\", \"id\": \"hgnc:19261\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts and MTO1-silenced cells show a specific compensatory reprogramming: AMPK is inactivated, UCP2 and PPARgamma are downregulated, and HIF-1 is activated. Glycolysis and oxidative phosphorylation become uncoupled and fatty-acid metabolism is altered, with accumulation of lipid droplets in MTO1 fibroblasts. Notably this response is the mirror image of that seen in GTPBP3-depleted cells - which activate AMPK, raise UCP2/PPARgamma and inactivate HIF-1 - even though the two proteins act on the same modification, suggesting one of them has an additional, non-tRNA-modifying role. This node is curated as PROVISIONAL because it rests on fibroblast and knockdown data from a single group and has not been demonstrated in patient heart or muscle.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised or proximal muscle weakness accompanies the hypotonia in many patients and, in longer-surviving patients, becomes a dominant complaint together with reduced muscle mass and fatigability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001324\"}}, {\"id\": \"N-acetylcysteine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An investigational, cell-culture-only lead. N-acetylcysteine (but not L-cysteine) had a beneficial effect on mitochondrial translation in MTO1- and TRMU-deficient patient fibroblasts. The rationale is that cysteine supplies the sulfur for the 2-thiomodification that is coupled to the wobble-uridine modification MTO1 installs. No human trial in MTO1 deficiency has been reported.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"N-acetyl-L-cysteine\"]}}, {\"id\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, like cardiomyocytes, are high-oxidative-demand, poorly regenerating cell types, and they constitute the second major target of the translation defect. Clinically this produces the near-universal global developmental delay/intellectual disability, plus hypotonia, seizures, ataxia and optic atrophy; imaging shows basal ganglia, cerebellar peduncle and corpus callosum abnormalities in most patients scanned. Optic neuropathy is prominent enough in some families that the acronym ONCE (Optic Neuropathy, Cardiomyopathy and Encephalopathy with lactic acidosis and combined oxidative phosphorylation deficiency) was coined for the homozygous p.Arg504Cys presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"retinal ganglion cell\"]}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurred in 11/21 (52%) of patients in whom the optic nerve was assessed, with thinning of the retinal nerve fibre layer documented in three. It is generally a later feature than the cardiac and metabolic disease and can be the dominant manifestation in milder, longer-surviving patients (the ONCE presentation). Other ocular findings in the cohort were external ophthalmoplegia, unilateral ptosis and mild bilateral cataracts, each in a single patient.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were an uncommon presenting symptom (5/35, 14%) but developed over time in 12/35 (34%). Seizure types are heterogeneous - febrile, absence, generalised and drop attacks are all described - and can be refractory; the adolescent index case presented in status epilepticus at 11 years and at 16 continued to have up to 40 seizures per week on a ketogenic diet plus four antiseizure medications.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Wolff-Parkinson-White Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular pre-excitation of Wolff-Parkinson-White type was documented in two patients in the reference cohort, in addition to the structural cardiomyopathy. It is a rare but clinically important finding because it identifies patients at risk of tachyarrhythmia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001716\"}}], \"edges\": [{\"source\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"target\": \"Impaired Mitochondrial Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypomodified wobble uridines destabilise codon-anticodon pairing and reduce the accuracy and efficiency of mtDNA-encoded protein synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial Translation\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synthesis of the mtDNA-encoded core subunits leaves complexes I, III, IV and V under-assembled; complex II, which is entirely nuclear-encoded, is spared.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cellular Energy Deficit and Lactate Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired electron transport limits ATP output and diverts pyruvate to lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyocytes, with the highest oxidative demand of any cell type in the body, are the first tissue to decompensate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells are the second major high-oxidative-demand target of the respiratory chain defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MTO1-deficient cells mount a distinctive compensatory transcriptional and metabolic response to the OXPHOS defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The respiratory chain enzyme deficit in skeletal muscle provides a bioenergetic explanation for the documented generalised or proximal weakness. This does not imply histologically demonstrated mitochondrial myopathy: case 1 had no histological, histochemical or ultrastructural features of mitochondrial myopathy, and case 2 had normal muscle pathology. The relative contributions of muscle and central nervous system dysfunction to weakness have not been separated in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic involvement (3/35 patients) is presumed to reflect hepatocyte energy failure from the systemic respiratory chain defect, but MTO1 patient liver tissue has not been studied directly and why the liver is spared in most patients - in contrast to the adjacent TRMU deficiency - is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduction of accumulating pyruvate to lactate produces the lactic acidosis that was eventually documented in every patient tested (35/35).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Hyperalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transamination of the same accumulating pyruvate pool produces the characteristic elevation of plasma alanine (21/24 patients tested).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Increased CSF Lactate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lactate overproduction within the central nervous system compartment elevates CSF lactate (5/6 patients tested).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"target\": \"Cardiac Conduction Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in the conduction system and working myocardium predisposes to bradyarrhythmia and pre-excitation, most clearly documented in the mouse model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and myofibre disarray in response to the bioenergetic deficit manifest clinically as hypertrophic cardiomyopathy, present in 44% of patients at presentation and 79% over follow-up.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Instability\", \"target\": \"Wolff-Parkinson-White Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular pre-excitation in two cohort patients is part of the documented rhythm instability, but how the mitochondrial defect produces an accessory-pathway phenotype has not been established in this disease.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic neuronal energy failure impairs early development, manifesting as delay across multiple developmental domains in affected children.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction also affects intellectual development in older children, with moderate intellectual disability documented in both adolescent index siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical neuronal energy failure lowers seizure threshold; seizures develop over time in a third of patients and can be refractory.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction provides a central contribution to hypotonia, eventually documented in 22/35 patients. The cohort does not separate central and peripheral contributions; a structural mitochondrial myopathy is not inferred from the enzyme deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure affecting cerebellar circuits and their connections - cerebellar peduncle lesions are among the documented imaging abnormalities - contributes to the ataxia with dysmetria, intention tremor and dysarthria seen in longer-surviving patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degeneration of energy-starved retinal ganglion cells and their axons produces optic atrophy, the mechanism shared with other mitochondrial optic neuropathies and the basis of the ONCE presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Abnormal Basal Ganglia Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The energy-dependent deep grey nuclei are a classic target of mitochondrial energy failure; basal ganglia lesions are among the MRI abnormalities documented in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Hypoplasia of the Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia implies a prenatal developmental component of the CNS energy deficit; the cohort documents the finding on MRI but the developmental mechanism is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Dichloroacetate\", \"target\": \"Cellular Energy Deficit and Lactate Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"N-acetylcysteine\", \"target\": \"Impaired Mitochondrial Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex IV\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Muscle complex IV activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Muscle complex I activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"MTO1\", \"target\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Basal Ganglia Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain imaging was abnormal in 14/20 (70%) of patients scanned. Reported abnormalities include lesions of the basal ganglia and cerebellar peduncles, hypoplasia of the corpus callosum, and anomalies of the claustrum, thalami and subcortical white matter. In one patient a metabolic crisis produced hyperintense T2/FLAIR signal in the cerebral peduncles, basal ganglia and cortex that largely resolved within a week.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia was present in 3/34 (9%) at presentation and 7/34 (21%) over follow-up, often of myopathic character with dysmetria, intention tremor and dysarthria in longer-surviving patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cardiac Conduction Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond structural hypertrophy, MTO1 deficiency destabilises cardiac rhythm. The MTO1-deficient mouse showed bradycardia alongside cardiomyopathy and, of direct translational relevance, a marked worsening of arrhythmias during induction of and recovery from anaesthesia - prompting the authors to caution against anaesthesia-related arrhythmia in patients. In humans, two patients in the reference cohort had Wolff-Parkinson-White pre-excitation, one had tachycardia, and the two index siblings of the original 2012 report died in the first days of life of sudden bradycardia. The peri-anaesthetic risk itself is supported only by mouse data and is therefore curated as PROVISIONAL with an accompanying HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocytes have an extremely high and continuous ATP requirement, so they are the tissue most sensitive to a combined respiratory chain defect; infantile hypertrophic cardiomyopathy is a key clinical feature across many mitochondrial disorders and is the presenting feature of MTO1 deficiency in almost half of patients. In the Mto1 gene-trap mouse the myocardial damage was attributed specifically to complex I deficiency and mitochondrial dysfunction, and in the mto1 knock-out zebrafish the ablation produced heart developmental defects, cardiomyocyte hypertrophy and myocardial fibre disarray in the ventricles, recapitulating the human histological picture.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cellular Energy Deficit and Lactate Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative phosphorylation constrained, cells shift to glycolysis and reduce accumulating pyruvate to lactate, producing the lactic acidosis that is the single most consistent biochemical feature of the disorder (eventually present in 35/35 patients, with peak plasma lactate averaging 13.6 mmol/L and reaching 57.8 mmol/L). Pyruvate accumulation also drives transamination to alanine, producing the characteristic hyperalaninemia, and a broad panel of mitochondrial markers - ketones, TCA-cycle intermediates, tyrosine metabolites, dicarboxylic acids and 3-methylglutaconate - appears in urine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lactate biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Combined Respiratory Chain Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Attenuated mitochondrial translation produces a combined, rather than isolated, respiratory chain enzyme deficiency, because the 13 mtDNA-encoded proteins are distributed across complexes I (seven subunits), III (one), IV (three) and V (two), while complex II is entirely nuclear-encoded and unaffected. In patient skeletal muscle the most frequent pattern is a combined complex I and complex IV deficiency; complex IV was deficient in 28/30 muscle biopsies and a combined deficiency was present in 27/30. Fibroblasts are an unreliable tissue for this assay - respiratory chain enzymes were normal in 4/10 patient fibroblast lines - so a normal fibroblast result does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"skeletal muscle tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex I deficiency accompanies the complex IV defect in the most common biochemical signature of the disorder, combined complex I plus IV deficiency, seen in 20 of 30 patients biopsied; counting the further 6 patients with combined complex I, III and IV deficiency, complex I activity was reduced in at least 26 of 30 muscle biopsies. The table also lists an isolated complex I deficiency, so 26/30 is a lower bound derived from the combined patterns.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Combined Respiratory Chain Complex Deficiency\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"Muscle complex I activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\"}], \"term_id\": \"HP:0011923\"}}, {\"id\": \"Decreased Activity of Mitochondrial Complex IV\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytochrome c oxidase (complex IV) deficiency in skeletal muscle was the most consistent enzymatic abnormality, present in 28 of 30 patients biopsied. It is usually part of a combined deficiency rather than isolated.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Combined Respiratory Chain Complex Deficiency\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"Muscle complex IV activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\"}], \"term_id\": \"HP:0008347\"}}, {\"id\": \"Dichloroacetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dichloroacetate (DCA) was given to 8/25 treated patients with the intent of lowering lactate. One patient, homozygous for p.Ala428Thr, improved dramatically on permanent DCA plus cofactors and was alive at 20 years with compensated stable hypertrophic cardiomyopathy and normal scholastic performance. The cohort authors caution that DCA is expected to improve lactic acidosis without a clear effect on seizures or neurological outcome, and that the concurrent cardiac improvement in that patient may have been natural disease course rather than drug effect. This is uncontrolled single-patient evidence.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language and social domains was documented in the index child. The cohort reports global developmental delay or intellectual disability together in 28/29 (97%) evaluable patients; it does not provide a separate frequency for global developmental delay. The two distinct HPO concepts are retained without assigning the combined frequency to either.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement is infrequent in MTO1 deficiency (3/35, 9%), which distinguishes it from TRMU deficiency - a disorder of the 2-thiolation of the same wobble uridine - in which severe infantile hepatopathy is characteristic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001410\"}}, {\"id\": \"Hyperalaninemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma alanine, the transamination product of accumulating pyruvate, was present in 21/24 (88%) of patients tested, averaging 1346 micromol/L (range 630-6560). It is one of the two most useful screening biochemical markers alongside lactate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003348\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is the classical cardinal feature and the most common presenting sign (15/34, 44%), rising to 27/34 (79%) over follow-up. It is nonetheless not obligatory: the cohort identified six patients, including two adolescent sisters described in detail, who had no cardiomyopathy at ages ranging from 8 months to 22 years. One patient developed a dilated rather than hypertrophic form, which the authors suggest may be a late progression of an earlier hypertrophic phase.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoplasia of the Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia was among the structural brain abnormalities seen on MRI in this cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was present in 10/35 (29%) at presentation and eventually in 22/35 (63%). Some patients had dystonia in addition to, or instead of, hypotonia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Mitochondrial Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tau-m5U/cmnm5U wobble modification increases the accuracy and efficiency of mtDNA translation by stabilising tRNA structure, ribosome binding and correct codon-anticodon pairing. When it is lost, synthesis of the 13 mtDNA-encoded polypeptides is attenuated. In the mto1 knock-out zebrafish the mechanism is broader than decoding alone: the mutant tRNAs show altered conformation, increased nuclease sensitivity and globally reduced aminoacylation, and MTO1 additionally interacts with the mitochondrial poly(A) polymerase MTPAP so that its loss alters polyadenylation of cox1, cox3 and nd1 mRNAs. The translation defect was demonstrated directly in a recombinant yeast model carrying the patient alleles.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"mitochondrial translation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Increased CSF Lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CSF lactate was elevated in 5 of the 6 patients in whom it was measured, reflecting the central nervous system component of the bioenergetic deficit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002490\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is documented in older children, including moderate intellectual disability in the two sisters at ages 12 and 16. These case observations do not establish a uniform progression from developmental delay to intellectual disability or a typical severity across the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate with metabolic acidosis is the most consistent feature of the disorder. It was the most frequent presenting biochemical abnormality (21/34, 62%) and was eventually documented in every patient tested (35/35). Peak plasma lactate averaged 13.6 mmol/L with a range of 3.4 to 57.8 mmol/L.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTO1 and its GTPase partner GTPBP3 jointly catalyse installation of 5-taurinomethyluridine (tau-m5U) at the anticodon first (wobble) position, U34, of five mitochondrially encoded tRNAs: those for glutamine, glutamate, lysine, leucine(UUR) and tryptophan. The reaction consumes taurine and 5,10-methylene-tetrahydrofolate as substrates; older literature describes the homologous bacterial/yeast product as 5-carboxymethylaminomethyluridine (cmnm5U), the glycine-substituted counterpart that appears in human cells when taurine is depleted. Biallelic MTO1 missense or truncating variants reduce or abolish the enzyme\u0027s modifying activity. No reported patient carries two truncating alleles, indicating that some residual MTO1 activity is required for human viability; this is the molecular origin of the whole disease cascade.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"mitochondrial tRNA wobble uridine modification\"], \"genes\": [\"MTO1\"], \"gene_terms\": [{\"label\": \"MTO1\", \"id\": \"hgnc:19261\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"MTO1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"MTO1\"], \"gene_terms\": [{\"label\": \"MTO1\", \"id\": \"hgnc:19261\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts and MTO1-silenced cells show a specific compensatory reprogramming: AMPK is inactivated, UCP2 and PPARgamma are downregulated, and HIF-1 is activated. Glycolysis and oxidative phosphorylation become uncoupled and fatty-acid metabolism is altered, with accumulation of lipid droplets in MTO1 fibroblasts. Notably this response is the mirror image of that seen in GTPBP3-depleted cells - which activate AMPK, raise UCP2/PPARgamma and inactivate HIF-1 - even though the two proteins act on the same modification, suggesting one of them has an additional, non-tRNA-modifying role. This node is curated as PROVISIONAL because it rests on fibroblast and knockdown data from a single group and has not been demonstrated in patient heart or muscle.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised or proximal muscle weakness accompanies the hypotonia in many patients and, in longer-surviving patients, becomes a dominant complaint together with reduced muscle mass and fatigability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001324\"}}, {\"id\": \"N-acetylcysteine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An investigational, cell-culture-only lead. N-acetylcysteine (but not L-cysteine) had a beneficial effect on mitochondrial translation in MTO1- and TRMU-deficient patient fibroblasts. The rationale is that cysteine supplies the sulfur for the 2-thiomodification that is coupled to the wobble-uridine modification MTO1 installs. No human trial in MTO1 deficiency has been reported.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"N-acetyl-L-cysteine\"]}}, {\"id\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, like cardiomyocytes, are high-oxidative-demand, poorly regenerating cell types, and they constitute the second major target of the translation defect. Clinically this produces the near-universal global developmental delay/intellectual disability, plus hypotonia, seizures, ataxia and optic atrophy; imaging shows basal ganglia, cerebellar peduncle and corpus callosum abnormalities in most patients scanned. Optic neuropathy is prominent enough in some families that the acronym ONCE (Optic Neuropathy, Cardiomyopathy and Encephalopathy with lactic acidosis and combined oxidative phosphorylation deficiency) was coined for the homozygous p.Arg504Cys presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"retinal ganglion cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurred in 11/21 (52%) of patients in whom the optic nerve was assessed, with thinning of the retinal nerve fibre layer documented in three. It is generally a later feature than the cardiac and metabolic disease and can be the dominant manifestation in milder, longer-surviving patients (the ONCE presentation). Other ocular findings in the cohort were external ophthalmoplegia, unilateral ptosis and mild bilateral cataracts, each in a single patient.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were an uncommon presenting symptom (5/35, 14%) but developed over time in 12/35 (34%). Seizure types are heterogeneous - febrile, absence, generalised and drop attacks are all described - and can be refractory; the adolescent index case presented in status epilepticus at 11 years and at 16 continued to have up to 40 seizures per week on a ketogenic diet plus four antiseizure medications.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Wolff-Parkinson-White Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular pre-excitation of Wolff-Parkinson-White type was documented in two patients in the reference cohort, in addition to the structural cardiomyopathy. It is a rare but clinically important finding because it identifies patients at risk of tachyarrhythmia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001716\"}}], \"edges\": [{\"source\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"target\": \"Impaired Mitochondrial Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypomodified wobble uridines destabilise codon-anticodon pairing and reduce the accuracy and efficiency of mtDNA-encoded protein synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial Translation\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synthesis of the mtDNA-encoded core subunits leaves complexes I, III, IV and V under-assembled; complex II, which is entirely nuclear-encoded, is spared.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cellular Energy Deficit and Lactate Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired electron transport limits ATP output and diverts pyruvate to lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyocytes, with the highest oxidative demand of any cell type in the body, are the first tissue to decompensate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells are the second major high-oxidative-demand target of the respiratory chain defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Metabolic Reprogramming via the HIF-PPARgamma-UCP2-AMPK Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MTO1-deficient cells mount a distinctive compensatory transcriptional and metabolic response to the OXPHOS defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The respiratory chain enzyme deficit in skeletal muscle provides a bioenergetic explanation for the documented generalised or proximal weakness. This does not imply histologically demonstrated mitochondrial myopathy: case 1 had no histological, histochemical or ultrastructural features of mitochondrial myopathy, and case 2 had normal muscle pathology. The relative contributions of muscle and central nervous system dysfunction to weakness have not been separated in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic involvement (3/35 patients) is presumed to reflect hepatocyte energy failure from the systemic respiratory chain defect, but MTO1 patient liver tissue has not been studied directly and why the liver is spared in most patients - in contrast to the adjacent TRMU deficiency - is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduction of accumulating pyruvate to lactate produces the lactic acidosis that was eventually documented in every patient tested (35/35).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Hyperalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transamination of the same accumulating pyruvate pool produces the characteristic elevation of plasma alanine (21/24 patients tested).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Deficit and Lactate Overproduction\", \"target\": \"Increased CSF Lactate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lactate overproduction within the central nervous system compartment elevates CSF lactate (5/6 patients tested).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"target\": \"Cardiac Conduction Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in the conduction system and working myocardium predisposes to bradyarrhythmia and pre-excitation, most clearly documented in the mouse model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and myofibre disarray in response to the bioenergetic deficit manifest clinically as hypertrophic cardiomyopathy, present in 44% of patients at presentation and 79% over follow-up.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Conduction Instability\", \"target\": \"Wolff-Parkinson-White Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular pre-excitation in two cohort patients is part of the documented rhythm instability, but how the mitochondrial defect produces an accessory-pathway phenotype has not been established in this disease.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic neuronal energy failure impairs early development, manifesting as delay across multiple developmental domains in affected children.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction also affects intellectual development in older children, with moderate intellectual disability documented in both adolescent index siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical neuronal energy failure lowers seizure threshold; seizures develop over time in a third of patients and can be refractory.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction provides a central contribution to hypotonia, eventually documented in 22/35 patients. The cohort does not separate central and peripheral contributions; a structural mitochondrial myopathy is not inferred from the enzyme deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure affecting cerebellar circuits and their connections - cerebellar peduncle lesions are among the documented imaging abnormalities - contributes to the ataxia with dysmetria, intention tremor and dysarthria seen in longer-surviving patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degeneration of energy-starved retinal ganglion cells and their axons produces optic atrophy, the mechanism shared with other mitochondrial optic neuropathies and the basis of the ONCE presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Abnormal Basal Ganglia Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The energy-dependent deep grey nuclei are a classic target of mitochondrial energy failure; basal ganglia lesions are among the MRI abnormalities documented in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal and Retinal Ganglion Cell Energy Failure\", \"target\": \"Hypoplasia of the Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal hypoplasia implies a prenatal developmental component of the CNS energy deficit; the cohort documents the finding on MRI but the developmental mechanism is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Dichloroacetate\", \"target\": \"Cellular Energy Deficit and Lactate Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"N-acetylcysteine\", \"target\": \"Impaired Mitochondrial Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex IV\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Muscle complex IV activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Muscle complex I activity assays measure the respiratory chain defect; this investigation finding is a readout of the enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"MTO1\", \"target\": \"Loss of MTO1 Wobble Uridine Taurinomethylation of Mitochondrial tRNAs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6741,6 +6850,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6842,6 +6954,9 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6922,6 +7037,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6990,6 +7108,9 @@ This clinical feature is Hepatic dysfunction, annotated with Decreased liver fun
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7095,6 +7216,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7230,6 +7354,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7326,6 +7453,9 @@ This clinical feature is Hyperalaninemia (HP:0003348). HP:0003348 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7390,6 +7520,9 @@ This clinical feature is Increased CSF lactate (HP:0002490). HP:0002490 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7470,6 +7603,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7564,6 +7700,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7674,6 +7813,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7738,6 +7880,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7814,6 +7959,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7880,6 +8028,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7954,6 +8105,9 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8018,6 +8172,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8103,6 +8260,9 @@ This clinical feature is Decreased activity of mitochondrial complex IV (HP:0008
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8169,6 +8329,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8249,6 +8412,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8365,6 +8531,9 @@ This disease-associated gene is MTO1 (hgnc:19261). hgnc:19261 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8493,6 +8662,9 @@ This disease-associated gene is MT-TF (hgnc:7481). hgnc:7481 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8615,6 +8787,9 @@ This treatment uses dichloroacetate (CHEBI:28240). CHEBI:28240 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8625,6 +8800,9 @@ This treatment uses dichloroacetate (CHEBI:28240). CHEBI:28240 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -8762,6 +8940,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8772,6 +8953,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8891,6 +9075,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8901,6 +9088,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -9042,6 +9232,9 @@ This treatment uses N-acetyl-L-cysteine (CHEBI:28939). CHEBI:28939 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9052,6 +9245,9 @@ This treatment uses N-acetyl-L-cysteine (CHEBI:28939). CHEBI:28939 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -9189,6 +9385,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9199,6 +9398,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9318,6 +9520,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9328,6 +9533,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12676,6 +12884,44 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">No GeneReviews chapter exists for MTO1 deficiency. A PubMed search for &#34;MTO1 GeneReviews&#34; on 2026-08-01 returned a single record, the &#34;Nuclear Gene-Encoded Leigh Syndrome Spectrum Overview&#34; (PMID:26425749), whose cached abstract does not mention MTO1; the usual GeneReviews phenotype baseline is therefore unavailable. In its place this entry is anchored on the largest published cohort, O&#39;Byrne et al. 2018 (PMID:29331171, 35 molecularly confirmed patients collected through international collaboration), which supplies explicit numerators and denominators for every phenotype frequency asserted below. Frequencies are quoted directly from that series and carry the caveat the authors themselves record: ascertainment was biased by preselection on lactic acidosis and cardiomyopathy, denominators vary between features because the source literature was incomplete, and later-onset features may be under-reported in patients with short follow-up.
+Naming: this entry is filed under the gene-based clinical name &#34;MTO1 deficiency&#34; used by the cohort literature rather than the longer MONDO label, because the MONDO label (&#34;mitochondrial hypertrophic cardiomyopathy with lactic acidosis&#34;) describes a presentation the cohort showed is not obligatory. &#34;ONCE syndrome&#34; (Optic Neuropathy, Cardiomyopathy and Encephalopathy) is a synonym coined for the homozygous p.Arg504Cys presentation and is listed as a synonym rather than a separate subtype.
+Deliberately excluded to avoid Named Entity Confusion: MTO1 deficiency is mechanistically adjacent to, but distinct from, GTPBP3 deficiency (COXPD23, the partner subunit of the same tau-m5U enzyme), TRMU deficiency (the 2-thiouridylase acting on the same wobble uridine), MRPL44 deficiency (COXPD16, a mitoribosome defect with the same infantile-HCM-plus-lactic-acidosis presentation) and SLC25A3 cardiomyopathy-hypotonia-lactic acidosis syndrome (a phosphate-carrier defect with an overlapping clinical triad that is curated separately in this knowledge base). Literature on those disorders is cited here only where it reports MTO1 data directly. Identity was verified before curation against MONDO:0013865 (gene MTO1/HGNC:19261, OMIM:614702, Orphanet:314637); note that OMIM 614667 is the MTO1 *gene* record, not the disease record, an ambiguity that recurs in the literature.
+A claim appearing in the deep-research report - that complete Mto1 knockout in mouse reduces mitochondrial translation by more than 80% and causes embryonic death around E8 - was NOT included because it could not be verified against the abstract of the cited review (DOI:10.1093/jb/mvaa098), which does not mention MTO1 or embryonic lethality. The related and verifiable human inference (no patient carries two truncating alleles, so complete loss is probably non-viable) is curated instead.
+Death in infancy/childhood is curated under `progression` rather than as a `phenotypes` entry because the relevant HPO terms sit in the Mortality/Aging branch, outside the Phenotypic abnormality subtree the PhenotypeTerm dynamic enum draws from.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: MTO1 Deficiency</strong> · 2026-08-01T17:42:51Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MTO1_Deficiency/2026-08-01T174251Z-claude-code-9845e2.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MTO1 deficiency [COXPD10, MONDO:0013865, OMIM:614702, gene MTO1/hgnc:19261] via the /curate workflow.
+
+NEC preflight: ran runoak -i sqlite:obo:mondo info MONDO:0013865 -O obo before any DR content was used. Confirmed all three identity anchors - causal gene MTO1 via RO:0004003 HGNC:19261, the OMIM:614702 xref, and the COXPD10 synonym. Independently corroborated by the freshly generated ORPHA:314637 structured cache, which records MONDO:0013865 Exact and OMIM:614702 Exact. Explicitly kept distinct from the three named lookalikes: MRPL44/COXPD16 curated in parallel, SLC25A3 cardiomyopathy-hypotonia-lactic acidosis syndrome already in kb/disorders/, and GTPBP3/TRMU. These appear only as differential_diagnoses, and the exclusion rationale is recorded in the entry notes.
+
+Duplicate preflight: git grep over origin/main kb/ for MONDO:0013865, MTO1 and COXPD10 returned nothing; gh pr and gh issue searches for MTO1, COXPD10 and MONDO:0013865 across all states returned only issue #7703 and the priority EPIC #1079.
+
+Deep research: just research-disorder falcon MTO1_Deficiency - Edison, 476s, 18 citations, 1 artifact. Report read in full and confirmed on-target for the intended entity. DR output treated as leads only; every PMID was fetched with just fetch-reference and every snippet checked as an exact substring of the cached text. One DR claim was rejected on verification and the rejection is documented in the entry notes: the assertion that complete mouse Mto1 knockout reduces mitochondrial translation by more than 80 percent and is embryonic-lethal at about E8 could not be verified against the abstract of its cited source DOI:10.1093/jb/mvaa098, which does not mention MTO1 at all. DR-suggested ontology terms were also not taken on trust - HP:0031987, suggested for elevated alanine, was replaced with the verified HP:0003348 Hyperalaninemia.
+
+GeneReviews baseline: no chapter exists. A PubMed search for MTO1 GeneReviews returned only PMID:26425749, the Nuclear Gene-Encoded Leigh Syndrome Spectrum Overview, whose cached abstract does not mention MTO1. In its place the phenotype baseline is O&#39;Byrne et al. 2018, PMID:29331171, the 35-patient international cohort, which supplies an explicit numerator and denominator for every frequency band asserted.
+
+Content: 8 pathophysiology nodes forming the causal chain from loss of tau-m5U wobble-uridine modification through impaired mitochondrial translation and combined complex I/IV deficiency to cardiac, neuronal/retinal and metabolic failure; 20 phenotypes with HPO bindings and cohort-derived frequency bands; 5 biochemical markers; MTO1 as CAUSATIVE plus MT-TF as a candidate MODIFIER; 2 diagnosis entries; 3 differential diagnoses; 6 treatments, two of which are curated with REFUTE evidence because the cohort showed no benefit from the mitochondrial cofactor cocktail or from riboflavin; 1 mechanistic hypothesis covering the residual-activity dose model; and 3 discussions - two HUMAN_MODEL_MISMATCH entries for the mouse anaesthesia-arrhythmia risk and for the mouse&#39;s missing neurological phenotype, plus one KNOWLEDGE_GAP for genotype-phenotype variability.
+
+Three ontology terms were caught and corrected during verification: HP:0025547 is NOT Abnormal liver physiology - it is Decreased mean corpuscular hemoglobin concentration - and was replaced with HP:0031865; GO:0005747 and GO:0005751 are obsolete and were replaced with GO:0045271 and GO:0045277.
+
+Frequency discipline: bands are quoted from bracket-free cohort fractions, because the reference validator strips square-bracketed confidence intervals and would otherwise break snippet matching. No band was asserted for Increased CSF lactate where n=6 and the CI spans three bands, for Abnormal basal ganglia morphology or Hypoplasia of the corpus callosum where the 14/20 denominator covers any MRI abnormality, for Muscle weakness where no summary denominator is reported, or for Intellectual disability which shares the combined GDD/ID denominator. The Wolff-Parkinson-White band is flagged in its explanation as a count derived from Table 1 rather than a reported summary statistic.
+
+Validation: just validate, just validate-terms and just validate-references all pass; 101/104 snippets verified against cached references, with the 3 DOI-prefixed snippets skipped by the validator and hand-verified as exact substrings of references_cache/DOI_10.3390_ijms24032178.md. pytest tests/test_data.py -k MTO1 passes 9/9. The one repo-wide test failure, SETD5_Haploinsufficiency_Syndrome target_phenotypes, is pre-existing and unrelated to this change.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

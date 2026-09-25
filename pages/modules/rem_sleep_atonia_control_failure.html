@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2016,11 +2053,13 @@ SCOPE BOUNDARIES. Distinct from parkinsonism_dopaminergic_degeneration, which mo
             
             <div class="item-box anchor-target" id="module-pathophysiology-lesion-of-the-pontine-rem-atonia-generator" data-dismech-node="Lesion of the Pontine REM-Atonia Generator" data-dismech-type="pathophysiology">
                 <div class="item-name">Lesion of the Pontine REM-Atonia Generator</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The trigger is loss of function of the REM-on glutamatergic neurons of the sublaterodorsal nucleus (the rodent term; subcoeruleus in cat, and the homologous region in humans) or of their descending projection. Human evidence comes from the small number of cases in which structural brainstem lesions produce the syndrome, and consistently implicates the dorsal midbrain and pons. In the far commoner age-related form the lesion is degenerative rather than structural: alpha-synuclein pathology involving the pontine tegmentum, at a Braak stage that precedes nigral and cortical involvement. Conforming disorder nodes substitute the disorder-specific lesion - evolving synucleinopathy, a structural pontine lesion (stroke, demyelination, tumour), the orexin-deficiency-associated instability of narcolepsy type 1, or antidepressant exposure.</div>
                 
@@ -2105,11 +2144,13 @@ This pathophysiological event involves decreased glutamatergic REM-on neuron of 
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-descending-glutamatergic-drive-to-inhibitory-premotor-neurons" data-dismech-node="Loss of Descending Glutamatergic Drive to Inhibitory Premotor Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Descending Glutamatergic Drive to Inhibitory Premotor Neurons</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Atonia is not a passive withdrawal of excitation but an active inhibition: the descending glutamatergic limb excites glycinergic and GABAergic premotor neurons in the ventromedial medulla and spinal cord, which hyperpolarise skeletal motor neurons. Losing the drive therefore releases motor neurons from an inhibition that should be present, rather than merely failing to quiet them. This node is where the module&#39;s central anatomical claim sits: this descending pathway is separate from the ascending pathway that generates the EEG features of REM sleep, so it can be lost while REM sleep itself continues normally.</div>
                 
@@ -2222,11 +2263,13 @@ This pathophysiological event involves decreased inhibitory regulation of skelet
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-rem-sleep-skeletal-muscle-atonia" data-dismech-node="Failure of REM Sleep Skeletal Muscle Atonia" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of REM Sleep Skeletal Muscle Atonia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target, measurable as REM sleep without atonia: excess tonic or phasic electromyographic activity during scored REM sleep. It is a graded and quantifiable trait rather than a binary one, which matters clinically - quantified atonia loss is itself a predictor of progression in the degenerative form. Crucially, this node is separable from the clinical behaviours below it: REM sleep without atonia can be present without dream enactment, and a conforming entry should say which of the two it is evidencing, since only the electrophysiological finding is required for conformance.</div>
                 
@@ -2339,11 +2382,13 @@ This pathophysiological event involves increased skeletal muscle contraction dur
             
             <div class="item-box anchor-target" id="module-pathophysiology-motor-enactment-of-dream-content-during-rem-sleep" data-dismech-node="Motor Enactment of Dream Content During REM Sleep" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Enactment of Dream Content During REM Sleep</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Released motor output takes the form of behaviour matched to dream content rather than random movement, which is the observation that ties the node to REM physiology rather than to a nonspecific motor release. Because REM dream content in this population is disproportionately confrontational, the behaviours are frequently violent - punching, kicking, leaping from bed - and the injury risk falls on both patient and bed partner. Movements are not preceded by the confusional arousal typical of an NREM parasomnia, and patients wake alert with dream recall, which is the bedside discriminator.</div>
                 
@@ -2421,11 +2466,13 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
             
             <div class="item-box anchor-target" id="module-pathophysiology-injury-risk-and-prodromal-neurodegeneration" data-dismech-node="Injury Risk and Prodromal Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Injury Risk and Prodromal Neurodegeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Two consequences that must be kept apart. The first is immediate and mechanical: sleep-related injury to patient and bed partner, which is what treatment addresses. The second follows only from the degenerative route and is of a different kind - the pontine lesion is an early stage of a synucleinopathy whose later stages are Parkinson disease, dementia with Lewy bodies, or multiple system atrophy, so the parasomnia is a prodromal marker with a long lead time. Conversion is high but neither immediate nor universal, and the numbers matter: roughly 6% per year, with about three-quarters converting over twelve years. A conforming entry whose trigger is pharmacological or lesional should NOT inherit this second consequence.</div>
                 
@@ -2503,6 +2550,9 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2513,6 +2563,9 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
         
         
     </div>
+    
+    
+    
     
     
     
@@ -2608,6 +2661,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2618,6 +2674,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
         
         
     </div>
+    
+    
+    
     
     
     

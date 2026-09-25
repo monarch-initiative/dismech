@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4384,6 +4437,7 @@ There is now a partial answer pointing the other way, which is why this is a gap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pmm2-hypomorphic-variants" data-dismech-node="Biallelic PMM2 Hypomorphic Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PMM2 Hypomorphic Variants</div>
 
+
                 <div class="item-desc">Two hypomorphic PMM2 alleles. Complete loss of PMM2 is embryonic lethal, so every surviving patient retains partial activity from at least one allele; this is a constraint on the genotype space rather than an incidental observation.</div>
 
 
@@ -4459,6 +4513,7 @@ There is now a partial answer pointing the other way, which is why this is a gap
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-phosphomannomutase-2-activity" data-dismech-node="Reduced Phosphomannomutase 2 Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Phosphomannomutase 2 Activity</div>
+
 
                 <div class="item-desc">Cytosolic phosphomannomutase activity falls below the level needed to sustain flux from mannose-6-phosphate to mannose-1-phosphate.</div>
 
@@ -4603,6 +4658,7 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mannose-6-phosphate-accumulation" data-dismech-node="Mannose-6-Phosphate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mannose-6-Phosphate Accumulation</div>
 
+
                 <div class="item-desc">Substrate accumulation upstream of the enzymatic block. In the zebrafish model this is not merely a marker of the block: raised M6P promotes cleavage of the lipid-linked oligosaccharide, so accumulation contributes actively to underglycosylation alongside precursor depletion.</div>
 
 
@@ -4700,6 +4756,7 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-mannose-1-phosphate-and-gdp-mannose" data-dismech-node="Depletion of Mannose-1-Phosphate and GDP-Mannose" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of Mannose-1-Phosphate and GDP-Mannose</div>
+
 
                 <div class="item-desc">The mannose-1-phosphate pool and the GDP-mannose and dolichol-phosphate-mannose derived from it fall, limiting the sugar donors for oligosaccharide assembly.</div>
 
@@ -4836,6 +4893,7 @@ This pathophysiological event involves decreased GDP-mannose biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncated-lipid-linked-oligosaccharide-synthesis" data-dismech-node="Truncated Lipid-Linked Oligosaccharide Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncated Lipid-Linked Oligosaccharide Synthesis</div>
+
 
                 <div class="item-desc">Assembly of the dolichol-linked Glc3Man9GlcNAc2 precursor in the endoplasmic reticulum is incomplete, so the oligosaccharyltransferase complex has less full-length donor to transfer onto nascent glycoproteins.</div>
 
@@ -4992,6 +5050,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-protein-n-hypoglycosylation" data-dismech-node="Global Protein N-Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Protein N-Hypoglycosylation</div>
 
+
                 <div class="item-desc">Occupancy of Asn-X-Ser/Thr sequons falls across the secreted and membrane glycoproteome. Because the defect is at the shared donor rather than at one transferase, the consequence is global, which is why a single enzyme deficiency produces a multisystem disease.</div>
 
 
@@ -5121,6 +5180,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cerebellar-development" data-dismech-node="Disrupted Cerebellar Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cerebellar Development</div>
+
 
                 <div class="item-desc">Cerebellar hypoplasia is established during development rather than accrued by later degeneration. Conditional mouse work localizes the requirement to embryonic neural precursors: deleting Pmm2 from post-mitotic neurons or astrocytes produces no phenotype, while deleting it from precursors reproduces the hypoplasia.</div>
 
@@ -5324,6 +5384,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoglycosylation-of-coagulation-regulators" data-dismech-node="Hypoglycosylation of Coagulation Regulators" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoglycosylation of Coagulation Regulators</div>
 
+
                 <div class="item-desc">Anticoagulant and procoagulant glycoproteins are simultaneously underglycosylated and lose activity, so the same patient can carry both bleeding and thrombotic risk. Antithrombin is the most consistently affected.</div>
 
 
@@ -5384,6 +5445,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-involvement" data-dismech-node="Hepatic Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Involvement</div>
+
 
                 <div class="item-desc">Hepatocyte dysfunction with transaminase elevation, hepatomegaly and, in some patients, fibrosis.</div>
 
@@ -5500,6 +5562,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ataxia-and-developmental-impairment" data-dismech-node="Ataxia and Developmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Ataxia and Developmental Impairment</div>
+
 
                 <div class="item-desc">The dominant clinical consequence: hypotonia and delay in infancy, then ataxia with intellectual disability that plateaus rather than progressing relentlessly.</div>
 
@@ -5670,6 +5733,9 @@ This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5736,6 +5802,9 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5846,6 +5915,9 @@ This clinical feature is Inverted nipples (HP:0003186). HP:0003186 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5921,6 +5993,9 @@ This clinical feature is Stroke-like episode (HP:0002401). HP:0002401 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6006,6 +6081,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6086,6 +6164,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6152,6 +6233,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6232,6 +6316,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6328,6 +6415,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6394,6 +6484,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6481,6 +6574,9 @@ This clinical feature is Abnormal subcutaneous fat tissue distribution (HP:00075
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6558,6 +6654,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6643,6 +6742,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6714,6 +6816,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6780,6 +6885,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6865,6 +6973,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6931,6 +7042,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7007,6 +7121,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7078,6 +7195,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7144,6 +7264,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7238,6 +7361,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7320,6 +7446,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7378,6 +7507,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     </div>
+
+
+
 
 
 
@@ -7498,6 +7630,9 @@ This disease-associated gene is PMM2 (hgnc:9115). hgnc:9115 is a gene from the H
 
 
 
+
+
+
                 <details class="variant-list">
                     <summary class="variant-list-toggle">Variants (2)</summary>
 
@@ -7510,6 +7645,12 @@ This disease-associated gene is PMM2 (hgnc:9115). hgnc:9115 is a gene from the H
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The commonest allele in the disease, carried by more than 60% of patients, and the one that defines its genetic architecture. R141H has never been reported homozygous in a living patient: it is a functional null, and two nulls appear not to be compatible with live birth. Every patient therefore carries something else on the other chromosome, and it is that second allele&#39;s residual activity - not R141H - that sets where they fall on the severity spectrum. This is why the commonest genotype is a compound heterozygote rather than a homozygote, and why an allele-frequency-derived prevalence ceiling exceeds the diagnosed rate.</div>
@@ -7622,6 +7763,12 @@ This disease-associated gene is PMM2 (hgnc:9115). hgnc:9115 is a gene from the H
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The partial-activity allele that most often sits opposite R141H. The source that makes that pairing claim ties it to Scandinavia, where F119L is most prevalent, so R141H/F119L is reported as the commonest genotype there rather than established as the commonest worldwide. Its interest is that it is the substrate the only enzyme-directed therapy needs: an activator can raise residual activity but cannot create it, so a genotype pairing a null with a hypomorph is precisely where such a drug has something to act on. R141H/F119L fibroblasts were one of the four lines in which epalrestat was shown to raise PMM2 activity.</div>
@@ -7822,6 +7969,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no therapy that restores glycosylation. Management is organ-directed: nutritional support, seizure control, developmental therapies, and specialist management of the ocular, cardiac, endocrine and renal manifestations.</div>
 
 
@@ -7958,6 +8111,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Annual assessment of bleeding and clotting parameters, with haematology input before surgery. This is the arm of management that acts on a measurable mechanistic readout rather than on symptoms.</div>
 
 
@@ -8064,6 +8223,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8074,6 +8236,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8208,6 +8373,9 @@ This treatment uses diazoxide (CHEBI:4495). CHEBI:4495 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8218,6 +8386,9 @@ This treatment uses diazoxide (CHEBI:4495). CHEBI:4495 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -8337,6 +8508,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8347,6 +8521,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -8481,6 +8658,9 @@ This treatment uses D-mannose (CHEBI:16024). CHEBI:16024 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8491,6 +8671,9 @@ This treatment uses D-mannose (CHEBI:16024). CHEBI:16024 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8632,6 +8815,9 @@ This treatment uses epalrestat (CHEBI:31539). CHEBI:31539 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8642,6 +8828,9 @@ This treatment uses epalrestat (CHEBI:31539). CHEBI:31539 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -12138,6 +12327,28 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and naming. This entry covers the PMM2 complementation group as a whole. The KB already curates thirteen other CDG entries and a Congenital_Disorders_of_Glycosylation grouping that does not yet list PMM2-CDG; adding this entry to that grouping&#39;s members is a reasonable follow-up.
+MONDO identifier. The deep-research report proposed MONDO:0015286 for this entry. That term is the generic &#34;congenital disorder of glycosylation&#34; parent and would have bound the entry to the whole category. The correct term is MONDO:0008907, which the stub already carried and whose OMIM cross-reference (212065) matches the report&#39;s own.
+Ontology corrections. Five of the twenty-seven CURIEs suggested by the research report were wrong and were replaced after checking each against the ontology: GO:0097502 (mannosylation) and CL:0000643 (offered as cerebellar granule cell) are both obsolete; HP:0009026, offered as abnormal subcutaneous fat distribution, is Hypoplasia of latissimus dorsi muscle; HP:0001636, offered as pericardial effusion, is Tetralogy of Fallot; and HP:0001700, offered as hypertrophic cardiomyopathy, is Myocardial necrosis. The replacements used are GO:0006487, CL:0001031, HP:0007552, HP:0001698 and HP:0001639 respectively, though the last two are not yet curated as phenotypes here because the sources consulted describe them only as subset findings without a frequency.
+GeneReviews mining. PMID:20301289 is tagged and is now mined across all four sections. The first version of this entry consumed Clinical Characteristics, Management and Genetic Counseling but not Diagnosis/Testing, while the history record for that session asserted all four. Review caught it. The diagnostic tiering and the agents-to-avoid line are curated now, and the over-claim is recorded here rather than quietly corrected - the same failure was caught on a previous entry in this repository and repeating it is worth stating.
+Evidence grading. Several quotes are taken from the mouse-model and zebrafish papers but state human epidemiology or human clinical features in their background sections. Those are graded OTHER rather than MODEL_ORGANISM, because evidence_source classifies what the quoted sentence reports, not which paper it sits in.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: PMM2-Congenital Disorder of Glycosylation</strong> · 2026-08-27T19:14:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PMM2-Congenital_Disorder_of_Glycosylation/2026-08-27T191406Z-claude-code-c6dc60.yaml">View source</a></p>
+                        <p class="research-review-text">Curated PMM2-CDG (MONDO:0008907) from a claude_code deep-research report plus GeneReviews PMID:20301289, mined across all four sections. Ten pathophysiology nodes in one connected component from biallelic hypomorphic PMM2 variants through reduced phosphomannomutase activity to global N-hypoglycosylation, branching into cerebellar, coagulation and hepatic arms. Two mechanistic_hypotheses model the competing routes to underglycosylation: precursor depletion (CANONICAL) and the zebrafish M6P substrate-accumulation route (EMERGING); the causal edges opt into them separately so a future measurement can support one without retiring the other. Three animal models including a FAILS_TO_RECAPITULATE link for the post-mitotic neuronal knockout, which is the negative result that locates the PMM2 requirement in development rather than maintenance. Corrections: the report proposed MONDO:0015286, the generic CDG parent, instead of MONDO:0008907; and five of twenty-seven suggested CURIEs were wrong (GO:0097502 and CL:0000643 obsolete; HP:0009026 is Hypoplasia of latissimus dorsi muscle; HP:0001636 is Tetralogy of Fallot; HP:0001700 is Myocardial necrosis). Validation: 33/33 snippets verified, plus an independent raw-substring re-check at 33/33; schema, terms, entity-refs, duplicate-keys and all four snippet gates pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4258,6 +4311,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-18q-contiguous-gene-haploinsufficiency" data-dismech-node="18q contiguous-gene haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">18q contiguous-gene haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous terminal or interstitial deletion of the long arm of chromosome 18 removes one copy of a contiguous set of genes, producing a haploinsufficiency syndrome. The clinical spectrum reflects which dosage-sensitive genes fall within the deleted interval, so the phenotype varies with breakpoint position and deletion size. The syndrome is conventionally split into a common distal (terminal) form and a rarer proximal interstitial form (18q11.2-q21.1).</div>
 
 
@@ -4390,6 +4444,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-dysregulation" data-dismech-node="Neurodevelopmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental dysregulation</div>
+
 
                 <div class="item-desc">Deletion of 18q neurodevelopmental genes produces developmental delay, intellectual disability, and behavioral abnormalities. TCF4 haploinsufficiency is a major contributor when the 18q21 region is included (full TCF4 deletion causes Pitt-Hopkins syndrome).</div>
 
@@ -4597,6 +4652,7 @@ This pathophysiological event involves decreased nervous system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-central-white-matter-myelination" data-dismech-node="Reduced central white-matter myelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced central white-matter myelination</div>
+
 
                 <div class="item-desc">The distal 18q region (18q23) includes MBP, encoding myelin basic protein. 18q deletion is classically associated with reduced white-matter myelination and abnormal cerebral white-matter MRI signal. Note that the mechanistic basis is debated: a single autopsy study of a ring-18 patient with confirmed MBP haploinsufficiency found intact myelin and attributed the MRI signal to gliosis rather than dysmyelination (see discussions).</div>
 
@@ -4814,6 +4870,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aural-and-craniofacial-developmental-dysregulation" data-dismech-node="Aural and craniofacial developmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aural and craniofacial developmental dysregulation</div>
 
+
                 <div class="item-desc">TSHZ1, in the 18q22.3 critical region, is required for middle-ear and palate development. TSHZ1 haploinsufficiency disrupts development of the external and middle ear, producing congenital aural atresia and conductive hearing loss, and contributes to palatal and midface anomalies.</div>
 
 
@@ -5004,6 +5061,7 @@ This pathophysiological event involves abnormal roof of mouth development (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-morphogenesis-dysregulation" data-dismech-node="Cardiac morphogenesis dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac morphogenesis dysregulation</div>
 
+
                 <div class="item-desc">Congenital heart defects occur in roughly a quarter to a third of affected individuals, with a shared distal 18q22.3-q23 overlap region; the most common lesions are pulmonary valve anomalies and atrial septal defects. In proximal deletions, cardiac defects often map distal to GATA6, implying an alternative mechanism rather than GATA6 haploinsufficiency.</div>
 
 
@@ -5142,6 +5200,7 @@ This pathophysiological event involves abnormal heart morphogenesis (GO:0003007)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-axis-dysregulation" data-dismech-node="Growth-axis dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-axis dysregulation</div>
+
 
                 <div class="item-desc">Short stature is recurrent and frequently associated with growth hormone deficiency, with additional contributions from hypothyroidism and skeletal/feeding factors. Growth hormone deficiency is listed among the characteristic features of the syndrome, and affected individuals respond to recombinant human growth hormone.</div>
 
@@ -5346,6 +5405,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5426,6 +5488,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5492,6 +5557,9 @@ This clinical feature is Atresia of the external auditory canal (HP:0000413). HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5577,6 +5645,9 @@ This clinical feature is Abnormality of the genital system (HP:0000078). HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5652,6 +5723,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5753,6 +5827,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5826,6 +5903,9 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5913,6 +5993,9 @@ This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5993,6 +6076,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6068,6 +6154,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6169,6 +6258,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6235,6 +6327,9 @@ This clinical feature is Abnormal CNS myelination (HP:0011400). HP:0011400 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6308,6 +6403,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6388,6 +6486,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6480,6 +6581,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal chromosomal deletion)</span>
 
                 </div>
+
+
+
 
 
 
@@ -6590,6 +6694,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management is supportive and symptom-directed, with no therapy that corrects the deletion; care is coordinated across developmental, audiologic, cardiac, endocrine, orthopedic, and immunologic services.</div>
 
 
@@ -6659,6 +6769,12 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6750,6 +6866,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8005,6 +8127,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

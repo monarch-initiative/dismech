@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autosomal%20Recessive%20Nonsyndromic%20Hearing%20Loss%2093"
@@ -4002,7 +4055,7 @@ Clinically this matters twice over. Amplification addresses sensitivity, and sen
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4442,6 +4495,7 @@ This is not a technicality. Progression determines whether a moderate childhood 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cabp2-loss-of-function-variant" data-dismech-node="Biallelic CABP2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CABP2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">The recurrent allele, and the one that accounts for most reported families, is the splice-donor variant c.637+1G&gt;T. It causes skipping of exon 6 and a frameshift, p.Phe164Serfs*4, truncating the protein. Nonsense and missense alleles have also been reported.
 The truncated product is not simply absent from the cell: it was made and tested, and it binds calcium abnormally and regulates CaV1.3 less effectively than wild type. The functional claim of this entry therefore rests on a measured hypomorph, not only on an inferred null.</div>
 
@@ -4495,6 +4549,8 @@ This genetic context concerns CABP2 (hgnc:1385). hgnc:1385 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4507,6 +4563,9 @@ This genetic context concerns CABP2 (hgnc:1385). hgnc:1385 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous in every reported family. The founding families were consanguineous; the Danish and Finnish cases were not, and reflect a shared founder haplotype instead.</div>
 
@@ -4604,6 +4663,7 @@ This genetic context concerns CABP2 (hgnc:1385). hgnc:1385 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cabp2-function-at-the-inner-hair-cell-ribbon-synapse" data-dismech-node="Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse</div>
+
 
                 <div class="item-desc">CaBP2 is expressed by cochlear hair cells and preferentially by inner hair cells. It is not in the postsynaptic spiral ganglion neuron, which fixes the lesion on the presynaptic side of the synapse and is the reason this disease is a synaptopathy rather than a neuropathy of the auditory nerve itself.</div>
 
@@ -4772,6 +4832,7 @@ This pathophysiological event involves decreased CaV1.3 calcium channel regulati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cav1-3-calcium-channel-inactivation" data-dismech-node="Enhanced CaV1.3 Calcium-Channel Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced CaV1.3 Calcium-Channel Inactivation</div>
+
 
                 <div class="item-desc">In inner hair cells lacking CaBP2 the CaV1.3 current inactivates more than it should. The channels are not fewer and they do not open at the wrong voltage - channel number and the voltage dependence of activation are normal, and so is the ribbon synapse count. What changes is availability over time. A hair cell responding to a continuing sound is held depolarised, and under that condition an inactivating channel population steadily withdraws from service.</div>
 
@@ -4966,6 +5027,7 @@ This pathophysiological event involves decreased available presynaptic CaV1.3 cu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sustained-exocytosis-at-the-inner-hair-cell-ribbon-synapse" data-dismech-node="Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse</div>
 
+
                 <div class="item-desc">The consequence of reduced channel availability is that the sustained component of vesicle release fails. In the double-knockout preparation, where the phenotype is most severe because the partially redundant CaBP1 is removed as well, even mild activation reduces the channel pool enough that synapses may be effectively silenced.</div>
 
 
@@ -5133,6 +5195,7 @@ This pathophysiological event involves decreased sustained synaptic vesicle exoc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-spiral-ganglion-neuron-firing" data-dismech-node="Reduced Spiral Ganglion Neuron Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Spiral Ganglion Neuron Firing</div>
+
 
                 <div class="item-desc">Single-unit recordings from spiral ganglion neurons show reduced spontaneous and sound-evoked firing. The neurons themselves are not the lesion - CaBP2 is not expressed in them - so this is a readout of presynaptic failure, and it is the step at which the defect becomes something an auditory brainstem response can see.</div>
 
@@ -5306,6 +5369,7 @@ This pathophysiological event involves decreased afferent auditory nerve firing,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-auditory-synaptopathy-with-preserved-cochlear-amplification" data-dismech-node="Auditory Synaptopathy with Preserved Cochlear Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Auditory Synaptopathy with Preserved Cochlear Amplification</div>
+
 
                 <div class="item-desc">The end state is a dissociation. Outer hair cells never enter the mechanism, so otoacoustic emissions are present and cochlear amplification is intact, while the auditory brainstem response is abnormal because what reaches the brainstem has been degraded at the synapse. That pattern is the operational definition of auditory synaptopathy, and both the mouse work and the clinical perspective paper state the classification explicitly rather than leaving it to be inferred.</div>
 
@@ -5511,7 +5575,7 @@ This pathophysiological event involves decreased sensory perception of sound (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end state is a dissociation. Outer hair cells never enter the mechanism, so otoacoustic emissions are present and cochlear amplification is intact, while the auditory brainstem response is abnormal because what reaches the brainstem has been degraded at the synapse. That pattern is the operational definition of auditory synaptopathy, and both the mouse work and the clinical perspective paper state the classification explicitly rather than leaving it to be inferred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sensory perception of sound\"], \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cabp2 LacZ/LacZ (constitutive knockout, homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse shows the same dissociation as the patients: the cochlear amplifier works and the brainstem response does not.\"}, {\"name\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"species\": \"Mouse\", \"genotype\": \"Cabp1-/-; Cabp2-/- double knockout, with and without AAV-PHP.eB-mediated Cabp2 transgene delivery\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Transgenic re-expression of CaBP2 in the inner ear substantially restores synaptic function and hearing sensitivity, showing that the deficit is reversible by replacing the missing protein and not the consequence of an irreversible developmental defect.\"}]}}, {\"id\": \"Biallelic CABP2 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent allele, and the one that accounts for most reported families, is the splice-donor variant c.637+1G\u003eT. It causes skipping of exon 6 and a frameshift, p.Phe164Serfs*4, truncating the protein. Nonsense and missense alleles have also been reported.\\nThe truncated product is not simply absent from the cell: it was made and tested, and it binds calcium abnormally and regulates CaV1.3 less effectively than wild type. The functional claim of this entry therefore rests on a measured hypomorph, not only on an inferred null.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in every reported family. The founding families were consanguineous; the Danish and Finnish cases were not, and reflect a shared founder haplotype instead.\", \"gene_terms\": [{\"label\": \"CABP2\", \"id\": \"hgnc:1385\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Removing the partially redundant paralogue CaBP1 as well produces a much more severe synaptic phenotype than the single knockout, and that severity is the point: it makes the exocytosis deficit and the afferent-firing deficit large enough to measure cleanly, and it provides a window in which a rescue can be seen. Delivering Cabp2 into the inner ear substantially recovers both synaptic function and hearing sensitivity, which is the experiment underlying the claim that DFNB93 is a gene-therapy candidate.\"}, {\"id\": \"Cabp2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The single-gene knockout, matching the human genotype in kind. It is the source of the mechanism: the localisation of CaBP2 to inner hair cells, the enhanced channel inactivation, the normal channel number and ribbon count, and the reduced afferent firing. Crucially it also reproduces the human dissociation - intact cochlear amplification with abnormal brainstem responses - which is what licenses reading the mouse mechanism across to the patients.\"}, {\"id\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The gene therapy experiment done in the right genotype. Unlike the double knockout, this is the single Cabp2 null - the animal that matches the human disease - and the intervention is a cochlear delivery route that could plausibly be used in a patient: a round-window injection of AAV carrying the Cabp2 coding sequence, given in the first week of life.\\nIt is the strongest preclinical result this entity has, and it is why the disease is named as a gene therapy candidate rather than merely speculated about. The paper also states the property that makes the window wide: hair cells in these mice develop normally and do not degenerate early, so there is intact cochlea left to rescue.\"}, {\"id\": \"Cochlear Gene Replacement (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not available to patients. It is listed because the preclinical case is specific and published: CaBP2 re-expression in the double-knockout mouse restores synaptic function and hearing sensitivity, the cochlea is structurally intact in this disease so there is something left to rescue, and a patient registry has been set up to support future trials. The read-across from the otoferlin trials is the field\u0027s own argument, and it is an argument about a disease class rather than a result in DFNB93 patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In inner hair cells lacking CaBP2 the CaV1.3 current inactivates more than it should. The channels are not fewer and they do not open at the wrong voltage - channel number and the voltage dependence of activation are normal, and so is the ribbon synapse count. What changes is availability over time. A hair cell responding to a continuing sound is held depolarised, and under that condition an inactivating channel population steadily withdraws from service.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\"], \"molecular_functions\": [\"available presynaptic CaV1.3 current\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cabp2 LacZ/LacZ (constitutive knockout, homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The defining channel defect, measured directly by patch clamp in the correct cell type.\"}]}}, {\"id\": \"Hearing Aids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification is what patients receive in practice, and the reported outcomes are good - the North American case describes a positive prognosis with hearing aids and multidisciplinary follow-up.\\nIt is worth stating the tension rather than smoothing it. As a class, auditory synaptopathy patients are described as gaining little from amplification, because the problem is neural encoding rather than sensitivity. DFNB93 sits at the mild end of that class - moderate thresholds and a partial rather than abolished synaptic function - and the individual reports are of benefit. Both statements are cited below; neither is dropped.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence of reduced channel availability is that the sustained component of vesicle release fails. In the double-knockout preparation, where the phenotype is most severe because the partially redundant CaBP1 is removed as well, even mild activation reduces the channel pool enough that synapses may be effectively silenced.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"biological_processes\": [\"sustained synaptic vesicle exocytosis at the hair cell ribbon synapse\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"species\": \"Mouse\", \"genotype\": \"Cabp1-/-; Cabp2-/- double knockout, with and without AAV-PHP.eB-mediated Cabp2 transgene delivery\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The sustained component of exocytosis fails, and afferent responses become strongly rate-dependent.\"}]}}, {\"id\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CaBP2 is expressed by cochlear hair cells and preferentially by inner hair cells. It is not in the postsynaptic spiral ganglion neuron, which fixes the lesion on the presynaptic side of the synapse and is the reason this disease is a synaptopathy rather than a neuropathy of the auditory nerve itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"molecular_functions\": [\"CaV1.3 calcium channel regulation by CaBP2\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"species\": \"Mouse\", \"genotype\": \"Cabp2-/- (constitutive knockout) with AAV2/1 or AAV-PHP.eB Cabp2 delivered by round-window injection at postnatal day 5-7\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Delivering the Cabp2 coding sequence into inner hair cells restores the missing channel regulator in the genotype that matches the human disease, recovering the non-inactivating CaV1.3 current and improving hearing.\"}]}}, {\"id\": \"Reduced Spiral Ganglion Neuron Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-unit recordings from spiral ganglion neurons show reduced spontaneous and sound-evoked firing. The neurons themselves are not the lesion - CaBP2 is not expressed in them - so this is a readout of presynaptic failure, and it is the step at which the defect becomes something an auditory brainstem response can see.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"biological_processes\": [\"afferent auditory nerve firing\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Biallelic CABP2 Loss-of-Function Variant\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The truncated protein cannot perform the CaV1.3 regulation that is CaBP2\u0027s job in the inner hair cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"target\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CaBP2\u0027s specific action is to suppress inactivation; without it the suppression is lifted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"target\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transmitter release at this synapse is driven by the calcium that enters through these channels, so a shrinking available current is a shrinking release drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"target\": \"Reduced Spiral Ganglion Neuron Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less transmitter released onto the afferent terminal means less afferent drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Spiral Ganglion Neuron Firing\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degraded afferent encoding with an intact cochlear amplifier upstream of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Aids\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear Gene Replacement (investigational)\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cabp2 knockout mouse\", \"target\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The defining channel defect, measured directly by patch clamp in the correct cell type.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive null, whereas the commonest human allele produces a truncated protein with residual, weakened CaV1.3 regulation rather than none. The mouse therefore models the severe end of the allelic range. The cochlear apex is also mildly affected relative to more basal positions, so a whole-cochlea statement flattens a tonotopic gradient.\"}, {\"source\": \"Cabp2 knockout mouse\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse shows the same dissociation as the patients: the cochlear amplifier works and the brainstem response does not.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cochlear amplification is assayed in the mouse by distortion-product otoacoustic emissions and in patients by clinical emissions testing; the two are analogous rather than identical measurements, and the human observation comes from a single family.\"}, {\"source\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"target\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The sustained component of exocytosis fails, and afferent responses become strongly rate-dependent.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Two genes are removed, not one. Human DFNB93 patients are CABP2-biallelic with intact CABP1, so this animal is more severely affected than the disease it stands for and its quantitative deficits should not be read as DFNB93 magnitudes. It earns its place by isolating the mechanism, not by matching the genotype.\"}, {\"source\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Transgenic re-expression of CaBP2 in the inner ear substantially restores synaptic function and hearing sensitivity, showing that the deficit is reversible by replacing the missing protein and not the consequence of an irreversible developmental defect.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recovery is substantial but partial, the rescue restores only CaBP2 in an animal lacking both paralogues, and the voltage shift in channel activation persists after re-expression. Timing relative to the human therapeutic window is not addressed.\"}, {\"source\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Delivering the Cabp2 coding sequence into inner hair cells restores the missing channel regulator in the genotype that matches the human disease, recovering the non-inactivating CaV1.3 current and improving hearing.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The rescue is partial rather than complete, and it was given at postnatal day 5 to 7 - before hearing onset in the mouse, and therefore earlier in auditory development than a human infant diagnosed on newborn screening would be treated. Hearing was assessed at 5 to 8 weeks, so durability beyond that is not addressed. Transduction was unilateral, with the contralateral ear as the internal control.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end state is a dissociation. Outer hair cells never enter the mechanism, so otoacoustic emissions are present and cochlear amplification is intact, while the auditory brainstem response is abnormal because what reaches the brainstem has been degraded at the synapse. That pattern is the operational definition of auditory synaptopathy, and both the mouse work and the clinical perspective paper state the classification explicitly rather than leaving it to be inferred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sensory perception of sound\"], \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cabp2 LacZ/LacZ (constitutive knockout, homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse shows the same dissociation as the patients: the cochlear amplifier works and the brainstem response does not.\"}, {\"name\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"species\": \"Mouse\", \"genotype\": \"Cabp1-/-; Cabp2-/- double knockout, with and without AAV-PHP.eB-mediated Cabp2 transgene delivery\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Transgenic re-expression of CaBP2 in the inner ear substantially restores synaptic function and hearing sensitivity, showing that the deficit is reversible by replacing the missing protein and not the consequence of an irreversible developmental defect.\"}]}}, {\"id\": \"Biallelic CABP2 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent allele, and the one that accounts for most reported families, is the splice-donor variant c.637+1G\u003eT. It causes skipping of exon 6 and a frameshift, p.Phe164Serfs*4, truncating the protein. Nonsense and missense alleles have also been reported.\\nThe truncated product is not simply absent from the cell: it was made and tested, and it binds calcium abnormally and regulates CaV1.3 less effectively than wild type. The functional claim of this entry therefore rests on a measured hypomorph, not only on an inferred null.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in every reported family. The founding families were consanguineous; the Danish and Finnish cases were not, and reflect a shared founder haplotype instead.\", \"gene_terms\": [{\"label\": \"CABP2\", \"id\": \"hgnc:1385\"}]}, \"role\": \"trigger\"}}, {\"id\": \"CABP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CABP2\"], \"gene_terms\": [{\"label\": \"CABP2\", \"id\": \"hgnc:1385\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Removing the partially redundant paralogue CaBP1 as well produces a much more severe synaptic phenotype than the single knockout, and that severity is the point: it makes the exocytosis deficit and the afferent-firing deficit large enough to measure cleanly, and it provides a window in which a rescue can be seen. Delivering Cabp2 into the inner ear substantially recovers both synaptic function and hearing sensitivity, which is the experiment underlying the claim that DFNB93 is a gene-therapy candidate.\"}, {\"id\": \"Cabp2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The single-gene knockout, matching the human genotype in kind. It is the source of the mechanism: the localisation of CaBP2 to inner hair cells, the enhanced channel inactivation, the normal channel number and ribbon count, and the reduced afferent firing. Crucially it also reproduces the human dissociation - intact cochlear amplification with abnormal brainstem responses - which is what licenses reading the mouse mechanism across to the patients.\"}, {\"id\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The gene therapy experiment done in the right genotype. Unlike the double knockout, this is the single Cabp2 null - the animal that matches the human disease - and the intervention is a cochlear delivery route that could plausibly be used in a patient: a round-window injection of AAV carrying the Cabp2 coding sequence, given in the first week of life.\\nIt is the strongest preclinical result this entity has, and it is why the disease is named as a gene therapy candidate rather than merely speculated about. The paper also states the property that makes the window wide: hair cells in these mice develop normally and do not degenerate early, so there is intact cochlea left to rescue.\"}, {\"id\": \"Cochlear Gene Replacement (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not available to patients. It is listed because the preclinical case is specific and published: CaBP2 re-expression in the double-knockout mouse restores synaptic function and hearing sensitivity, the cochlea is structurally intact in this disease so there is something left to rescue, and a patient registry has been set up to support future trials. The read-across from the otoferlin trials is the field\u0027s own argument, and it is an argument about a disease class rather than a result in DFNB93 patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In inner hair cells lacking CaBP2 the CaV1.3 current inactivates more than it should. The channels are not fewer and they do not open at the wrong voltage - channel number and the voltage dependence of activation are normal, and so is the ribbon synapse count. What changes is availability over time. A hair cell responding to a continuing sound is held depolarised, and under that condition an inactivating channel population steadily withdraws from service.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\"], \"molecular_functions\": [\"available presynaptic CaV1.3 current\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cabp2 LacZ/LacZ (constitutive knockout, homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The defining channel defect, measured directly by patch clamp in the correct cell type.\"}]}}, {\"id\": \"Hearing Aids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification is what patients receive in practice, and the reported outcomes are good - the North American case describes a positive prognosis with hearing aids and multidisciplinary follow-up.\\nIt is worth stating the tension rather than smoothing it. As a class, auditory synaptopathy patients are described as gaining little from amplification, because the problem is neural encoding rather than sensitivity. DFNB93 sits at the mild end of that class - moderate thresholds and a partial rather than abolished synaptic function - and the individual reports are of benefit. Both statements are cited below; neither is dropped.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence of reduced channel availability is that the sustained component of vesicle release fails. In the double-knockout preparation, where the phenotype is most severe because the partially redundant CaBP1 is removed as well, even mild activation reduces the channel pool enough that synapses may be effectively silenced.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"biological_processes\": [\"sustained synaptic vesicle exocytosis at the hair cell ribbon synapse\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"species\": \"Mouse\", \"genotype\": \"Cabp1-/-; Cabp2-/- double knockout, with and without AAV-PHP.eB-mediated Cabp2 transgene delivery\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The sustained component of exocytosis fails, and afferent responses become strongly rate-dependent.\"}]}}, {\"id\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CaBP2 is expressed by cochlear hair cells and preferentially by inner hair cells. It is not in the postsynaptic spiral ganglion neuron, which fixes the lesion on the presynaptic side of the synapse and is the reason this disease is a synaptopathy rather than a neuropathy of the auditory nerve itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"molecular_functions\": [\"CaV1.3 calcium channel regulation by CaBP2\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"species\": \"Mouse\", \"genotype\": \"Cabp2-/- (constitutive knockout) with AAV2/1 or AAV-PHP.eB Cabp2 delivered by round-window injection at postnatal day 5-7\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Delivering the Cabp2 coding sequence into inner hair cells restores the missing channel regulator in the genotype that matches the human disease, recovering the non-inactivating CaV1.3 current and improving hearing.\"}]}}, {\"id\": \"Reduced Spiral Ganglion Neuron Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-unit recordings from spiral ganglion neurons show reduced spontaneous and sound-evoked firing. The neurons themselves are not the lesion - CaBP2 is not expressed in them - so this is a readout of presynaptic failure, and it is the step at which the defect becomes something an auditory brainstem response can see.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"biological_processes\": [\"afferent auditory nerve firing\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Biallelic CABP2 Loss-of-Function Variant\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The truncated protein cannot perform the CaV1.3 regulation that is CaBP2\u0027s job in the inner hair cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"target\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CaBP2\u0027s specific action is to suppress inactivation; without it the suppression is lifted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"target\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transmitter release at this synapse is driven by the calcium that enters through these channels, so a shrinking available current is a shrinking release drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"target\": \"Reduced Spiral Ganglion Neuron Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less transmitter released onto the afferent terminal means less afferent drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Spiral Ganglion Neuron Firing\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degraded afferent encoding with an intact cochlear amplifier upstream of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Aids\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear Gene Replacement (investigational)\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cabp2 knockout mouse\", \"target\": \"Enhanced CaV1.3 Calcium-Channel Inactivation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The defining channel defect, measured directly by patch clamp in the correct cell type.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive null, whereas the commonest human allele produces a truncated protein with residual, weakened CaV1.3 regulation rather than none. The mouse therefore models the severe end of the allelic range. The cochlear apex is also mildly affected relative to more basal positions, so a whole-cochlea statement flattens a tonotopic gradient.\"}, {\"source\": \"Cabp2 knockout mouse\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse shows the same dissociation as the patients: the cochlear amplifier works and the brainstem response does not.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cochlear amplification is assayed in the mouse by distortion-product otoacoustic emissions and in patients by clinical emissions testing; the two are analogous rather than identical measurements, and the human observation comes from a single family.\"}, {\"source\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"target\": \"Impaired Sustained Exocytosis at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The sustained component of exocytosis fails, and afferent responses become strongly rate-dependent.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Two genes are removed, not one. Human DFNB93 patients are CABP2-biallelic with intact CABP1, so this animal is more severely affected than the disease it stands for and its quantitative deficits should not be read as DFNB93 magnitudes. It earns its place by isolating the mechanism, not by matching the genotype.\"}, {\"source\": \"Cabp1/Cabp2 double-knockout mouse with AAV CaBP2 rescue\", \"target\": \"Auditory Synaptopathy with Preserved Cochlear Amplification\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Transgenic re-expression of CaBP2 in the inner ear substantially restores synaptic function and hearing sensitivity, showing that the deficit is reversible by replacing the missing protein and not the consequence of an irreversible developmental defect.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recovery is substantial but partial, the rescue restores only CaBP2 in an animal lacking both paralogues, and the voltage shift in channel activation persists after re-expression. Timing relative to the human therapeutic window is not addressed.\"}, {\"source\": \"Cabp2 knockout mouse with AAV-mediated Cabp2 gene replacement\", \"target\": \"Loss of CaBP2 Function at the Inner Hair Cell Ribbon Synapse\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Delivering the Cabp2 coding sequence into inner hair cells restores the missing channel regulator in the genotype that matches the human disease, recovering the non-inactivating CaV1.3 current and improving hearing.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The rescue is partial rather than complete, and it was given at postnatal day 5 to 7 - before hearing onset in the mouse, and therefore earlier in auditory development than a human infant diagnosed on newborn screening would be treated. Hearing was assessed at 5 to 8 weeks, so durability beyond that is not addressed. Transduction was unilateral, with the contralateral ear as the internal control.\"}, {\"source\": \"CABP2\", \"target\": \"Biallelic CABP2 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5574,6 +5638,9 @@ This clinical feature is Moderate sensorineural hearing impairment (HP:0008504).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5677,6 +5744,9 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5745,6 +5815,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5823,6 +5896,9 @@ This clinical feature is Severe sensorineural hearing impairment (HP:0008625). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5891,6 +5967,9 @@ This clinical feature is Mid-frequency hearing loss (HP:0012781). HP:0012781 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6019,6 +6098,9 @@ This clinical feature is Low-frequency hearing loss (HP:0008542). HP:0008542 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6096,6 +6178,9 @@ This clinical feature is Abnormal auditory evoked potentials (HP:0006958). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6184,6 +6269,9 @@ This clinical feature is Abnormal auditory evoked potentials (HP:0006958). HP:00
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No phenotype_term binding. HPO codes the negation - HP:6000182 Absent otoacoustic emissions - and has no term for emissions being present, so binding this finding to any existing HP term would assert the opposite of what the node claims. Left as a free-text preferred_term rather than mis-bound; an NTR for a preserved-emissions term would be the right upstream fix.</div>
@@ -6325,6 +6413,9 @@ This disease-associated gene is CABP2 (hgnc:1385). hgnc:1385 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6523,6 +6614,9 @@ This disease-associated gene is CABP2 (hgnc:1385). hgnc:1385 is a gene from the 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6533,6 +6627,9 @@ This disease-associated gene is CABP2 (hgnc:1385). hgnc:1385 is a gene from the 
 
 
     </div>
+
+
+
 
 
 
@@ -6682,6 +6779,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6692,6 +6792,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -9570,6 +9673,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

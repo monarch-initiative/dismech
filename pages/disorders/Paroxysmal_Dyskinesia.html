@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5888,6 +5941,7 @@ This subtype is caused by variation in PRRT2 (hgnc:30500). hgnc:30500 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prrt2-and-tmem151a-loss-of-function" data-dismech-node="PRRT2 and TMEM151A Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PRRT2 and TMEM151A Loss of Function</div>
 
+
                 <div class="item-desc">Heterozygous truncating variants in PRRT2 (the recurrent c.649dupC frameshift accounts for the majority of carriers) yield no stable protein, producing a haploinsufficient state at the presynaptic terminal. TMEM151A truncating and missense variants behave similarly, with patient transcript evidence supporting loss of function; TMEM151A accounts for a share of PRRT2-negative PKD. This is the molecular initiating lesion of the kinesigenic subtype.</div>
 
 
@@ -6120,6 +6174,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presynaptic-release-failure-and-neuronal-hyperexcitability" data-dismech-node="Presynaptic Release Failure and Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Presynaptic Release Failure and Neuronal Hyperexcitability</div>
+
 
                 <div class="item-desc">PRRT2 is enriched at presynaptic terminals, where it interacts with the SNARE proteins SNAP-25 and syntaxin-1A, with synaptotagmin 1/2 calcium sensors, and with Nav1.2/Nav1.6 sodium channels and the Na+/K+ ATPase. Loss of PRRT2 desynchronises calcium-triggered vesicle fusion (reduced release probability and calcium sensitivity, increased asynchronous release, more docked vesicles at rest) while simultaneously increasing sodium-current density and lowering the action-potential threshold. PKD is therefore simultaneously a synaptopathy and a channelopathy: the lesion does not produce continuous dysfunction but a network that is stable at baseline and unstable when abruptly perturbed.</div>
 
@@ -6428,6 +6483,7 @@ This pathophysiological event involves increased sodium ion transport (GO:000681
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-spreading-depolarization-and-circuit-instability" data-dismech-node="Cerebellar Spreading Depolarization and Circuit Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Spreading Depolarization and Circuit Instability</div>
 
+
                 <div class="item-desc">In PRRT2-deficient models the cerebellum, rather than the basal ganglia, emerges as the pivotal generator: granule-cell to Purkinje-cell circuits are hyperexcitable and dyskinetic episodes are tightly coupled to episodes of spreading depolarization in cerebellar cortex, which transiently disrupts cerebellar output to the deep nuclei and thalamus. The role of cortex and thalamus in PKD remains less well defined.</div>
 
 
@@ -6647,6 +6703,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pnkd-mr-1-dysfunction-and-impaired-methylglyoxal-detoxification" data-dismech-node="PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification" data-dismech-type="pathophysiology">
                 <div class="item-name">PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The recurrent p.Ala7Val and p.Ala9Val variants alter the N-terminal alpha helix of the brain-specific long isoform of PNKD (myofibrillogenesis regulator 1, MR-1), which is membrane-localised and homologous to hydroxyacylglutathione hydrolase. The homologous enzyme detoxifies methylglyoxal, a reactive dicarbonyl present in coffee and alcoholic drinks and generated as a by-product of oxidative stress — which supplies a direct chemical rationale for why exactly those exposures, plus stress and fatigue, precipitate PNKD attacks. Note this remains an inference from sequence homology plus trigger pharmacology; direct enzymatic proof in human neurons is not established.</div>
 
 
@@ -6851,6 +6914,7 @@ This pathophysiological event involves decreased methylglyoxal catabolic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-indirect-pathway-medium-spiny-neuron-hypoactivity" data-dismech-node="Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity</div>
+
 
                 <div class="item-desc">In PNKD transgenic mice, caffeine and alcohol provoke dyskinetic attacks that coincide with a loss of firing in optically identified indirect-pathway striatal medium spiny neurons (iMSNs). Chemogenetic silencing of iMSNs is sufficient to trigger attacks, and the firing loss is attributable to aberrant endocannabinoid-mediated suppression of glutamatergic input. This inverts the classical dyskinesia model (direct-pathway hyperactivity) and places the causal lesion in indirect-pathway hypoactivity. The evidence is mouse-only; no human biomarker corresponds to it (see the discussions block).</div>
 
@@ -7077,6 +7141,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glut1-haploinsufficiency-and-reduced-blood-brain-barrier-glucose-transport" data-dismech-node="GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport</div>
+
 
                 <div class="item-desc">Heterozygous SLC2A1 missense, frameshift, splice and deletion variants reduce the glucose-transport capacity of GLUT1 at the brain microvascular endothelium, the obligatory route by which glucose — the brain&#39;s principal fuel — crosses the blood-brain barrier. Reduced uptake by mutant transporters is directly demonstrable in Xenopus oocytes, and the resulting transport failure is visible clinically as hypoglycorrhachia with a low CSF:blood glucose ratio in a normoglycaemic patient.</div>
 
@@ -7370,6 +7435,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exertion-and-fasting-unmasked-corticostriatal-energy-failure" data-dismech-node="Exertion- and Fasting-Unmasked Corticostriatal Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Exertion- and Fasting-Unmasked Corticostriatal Energy Failure</div>
 
+
                 <div class="item-desc">A partially reduced glucose-transport reserve is sufficient at rest but becomes limiting when cerebral demand rises with sustained exertion or when substrate supply falls with fasting. Functional imaging in SLC2A1-related PED implicates altered glucose metabolism specifically in the corticostriate pathways (and in frontal cortex for the accompanying seizures), giving an energetic rather than a channel-based explanation for why the trigger is prolonged exercise and why rest or carbohydrate terminates the attack. This is the node the ketogenic diet targets, by supplying ketone bodies as a GLUT1-independent fuel.</div>
 
 
@@ -7493,6 +7559,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnma1-bk-channel-gain-of-function" data-dismech-node="KCNMA1 BK-Channel Gain of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNMA1 BK-Channel Gain of Function</div>
+
 
                 <div class="item-desc">Gain-of-function variants in KCNMA1 (p.Asp434Gly, p.Asn999Ser) increase calcium-activated BK potassium current, accelerating action-potential repolarisation and thereby permitting faster repetitive firing. In the D434G knock-in mouse this produces hyperexcitability of cortical pyramidal neurons and cerebellar Purkinje cells, and the animals recapitulate the human combination of absence epilepsy with dyskinesia; BK blockade with paxilline reverses both. Variant direction of effect, not merely the gene name, determines the mechanism: in heterologous cells p.Asn999Ser and p.Asp434Gly are gain-of-function while p.His444Gln is loss-of-function.</div>
 
@@ -7740,6 +7807,7 @@ This pathophysiological event involves increased calcium-activated potassium cha
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adcy5-striatal-camp-signalling-gain-of-function" data-dismech-node="ADCY5 Striatal cAMP Signalling Gain of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ADCY5 Striatal cAMP Signalling Gain of Function</div>
+
 
                 <div class="item-desc">Gain-of-function variants in ADCY5, the adenylate cyclase isoform enriched in striatal medium spiny neurons, raise cAMP production downstream of dopamine and adenosine receptors and produce a mixed hyperkinetic disorder — dystonia, chorea and myoclonus with characteristic facial/perioral involvement — that fluctuates and worsens paroxysmally, notably at night. Recurrent variants at residues 418 and 726 dominate, and somatic mosaicism attenuates severity. Because ADCY5 attacks may be kinesigenic, exercise-induced, non-kinesigenic or nocturnal within one gene, ADCY5 is the clearest single-gene demonstration that trigger-based classification does not map one-to-one onto genotype.</div>
 
@@ -8020,6 +8088,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-and-acquired-causes-of-paroxysmal-dyskinesia" data-dismech-node="Secondary and Acquired Causes of Paroxysmal Dyskinesia" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary and Acquired Causes of Paroxysmal Dyskinesia</div>
 
+
                 <div class="item-desc">Paroxysmal dyskinesia is not always genetic. Acquired causes act by imposing a focal or diffuse insult on the same motor circuits: demyelinating lesions in multiple sclerosis (classically producing paroxysmal tonic spasms that are the acquired mimic of PKD, likewise carbamazepine-responsive), hypoparathyroidism and other metabolic derangements (often with basal-ganglia calcification), perinatal hypoxic-ischaemic injury, transient cerebral ischaemia, stroke, trauma, encephalitis and autoimmune disease, structural basal-ganglia lesions, and drugs or toxins. Adult onset, inconsistent triggers, evolving phenomenology, or any abnormality on interictal examination should prompt a search for a secondary cause.</div>
 
 
@@ -8139,6 +8208,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigger-dependent-breach-of-the-motor-network-attack-threshold" data-dismech-node="Trigger-Dependent Breach of the Motor Network Attack Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Trigger-Dependent Breach of the Motor Network Attack Threshold</div>
+
 
                 <div class="item-desc">The convergence node of the entry. Whatever the upstream lesion — presynaptic release failure, striatal indirect-pathway hypoactivity, corticostriatal energy failure, BK or cAMP dysregulation, or an acquired structural insult — the result is the same: a basal-ganglia-thalamo-cortical and cerebello-thalamic motor network that behaves normally at baseline but has a reduced margin before a discrete, self-limited episode of aberrant motor output. The trigger (sudden movement, stimulant, stress, exertion, sleep state) supplies the perturbation that breaches the margin. This trigger-threshold architecture is what explains the two defining features of the group: attacks are stereotyped and provoked, and the examination between them is normal.</div>
 
@@ -8331,6 +8401,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-dependent-prrt2-phenotype-shift-from-infantile-seizures-to-kinesigenic-dyskinesia" data-dismech-node="Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia</div>
 
+
                 <div class="item-desc">The single most instructive feature of PRRT2 biology: one haploinsufficient allele produces benign familial infantile epilepsy in the first year of life, kinesigenic dyskinesia from later childhood, or both sequentially in the same person (the ICCA syndrome), with hemiplegic migraine and episodic ataxia at the phenotypic margins. Across 1444 published carriers, benign familial infantile epilepsy (41.7%), PKD (38.7%) and ICCA (14.3%) account for almost the entire spectrum. Penetrance depends on which phenotype is counted: about 61% for PKD alone, but nearly complete once infantile convulsions are included. Curatorially this means seizures and dyskinesia must be modelled as age-dependent expressions of one lesion, not as comorbidity.</div>
 
 
@@ -8495,7 +8566,7 @@ This pathophysiological event involves PRRT2 (hgnc:30500). hgnc:30500 is a gene 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADCY5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADCY5\"], \"gene_terms\": [{\"label\": \"ADCY5\", \"id\": \"hgnc:236\"}], \"subtypes\": [\"ADCY5\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants in ADCY5, the adenylate cyclase isoform enriched in striatal medium spiny neurons, raise cAMP production downstream of dopamine and adenosine receptors and produce a mixed hyperkinetic disorder \\u2014 dystonia, chorea and myoclonus with characteristic facial/perioral involvement \\u2014 that fluctuates and worsens paroxysmally, notably at night. Recurrent variants at residues 418 and 726 dominate, and somatic mosaicism attenuates severity. Because ADCY5 attacks may be kinesigenic, exercise-induced, non-kinesigenic or nocturnal within one gene, ADCY5 is the clearest single-gene demonstration that trigger-based classification does not map one-to-one onto genotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"cAMP biosynthetic process\"], \"molecular_functions\": [\"adenylate cyclase activity\"], \"genes\": [\"ADCY5\"], \"gene_terms\": [{\"label\": \"ADCY5\", \"id\": \"hgnc:236\"}], \"role\": \"trigger\", \"locations\": [\"striatum\"]}}, {\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised non-motor (absence) seizures co-segregating with paroxysmal dyskinesia in KCNMA1 gain-of-function families, recapitulated in the D434G knock-in mouse.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"PNKD3\"], \"term_id\": \"HP:0002121\"}}, {\"id\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single most instructive feature of PRRT2 biology: one haploinsufficient allele produces benign familial infantile epilepsy in the first year of life, kinesigenic dyskinesia from later childhood, or both sequentially in the same person (the ICCA syndrome), with hemiplegic migraine and episodic ataxia at the phenotypic margins. Across 1444 published carriers, benign familial infantile epilepsy (41.7%), PKD (38.7%) and ICCA (14.3%) account for almost the entire spectrum. Penetrance depends on which phenotype is counted: about 61% for PKD alone, but nearly complete once infantile convulsions are included. Curatorially this means seizures and dyskinesia must be modelled as age-dependent expressions of one lesion, not as comorbidity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"consequence\"}}, {\"id\": \"Benign Infantile Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Afebrile focal or generalised seizures clustering in the first year of life, with normal development and spontaneous remission, occurring in PRRT2 carriers who later develop kinesigenic dyskinesia (the ICCA sequence). Curated here as the earlier expression of the same allele, not as a comorbid epilepsy.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ICCA\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Caffeine and Alcohol\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Coffee, tea and alcohol are the reproducible precipitants of PNKD attacks and are also the exposures whose shared chemistry (methylglyoxal content) motivated the stress-response-pathway hypothesis of MR-1 function. Avoiding them is the principal intervention in PNKD.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PRRT2-deficient models the cerebellum, rather than the basal ganglia, emerges as the pivotal generator: granule-cell to Purkinje-cell circuits are hyperexcitable and dyskinetic episodes are tightly coupled to episodes of spreading depolarization in cerebellar cortex, which transiently disrupts cerebellar output to the deep nuclei and thalamus. The role of cortex and thalamus in PKD remains less well defined.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar granule cell\", \"Purkinje cell\"], \"biological_processes\": [\"action potential\"], \"role\": \"amplifier\", \"locations\": [\"cerebellum\"]}}, {\"id\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A partially reduced glucose-transport reserve is sufficient at rest but becomes limiting when cerebral demand rises with sustained exertion or when substrate supply falls with fasting. Functional imaging in SLC2A1-related PED implicates altered glucose metabolism specifically in the corticostriate pathways (and in frontal cortex for the accompanying seizures), giving an energetic rather than a channel-based explanation for why the trigger is prolonged exercise and why rest or carbohydrate terminates the attack. This is the node the ketogenic diet targets, by supplying ketone bodies as a GLUT1-independent fuel.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"locations\": [\"striatum\", \"cerebral cortex\"]}}, {\"id\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SLC2A1 missense, frameshift, splice and deletion variants reduce the glucose-transport capacity of GLUT1 at the brain microvascular endothelium, the obligatory route by which glucose \\u2014 the brain\u0027s principal fuel \\u2014 crosses the blood-brain barrier. Reduced uptake by mutant transporters is directly demonstrable in Xenopus oocytes, and the resulting transport failure is visible clinically as hypoglycorrhachia with a low CSF:blood glucose ratio in a normoglycaemic patient.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"brain microvascular endothelial cell\"], \"biological_processes\": [\"D-glucose transmembrane transport\", \"transport across blood-brain barrier\"], \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"role\": \"trigger\"}}, {\"id\": \"Gait Disturbance During Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of normal walking during exercise-induced attacks \\u2014 the presenting complaint in many PED patients, with episodes lasting minutes to hours and relieved by rest or carbohydrate.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PED\"], \"term_id\": \"HP:0001288\"}}, {\"id\": \"Hemiballismus During Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large-amplitude proximal flinging movements of one side of the body, an occasional but characteristic component of the attack repertoire alongside chorea and dystonia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100248\"}}, {\"id\": \"Hypoglycorrhachia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"PED\"], \"presence\": \"PRESENT\", \"specificity\": \"Highly specific for GLUT1 deficiency among the paroxysmal dyskinesias; not a feature of PRRT2, PNKD, KCNMA1 or ADCY5 disease. Must be interpreted against a simultaneous normal blood glucose to exclude systemic hypoglycaemia and against CSF pleocytosis to exclude meningitis.\", \"term_id\": \"HP:0011972\", \"term_label\": \"Hypoglycorrhachia\"}}, {\"id\": \"KCNMA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KCNMA1\"], \"gene_terms\": [{\"label\": \"KCNMA1\", \"id\": \"hgnc:6284\"}], \"subtypes\": [\"PNKD3\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KCNMA1 BK-Channel Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants in KCNMA1 (p.Asp434Gly, p.Asn999Ser) increase calcium-activated BK potassium current, accelerating action-potential repolarisation and thereby permitting faster repetitive firing. In the D434G knock-in mouse this produces hyperexcitability of cortical pyramidal neurons and cerebellar Purkinje cells, and the animals recapitulate the human combination of absence epilepsy with dyskinesia; BK blockade with paxilline reverses both. Variant direction of effect, not merely the gene name, determines the mechanism: in heterologous cells p.Asn999Ser and p.Asp434Gly are gain-of-function while p.His444Gln is loss-of-function.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Purkinje cell\"], \"molecular_functions\": [\"calcium-activated potassium channel activity\"], \"genes\": [\"KCNMA1\"], \"gene_terms\": [{\"label\": \"KCNMA1\", \"id\": \"hgnc:6284\"}], \"role\": \"trigger\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Disease-directed therapy for SLC2A1/GLUT1-related PED, and the reason GLUT1 deficiency must not be missed. Ketone bodies enter the brain via monocarboxylate transporters, bypassing the defective GLUT1 route entirely and restoring cerebral fuel supply, so the diet treats the mechanism rather than the symptom. Modified Atkins and other ketogenic formulations are used where the classic diet is not tolerated; management requires a specialist ketogenic team.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Low-Dose Carbamazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and often dramatically effective treatment for PKD, frequently at doses well below those used for epilepsy. Response is so characteristic that antiepileptic drug responsiveness is one of the formal PKD diagnostic criteria, and a PRRT2 mutation predicts near-complete abolition of attacks. Monitor for rash, hyponatraemia, sedation, hepatic and haematological toxicity and drug interactions; HLA-B*15:02 screening is indicated in at-risk ancestries because carbamazepine can precipitate Stevens-Johnson syndrome and toxic epidermal necrolysis.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Migraine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Migraine, including hemiplegic migraine, is over-represented in PRRT2 carriers and in cohorts screened across the three classic paroxysmal dyskinesia genes, reflecting shared susceptibility to cortical spreading depolarization. Note that formal co-segregation of PRRT2 alleles with migraine has been challenged, so this is a phenotypic association rather than a demonstrated Mendelian consequence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002076\"}}, {\"id\": \"Orofacial Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perioral and facial involuntary movements, characteristic of ADCY5-related dyskinesia and unusual in PRRT2-related PKD; together with nocturnal exacerbation this is the main clinical clue that redirects testing to ADCY5.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ADCY5\"], \"term_id\": \"HP:0002310\"}}, {\"id\": \"Oxcarbazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structural analogue of carbamazepine used as an equally effective alternative in PKD, particularly where carbamazepine is not tolerated. It has been used successfully after carbamazepine-induced Stevens-Johnson syndrome, although cross-reactivity is possible and reintroduction requires caution.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"oxcarbazepine\"]}}, {\"id\": \"PNKD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNKD\"], \"gene_terms\": [{\"label\": \"PNKD\", \"id\": \"hgnc:9153\"}], \"subtypes\": [\"PNKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent p.Ala7Val and p.Ala9Val variants alter the N-terminal alpha helix of the brain-specific long isoform of PNKD (myofibrillogenesis regulator 1, MR-1), which is membrane-localised and homologous to hydroxyacylglutathione hydrolase. The homologous enzyme detoxifies methylglyoxal, a reactive dicarbonyl present in coffee and alcoholic drinks and generated as a by-product of oxidative stress \\u2014 which supplies a direct chemical rationale for why exactly those exposures, plus stress and fatigue, precipitate PNKD attacks. Note this remains an inference from sequence homology plus trigger pharmacology; direct enzymatic proof in human neurons is not established.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"methylglyoxal catabolic process\"], \"genes\": [\"PNKD\"], \"gene_terms\": [{\"label\": \"PNKD\", \"id\": \"hgnc:9153\"}], \"role\": \"trigger\"}}, {\"id\": \"PRRT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"subtypes\": [\"PKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRRT2 and TMEM151A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating variants in PRRT2 (the recurrent c.649dupC frameshift accounts for the majority of carriers) yield no stable protein, producing a haploinsufficient state at the presynaptic terminal. TMEM151A truncating and missense variants behave similarly, with patient transcript evidence supporting loss of function; TMEM151A accounts for a share of PRRT2-negative PKD. This is the molecular initiating lesion of the kinesigenic subtype.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PRRT2\", \"TMEM151A\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}, {\"label\": \"TMEM151A\", \"id\": \"hgnc:28497\"}], \"role\": \"trigger\", \"locations\": [\"brain\"]}}, {\"id\": \"Paroxysmal Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic choreiform and athetoid movements, the phenomenology that gave PKD and PNKD their historical names (paroxysmal kinesigenic choreoathetosis and paroxysmal dystonic choreoathetosis).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007098\"}}, {\"id\": \"Paroxysmal Dyskinetic Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining manifestation: recurrent, abrupt, self-limited bouts of involuntary hyperkinetic movement \\u2014 dystonia, chorea, athetosis, ballism or a mixture \\u2014 occurring without loss of consciousness and without postictal confusion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007166\"}}, {\"id\": \"Paroxysmal Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic dystonic posturing of limbs, trunk or face during attacks, with no dystonia between episodes. In PED the dystonia is characteristically leg-predominant and follows sustained walking or running.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002268\"}}, {\"id\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 is enriched at presynaptic terminals, where it interacts with the SNARE proteins SNAP-25 and syntaxin-1A, with synaptotagmin 1/2 calcium sensors, and with Nav1.2/Nav1.6 sodium channels and the Na+/K+ ATPase. Loss of PRRT2 desynchronises calcium-triggered vesicle fusion (reduced release probability and calcium sensitivity, increased asynchronous release, more docked vesicles at rest) while simultaneously increasing sodium-current density and lowering the action-potential threshold. PKD is therefore simultaneously a synaptopathy and a channelopathy: the lesion does not produce continuous dysfunction but a network that is stable at baseline and unstable when abruptly perturbed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"calcium-ion regulated exocytosis\", \"regulation of membrane potential\", \"sodium ion transport\"], \"role\": \"central_effector\"}}, {\"id\": \"Prolonged Exertion and Fasting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained exercise and, less commonly, fasting precipitate PED attacks by pushing cerebral glucose demand beyond the reduced GLUT1 transport reserve. Rest and carbohydrate intake terminate attacks, which is itself a useful diagnostic manoeuvre.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SLC2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"subtypes\": [\"PED\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Secondary and Acquired Causes of Paroxysmal Dyskinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Paroxysmal dyskinesia is not always genetic. Acquired causes act by imposing a focal or diffuse insult on the same motor circuits: demyelinating lesions in multiple sclerosis (classically producing paroxysmal tonic spasms that are the acquired mimic of PKD, likewise carbamazepine-responsive), hypoparathyroidism and other metabolic derangements (often with basal-ganglia calcification), perinatal hypoxic-ischaemic injury, transient cerebral ischaemia, stroke, trauma, encephalitis and autoimmune disease, structural basal-ganglia lesions, and drugs or toxins. Adult onset, inconsistent triggers, evolving phenomenology, or any abnormality on interictal examination should prompt a search for a secondary cause.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"brain\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Predominantly primary generalised seizures co-occurring with exercise-induced dyskinesia in SLC2A1/GLUT1 deficiency; the combination of PED plus epilepsy in one family is itself a strong pointer to SLC2A1.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PED\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensory Aura Preceding Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A premonitory sensory sensation \\u2014 paraesthesia, tingling, tension or stiffness \\u2014 in the limb about to be affected, reported by most patients with PKD and a useful positive diagnostic clue that distinguishes an attack from a functional movement disorder or a tic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003401\"}}, {\"id\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PNKD transgenic mice, caffeine and alcohol provoke dyskinetic attacks that coincide with a loss of firing in optically identified indirect-pathway striatal medium spiny neurons (iMSNs). Chemogenetic silencing of iMSNs is sufficient to trigger attacks, and the firing loss is attributable to aberrant endocannabinoid-mediated suppression of glutamatergic input. This inverts the classical dyskinesia model (direct-pathway hyperactivity) and places the causal lesion in indirect-pathway hypoactivity. The evidence is mouse-only; no human biomarker corresponds to it (see the discussions block).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"indirect pathway medium spiny neuron\"], \"biological_processes\": [\"action potential\", \"chemical synaptic transmission\"], \"role\": \"central_effector\", \"locations\": [\"striatum\"]}}, {\"id\": \"Sudden Voluntary Movement or Startle\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The defining precipitant of PKD: rising from a chair, initiating gait, being startled or making any abrupt voluntary movement provokes an attack within seconds. The trigger is so specific that its presence is one of the formal diagnostic criteria.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TMEM151A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMEM151A\"], \"gene_terms\": [{\"label\": \"TMEM151A\", \"id\": \"hgnc:28497\"}], \"subtypes\": [\"PKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence node of the entry. Whatever the upstream lesion \\u2014 presynaptic release failure, striatal indirect-pathway hypoactivity, corticostriatal energy failure, BK or cAMP dysregulation, or an acquired structural insult \\u2014 the result is the same: a basal-ganglia-thalamo-cortical and cerebello-thalamic motor network that behaves normally at baseline but has a reduced margin before a discrete, self-limited episode of aberrant motor output. The trigger (sudden movement, stimulant, stress, exertion, sleep state) supplies the perturbation that breaches the margin. This trigger-threshold architecture is what explains the two defining features of the group: attacks are stereotyped and provoked, and the examination between them is normal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of membrane potential\"], \"role\": \"central_effector\", \"locations\": [\"striatum\", \"cerebellum\", \"cerebral cortex\"]}}], \"edges\": [{\"source\": \"PRRT2 and TMEM151A Loss of Function\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRRT2 and TMEM151A Loss of Function\", \"target\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Developmental change in the regional expression of, and functional dependence on, PRRT2 between infancy and later childhood\"]}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"cerebellar_origin_of_pkd\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Migraine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Shared cortical and brainstem hyperexcitability with increased susceptibility to cortical spreading depolarization\"]}, {\"source\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"cerebellar_origin_of_pkd\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"target\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered presynaptic transmission at corticostriatal synapses onto indirect-pathway neurons\", \"Unresolved biochemical steps linking MR-1 dysfunction to the endocannabinoid abnormality\"]}, {\"source\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"target\": \"Hypoglycorrhachia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Gait Disturbance During Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KCNMA1 BK-Channel Gain of Function\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KCNMA1 BK-Channel Gain of Function\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"target\": \"Orofacial Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary and Acquired Causes of Paroxysmal Dyskinesia\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Focal demyelination, basal-ganglia calcification, ischaemic damage or inflammation\", \"Perturbed excitability of the same basal-ganglia-thalamo-cortical and cerebellar circuits that the genetic lesions destabilise\"]}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Hemiballismus During Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Sensory Aura Preceding Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"target\": \"Benign Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sudden Voluntary Movement or Startle\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node is the attack itself, described in the entry as the convergence point where a trigger breaches the motor network threshold, so a precipitant that provokes an attack within seconds acts on it directly. Recorded as triggering rather than exacerbating, which differs from the free-text effect field on this exposure: at the level of the disease these are aggravating factors, but the link points at the attack, which they initiate. The trigger is specific enough to be a formal diagnostic criterion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Caffeine and Alcohol\", \"target\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"An unusually exact match between an exposure and a molecular node: the cited study identifies the causal gene product as an enzyme in the methylglyoxal detoxification pathway and names coffee and alcoholic beverages as the dietary sources of that compound. The exposure and the node meet in the same sentence, in the same chemistry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Caffeine and Alcohol\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The second half of the same sentence, pointed at the attack node rather than the enzyme node: having established the chemistry, the study proposes coffee and alcohol as precipitants of attacks. Both edges are drawn because the exposure genuinely acts at two levels here, and collapsing them would lose either the chemistry or the attack.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Exertion and Fasting\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names exertion and fasting in its own title, and the cited series reports attacks triggered by exactly those two and relieved by carbohydrate intake or rest. Relief on restoring substrate is the part that makes this an energy-supply claim rather than a bare temporal association, which is why the link is direct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Exertion and Fasting\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The same exposure pointed at the attack node, one step further on than its edge into the energy-failure node. Recorded with known intermediates rather than as direct, in contrast to the caffeine and startle links into this same node, because the energy-failure node sits between the exposure and the attack and is drawn explicitly in this graph.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Low-Dose Carbamazepine\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Carbamazepine\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oxcarbazepine\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"PRRT2 and TMEM151A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMEM151A\", \"target\": \"PRRT2 and TMEM151A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PNKD\", \"target\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC2A1\", \"target\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNMA1\", \"target\": \"KCNMA1 BK-Channel Gain of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADCY5\", \"target\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADCY5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADCY5\"], \"gene_terms\": [{\"label\": \"ADCY5\", \"id\": \"hgnc:236\"}], \"subtypes\": [\"ADCY5\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants in ADCY5, the adenylate cyclase isoform enriched in striatal medium spiny neurons, raise cAMP production downstream of dopamine and adenosine receptors and produce a mixed hyperkinetic disorder \\u2014 dystonia, chorea and myoclonus with characteristic facial/perioral involvement \\u2014 that fluctuates and worsens paroxysmally, notably at night. Recurrent variants at residues 418 and 726 dominate, and somatic mosaicism attenuates severity. Because ADCY5 attacks may be kinesigenic, exercise-induced, non-kinesigenic or nocturnal within one gene, ADCY5 is the clearest single-gene demonstration that trigger-based classification does not map one-to-one onto genotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"cAMP biosynthetic process\"], \"molecular_functions\": [\"adenylate cyclase activity\"], \"genes\": [\"ADCY5\"], \"gene_terms\": [{\"label\": \"ADCY5\", \"id\": \"hgnc:236\"}], \"role\": \"trigger\", \"locations\": [\"striatum\"]}}, {\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised non-motor (absence) seizures co-segregating with paroxysmal dyskinesia in KCNMA1 gain-of-function families, recapitulated in the D434G knock-in mouse.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"PNKD3\"], \"term_id\": \"HP:0002121\"}}, {\"id\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single most instructive feature of PRRT2 biology: one haploinsufficient allele produces benign familial infantile epilepsy in the first year of life, kinesigenic dyskinesia from later childhood, or both sequentially in the same person (the ICCA syndrome), with hemiplegic migraine and episodic ataxia at the phenotypic margins. Across 1444 published carriers, benign familial infantile epilepsy (41.7%), PKD (38.7%) and ICCA (14.3%) account for almost the entire spectrum. Penetrance depends on which phenotype is counted: about 61% for PKD alone, but nearly complete once infantile convulsions are included. Curatorially this means seizures and dyskinesia must be modelled as age-dependent expressions of one lesion, not as comorbidity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"consequence\"}}, {\"id\": \"Benign Infantile Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Afebrile focal or generalised seizures clustering in the first year of life, with normal development and spontaneous remission, occurring in PRRT2 carriers who later develop kinesigenic dyskinesia (the ICCA sequence). Curated here as the earlier expression of the same allele, not as a comorbid epilepsy.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ICCA\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Caffeine and Alcohol\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Coffee, tea and alcohol are the reproducible precipitants of PNKD attacks and are also the exposures whose shared chemistry (methylglyoxal content) motivated the stress-response-pathway hypothesis of MR-1 function. Avoiding them is the principal intervention in PNKD.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PRRT2-deficient models the cerebellum, rather than the basal ganglia, emerges as the pivotal generator: granule-cell to Purkinje-cell circuits are hyperexcitable and dyskinetic episodes are tightly coupled to episodes of spreading depolarization in cerebellar cortex, which transiently disrupts cerebellar output to the deep nuclei and thalamus. The role of cortex and thalamus in PKD remains less well defined.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar granule cell\", \"Purkinje cell\"], \"biological_processes\": [\"action potential\"], \"role\": \"amplifier\", \"locations\": [\"cerebellum\"]}}, {\"id\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A partially reduced glucose-transport reserve is sufficient at rest but becomes limiting when cerebral demand rises with sustained exertion or when substrate supply falls with fasting. Functional imaging in SLC2A1-related PED implicates altered glucose metabolism specifically in the corticostriate pathways (and in frontal cortex for the accompanying seizures), giving an energetic rather than a channel-based explanation for why the trigger is prolonged exercise and why rest or carbohydrate terminates the attack. This is the node the ketogenic diet targets, by supplying ketone bodies as a GLUT1-independent fuel.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"locations\": [\"striatum\", \"cerebral cortex\"]}}, {\"id\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SLC2A1 missense, frameshift, splice and deletion variants reduce the glucose-transport capacity of GLUT1 at the brain microvascular endothelium, the obligatory route by which glucose \\u2014 the brain\u0027s principal fuel \\u2014 crosses the blood-brain barrier. Reduced uptake by mutant transporters is directly demonstrable in Xenopus oocytes, and the resulting transport failure is visible clinically as hypoglycorrhachia with a low CSF:blood glucose ratio in a normoglycaemic patient.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"brain microvascular endothelial cell\"], \"biological_processes\": [\"D-glucose transmembrane transport\", \"transport across blood-brain barrier\"], \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"role\": \"trigger\"}}, {\"id\": \"Gait Disturbance During Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of normal walking during exercise-induced attacks \\u2014 the presenting complaint in many PED patients, with episodes lasting minutes to hours and relieved by rest or carbohydrate.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PED\"], \"term_id\": \"HP:0001288\"}}, {\"id\": \"Hemiballismus During Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large-amplitude proximal flinging movements of one side of the body, an occasional but characteristic component of the attack repertoire alongside chorea and dystonia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100248\"}}, {\"id\": \"Hypoglycorrhachia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"PED\"], \"presence\": \"PRESENT\", \"specificity\": \"Highly specific for GLUT1 deficiency among the paroxysmal dyskinesias; not a feature of PRRT2, PNKD, KCNMA1 or ADCY5 disease. Must be interpreted against a simultaneous normal blood glucose to exclude systemic hypoglycaemia and against CSF pleocytosis to exclude meningitis.\", \"term_id\": \"HP:0011972\", \"term_label\": \"Hypoglycorrhachia\"}}, {\"id\": \"KCNMA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KCNMA1\"], \"gene_terms\": [{\"label\": \"KCNMA1\", \"id\": \"hgnc:6284\"}], \"subtypes\": [\"PNKD3\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KCNMA1 BK-Channel Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants in KCNMA1 (p.Asp434Gly, p.Asn999Ser) increase calcium-activated BK potassium current, accelerating action-potential repolarisation and thereby permitting faster repetitive firing. In the D434G knock-in mouse this produces hyperexcitability of cortical pyramidal neurons and cerebellar Purkinje cells, and the animals recapitulate the human combination of absence epilepsy with dyskinesia; BK blockade with paxilline reverses both. Variant direction of effect, not merely the gene name, determines the mechanism: in heterologous cells p.Asn999Ser and p.Asp434Gly are gain-of-function while p.His444Gln is loss-of-function.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Purkinje cell\"], \"molecular_functions\": [\"calcium-activated potassium channel activity\"], \"genes\": [\"KCNMA1\"], \"gene_terms\": [{\"label\": \"KCNMA1\", \"id\": \"hgnc:6284\"}], \"role\": \"trigger\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Disease-directed therapy for SLC2A1/GLUT1-related PED, and the reason GLUT1 deficiency must not be missed. Ketone bodies enter the brain via monocarboxylate transporters, bypassing the defective GLUT1 route entirely and restoring cerebral fuel supply, so the diet treats the mechanism rather than the symptom. Modified Atkins and other ketogenic formulations are used where the classic diet is not tolerated; management requires a specialist ketogenic team.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Low-Dose Carbamazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and often dramatically effective treatment for PKD, frequently at doses well below those used for epilepsy. Response is so characteristic that antiepileptic drug responsiveness is one of the formal PKD diagnostic criteria, and a PRRT2 mutation predicts near-complete abolition of attacks. Monitor for rash, hyponatraemia, sedation, hepatic and haematological toxicity and drug interactions; HLA-B*15:02 screening is indicated in at-risk ancestries because carbamazepine can precipitate Stevens-Johnson syndrome and toxic epidermal necrolysis.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Migraine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Migraine, including hemiplegic migraine, is over-represented in PRRT2 carriers and in cohorts screened across the three classic paroxysmal dyskinesia genes, reflecting shared susceptibility to cortical spreading depolarization. Note that formal co-segregation of PRRT2 alleles with migraine has been challenged, so this is a phenotypic association rather than a demonstrated Mendelian consequence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002076\"}}, {\"id\": \"Orofacial Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perioral and facial involuntary movements, characteristic of ADCY5-related dyskinesia and unusual in PRRT2-related PKD; together with nocturnal exacerbation this is the main clinical clue that redirects testing to ADCY5.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ADCY5\"], \"term_id\": \"HP:0002310\"}}, {\"id\": \"Oxcarbazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structural analogue of carbamazepine used as an equally effective alternative in PKD, particularly where carbamazepine is not tolerated. It has been used successfully after carbamazepine-induced Stevens-Johnson syndrome, although cross-reactivity is possible and reintroduction requires caution.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"oxcarbazepine\"]}}, {\"id\": \"PNKD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNKD\"], \"gene_terms\": [{\"label\": \"PNKD\", \"id\": \"hgnc:9153\"}], \"subtypes\": [\"PNKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent p.Ala7Val and p.Ala9Val variants alter the N-terminal alpha helix of the brain-specific long isoform of PNKD (myofibrillogenesis regulator 1, MR-1), which is membrane-localised and homologous to hydroxyacylglutathione hydrolase. The homologous enzyme detoxifies methylglyoxal, a reactive dicarbonyl present in coffee and alcoholic drinks and generated as a by-product of oxidative stress \\u2014 which supplies a direct chemical rationale for why exactly those exposures, plus stress and fatigue, precipitate PNKD attacks. Note this remains an inference from sequence homology plus trigger pharmacology; direct enzymatic proof in human neurons is not established.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"methylglyoxal catabolic process\"], \"genes\": [\"PNKD\"], \"gene_terms\": [{\"label\": \"PNKD\", \"id\": \"hgnc:9153\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"PRRT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"subtypes\": [\"PKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRRT2 and TMEM151A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating variants in PRRT2 (the recurrent c.649dupC frameshift accounts for the majority of carriers) yield no stable protein, producing a haploinsufficient state at the presynaptic terminal. TMEM151A truncating and missense variants behave similarly, with patient transcript evidence supporting loss of function; TMEM151A accounts for a share of PRRT2-negative PKD. This is the molecular initiating lesion of the kinesigenic subtype.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PRRT2\", \"TMEM151A\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}, {\"label\": \"TMEM151A\", \"id\": \"hgnc:28497\"}], \"role\": \"trigger\", \"locations\": [\"brain\"]}}, {\"id\": \"Paroxysmal Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic choreiform and athetoid movements, the phenomenology that gave PKD and PNKD their historical names (paroxysmal kinesigenic choreoathetosis and paroxysmal dystonic choreoathetosis).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007098\"}}, {\"id\": \"Paroxysmal Dyskinetic Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining manifestation: recurrent, abrupt, self-limited bouts of involuntary hyperkinetic movement \\u2014 dystonia, chorea, athetosis, ballism or a mixture \\u2014 occurring without loss of consciousness and without postictal confusion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007166\"}}, {\"id\": \"Paroxysmal Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic dystonic posturing of limbs, trunk or face during attacks, with no dystonia between episodes. In PED the dystonia is characteristically leg-predominant and follows sustained walking or running.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002268\"}}, {\"id\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 is enriched at presynaptic terminals, where it interacts with the SNARE proteins SNAP-25 and syntaxin-1A, with synaptotagmin 1/2 calcium sensors, and with Nav1.2/Nav1.6 sodium channels and the Na+/K+ ATPase. Loss of PRRT2 desynchronises calcium-triggered vesicle fusion (reduced release probability and calcium sensitivity, increased asynchronous release, more docked vesicles at rest) while simultaneously increasing sodium-current density and lowering the action-potential threshold. PKD is therefore simultaneously a synaptopathy and a channelopathy: the lesion does not produce continuous dysfunction but a network that is stable at baseline and unstable when abruptly perturbed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"calcium-ion regulated exocytosis\", \"regulation of membrane potential\", \"sodium ion transport\"], \"role\": \"central_effector\"}}, {\"id\": \"Prolonged Exertion and Fasting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained exercise and, less commonly, fasting precipitate PED attacks by pushing cerebral glucose demand beyond the reduced GLUT1 transport reserve. Rest and carbohydrate intake terminate attacks, which is itself a useful diagnostic manoeuvre.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SLC2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"subtypes\": [\"PED\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Secondary and Acquired Causes of Paroxysmal Dyskinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Paroxysmal dyskinesia is not always genetic. Acquired causes act by imposing a focal or diffuse insult on the same motor circuits: demyelinating lesions in multiple sclerosis (classically producing paroxysmal tonic spasms that are the acquired mimic of PKD, likewise carbamazepine-responsive), hypoparathyroidism and other metabolic derangements (often with basal-ganglia calcification), perinatal hypoxic-ischaemic injury, transient cerebral ischaemia, stroke, trauma, encephalitis and autoimmune disease, structural basal-ganglia lesions, and drugs or toxins. Adult onset, inconsistent triggers, evolving phenomenology, or any abnormality on interictal examination should prompt a search for a secondary cause.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"brain\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Predominantly primary generalised seizures co-occurring with exercise-induced dyskinesia in SLC2A1/GLUT1 deficiency; the combination of PED plus epilepsy in one family is itself a strong pointer to SLC2A1.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PED\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensory Aura Preceding Attacks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A premonitory sensory sensation \\u2014 paraesthesia, tingling, tension or stiffness \\u2014 in the limb about to be affected, reported by most patients with PKD and a useful positive diagnostic clue that distinguishes an attack from a functional movement disorder or a tic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003401\"}}, {\"id\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PNKD transgenic mice, caffeine and alcohol provoke dyskinetic attacks that coincide with a loss of firing in optically identified indirect-pathway striatal medium spiny neurons (iMSNs). Chemogenetic silencing of iMSNs is sufficient to trigger attacks, and the firing loss is attributable to aberrant endocannabinoid-mediated suppression of glutamatergic input. This inverts the classical dyskinesia model (direct-pathway hyperactivity) and places the causal lesion in indirect-pathway hypoactivity. The evidence is mouse-only; no human biomarker corresponds to it (see the discussions block).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"indirect pathway medium spiny neuron\"], \"biological_processes\": [\"action potential\", \"chemical synaptic transmission\"], \"role\": \"central_effector\", \"locations\": [\"striatum\"]}}, {\"id\": \"Sudden Voluntary Movement or Startle\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The defining precipitant of PKD: rising from a chair, initiating gait, being startled or making any abrupt voluntary movement provokes an attack within seconds. The trigger is so specific that its presence is one of the formal diagnostic criteria.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TMEM151A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMEM151A\"], \"gene_terms\": [{\"label\": \"TMEM151A\", \"id\": \"hgnc:28497\"}], \"subtypes\": [\"PKD\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence node of the entry. Whatever the upstream lesion \\u2014 presynaptic release failure, striatal indirect-pathway hypoactivity, corticostriatal energy failure, BK or cAMP dysregulation, or an acquired structural insult \\u2014 the result is the same: a basal-ganglia-thalamo-cortical and cerebello-thalamic motor network that behaves normally at baseline but has a reduced margin before a discrete, self-limited episode of aberrant motor output. The trigger (sudden movement, stimulant, stress, exertion, sleep state) supplies the perturbation that breaches the margin. This trigger-threshold architecture is what explains the two defining features of the group: attacks are stereotyped and provoked, and the examination between them is normal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of membrane potential\"], \"role\": \"central_effector\", \"locations\": [\"striatum\", \"cerebellum\", \"cerebral cortex\"]}}], \"edges\": [{\"source\": \"PRRT2 and TMEM151A Loss of Function\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRRT2 and TMEM151A Loss of Function\", \"target\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Developmental change in the regional expression of, and functional dependence on, PRRT2 between infancy and later childhood\"]}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"cerebellar_origin_of_pkd\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"target\": \"Migraine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Shared cortical and brainstem hyperexcitability with increased susceptibility to cortical spreading depolarization\"]}, {\"source\": \"Cerebellar Spreading Depolarization and Circuit Instability\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"cerebellar_origin_of_pkd\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"target\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered presynaptic transmission at corticostriatal synapses onto indirect-pathway neurons\", \"Unresolved biochemical steps linking MR-1 dysfunction to the endocannabinoid abnormality\"]}, {\"source\": \"Striatal Indirect-Pathway Medium Spiny Neuron Hypoactivity\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"target\": \"Hypoglycorrhachia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Gait Disturbance During Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KCNMA1 BK-Channel Gain of Function\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KCNMA1 BK-Channel Gain of Function\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"target\": \"Orofacial Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary and Acquired Causes of Paroxysmal Dyskinesia\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Focal demyelination, basal-ganglia calcification, ischaemic damage or inflammation\", \"Perturbed excitability of the same basal-ganglia-thalamo-cortical and cerebellar circuits that the genetic lesions destabilise\"]}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Paroxysmal Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Hemiballismus During Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"target\": \"Sensory Aura Preceding Attacks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"target\": \"Benign Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sudden Voluntary Movement or Startle\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node is the attack itself, described in the entry as the convergence point where a trigger breaches the motor network threshold, so a precipitant that provokes an attack within seconds acts on it directly. Recorded as triggering rather than exacerbating, which differs from the free-text effect field on this exposure: at the level of the disease these are aggravating factors, but the link points at the attack, which they initiate. The trigger is specific enough to be a formal diagnostic criterion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Caffeine and Alcohol\", \"target\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"An unusually exact match between an exposure and a molecular node: the cited study identifies the causal gene product as an enzyme in the methylglyoxal detoxification pathway and names coffee and alcoholic beverages as the dietary sources of that compound. The exposure and the node meet in the same sentence, in the same chemistry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Caffeine and Alcohol\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The second half of the same sentence, pointed at the attack node rather than the enzyme node: having established the chemistry, the study proposes coffee and alcohol as precipitants of attacks. Both edges are drawn because the exposure genuinely acts at two levels here, and collapsing them would lose either the chemistry or the attack.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Exertion and Fasting\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names exertion and fasting in its own title, and the cited series reports attacks triggered by exactly those two and relieved by carbohydrate intake or rest. Relief on restoring substrate is the part that makes this an energy-supply claim rather than a bare temporal association, which is why the link is direct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Exertion and Fasting\", \"target\": \"Trigger-Dependent Breach of the Motor Network Attack Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The same exposure pointed at the attack node, one step further on than its edge into the energy-failure node. Recorded with known intermediates rather than as direct, in contrast to the caffeine and startle links into this same node, because the energy-failure node sits between the exposure and the attack and is drawn explicitly in this graph.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Low-Dose Carbamazepine\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Carbamazepine\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oxcarbazepine\", \"target\": \"Presynaptic Release Failure and Neuronal Hyperexcitability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Exertion- and Fasting-Unmasked Corticostriatal Energy Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Paroxysmal Dyskinetic Attacks\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"Age-Dependent PRRT2 Phenotype Shift from Infantile Seizures to Kinesigenic Dyskinesia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"PRRT2 and TMEM151A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMEM151A\", \"target\": \"PRRT2 and TMEM151A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PNKD\", \"target\": \"PNKD (MR-1) Dysfunction and Impaired Methylglyoxal Detoxification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC2A1\", \"target\": \"GLUT1 Haploinsufficiency and Reduced Blood-Brain-Barrier Glucose Transport\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNMA1\", \"target\": \"KCNMA1 BK-Channel Gain of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADCY5\", \"target\": \"ADCY5 Striatal cAMP Signalling Gain of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8556,6 +8627,9 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166), qualified as tempor
 
 
                 </div>
+
+
+
 
 
 
@@ -8643,6 +8717,9 @@ This clinical feature is Paroxysmal dystonia (HP:0002268), qualified as temporal
 
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">No FrequencyEnum band is asserted. Dystonia is one of two alternating core attack phenomenologies rather than a separately enumerable feature, and no cited source reports a band-mappable proportion across the umbrella group.</div>
@@ -8759,6 +8836,9 @@ This clinical feature is Paroxysmal choreoathetosis (HP:0007098), qualified as t
                 </div>
 
 
+
+
+
                 <div class="item-desc">No FrequencyEnum band is asserted: the cited sources state that attacks comprise choreoathetosis OR dystonia without giving a band-mappable proportion.</div>
 
 
@@ -8846,6 +8926,9 @@ This clinical feature is Hemiballismus (HP:0100248), qualified as temporality tr
 
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">No FrequencyEnum band is asserted: the sources state that ballism &#34;can occur&#34; and that attacks &#34;involve dystonic posturing with choreic and ballistic movements&#34;, neither of which maps to a frequency band.</div>
@@ -8962,6 +9045,9 @@ This clinical feature is Paresthesia (HP:0003401), qualified as temporality tran
 
 
                 </div>
+
+
+
 
 
 
@@ -9089,6 +9175,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
                 </div>
 
 
+
+
+
                 <div class="item-desc">The band is OBLIGATE, not a partial frequency, because this phenotype is scoped to the ICCA subtype (subtype: ICCA), in which infantile seizures are definitionally required: MONDO:0011178 defines infantile convulsions and choreoathetosis as &#34;a neurological condition characterized by the occurrence of seizures during the first year of life ... and choreoathetotic dyskinetic attacks during childhood or adolescence&#34;. Across unselected PRRT2 carriers, by contrast, infantile seizures are present in roughly 56% (BFIE 41.7% plus ICCA 14.3% of 1444 published carriers, PMID:26598493), which is the figure that would apply at gene rather than subtype level.</div>
 
 
@@ -9160,6 +9249,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                 </div>
 
 
+
+
+
                 <div class="item-desc">No FrequencyEnum band is asserted. The source cohort was ascertained as PED co-occurring with epilepsy, so the apparent frequency is 100% by construction and cannot be read as the seizure frequency among unselected SLC2A1-related PED.</div>
 
 
@@ -9229,6 +9321,9 @@ This clinical feature is Generalized non-motor (absence) seizure (HP:0002121). H
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9346,6 +9441,9 @@ This clinical feature is Gait disturbance (HP:0001288), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9410,6 +9508,9 @@ This clinical feature is Orofacial dyskinesia (HP:0002310). HP:0002310 is a phen
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">No FrequencyEnum band is asserted: the source says facial involvement occurs &#34;often&#34; within ADCY5-related dyskinesia specifically, and no cited source quantifies the ADCY5 share of the umbrella group, so neither a subtype-level nor an umbrella-level band can be justified.</div>
@@ -9481,6 +9582,9 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9573,6 +9677,9 @@ This disease-associated gene is PRRT2 (hgnc:30500). hgnc:30500 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -9651,6 +9758,9 @@ This disease-associated gene is TMEM151A (hgnc:28497). hgnc:28497 is a gene from
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9733,6 +9843,9 @@ This disease-associated gene is PNKD (hgnc:9153). hgnc:9153 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -9813,6 +9926,9 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -9891,6 +10007,9 @@ This disease-associated gene is KCNMA1 (hgnc:6284). hgnc:6284 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10023,6 +10142,9 @@ This disease-associated gene is ADCY5 (hgnc:236). hgnc:236 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -10153,6 +10275,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10163,6 +10288,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10369,6 +10497,9 @@ This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10379,6 +10510,9 @@ This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10491,6 +10625,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10501,6 +10638,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10687,6 +10827,9 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10697,6 +10840,9 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -10816,6 +10962,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10826,6 +10975,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10945,6 +11097,9 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10955,6 +11110,9 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -16028,6 +16186,19 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Paroxysmal Dyskinesia (MONDO:0015427)</strong> · 2026-08-01T08:34:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Paroxysmal_Dyskinesia/2026-08-01T083436Z-claude-code-f307ba.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of the paroxysmal dyskinesia umbrella entry (MONDO:0015427) for issue #7566. Deep research via Edison/Falcon (research/Paroxysmal_Dyskinesia-deep-research-falcon.md, 37 citations across ~10 distinct sources, 414s runtime); all DR leads treated as leads only and independently re-verified against PubMed E-utilities. Structure is organised on the trigger-gene-treatment axis: PKD (sudden movement / PRRT2, TMEM151A / low-dose carbamazepine-oxcarbazepine), PNKD (alcohol, caffeine, stress / PNKD MR-1 / trigger avoidance), PED (sustained exertion, fasting / SLC2A1-GLUT1 / ketogenic diet, flagged by hypoglycorrhachia and a low CSF:blood glucose ratio), plus PNKD3 (KCNMA1 BK gain of function), ICCA (PRRT2 pleiotropy) and a secondary-acquired arm. PRRT2 age-dependent pleiotropy (benign familial infantile epilepsy to kinesigenic dyskinesia) is modelled as a dedicated pathophysiology node rather than as comorbidity. Historical paroxysmal hypnogenic dyskinesia is curated honestly as a largely reclassified category (sleep-related hypermotor epilepsy per the 2016 consensus) with the dissenting PRRT2-PHD evidence recorded in a CONTROVERSY discussion rather than suppressed. Module conformance: the PKD presynaptic node declares epilepsy_excitation_inhibition_imbalance#Ion Channel and Synaptic Dysfunction; the SLC2A1 arm explicitly declines conformance because its lesion is metabolic substrate transport, not a channel or synaptic defect. Validation: just validate passed (schema, terms, 90/90 snippets verified); just validate-terms passed; compliance 82.4 percent global, 82.8 percent weighted; compliance-connectivity 11/11 phenotypes causally connected and 6/6 causal genes wired to mechanism. Four MONDO IDs recalled from memory were caught as valid-but-semantically-wrong by the pre-edit term-validation hook and replaced with OAK-resolved IDs (sleep-related hypermotor epilepsy MONDO:0100631, conversion disorder MONDO:0002104, dystonic disorder MONDO:0003441, hypoparathyroidism MONDO:0001220). Cross-references rather than duplicates GLUT1_Deficiency_Syndrome, Benign_Familial_Infantile_Epilepsy, Familial_Sleep_Related_Hypermotor_Epilepsy and Episodic_Ataxia. Post-curation red-team review against .claude/skills/dismech-pr-review/SKILL.md (run as an independent subagent) raised and this commit resolves: GeneReviews baseline was unmined (added PMID:20301400 familial PNKD and PMID:20301603 GLUT1DS, both tagged GeneReviews, with snippets mined into subtypes, diagnosis, treatments and counselling); the KCNMA1/PNKD3 arm rested on mouse-only evidence (added the human kindred paper PMID:15937479 Du 2005 to the subtype, the absence-seizure phenotype, the genetic node and the mechanism node, plus PMID:35819138 for the p.Asn999Ser gain-of-function and p.His444Gln loss-of-function alleles that were previously asserted uncited); the trigger-avoidance treatment_term was misleadingly bound to NCIT:C15302 Physical Therapy and is now NCIT:C15900 Lifestyle Therapy, whose definition explicitly covers behavioural and dietary modification, stress management and addiction control (MAXO:0000053 is the semantically exact term but was empirically confirmed to be rejected by the TreatmentActionTerm enum, dismech issue #7524); seven frequency bands lacked documented justification and were either dropped with an explicit notes rationale, remapped (sensory aura FREQUENT to VERY_FREQUENT, matching the source term &#39;very common&#39;), or corrected (ICCA infantile seizures to OBLIGATE, since they are definitionally required by MONDO:0011178 at subtype scope); PMID:38091244 is a review and its evidence_source was normalised to OTHER in all eight places (it had been typed two different ways for the same paper); a ketogenic-diet evidence item asserting SUPPORT on a snippet that never mentions the diet was downgraded to PARTIAL and backed with the GeneReviews targeted-therapy statement; the orphan cerebellar_origin_of_pkd hypothesis group is now opted into by two causal edges; a clinical_trials block was added (NCT04023656 Korean PKD prognosis registry, NCT06701851 TRIGGER striatum-cerebellum imaging study); the PHD historical subtype was removed because listing it under has_subtypes asserted the membership the entry argues against, with the content retained in differential_diagnoses and the CONTROVERSY discussion; an ADCY5 subtype (MONDO:0800028) was added so that gene arm follows the same pattern as the others; two mixed-source evidence items were split so each carries a single evidence_source (MR-1 sequence homology to COMPUTATIONAL/PARTIAL, Xenopus oocyte uptake to IN_VITRO); and explicit notes were added for the ICCA overlap with Benign_Familial_Infantile_Epilepsy, the channelopathy classification over-reach across the PNKD/SLC2A1/ADCY5 arms, the paradoxical caffeine benefit in ADCY5 disease, and the NCIT:C21024 electroanalgesia definitional mismatch for pallidal DBS. Post-fix validation: schema, term and reference validation all pass with 108/108 snippets verified; compliance 83.3 percent global and 83.7 percent weighted; connectivity 11/11 phenotypes and 6/6 genes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

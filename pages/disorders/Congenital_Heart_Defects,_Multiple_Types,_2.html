@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Congenital%20Heart%20Defects%2C%20Multiple%20Types%2C%202"
@@ -3999,7 +4052,7 @@ One management point follows directly from the mechanism and is easy to miss: be
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4463,6 +4516,7 @@ One management point follows directly from the mechanism and is easy to miss: be
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tab2-haploinsufficiency" data-dismech-node="TAB2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">TAB2 Haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous deletion of 6q25.1 including TAB2, or a heterozygous loss-of-function variant within the gene, halves TAB2 dosage. The critical region was narrowed to 850 kb on 6q25.1 and TAB2 identified within it; the causal role was then confirmed by intragenic missense variants and by a translocation disrupting TAB2 that cosegregated with familial congenital heart disease. The loss-of-function framing of this node covers the deletion and truncating-variant class that defines the entity. It is not the whole allelic series: a functional screen of 47 variants found gain-of-function alleles alongside loss-of-function ones, with distinct phenotypes, so a pathogenic TAB2 missense variant cannot be assumed to reduce function.</div>
 
 
@@ -4520,9 +4574,14 @@ This genetic context concerns TAB2 (hgnc:17075). hgnc:17075 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4643,6 +4702,7 @@ This genetic context concerns TAB2 (hgnc:17075). hgnc:17075 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tak1-complex-signaling" data-dismech-node="Impaired TAK1 Complex Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TAK1 Complex Signaling</div>
+
 
                 <div class="item-desc">TAB2 is the adaptor that links TNFR1 and other receptors to the TAK1 complex by binding Lys63-linked polyubiquitin chains. Reduced TAB2 impairs that coupling. The consequence is not a single pathway output: TAB2 can act as a TAK1 activator or suppressor depending on cell type, and this node therefore branches into a developmental arm and a myocardial survival arm rather than into one effect. Which downstream output actually tracks disease is not settled. A cell-based screen of 47 TAB2 variants found that AP-1 transcriptional activity, the output of the stress-activated MAPK arm, predicted variant pathogenicity while NF-kappaB activity did not, so the NF-kappaB binding below records a dysregulated pathway rather than the discriminating readout.</div>
 
@@ -4854,6 +4914,7 @@ This pathophysiological event involves dysregulated stress-activated MAPK cascad
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-cardiac-morphogenesis" data-dismech-node="Disturbed Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Cardiac Morphogenesis</div>
 
+
                 <div class="item-desc">TAB2 is expressed in the developing human and zebrafish heart, and graded knockdown of tab2 in zebrafish embryos produces cardiac defects, establishing a dosage-sensitive developmental requirement. The resulting human lesions are predominantly valvular and outflow tract abnormalities together with septal defects.</div>
 
 
@@ -5003,6 +5064,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ripk1-dependent-cardiomyocyte-death" data-dismech-node="RIPK1-Dependent Cardiomyocyte Death" data-dismech-type="pathophysiology">
                 <div class="item-name">RIPK1-Dependent Cardiomyocyte Death</div>
+
 
                 <div class="item-desc">In the mature myocardium TAB2 suppresses RIPK1 kinase activation by mediating its phosphorylation at Ser321 through TAK1. Loss of TAB2 releases that restraint, and RIPK1 assembles either the RIPK1-FADD-caspase-8 apoptotic complex or the RIPK1-RIPK3 necroptotic complex. This is a survival mechanism operating in the formed heart, which is why cardiomyopathy can arise without any structural defect.</div>
 
@@ -5229,6 +5291,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connective-tissue-matrix-involvement" data-dismech-node="Connective Tissue Matrix Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Connective Tissue Matrix Involvement</div>
 
+
                 <div class="item-desc">The extra-cardiac half of the phenotype - short stature, joint hypermobility, abnormal skin texture and the facial gestalt - clusters as a connective tissue disorder, and most individuals with TAB2 single nucleotide variants present that way. The molecular route from reduced TAK1 signalling to matrix involvement is not established, so this node is curated as the tissue-level observation it is rather than as a mechanism, and its outgoing edges carry unknown intermediates.</div>
 
 
@@ -5349,7 +5412,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal aortic valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001646\"}}, {\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial dysmorphism is present in 59% of pooled subjects. The delineating cohort put it at 80% and characterised it as suggestive of Noonan syndrome, which is the source of the diagnostic overlap, but that cohort is deletion-enriched and smaller. The frequency band is set from the pooled figure for the same reason it is on the mitral valve phenotype - a single cohort\u0027s rate is not the entity\u0027s rate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Abnormal mitral valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac disease is present in about 80% of patients, most often mitral valve defects or cardiomyopathy. Reported structural lesions span mitral, tricuspid, aortic and pulmonic valves, bicuspid aortic valve, coarctation, supravalvular aortic stenosis and septal defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001633\"}}, {\"id\": \"Abnormal tricuspid valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001702\"}}, {\"id\": \"Abnormality of connective tissue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals with TAB2 single nucleotide variants present with a connective tissue disorder phenotype, including abnormal skin texture, joint hypermobility, joint contractures and hyperconvex nails.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003549\"}}, {\"id\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Tamoxifen-inducible cardiomyocyte-restricted deletion of Tab2 in the adult mouse heart. Because deletion is postnatal and cardiomyocyte-limited, this model isolates the myocardial survival arm of TAB2 function from its developmental arm.\"}, {\"id\": \"Connective Tissue Matrix Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The extra-cardiac half of the phenotype - short stature, joint hypermobility, abnormal skin texture and the facial gestalt - clusters as a connective tissue disorder, and most individuals with TAB2 single nucleotide variants present that way. The molecular route from reduced TAK1 signalling to matrix involvement is not established, so this node is curated as the tissue-level observation it is rather than as a mechanism, and its outgoing edges carry unknown intermediates.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cardiomyopathy with reduced systolic function occurs even in the absence of a structural congenital heart defect, and can present later in life in individuals who survived one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\", \"animal_models\": [{\"name\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tab2 fl/fl; alphaMHC-MerCreMer, tamoxifen-induced\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Genetic inactivation of RIPK1 kinase activity rescued cardiac remodeling and dysfunction, identifying RIPK1 as the effector and a candidate therapeutic target.\"}]}}, {\"id\": \"Disturbed Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAB2 is expressed in the developing human and zebrafish heart, and graded knockdown of tab2 in zebrafish embryos produces cardiac defects, establishing a dosage-sensitive developmental requirement. The resulting human lesions are predominantly valvular and outflow tract abnormalities together with septal defects.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart valve morphogenesis\"], \"animal_models\": [{\"name\": \"Zebrafish tab2 morphant\", \"species\": \"Zebrafish\", \"genotype\": \"tab2 morpholino knockdown, titrated\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Titrated reduction of tab2 expression produces cardiac defects, supporting a dosage-sensitive developmental requirement.\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was present in 53% of one newly reported cohort and is suspected to be a previously unappreciated feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heart failure management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guideline-directed medical therapy for the dilated cardiomyopathy and systolic dysfunction seen in about half of individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired TAK1 Complex Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAB2 is the adaptor that links TNFR1 and other receptors to the TAK1 complex by binding Lys63-linked polyubiquitin chains. Reduced TAB2 impairs that coupling. The consequence is not a single pathway output: TAB2 can act as a TAK1 activator or suppressor depending on cell type, and this node therefore branches into a developmental arm and a myocardial survival arm rather than into one effect. Which downstream output actually tracks disease is not settled. A cell-based screen of 47 TAB2 variants found that AP-1 transcriptional activity, the output of the stress-activated MAPK arm, predicted variant pathogenicity while NF-kappaB activity did not, so the NF-kappaB binding below records a dysregulated pathway rather than the discriminating readout.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"canonical NF-kappaB signal transduction\", \"stress-activated MAPK cascade signalling to AP-1\"]}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Longitudinal cardiac surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because cardiomyopathy can develop in the absence of a structural defect and after a normal initial echocardiogram, patients with a TAB2 deletion should be screened longitudinally for systolic heart failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyvalvular involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"More than one valve is affected in over half of individuals, which is the feature that distinguishes this from an isolated valve lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001654\"}}, {\"id\": \"RIPK1-Dependent Cardiomyocyte Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the mature myocardium TAB2 suppresses RIPK1 kinase activation by mediating its phosphorylation at Ser321 through TAK1. Loss of TAB2 releases that restraint, and RIPK1 assembles either the RIPK1-FADD-caspase-8 apoptotic complex or the RIPK1-RIPK3 necroptotic complex. This is a survival mechanism operating in the formed heart, which is why cardiomyopathy can arise without any structural defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"necroptotic process\", \"apoptotic process\"], \"animal_models\": [{\"name\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tab2 fl/fl; alphaMHC-MerCreMer, tamoxifen-induced\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Deletion produces RIPK1 kinase activation with apoptotic and necroptotic cardiomyocyte death, ventricular dilation, fibrosis and contractile dysfunction, and the phenotype is rescued by genetically inactivating RIPK1.\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"TAB2 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous deletion of 6q25.1 including TAB2, or a heterozygous loss-of-function variant within the gene, halves TAB2 dosage. The critical region was narrowed to 850 kb on 6q25.1 and TAB2 identified within it; the causal role was then confirmed by intragenic missense variants and by a translocation disrupting TAB2 that cosegregated with familial congenital heart disease. The loss-of-function framing of this node covers the deletion and truncating-variant class that defines the entity. It is not the whole allelic series: a functional screen of 47 variants found gain-of-function alleles alongside loss-of-function ones, with distinct phenotypes, so a pathogenic TAB2 missense variant cannot be assumed to reduce function.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TAB2\", \"id\": \"hgnc:17075\"}]}}}, {\"id\": \"Valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the valvular disease that dominates the structural phenotype, including the polyvalvular involvement seen in over half of individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Zebrafish tab2 morphant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Graded morpholino knockdown of tab2 in zebrafish embryos, used to test dosage sensitivity during cardiac development.\"}], \"edges\": [{\"source\": \"TAB2 Haploinsufficiency\", \"target\": \"Impaired TAK1 Complex Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"Disturbed Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"RIPK1-Dependent Cardiomyocyte Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"Connective Tissue Matrix Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal mitral valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal tricuspid valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal aortic valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Polyvalvular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RIPK1-Dependent Cardiomyocyte Death\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Joint hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Abnormality of connective tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Longitudinal cardiac surveillance\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Valve repair or replacement\", \"target\": \"Abnormal mitral valve morphology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart failure management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"target\": \"RIPK1-Dependent Cardiomyocyte Death\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Deletion produces RIPK1 kinase activation with apoptotic and necroptotic cardiomyocyte death, ventricular dilation, fibrosis and contractile dysfunction, and the phenotype is rescued by genetically inactivating RIPK1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The model is a homozygous conditional knockout in adult cardiomyocytes, whereas human disease is constitutional heterozygous haploinsufficiency. It therefore speaks to the cardiomyopathy arm only and cannot model the developmental cardiac malformations, and the severity is greater than the human course.\"}, {\"source\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Genetic inactivation of RIPK1 kinase activity rescued cardiac remodeling and dysfunction, identifying RIPK1 as the effector and a candidate therapeutic target.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is genetic (Ripk1-K45A knockin) rather than pharmacological, and has not been tested in humans or against constitutional haploinsufficiency.\"}, {\"source\": \"Zebrafish tab2 morphant\", \"target\": \"Disturbed Cardiac Morphogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Titrated reduction of tab2 expression produces cardiac defects, supporting a dosage-sensitive developmental requirement.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown is transient and subject to off-target effects, and the zebrafish heart is two-chambered, so specific human lesions such as mitral valve disease cannot be modelled.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal aortic valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001646\"}}, {\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial dysmorphism is present in 59% of pooled subjects. The delineating cohort put it at 80% and characterised it as suggestive of Noonan syndrome, which is the source of the diagnostic overlap, but that cohort is deletion-enriched and smaller. The frequency band is set from the pooled figure for the same reason it is on the mitral valve phenotype - a single cohort\u0027s rate is not the entity\u0027s rate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Abnormal mitral valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac disease is present in about 80% of patients, most often mitral valve defects or cardiomyopathy. Reported structural lesions span mitral, tricuspid, aortic and pulmonic valves, bicuspid aortic valve, coarctation, supravalvular aortic stenosis and septal defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001633\"}}, {\"id\": \"Abnormal tricuspid valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001702\"}}, {\"id\": \"Abnormality of connective tissue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals with TAB2 single nucleotide variants present with a connective tissue disorder phenotype, including abnormal skin texture, joint hypermobility, joint contractures and hyperconvex nails.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003549\"}}, {\"id\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Tamoxifen-inducible cardiomyocyte-restricted deletion of Tab2 in the adult mouse heart. Because deletion is postnatal and cardiomyocyte-limited, this model isolates the myocardial survival arm of TAB2 function from its developmental arm.\"}, {\"id\": \"Connective Tissue Matrix Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The extra-cardiac half of the phenotype - short stature, joint hypermobility, abnormal skin texture and the facial gestalt - clusters as a connective tissue disorder, and most individuals with TAB2 single nucleotide variants present that way. The molecular route from reduced TAK1 signalling to matrix involvement is not established, so this node is curated as the tissue-level observation it is rather than as a mechanism, and its outgoing edges carry unknown intermediates.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cardiomyopathy with reduced systolic function occurs even in the absence of a structural congenital heart defect, and can present later in life in individuals who survived one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\", \"animal_models\": [{\"name\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tab2 fl/fl; alphaMHC-MerCreMer, tamoxifen-induced\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Genetic inactivation of RIPK1 kinase activity rescued cardiac remodeling and dysfunction, identifying RIPK1 as the effector and a candidate therapeutic target.\"}]}}, {\"id\": \"Disturbed Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAB2 is expressed in the developing human and zebrafish heart, and graded knockdown of tab2 in zebrafish embryos produces cardiac defects, establishing a dosage-sensitive developmental requirement. The resulting human lesions are predominantly valvular and outflow tract abnormalities together with septal defects.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart valve morphogenesis\"], \"animal_models\": [{\"name\": \"Zebrafish tab2 morphant\", \"species\": \"Zebrafish\", \"genotype\": \"tab2 morpholino knockdown, titrated\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Titrated reduction of tab2 expression produces cardiac defects, supporting a dosage-sensitive developmental requirement.\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was present in 53% of one newly reported cohort and is suspected to be a previously unappreciated feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heart failure management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guideline-directed medical therapy for the dilated cardiomyopathy and systolic dysfunction seen in about half of individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired TAK1 Complex Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAB2 is the adaptor that links TNFR1 and other receptors to the TAK1 complex by binding Lys63-linked polyubiquitin chains. Reduced TAB2 impairs that coupling. The consequence is not a single pathway output: TAB2 can act as a TAK1 activator or suppressor depending on cell type, and this node therefore branches into a developmental arm and a myocardial survival arm rather than into one effect. Which downstream output actually tracks disease is not settled. A cell-based screen of 47 TAB2 variants found that AP-1 transcriptional activity, the output of the stress-activated MAPK arm, predicted variant pathogenicity while NF-kappaB activity did not, so the NF-kappaB binding below records a dysregulated pathway rather than the discriminating readout.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"canonical NF-kappaB signal transduction\", \"stress-activated MAPK cascade signalling to AP-1\"]}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Longitudinal cardiac surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because cardiomyopathy can develop in the absence of a structural defect and after a normal initial echocardiogram, patients with a TAB2 deletion should be screened longitudinally for systolic heart failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyvalvular involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"More than one valve is affected in over half of individuals, which is the feature that distinguishes this from an isolated valve lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001654\"}}, {\"id\": \"RIPK1-Dependent Cardiomyocyte Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the mature myocardium TAB2 suppresses RIPK1 kinase activation by mediating its phosphorylation at Ser321 through TAK1. Loss of TAB2 releases that restraint, and RIPK1 assembles either the RIPK1-FADD-caspase-8 apoptotic complex or the RIPK1-RIPK3 necroptotic complex. This is a survival mechanism operating in the formed heart, which is why cardiomyopathy can arise without any structural defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"necroptotic process\", \"apoptotic process\"], \"animal_models\": [{\"name\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tab2 fl/fl; alphaMHC-MerCreMer, tamoxifen-induced\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Deletion produces RIPK1 kinase activation with apoptotic and necroptotic cardiomyocyte death, ventricular dilation, fibrosis and contractile dysfunction, and the phenotype is rescued by genetically inactivating RIPK1.\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"TAB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TAB2\"], \"gene_terms\": [{\"label\": \"TAB2\", \"id\": \"hgnc:17075\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"TAB2 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous deletion of 6q25.1 including TAB2, or a heterozygous loss-of-function variant within the gene, halves TAB2 dosage. The critical region was narrowed to 850 kb on 6q25.1 and TAB2 identified within it; the causal role was then confirmed by intragenic missense variants and by a translocation disrupting TAB2 that cosegregated with familial congenital heart disease. The loss-of-function framing of this node covers the deletion and truncating-variant class that defines the entity. It is not the whole allelic series: a functional screen of 47 variants found gain-of-function alleles alongside loss-of-function ones, with distinct phenotypes, so a pathogenic TAB2 missense variant cannot be assumed to reduce function.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TAB2\", \"id\": \"hgnc:17075\"}]}}}, {\"id\": \"Valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the valvular disease that dominates the structural phenotype, including the polyvalvular involvement seen in over half of individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Zebrafish tab2 morphant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Graded morpholino knockdown of tab2 in zebrafish embryos, used to test dosage sensitivity during cardiac development.\"}], \"edges\": [{\"source\": \"TAB2 Haploinsufficiency\", \"target\": \"Impaired TAK1 Complex Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"Disturbed Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"RIPK1-Dependent Cardiomyocyte Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TAK1 Complex Signaling\", \"target\": \"Connective Tissue Matrix Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal mitral valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal tricuspid valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Abnormal aortic valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Cardiac Morphogenesis\", \"target\": \"Polyvalvular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RIPK1-Dependent Cardiomyocyte Death\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Joint hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Abnormality of connective tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Connective Tissue Matrix Involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Longitudinal cardiac surveillance\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Valve repair or replacement\", \"target\": \"Abnormal mitral valve morphology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart failure management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"target\": \"RIPK1-Dependent Cardiomyocyte Death\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Deletion produces RIPK1 kinase activation with apoptotic and necroptotic cardiomyocyte death, ventricular dilation, fibrosis and contractile dysfunction, and the phenotype is rescued by genetically inactivating RIPK1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The model is a homozygous conditional knockout in adult cardiomyocytes, whereas human disease is constitutional heterozygous haploinsufficiency. It therefore speaks to the cardiomyopathy arm only and cannot model the developmental cardiac malformations, and the severity is greater than the human course.\"}, {\"source\": \"Cardiomyocyte-specific Tab2 knockout mouse\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Genetic inactivation of RIPK1 kinase activity rescued cardiac remodeling and dysfunction, identifying RIPK1 as the effector and a candidate therapeutic target.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is genetic (Ripk1-K45A knockin) rather than pharmacological, and has not been tested in humans or against constitutional haploinsufficiency.\"}, {\"source\": \"Zebrafish tab2 morphant\", \"target\": \"Disturbed Cardiac Morphogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Titrated reduction of tab2 expression produces cardiac defects, supporting a dosage-sensitive developmental requirement.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown is transient and subject to off-target effects, and the zebrafish heart is two-chambered, so specific human lesions such as mitral valve disease cannot be modelled.\"}, {\"source\": \"TAB2\", \"target\": \"TAB2 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5416,6 +5479,9 @@ This clinical feature is Abnormal mitral valve morphology (HP:0001633). HP:00016
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5517,6 +5583,9 @@ This clinical feature is Abnormal tricuspid valve morphology (HP:0001702). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5583,6 +5652,9 @@ This clinical feature is Abnormal aortic valve morphology (HP:0001646). HP:00016
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5661,6 +5733,9 @@ This clinical feature is polyvalvular disease, annotated with Abnormal heart val
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5725,6 +5800,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5810,6 +5888,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5885,6 +5966,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5999,6 +6083,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6063,6 +6150,9 @@ This clinical feature is Abnormality of connective tissue (HP:0003549). HP:00035
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6146,6 +6236,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6221,6 +6314,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6435,9 @@ This disease-associated gene is TAB2 (hgnc:17075). hgnc:17075 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6408,6 +6507,9 @@ This disease-associated gene is TAB2 (hgnc:17075). hgnc:17075 is a gene from the
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6418,6 +6520,9 @@ This disease-associated gene is TAB2 (hgnc:17075). hgnc:17075 is a gene from the
 
 
     </div>
+
+
+
 
 
 
@@ -6530,6 +6635,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6540,6 +6648,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6652,6 +6763,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6662,6 +6776,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8116,6 +8233,91 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 3: connect cardiac phenotypes, rebind polyvalvular term, cite Xu 2023 allelic series</strong> · 2026-09-02T19:47:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Heart_Defects_Multiple_Types_2/2026-09-02T194725Z-claude-code-cebf04.yaml">View source</a></p>
+                        <p class="research-review-text">Third review round on PR #10595. Three blocking findings and several
+non-blocking ones.
+
+Pathograph connectivity. The previous round added tricuspid, aortic,
+polyvalvular and hearing-loss phenotypes without giving them incoming causal
+edges, so five of twelve phenotypes sat outside the graph. Disturbed Cardiac
+Morphogenesis now carries downstream edges to the three valve phenotypes plus
+the polyvalvular one, all INDIRECT_UNKNOWN_INTERMEDIATES since no source traces
+the route from TAB2 dosage to a specific leaflet. The node was also unbound, and
+is now grounded on GO:0003179 heart valve morphogenesis with modifier ABNORMAL.
+
+Hearing impairment was decided explicitly rather than connected. PMID:34741306
+groups hearing loss with myopia as an additional feature and does not place it
+under the connective tissue cluster; nothing examines TAB2 in the cochlea. It
+keeps no incoming edge, the reason is stated in its description, and a
+KNOWLEDGE_GAP discussion (tab2_hearing_loss_mechanism) records the gap.
+
+Term rebinding. Polyvalvular involvement was bound to HP:0031653 Abnormal heart
+valve physiology, a functional term, while its snippet describes structural
+valve defects. Rebound to HP:0001654 Abnormal heart valve morphology, with
+preferred_term polyvalvular disease so the specificity the ontology term lacks
+is not lost.
+
+Xu 2023 (DOI:10.1093/hmg/ddac252) was cached in the PR, uncited, and
+contradicted the entry on two points. It is now cited four times. First, the
+entry modelled TAB2 disease as loss-of-function only; Xu&#39;s screen of 47 variants
+reports gain-of-function alleles with distinct phenotypes, so the TAB2
+Haploinsufficiency node&#39;s description now scopes its LOSS_OF_FUNCTION category
+to the deletion and truncating class and cites Xu for the bound. Second, the
+Impaired TAK1 Complex Signaling node&#39;s sole grounding was GO:0007249 canonical
+NF-kappaB signal transduction, which is precisely the readout Xu found does not
+discriminate pathogenic from benign variants; the node now also carries
+GO:0051403 stress-activated MAPK cascade for the AP-1 arm that does, and its
+description says which is which. A KNOWLEDGE_GAP discussion
+(tab2_allelic_series_lof_and_gof) records that the pathograph has one molecular
+entry point and cannot represent a gain-of-function allele, and that partial-LOF
+patients mostly lack congenital heart disease.
+
+Non-blocking fixes. Two PMID:34990405 evidence items quoting background
+statements rather than experimental results were regraded IN_VITRO to OTHER.
+Facial dysmorphism was banded VERY_FREQUENT from the delineating cohort&#39;s 80%;
+the pooled rate is 59% (23/39), so the band is now FREQUENT with both figures
+cited and the cohort-specific one labelled as such - the same correction already
+applied to the mitral valve phenotype. Heart failure management gained
+therapeutic_modality SMALL_MOLECULE, with a note explaining that
+therapeutic_agent is left empty because no source cited by this entry names a
+drug. Longitudinal cardiac surveillance gained therapeutic_modality OTHER, and
+its note now says why DEVICE would be wrong (that value is defined as a
+therapeutic device; the echocardiogram treats nothing).
+
+Not changed. The duplicate case-variant caches DOI_10.1172_JCI152297.md and
+DOI_10.1172_jci152297.md are both kept: the deep-research report cites the DOI in
+both casings, so removing either would leave one of its own citations unbacked.
+The duplication is upstream in the report, not hand-introduced.
+
+Validation: just validate passes with 36/40 snippets verified against the cache;
+the four skipped by prefix are the new DOI:10.1093/hmg/ddac252 items, each
+confirmed by hand to be an exact substring of
+references_cache/DOI_10.1093_hmg_ddac252.md. check-entity-refs,
+check-causal-targets, check-duplicate-keys, check-enum-values,
+check-qualifier-terms, check-folded-hyphens, check-environmental-evidence and
+the four ratcheted checks against origin/main all pass.
+
+Note on this record: it was first committed with the scaffold&#39;s unfilled placeholder token as its details
+body. The scaffolding script nests details under events:, and the script used to
+fill it matched only a top-level key, so it silently wrote nothing. Filled in
+place before merge.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Congenital Heart Defects, Multiple Types, 2 (TAB2)</strong> · 2026-09-02T17:33:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Heart_Defects_Multiple_Types_2/2026-09-02T173315Z-claude-code-36f911.yaml">View source</a></p>
+                        <p class="research-review-text">Created the entry for TAB2 haploinsufficiency. Deep research was run with falcon; the report resolved 7/7 references but cited only DOIs, so each was converted to a PMID and cited as a PMID. My initial draft asserted that lesions cluster on the left side of the heart (bicuspid aortic valve, aortic stenosis, coarctation); the cohort literature does not support that emphasis and it was removed. The delineating cohorts instead report mitral valve disease and cardiomyopathy as the leading cardiac features, with short stature, hypermobility and Noonan-like facies in about three quarters of patients. Sources: Thienpont et al. 2010 (PMID:20493459) for the critical region, the translocation and the zebrafish dosage experiment; Cheng et al. 2017 (PMID:28464518) for cardiomyopathy without CHD and the longitudinal screening recommendation; Engwerda et al. 2021 (PMID:34456334) and Hanson et al. 2022 (PMID:34741306) for the syndromic phenotype; and Yin et al. 2022 (PMID:34990405) for the RIPK1 mechanism and its genetic rescue. The pathograph branches deliberately at the TAK1 node into a developmental morphogenesis arm and a myocardial survival arm, because the source states TAB2 can act as a TAK1 activator or suppressor by context; that branch is what explains cardiomyopathy arising in a structurally normal heart. Two animal models are linked with modeled_mechanisms: the cardiomyocyte-specific Tab2 knockout mouse (RECAPITULATES the cell-death node and RESCUES the cardiomyopathy via Ripk1-K45A) and the zebrafish tab2 morphant (RECAPITULATES the morphogenesis node), each with limitations recording that the mouse is a homozygous adult conditional knockout rather than constitutional haploinsufficiency and that the two-chambered zebrafish heart cannot model mitral valve disease. A CONTROVERSY discussion records that the MONDO/OMIM name calls this non-syndromic CHD while both large cohorts conclude it is syndromic and one proposes the name TAB2-related syndrome. The longitudinal cardiac surveillance treatment is deliberately left unbound: NCIT:C61256 Monitoring is not reachable from NCIT:C25218 and NCIT:C15406 Cancer Screening names the wrong concept, so per the ontology term contract the meaning is carried in preferred_term with the reason recorded in notes. Validated with just validate (23/23 snippets verified, term validation passed), check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values and check-qualifier-terms.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

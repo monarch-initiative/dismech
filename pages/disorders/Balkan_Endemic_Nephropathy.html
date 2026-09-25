@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4053,6 +4106,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dietary-aristolochic-acid-exposure-and-proximal-tubular-uptake" data-dismech-node="Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake</div>
 
+
                 <div class="item-desc">Aristolochic acid enters the diet when Aristolochia clematitis growing in wheat fields is harvested and milled with the grain and baked into household bread. Ingested aristolochic acid is taken up by proximal tubular epithelium, which is the same transport-dependent concentration step that makes the proximal tubule the target of nephrotoxic drugs.</div>
 
 
@@ -4183,6 +4237,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aristolactam-dna-adduct-formation" data-dismech-node="Aristolactam-DNA Adduct Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aristolactam-DNA Adduct Formation</div>
+
 
                 <div class="item-desc">Activated aristolochic acid binds covalently to DNA, producing dA-aristolactam and dG-aristolactam adducts that persist in renal cortex for decades. These adducts do two distinct jobs in this disease: they are the biomarker that established causation, having been found in the renal cortex of patients with this nephropathy and not in other chronic renal disease; and they are themselves the mutagenic lesion that drives the associated urothelial cancer. That dual role is what separates this entry from a generic toxic tubulopathy.</div>
 
@@ -4331,6 +4386,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-epithelial-cell-death" data-dismech-node="Proximal Tubular Epithelial Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Tubular Epithelial Cell Death</div>
 
+
                 <div class="item-desc">Loss of proximal tubular epithelium, the step the conforming module shares.</div>
 
 
@@ -4440,6 +4496,7 @@ This pathophysiological event involves kidney proximal tubule epithelial cell, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-a-t-to-t-a-transversion-mutational-signature" data-dismech-node="A:T to T:A Transversion Mutational Signature" data-dismech-type="pathophysiology">
                 <div class="item-name">A:T to T:A Transversion Mutational Signature</div>
+
 
                 <div class="item-desc">Aristolactam adducts mispair during replication to produce a highly characteristic A:T to T:A transversion signature, concentrated in TP53. The signature is specific enough to serve as a molecular fingerprint of prior aristolochic acid exposure, which is how the same exposure was later recognised in tumours worldwide. Split from the carcinoma it drives, since one is a molecular lesion and the other a tissue-level outcome.</div>
 
@@ -4604,6 +4661,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-urinary-tract-urothelial-carcinoma" data-dismech-node="Upper Urinary Tract Urothelial Carcinoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Urinary Tract Urothelial Carcinoma</div>
 
+
                 <div class="item-desc">Malignant transformation of upper urinary tract urothelium, frequent enough in endemic populations to be a defining feature rather than an incidental association. This is the tissue-level consequence of the molecular signature above, and it is why the exposure is carcinogenic as well as nephrotoxic.</div>
 
 
@@ -4698,6 +4756,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubulointerstitial-fibrosis-and-progressive-renal-failure" data-dismech-node="Tubulointerstitial Fibrosis and Progressive Renal Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubulointerstitial Fibrosis and Progressive Renal Failure</div>
+
 
                 <div class="item-desc">Interstitial fibrosis with tubular atrophy and nephron dropout, producing the insidious, slowly progressive chronic kidney disease that defines the nephropathy. Kept separate from tubular cell death because the module keeps the tissue response separate from the cell-death step, and because the interval between them here is years.</div>
 
@@ -4902,6 +4961,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4998,6 +5060,9 @@ This clinical feature is Chronic kidney disease (HP:0012622), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5069,6 +5134,9 @@ This clinical feature is Low-molecular-weight tubular proteinuria, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5133,6 +5201,9 @@ This clinical feature is Upper urinary tract urothelial carcinoma, annotated wit
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5220,6 +5291,9 @@ This clinical feature is End-stage renal disease, annotated with Stage 5 chronic
 
 
                     </div>
+
+
+
 
 
 
@@ -5362,6 +5436,12 @@ This treatment is Renal Replacement Therapy (NCIT:C126400). NCIT:C126400 is a cl
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Dialysis or transplantation at end stage, as for other causes of chronic kidney disease. Nothing reverses the nephropathy itself.</div>
 
 
@@ -5450,6 +5530,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5460,6 +5543,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -5619,6 +5705,9 @@ This treatment uses mTOR inhibitor (NCIT:C2201). NCIT:C2201 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5629,6 +5718,9 @@ This treatment uses mTOR inhibitor (NCIT:C2201). NCIT:C2201 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -5741,6 +5833,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5751,6 +5846,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6871,6 +6969,31 @@ environmental:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Enhancement rounds after review: node splits, clinical layer, management, biomarkers</strong> · 2026-09-01T19:12:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Balkan_Endemic_Nephropathy/2026-09-01T191214Z-claude-code-d5fefb.yaml">View source</a></p>
+                        <p class="research-review-text">Append-only record for the review cycle on PR 10418. The CREATE record for this entry reports 4 edges and 8/8 snippets, which described the entry as first opened; it is now 13 edges and 23 snippets, and that record is left untouched.
+
+Node splits. A:T to T:A Transversion Signature and Urothelial Carcinogenesis carried a MOLECULAR scale while asserting tissue-level carcinogenesis, which is the two-scale-values tell for a bundled node. It is now a signature node feeding a separate Upper Urinary Tract Urothelial Carcinoma node at TISSUE scale. Proximal Tubular Epithelial Cell Death and Interstitial Fibrosis was likewise split, with the fibrosis node carrying the slow time course the partial-conformance argument rests on.
+
+Clinical layer. Five phenotypes: chronic kidney disease, low-molecular-weight proteinuria, anaemia, upper tract urothelial carcinoma and end-stage renal disease. The carcinoma was previously modelled only as a mechanism node, so the entry&#39;s headline finding was not a curated manifestation. The proteinuria binding was moved from HP:0000093 to the specific HP:0003126, since the preferred_term workaround is for when no precise term exists and one did.
+
+Management. Four treatments, three of them disease-specific rather than generic CKD care: prophylactic bilateral nephroureterectomy BEFORE transplantation, because the urothelium carries the same adduct burden as the kidney and immunosuppression with the native tract retained is the risk; mTOR-based immunosuppression afterwards, bound to NCIT:C2201 and targeting the carcinoma node because the drug class is chosen for cancer risk rather than graft reasons; and total nephroureterectomy for established tumour. Renal replacement therapy is bound to the specific NCIT:C126400 rather than the generic Therapeutic Procedure term.
+
+Biochemical. Alpha-1-microglobulin as the screening marker for tubular proteinuria, and aristolactam-DNA adducts with the TP53 fingerprint mutation as the exposure-specific confirmation, which the source calls the only diagnostic finding.
+
+Two CI failures during the cycle. check-folded-hyphens rejected a line ending on &#39;Aristolactam-&#39; inside a folded scalar, which would fold into a broken token. A diagnosis snippet also truncated mid-clause at &#39;pathognomonic of&#39;; it now runs through &#39;pathognomonic of BEN&#39;.
+
+The deep-research artifact was missing when the PR opened because the first run was backgrounded with a bare ampersand and was orphaned when its parent shell exited. Relaunched; 42 of 42 references resolved with none confabulated.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

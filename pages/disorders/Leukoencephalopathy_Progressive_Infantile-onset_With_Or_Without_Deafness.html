@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4338,6 +4391,7 @@ KARS1 has a wide allelic series - Charcot-Marie-Tooth disease, nonsyndromic hear
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-kars1-loss-of-function-variants" data-dismech-node="Biallelic KARS1 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic KARS1 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous KARS1 variants, mostly missense with occasional splice-site and frameshift alleles. The Japanese cohort that defined the phenotype shared one position across all seven patients, p.Leu568Phe in isoform 2, in either the homozygous or compound heterozygous state.</div>
 
 
@@ -4430,6 +4484,8 @@ This genetic context concerns KARS1 (hgnc:6215). hgnc:6215 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4443,6 +4499,9 @@ This genetic context concerns KARS1 (hgnc:6215). hgnc:6215 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4511,6 +4570,7 @@ This genetic context concerns KARS1 (hgnc:6215). hgnc:6215 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-lysyl-trna-synthetase-aminoacylation-activity" data-dismech-node="Reduced Lysyl-tRNA Synthetase Aminoacylation Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Lysyl-tRNA Synthetase Aminoacylation Activity</div>
+
 
                 <div class="item-desc">Lysyl-tRNA synthetase charges tRNA-Lys with lysine, the committed step that makes lysine available to the ribosome. Mutant enzymes show reduced aminoacylation activity in vitro, and the same reduction is seen in yeast complementation assays.</div>
 
@@ -4681,6 +4741,7 @@ This pathophysiological event involves decreased lysine-tRNA ligase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
+
 
                 <div class="item-desc">KARS1 produces both the cytosolic and the mitochondrial enzyme, and in the patient in whom the two compartments were separated experimentally, only the mitochondrial one was affected: patient fibroblasts had a multiple oxidative phosphorylation deficiency from impaired mitochondrial translation, with no cytosolic translation defect, and only the mitochondrial isoform rescued it.</div>
 
@@ -4853,6 +4914,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-phosphorylation-deficiency" data-dismech-node="Oxidative Phosphorylation Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Phosphorylation Deficiency</div>
 
+
                 <div class="item-desc">Failure of mitochondrial translation leaves the respiratory chain short of its mitochondrially encoded subunits, giving a combined complex deficiency and a shift toward anaerobic metabolism. Clinically this surfaces as elevated lactate and pyruvate. The tissues that fail first are the ones with the highest oxidative demand, which is the conventional explanation for why a translation defect of this kind presents with cochlear and central nervous system disease; no source cited here demonstrates that ordering for KARS1 specifically.</div>
 
 
@@ -4978,6 +5040,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-injury-and-intracranial-calcification" data-dismech-node="White Matter Injury and Intracranial Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">White Matter Injury and Intracranial Calcification</div>
+
 
                 <div class="item-desc">The neuroradiological signature: abnormal white matter signal with calcification, and, where pathology was available, involvement of the corticospinal tracts. Both patients in whom the tracts were examined showed it.</div>
 
@@ -5232,6 +5295,9 @@ This clinical feature is Abnormal liver ultrasound, annotated with Abnormality o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5309,6 +5375,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5394,6 +5463,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5458,6 +5530,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5538,6 +5613,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5625,6 +5703,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5705,6 +5786,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5771,6 +5855,9 @@ This clinical feature is Intracranial calcification (HP:0430048). HP:0430048 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5851,6 +5938,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5947,6 +6037,9 @@ This clinical feature is Seizure (HP:0001250), qualified as course progressive. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6013,6 +6106,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6107,6 +6203,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6180,6 +6279,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6296,6 +6398,9 @@ This disease-associated gene is KARS1 (hgnc:6215). hgnc:6215 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -7631,6 +7736,37 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Scope: this entry is the infantile-onset leukoencephalopathy end of the KARS1 allelic series. The other KARS1 phenotypes - CMT, nonsyndromic hearing impairment, congenital visual impairment with microcephaly, and the adult-onset leukoencephalopathy - are separate diseases and are not absorbed here. They are named in the genetic notes and one is recorded as a differential, because the same residue can turn up in more than one, so a reader arriving from a variant needs to know the boundary is clinical.
+Not curated: treatment, because there is none beyond supportive care and none of the sources reviewed here makes a treatment claim specific to this disease; and the non-canonical transcriptional and immune-response roles of LysRS, which the defining paper raises as a speculation about why the phenotype is severe and which no source here tests.
+Four systemic features previously deferred as unquotable are now curated, after review pointed out that the PMID:31192300 cache is full text rather than an abstract: failure to thrive, microcephaly, visual impairment and an abnormal liver ultrasound, all from the patient 3 paragraph, and all in a patient carrying the same recurrent c.1786C&gt;T (p.L596F) allele as the defining cohort. They are single-patient observations, so none carries a frequency. The earlier claim in these notes that none of this was quotable was wrong; it was made after searching the two abstract caches and generalising to the third.
+Still not curated, and still worth naming: spastic tetraplegia, microcytic anemia, brainstem and spinal calcification, and mortality (5 of 7 in the defining cohort died between 2 and 12 years). These remain unquotable from the cached set. The mortality figure in particular deserves a clinical_burden section once an ORPHA record is cached.
+The same paragraph lists febrile seizures. That is deliberately not used: febrile seizures are not the same claim as regression precipitated by intercurrent illness, and pressing the sentence into that service would reintroduce through a quote the claim removed below.
+One claim was removed after review: the Oxidative Phosphorylation Deficiency node had asserted that intercurrent fever and infection precipitate regression. That is a standard statement about mitochondrial disease and it is very likely true here, but it traces to the deep-research report&#39;s aggregator sources rather than to any cited abstract, and it had no corresponding environmental entry. The first removal pass missed a second copy of the same claim in the Global Developmental Delay and Regression phenotype description, and this note asserted the claim was gone while the file still carried it; review caught that. Both are now gone rather than downgraded. If a quotable source turns up, the right shape is an environmental entry with influences_mechanisms and environmental_effect: EXACERBATES, not a sentence in a node description.
+The two imaging phenotypes attach through reports_on rather than downstream. Their edge descriptions had always said the radiologic finding is the white matter node observed rather than caused by it, while the edges themselves sat on downstream with causal_link_type: DIRECT, which asserts the opposite of what the prose said.
+One citation from the deep-research report was not used: PMID:36660574, a case report of infantile leukoencephalopathy with calcifications and cysts caused by biallelic SNORD118 variants - a different gene and a different disease. It appeared among the report&#39;s seven validated references and was not flagged, which is consistent with what relevance scoring can do: the paper shares most of this disease&#39;s clinical vocabulary while being about something else. It is recorded as a differential diagnosis instead.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: remove an unsourced trigger claim, connect the pathograph, add diagnosis</strong> · 2026-09-15T23:17:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Leukoencephalopathy_Progressive_Infantile-onset_With_Or_Without_Deafness/2026-09-15T231725Z-claude-code-ac0fdc.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the approving review on PR #11893, which raised six non-blocking suggestions. Four taken, two declined. Taken: (1) Removed an unsourced causal claim. The Oxidative Phosphorylation Deficiency node asserted that intercurrent fever and infection precipitate regression. I verified the reviewer&#39;s finding independently - none of the three cached abstracts (PMID:30715177, PMID:30252186, PMID:31192300) contains fever, infection, precipitate or intercurrent anywhere. The claim came from the deep-research report&#39;s prose, which traced it to aggregator records rather than to a cited paper. Removed rather than downgraded, with the reasoning and the correct future shape (an environmental entry with influences_mechanisms and environmental_effect EXACERBATES) recorded in review_notes. (2) Connected the pathograph: six of nine phenotypes had no incoming edge, including Sensorineural Hearing Impairment, which is in the disease name. Sensorineural Hearing Impairment now hangs off Oxidative Phosphorylation Deficiency with INDIRECT_UNKNOWN_INTERMEDIATES and a description saying the intermediate steps are not established for KARS1; Leukoencephalopathy and Intracranial Calcification hang off White Matter Injury as DIRECT, being the radiologic readout of that node; Hypotonia, Absent Speech and Nystagmus hang off it as INDIRECT_UNKNOWN_INTERMEDIATES. No new evidence was invented for any edge. All nine phenotypes are now reachable. (3) Added a three-entry diagnosis section (serum lactate and pyruvate, brain imaging, KARS1 sequencing), reusing sentences already cited elsewhere in the entry plus one new quote from PMID:31192300 establishing exome sequencing as the diagnostic route. (4) Recorded in review_notes the systemic features the report surfaced but that are not quotable from the cached references - spastic tetraplegia, poor growth, microcytic anemia, hepatic involvement, visual impairment, brainstem and spinal calcification, and the 5-of-7 mortality - so a future pass knows what to fetch rather than rediscovering the gap. Declined: splitting the White Matter Injury and Intracranial Calcification node, because the two findings share one mechanism and the reviewer called it a naming choice; and adding quote_role BACKGROUND, because no quote_role slot exists in this schema. Validated after the changes: just validate-disorders passed, 24/24 snippets verified, check-entity-refs, check-causal-targets, check-duplicate-keys and check-enum-values all OK.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: LEPID (KARS1-related infantile leukoencephalopathy)</strong> · 2026-09-15T21:21:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Leukoencephalopathy_Progressive_Infantile-onset_With_Or_Without_Deafness/2026-09-15T212130Z-claude-code-d50bf8.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0030893 from a Perplexity sonar-deep-research report (research/Leukoencephalopathy_Progressive_Infantile-onset_With_Or_Without_Deafness-deep-research-perplexity.md). Report preflight (just preflight-dr) returned PASS with KARS1 mentioned 114 times. The report supplied only 2 resolvable PubMed identifiers for a 112 KB document, so the reference set was rebuilt from PubMed: PMIDs 25330800, 30252186, 30715177, 31192300, 41059449, with two PMC identifiers from the citation sidecar resolved through the NCBI ID converter. One of the report&#39;s validated references, PMID:36660574, is a case report of leukoencephalopathy with calcifications and cysts caused by biallelic SNORD118 variants - a different gene and a different disease. It was not used as evidence; it is recorded instead as a differential diagnosis, which is the honest place for it. The report&#39;s reference validation did not flag it, which is consistent with relevance being scored against the report&#39;s own vocabulary: the paper shares nearly all of this disease&#39;s clinical vocabulary while being about something else. Pathophysiology is curated as a five-node chain from biallelic KARS1 variants through reduced aminoacylation activity, impaired mitochondrial translation, oxidative phosphorylation deficiency and white matter injury with calcification. The mitochondrial arm rests on the isoform-specific rescue experiment in PMID:30252186 rather than on the gene&#39;s dual localisation. The Xenopus model is linked with model_scale MOLECULAR and two typed divergences, because it supports the enzymatic node and not the tissue-level ones. Validated: just validate-disorders (schema, terms and references, batched) passed on the first run, 21/21 snippets verified, check-entity-refs, check-causal-targets and check-duplicate-keys all OK. No treatment section: none of the sources reviewed makes a treatment claim specific to this disease.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

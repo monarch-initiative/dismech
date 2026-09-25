@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4262,6 +4315,7 @@ No pathophysiology node declares conforms_to. kb/modules/complement_dysregulatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cpn1-loss-of-function" data-dismech-node="Biallelic CPN1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CPN1 Loss of Function</div>
 
+
                 <div class="item-desc">Variants in CPN1, which encodes the 55-kDa catalytic subunit, reduce the amount or the activity of that subunit. Reported alleles include a frameshift in exon 1 and missense substitutions at conserved residues; probands carry two of them in trans rather than a single homozygous null.</div>
 
 
@@ -4272,6 +4326,8 @@ No pathophysiology node declares conforms_to. kb/modules/complement_dysregulatio
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4291,6 +4347,9 @@ No pathophysiology node declares conforms_to. kb/modules/complement_dysregulatio
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4386,6 +4445,7 @@ No pathophysiology node declares conforms_to. kb/modules/complement_dysregulatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-plasma-carboxypeptidase-n-activity" data-dismech-node="Reduced Plasma Carboxypeptidase N Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Plasma Carboxypeptidase N Activity</div>
+
 
                 <div class="item-desc">Plasma carboxypeptidase N activity falls to roughly a fifth to a half of the reference median. The enzyme removes a single C-terminal arginine or lysine, so the loss is not of a degradative pathway but of the one step that converts an active mediator into an inactive des-Arg form.</div>
 
@@ -4530,6 +4590,7 @@ This pathophysiological event involves decreased plasma carboxypeptidase N catal
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-active-anaphylatoxins" data-dismech-node="Persistence of Active Anaphylatoxins" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Active Anaphylatoxins</div>
 
+
                 <div class="item-desc">C3a, C4a and C5a are released normally, but are not converted to their des-Arg forms, so they go on signalling. The mouse data single out C5a: hypersensitivity to complement-driven shock in the Cpn1-null animal is abolished by removing the C5a receptor and not by removing the C3a receptor.</div>
 
 
@@ -4662,6 +4723,7 @@ This pathophysiological event involves decreased inactivation of complement anap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-b2-receptor-kinins" data-dismech-node="Persistence of B2 Receptor Kinins" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of B2 Receptor Kinins</div>
 
+
                 <div class="item-desc">Bradykinin and kallidin keep their C-terminal arginine and therefore keep activating the endothelial B2 receptor instead of being converted to B1-receptor des-Arg ligands. Bradykinin generation is not increased; only its disposal is impaired, and this is what makes the disease a distinct endotype within hereditary angioedema with normal C1 inhibitor.</div>
 
 
@@ -4773,6 +4835,7 @@ This pathophysiological event involves decreased bradykinin catabolic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mast-cell-histamine-release" data-dismech-node="Mast Cell Histamine Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Mast Cell Histamine Release</div>
+
 
                 <div class="item-desc">Persisting C5a acts on C5aR on mast cells and basophils and triggers degranulation. In the index patient plasma histamine rose during attacks while serotonin and kinin activity did not, which is the human counterpart of the mouse antihistamine rescue.</div>
 
@@ -4941,6 +5004,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-microvascular-permeability" data-dismech-node="Increased Microvascular Permeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Microvascular Permeability</div>
+
 
                 <div class="item-desc">The two arms converge here. B2-receptor signalling on endothelium widens interendothelial junctions in the deeper subcutaneous and submucosal vasculature, and mast-cell mediators do the same in the superficial dermis. Plasma extravasates, and where it does determines whether the lesion is angioedema or a wheal.</div>
 
@@ -5168,6 +5232,9 @@ This clinical feature is Angioedema (HP:0100665), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5259,6 +5326,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5369,6 +5439,9 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5449,6 +5522,9 @@ This clinical feature is Laryngeal edema (HP:0012027). HP:0012027 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5524,6 +5600,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5640,6 +5719,9 @@ This disease-associated gene is CPN1 (hgnc:2312). hgnc:2312 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5762,6 +5844,12 @@ This treatment is withdrawal of a bradykinin-pathway-inhibiting drug, annotated 
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -5903,6 +5991,9 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5913,6 +6004,9 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6119,6 +6213,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6129,6 +6226,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6288,6 +6388,9 @@ This treatment uses montelukast (CHEBI:50730). CHEBI:50730 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6298,6 +6401,9 @@ This treatment uses montelukast (CHEBI:50730). CHEBI:50730 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6433,6 +6539,9 @@ This treatment uses histamine H1 receptor antagonist, annotated with Histamine-1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6443,6 +6552,9 @@ This treatment uses histamine H1 receptor antagonist, annotated with Histamine-1
 
 
     </div>
+
+
+
 
 
 
@@ -8645,6 +8757,29 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Carboxypeptidase_N_Deficiency</strong> · 2026-09-11T12:32:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Carboxypeptidase_N_Deficiency/2026-09-11T123233Z-claude-code-acc8a0.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of carboxypeptidase N deficiency (MONDO:0008910, CPN1) from a Perplexity sonar-deep-research report plus independent PubMed retrieval.
+
+Deep research: research/Carboxypeptidase_N_Deficiency-deep-research-perplexity.md (perplexity, sonar-deep-research, 355.8 s, 17 citations). The run only completed after the installed deep-research-client Perplexity provider was patched locally to stream; the unpatched non-streaming POST is dropped at 300 s in this environment. That is the already-open dismech#9357, so no new issue was filed and no repository file was changed to work around it.
+
+The report was used for the causal chain and for the ACE-inhibitor interaction, not for identifiers. Its own term_validation reports 13 of 31 checked labels mismatched, including HP:0001873 offered as &#39;Angioedema&#39; (HPO: Thrombocytopenia), HP:0011121 as &#39;Urticaria&#39; (Abnormal skin morphology), NCIT:C82474 as &#39;C1 Esterase Inhibitor&#39; (Egg Laying) and CL:0000761 as &#39;Basophils&#39; (type 9 cone bipolar cell). No CURIE was taken from the report; every term in this entry was looked up against OLS or the committed caches in the same step it was written. Its reference_validation resolved only 5 of 17 citations because the rest are bare URLs, so all PMIDs here were found by independent PubMed search.
+
+Evidence: 32 snippets across 6 PMIDs, all exact-quote verified against references_cache. Human evidence is thin by nature of the disease (index family 1980, molecular characterisation 2003, four-family series 2024, one iatrogenic case 2014); the only complete-deficiency data are from the Cpn1-null mouse and are graded MODEL_ORGANISM throughout, including on the antihistamine treatment entry, which is not presented as established human therapy.
+
+Judgement calls recorded in the entry rather than left implicit: no conforms_to was declared (complement_dysregulation was read and rejected because complement activation itself is normal here); no reference_ranges block was written for plasma carboxypeptidase N activity because both sources report it as a percentage of their own laboratory median; two diagnosis term bindings are broader than the act they describe because NCIT has no measurement term reachable from Clinical Intervention or Procedure, and that is stated in notes rather than hidden.
+
+Validated with just validate (schema, terms, 32/32 snippets), check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-reference-titles, check-title-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

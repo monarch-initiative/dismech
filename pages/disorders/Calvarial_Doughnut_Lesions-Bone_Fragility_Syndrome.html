@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4691,6 +4744,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-sgms2-variants" data-dismech-node="Heterozygous SGMS2 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SGMS2 Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is a heterozygous variant in SGMS2 on chromosome 4, encoding sphingomyelin synthase 2. The published allelic series was for years only three variants - the recurrent nonsense c.148C&gt;T (p.Arg50*) and two missense alleles at adjacent residues, c.185T&gt;G (p.Ile62Ser) and c.191T&gt;G (p.Met64Arg) - which is a remarkably tight series for a dominant skeletal disease and is what made the allele-class comparison below possible. A frameshift allele with a high-bone-mass presentation has since been reported. SGMS2 is prominently expressed in cortical bone.</div>
 
 
@@ -4834,6 +4894,13 @@ This pathophysiological event involves SGMS2 (hgnc:28395). hgnc:28395 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mislocalisation-of-sms2-away-from-the-plasma-membrane" data-dismech-node="Mislocalisation of SMS2 Away from the Plasma Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Mislocalisation of SMS2 Away from the Plasma Membrane</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergence point, and the reason two biochemically opposite allele classes cause one disease. Normal SMS2 is made in the ER and trafficked to the plasma membrane, where it synthesises sphingomyelin and maintains membrane lipid asymmetry. The missense alleles hold a catalytically competent SMS2 in the ER by blocking its export; the p.Arg50* product is reported to be dislocated into the cis/medial-Golgi. In both cases sphingomyelin synthesis is misdirected away from the plasma membrane. The striking corollary is that the missense alleles INCREASE total de novo sphingomyelin production while causing the more severe disease, which rules out a simple sphingomyelin-deficiency model.</div>
 
@@ -5090,6 +5157,13 @@ This pathophysiological event involves abnormal sphingomyelin synthase activity 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-secretory-pathway-lipid-landscape" data-dismech-node="Disrupted Secretory-Pathway Lipid Landscape" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Secretory-Pathway Lipid Landscape</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The step that converts a mislocalised enzyme into a cell-biological defect. Sphingomyelin made in the trans-Golgi normally traps ER-synthesised cholesterol and builds a sphingomyelin/sterol gradient along the secretory pathway - a gradient that marks the physical transition in membrane properties defining organelle identity. Pathogenic SMS2 makes sphingomyelin in the ER instead, and the consequence is not confined to sphingomyelin: cholesterol organisation, glycerophospholipid profiles and membrane lipid order are all disturbed, in patient-derived fibroblasts as well as in engineered cells. The authors&#39; proposal is that osteogenic cells cannot sustain the non-random lipid distributions their bone-forming activity requires.</div>
 
 
@@ -5236,6 +5310,13 @@ This pathophysiological event involves abnormal sphingomyelin biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-bone-matrix-mineralization" data-dismech-node="Defective Bone Matrix Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Bone Matrix Mineralization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The core skeletal lesion, and it is a MATERIAL defect rather than a turnover defect. Transiliac biopsies from two adult p.Arg50* carriers showed largely normal structural and turnover histomorphometry, but reduced osteoid thickness and mineralizing surface with increased osteoid surface - giving a greatly prolonged mineralization lag time - and low, heterogeneous matrix mineral on quantitative backscattered electron imaging, with collagen fibrils chaotically arranged under polarised light. Bone is being made at a normal rate and then mineralised badly.</div>
 
@@ -5468,6 +5549,13 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteocyte-lacunocanalicular-network-disruption" data-dismech-node="Osteocyte Lacunocanalicular Network Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteocyte Lacunocanalicular Network Disruption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A second, independent tissue lesion. Osteocyte lacunae are abnormally large and round, and the canalicular network is severely disturbed, with short canaliculi lacking orderliness or continuity. This matters because the lacunocanalicular network is how bone senses mechanical load and coordinates remodelling; a plasma-membrane lipid defect impairing the formation of these fine cell processes is a mechanistically coherent - though not directly demonstrated - explanation.</div>
 
 
@@ -5603,6 +5691,13 @@ This pathophysiological event involves osteocyte (CL:0000137). CL:0000137 is a c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-osteoclast-function" data-dismech-node="Preserved Osteoclast Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Osteoclast Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A deliberate negative node. Bone volume is reduced and the histology could superficially suggest increased resorption, but osteoclast formation and function in vitro were normal, and functional analysis found no difference in osteoclast morphology or resorptive capacity. This is what excludes the high-resorption model that would otherwise be the default reading of an osteoporosis phenotype - and it has a direct therapeutic implication, since antiresorptives are the standard osteoporosis drugs.</div>
 
 
@@ -5723,6 +5818,13 @@ This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-fragility-and-fractures" data-dismech-node="Bone Fragility and Fractures" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Fragility and Fractures</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint: low bone mineral density with recurrent low-trauma spinal and peripheral fractures from childhood, ranging from vertebral compression fractures to dozens of long-bone fractures over a lifetime. The fracture burden can be extreme - one proband had sustained about 40 fractures by age 29.</div>
 
 
@@ -5783,6 +5885,13 @@ This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calvarial-sclerotic-doughnut-lesions" data-dismech-node="Calvarial Sclerotic Doughnut Lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Calvarial Sclerotic Doughnut Lesions</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The pathognomonic finding and the entry&#39;s most conspicuous unexplained feature: discrete ring-shaped sclerotic lesions in the cranial bones, coexisting with generalised low bone mineral density elsewhere. A disease that under-mineralises the skeleton produces focal HYPER-sclerosis in the calvaria, and no mechanism has been proposed for that inversion. The lesions are what distinguish CDL from other primary osteoporoses, including osteogenesis imperfecta.</div>
 
@@ -5869,6 +5978,13 @@ This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-neuropathy" data-dismech-node="Cranial Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Neuropathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Recurrent transient peripheral facial nerve palsy is the commonest, together with trochlear, oculomotor and abducens palsies, transient diplopia and ptosis in individual patients. Two candidate explanations exist and have not been separated: mechanical compression of nerves in sclerotic cranial foramina, or a primary effect of disordered sphingomyelin metabolism on nerve or myelin - sphingomyelin being a major myelin lipid. A transcriptomic study found the differentially expressed genes enriched for neurological as well as skeletal processes and suggested an effect on neuron-supporting cells, which favours but does not establish the second.</div>
 
@@ -6003,7 +6119,7 @@ This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bisphosphonate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bisphosphonates are the treatment actually used - pamidronate and alendronate in the French-Canadian proband from childhood, pamidronate courses in several of the discovery families and in the Belarusian kindred, with reported improvement in back pain, quality of life, bone mineral density, and in some patients cessation of further long-bone fractures. There is a mechanistic tension worth stating: bisphosphonates are ANTIRESORPTIVE, and osteoclast function in this disease was measured and found normal. So the drug is not correcting the demonstrated lesion, which is defective matrix mineralization on a normal-turnover background. The reported benefits are real but come from uncontrolled clinical observation in small families, not from a trial.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pamidronate\", \"alendronic acid\", \"risedronic acid\"]}}, {\"id\": \"Bone Fragility and Fractures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: low bone mineral density with recurrent low-trauma spinal and peripheral fractures from childhood, ranging from vertebral compression fractures to dozens of long-bone fractures over a lifetime. The fracture burden can be extreme - one proband had sustained about 40 fractures by age 29.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Defective Bone Matrix Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core skeletal lesion, and it is a MATERIAL defect rather than a turnover defect. Transiliac biopsies from two adult p.Arg50* carriers showed largely normal structural and turnover histomorphometry, but reduced osteoid thickness and mineralizing surface with increased osteoid surface - giving a greatly prolonged mineralization lag time - and low, heterogeneous matrix mineral on quantitative backscattered electron imaging, with collagen fibrils chaotically arranged under polarised light. Bone is being made at a normal rate and then mineralised badly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"bone mineralization\"], \"animal_models\": [{\"name\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"species\": \"Mouse\", \"genotype\": \"SMS1-floxed, SMS2-null (SMS1f/f;SMS2-/-), without osteoblast Cre\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Sms2 deficiency alone does not reduce bone formation in mice. The bone-formation deficit appears only when Sms1 is additionally deleted in osteoblasts, implicating SMS1 rather than SMS2 as the isoform limiting for murine osteoblast differentiation.\"}, {\"name\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"sgms2a, sgms2b and sgms2a+b transient CRISPR-Cas13d knockdown\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown compromises notochord and craniofacial skeletal formation, and single-cell RNA sequencing localises sgms2a expression to osteogenic cells in juvenile calvaria, which supports a cell-autonomous skeletal role for the gene.\"}]}}, {\"id\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that converts a mislocalised enzyme into a cell-biological defect. Sphingomyelin made in the trans-Golgi normally traps ER-synthesised cholesterol and builds a sphingomyelin/sterol gradient along the secretory pathway - a gradient that marks the physical transition in membrane properties defining organelle identity. Pathogenic SMS2 makes sphingomyelin in the ER instead, and the consequence is not confined to sphingomyelin: cholesterol organisation, glycerophospholipid profiles and membrane lipid order are all disturbed, in patient-derived fibroblasts as well as in engineered cells. The authors\u0027 proposal is that osteogenic cells cannot sustain the non-random lipid distributions their bone-forming activity requires.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingomyelin biosynthetic process\"]}}, {\"id\": \"Heterozygous SGMS2 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a heterozygous variant in SGMS2 on chromosome 4, encoding sphingomyelin synthase 2. The published allelic series was for years only three variants - the recurrent nonsense c.148C\u003eT (p.Arg50*) and two missense alleles at adjacent residues, c.185T\u003eG (p.Ile62Ser) and c.191T\u003eG (p.Met64Arg) - which is a remarkably tight series for a dominant skeletal disease and is what made the allele-class comparison below possible. A frameshift allele with a high-bone-mass presentation has since been reported. SGMS2 is prominently expressed in cortical bone.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}]}}, {\"id\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point, and the reason two biochemically opposite allele classes cause one disease. Normal SMS2 is made in the ER and trafficked to the plasma membrane, where it synthesises sphingomyelin and maintains membrane lipid asymmetry. The missense alleles hold a catalytically competent SMS2 in the ER by blocking its export; the p.Arg50* product is reported to be dislocated into the cis/medial-Golgi. In both cases sphingomyelin synthesis is misdirected away from the plasma membrane. The striking corollary is that the missense alleles INCREASE total de novo sphingomyelin production while causing the more severe disease, which rules out a simple sphingomyelin-deficiency model.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"protein localization to plasma membrane\"], \"molecular_functions\": [\"sphingomyelin synthase activity\"], \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}]}}, {\"id\": \"Orthopedic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corrective and stabilising surgery for long-bone deformity and recurrent fracture - femoral osteotomy and intramedullary rodding are both reported. Notably the patient who had both continued to fracture afterwards, which is consistent with surgery addressing deformity and mechanical support rather than the underlying bone material defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteocyte Lacunocanalicular Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent tissue lesion. Osteocyte lacunae are abnormally large and round, and the canalicular network is severely disturbed, with short canaliculi lacking orderliness or continuity. This matters because the lacunocanalicular network is how bone senses mechanical load and coordinates remodelling; a plasma-membrane lipid defect impairing the formation of these fine cell processes is a mechanistically coherent - though not directly demonstrated - explanation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteocyte\"]}}, {\"id\": \"SGMS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Sms2-null mouse - the obvious model for a human SGMS2 disease, and the reason a zebrafish model had to be built instead.\"}, {\"id\": \"Teriparatide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mechanistically interesting option, and the one this entry\u0027s therapeutic argument turns on. Teriparatide is an ANABOLIC agent that stimulates bone formation, not an antiresorptive. Since the demonstrated lesion here is defective matrix mineralization on a normal-turnover background with measured-normal osteoclast function, an agent that drives formation is better matched to the mechanism than one that suppresses resorption. No outcome is reported for it in CDL. The patient documented as receiving it had already sustained about 40 fractures by then, so this records what was tried, not what worked.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"teriparatide\"]}}, {\"id\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Transient knockdown of the two zebrafish SGMS2 orthologues, developed specifically because Sgms2 knockout mice have no skeletal phenotype at all - the model of first resort fails for this disease.\"}], \"edges\": [{\"source\": \"Heterozygous SGMS2 Variants\", \"target\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both allele classes displace SMS2 from its normal plasma-membrane site of action, by different routes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"target\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sphingomyelin made in the wrong compartment perturbs the sphingomyelin/sterol gradient that organises the whole secretory pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of plasma-membrane sphingomyelin impairs mineralization. The steps between the membrane lipid defect and the mineral defect are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How a disturbed membrane lipid landscape translates into a prolonged mineralization lag time is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"target\": \"Osteocyte Lacunocanalicular Network Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Canaliculi are thin cytoplasmic processes whose formation and maintenance depend on plasma-membrane composition, so a disturbed membrane lipid landscape is the natural upstream candidate for the disrupted network. The edge is INDIRECT_UNKNOWN_INTERMEDIATES because nothing establishes the steps between them - this is a coherence argument about what membranes are needed for, not a measured pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Bone Matrix Mineralization\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poorly and heterogeneously mineralised matrix with disordered collagen is mechanically weak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteocyte Lacunocanalicular Network Disruption\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A disordered osteocyte network degrades bone quality independently of matrix mineral content.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bisphosphonate Therapy\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Teriparatide\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Sms2 deficiency alone does not reduce bone formation in mice. The bone-formation deficit appears only when Sms1 is additionally deleted in osteoblasts, implicating SMS1 rather than SMS2 as the isoform limiting for murine osteoblast differentiation.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species-level divergence in isoform dependence, and it has a specific consequence for how human data should be read: the human severe alleles are NOT nulls but ER-retained active enzyme, so a mouse null was arguably never the right model of the human lesion in the first place. A knock-in of a human missense allele has not been reported.\"}, {\"source\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown compromises notochord and craniofacial skeletal formation, and single-cell RNA sequencing localises sgms2a expression to osteogenic cells in juvenile calvaria, which supports a cell-autonomous skeletal role for the gene.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The readout is embryonic craniofacial and notochord development, not adult bone matrix mineralization, so it does not model the human lesion. It is a transient knockdown rather than a stable genetic model, it is a loss-of-expression model while the severe human alleles are mislocalising rather than null, and the authors describe the models explicitly as preliminary platforms.\"}, {\"source\": \"SGMS2\", \"target\": \"Heterozygous SGMS2 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SGMS2\", \"target\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bisphosphonate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bisphosphonates are the treatment actually used - pamidronate and alendronate in the French-Canadian proband from childhood, pamidronate courses in several of the discovery families and in the Belarusian kindred, with reported improvement in back pain, quality of life, bone mineral density, and in some patients cessation of further long-bone fractures. There is a mechanistic tension worth stating: bisphosphonates are ANTIRESORPTIVE, and osteoclast function in this disease was measured and found normal. So the drug is not correcting the demonstrated lesion, which is defective matrix mineralization on a normal-turnover background. The reported benefits are real but come from uncontrolled clinical observation in small families, not from a trial.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pamidronate\", \"alendronic acid\", \"risedronic acid\"]}}, {\"id\": \"Bone Fragility and Fractures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: low bone mineral density with recurrent low-trauma spinal and peripheral fractures from childhood, ranging from vertebral compression fractures to dozens of long-bone fractures over a lifetime. The fracture burden can be extreme - one proband had sustained about 40 fractures by age 29.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Defective Bone Matrix Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core skeletal lesion, and it is a MATERIAL defect rather than a turnover defect. Transiliac biopsies from two adult p.Arg50* carriers showed largely normal structural and turnover histomorphometry, but reduced osteoid thickness and mineralizing surface with increased osteoid surface - giving a greatly prolonged mineralization lag time - and low, heterogeneous matrix mineral on quantitative backscattered electron imaging, with collagen fibrils chaotically arranged under polarised light. Bone is being made at a normal rate and then mineralised badly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"bone mineralization\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"species\": \"Mouse\", \"genotype\": \"SMS1-floxed, SMS2-null (SMS1f/f;SMS2-/-), without osteoblast Cre\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Sms2 deficiency alone does not reduce bone formation in mice. The bone-formation deficit appears only when Sms1 is additionally deleted in osteoblasts, implicating SMS1 rather than SMS2 as the isoform limiting for murine osteoblast differentiation.\"}, {\"name\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"sgms2a, sgms2b and sgms2a+b transient CRISPR-Cas13d knockdown\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown compromises notochord and craniofacial skeletal formation, and single-cell RNA sequencing localises sgms2a expression to osteogenic cells in juvenile calvaria, which supports a cell-autonomous skeletal role for the gene.\"}]}}, {\"id\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that converts a mislocalised enzyme into a cell-biological defect. Sphingomyelin made in the trans-Golgi normally traps ER-synthesised cholesterol and builds a sphingomyelin/sterol gradient along the secretory pathway - a gradient that marks the physical transition in membrane properties defining organelle identity. Pathogenic SMS2 makes sphingomyelin in the ER instead, and the consequence is not confined to sphingomyelin: cholesterol organisation, glycerophospholipid profiles and membrane lipid order are all disturbed, in patient-derived fibroblasts as well as in engineered cells. The authors\u0027 proposal is that osteogenic cells cannot sustain the non-random lipid distributions their bone-forming activity requires.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingomyelin biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Heterozygous SGMS2 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a heterozygous variant in SGMS2 on chromosome 4, encoding sphingomyelin synthase 2. The published allelic series was for years only three variants - the recurrent nonsense c.148C\u003eT (p.Arg50*) and two missense alleles at adjacent residues, c.185T\u003eG (p.Ile62Ser) and c.191T\u003eG (p.Met64Arg) - which is a remarkably tight series for a dominant skeletal disease and is what made the allele-class comparison below possible. A frameshift allele with a high-bone-mass presentation has since been reported. SGMS2 is prominently expressed in cortical bone.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point, and the reason two biochemically opposite allele classes cause one disease. Normal SMS2 is made in the ER and trafficked to the plasma membrane, where it synthesises sphingomyelin and maintains membrane lipid asymmetry. The missense alleles hold a catalytically competent SMS2 in the ER by blocking its export; the p.Arg50* product is reported to be dislocated into the cis/medial-Golgi. In both cases sphingomyelin synthesis is misdirected away from the plasma membrane. The striking corollary is that the missense alleles INCREASE total de novo sphingomyelin production while causing the more severe disease, which rules out a simple sphingomyelin-deficiency model.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"protein localization to plasma membrane\"], \"molecular_functions\": [\"sphingomyelin synthase activity\"], \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Orthopedic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corrective and stabilising surgery for long-bone deformity and recurrent fracture - femoral osteotomy and intramedullary rodding are both reported. Notably the patient who had both continued to fracture afterwards, which is consistent with surgery addressing deformity and mechanical support rather than the underlying bone material defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteocyte Lacunocanalicular Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent tissue lesion. Osteocyte lacunae are abnormally large and round, and the canalicular network is severely disturbed, with short canaliculi lacking orderliness or continuity. This matters because the lacunocanalicular network is how bone senses mechanical load and coordinates remodelling; a plasma-membrane lipid defect impairing the formation of these fine cell processes is a mechanistically coherent - though not directly demonstrated - explanation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteocyte\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"SGMS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SGMS2\"], \"gene_terms\": [{\"label\": \"SGMS2\", \"id\": \"hgnc:28395\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Sms2-null mouse - the obvious model for a human SGMS2 disease, and the reason a zebrafish model had to be built instead.\"}, {\"id\": \"Teriparatide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mechanistically interesting option, and the one this entry\u0027s therapeutic argument turns on. Teriparatide is an ANABOLIC agent that stimulates bone formation, not an antiresorptive. Since the demonstrated lesion here is defective matrix mineralization on a normal-turnover background with measured-normal osteoclast function, an agent that drives formation is better matched to the mechanism than one that suppresses resorption. No outcome is reported for it in CDL. The patient documented as receiving it had already sustained about 40 fractures by then, so this records what was tried, not what worked.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"teriparatide\"]}}, {\"id\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Transient knockdown of the two zebrafish SGMS2 orthologues, developed specifically because Sgms2 knockout mice have no skeletal phenotype at all - the model of first resort fails for this disease.\"}], \"edges\": [{\"source\": \"Heterozygous SGMS2 Variants\", \"target\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both allele classes displace SMS2 from its normal plasma-membrane site of action, by different routes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"target\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sphingomyelin made in the wrong compartment perturbs the sphingomyelin/sterol gradient that organises the whole secretory pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of plasma-membrane sphingomyelin impairs mineralization. The steps between the membrane lipid defect and the mineral defect are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How a disturbed membrane lipid landscape translates into a prolonged mineralization lag time is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Secretory-Pathway Lipid Landscape\", \"target\": \"Osteocyte Lacunocanalicular Network Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Canaliculi are thin cytoplasmic processes whose formation and maintenance depend on plasma-membrane composition, so a disturbed membrane lipid landscape is the natural upstream candidate for the disrupted network. The edge is INDIRECT_UNKNOWN_INTERMEDIATES because nothing establishes the steps between them - this is a coherence argument about what membranes are needed for, not a measured pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Bone Matrix Mineralization\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poorly and heterogeneously mineralised matrix with disordered collagen is mechanically weak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteocyte Lacunocanalicular Network Disruption\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A disordered osteocyte network degrades bone quality independently of matrix mineral content.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bisphosphonate Therapy\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Teriparatide\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery\", \"target\": \"Bone Fragility and Fractures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sms2-deficient mouse (SMS1f/f;SMS2-/-)\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Sms2 deficiency alone does not reduce bone formation in mice. The bone-formation deficit appears only when Sms1 is additionally deleted in osteoblasts, implicating SMS1 rather than SMS2 as the isoform limiting for murine osteoblast differentiation.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species-level divergence in isoform dependence, and it has a specific consequence for how human data should be read: the human severe alleles are NOT nulls but ER-retained active enzyme, so a mouse null was arguably never the right model of the human lesion in the first place. A knock-in of a human missense allele has not been reported.\"}, {\"source\": \"sgms2a/sgms2b CRISPR-Cas13d knockdown zebrafish\", \"target\": \"Defective Bone Matrix Mineralization\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown compromises notochord and craniofacial skeletal formation, and single-cell RNA sequencing localises sgms2a expression to osteogenic cells in juvenile calvaria, which supports a cell-autonomous skeletal role for the gene.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The readout is embryonic craniofacial and notochord development, not adult bone matrix mineralization, so it does not model the human lesion. It is a transient knockdown rather than a stable genetic model, it is a loss-of-expression model while the severe human alleles are mislocalising rather than null, and the authors describe the models explicitly as preliminary platforms.\"}, {\"source\": \"SGMS2\", \"target\": \"Heterozygous SGMS2 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SGMS2\", \"target\": \"Mislocalisation of SMS2 Away from the Plasma Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6068,6 +6184,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency asserted - individual patients across two families. Worth noting that a sensorineural rather than conductive deficit argues against simple compression by sclerotic temporal bone, which would be the obvious skeletal explanation.</div>
@@ -6148,6 +6267,9 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency asserted, but the association has replicated: the Finnish discovery family and an independent Filipino family, both carrying the same recurrent p.Arg50* allele. Two unrelated families with the same allele and the same extra-skeletal finding is a materially stronger claim than one, and it strengthens the argument that sphingomyelin metabolism matters outside bone. The mechanism connecting SGMS2 to the eye remains unknown.</div>
@@ -6259,6 +6381,9 @@ This clinical feature is Craniofacial hyperostosis (HP:0004493). HP:0004493 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO has no term for a calvarial doughnut lesion specifically. `Craniofacial hyperostosis` (HP:0004493) is the closest accurate ancestor and is used rather than manufacturing a narrower match. The ring morphology, which is the discriminating feature, is therefore not captured by the binding and is carried by `preferred_term` and this note. A term request to HPO would be the right fix.</div>
 
 
@@ -6355,6 +6480,9 @@ This clinical feature is Facial palsy (HP:0010628), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6430,6 +6558,9 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6540,6 +6671,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6606,6 +6740,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6682,6 +6819,9 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6748,6 +6888,9 @@ This clinical feature is Spondylometaphyseal dysplasia (HP:0002657). HP:0002657 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6840,6 +6983,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6915,6 +7061,9 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7031,6 +7180,9 @@ This disease-associated gene is SGMS2 (hgnc:28395). hgnc:28395 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7241,6 +7393,9 @@ This treatment uses risedronic acid (CHEBI:8869). CHEBI:8869 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7251,6 +7406,9 @@ This treatment uses risedronic acid (CHEBI:8869). CHEBI:8869 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7435,6 +7593,9 @@ This treatment uses teriparatide (CHEBI:135983). CHEBI:135983 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7445,6 +7606,9 @@ This treatment uses teriparatide (CHEBI:135983). CHEBI:135983 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -7579,6 +7743,9 @@ This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7589,6 +7756,9 @@ This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7706,6 +7876,9 @@ This treatment uses vitamin D (CHEBI:27300). CHEBI:27300 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7716,6 +7889,9 @@ This treatment uses vitamin D (CHEBI:27300). CHEBI:27300 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7811,6 +7987,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7821,6 +8000,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -10141,6 +10323,37 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Calvarial Doughnut Lesions-Bone Fragility Syndrome (SGMS2)</strong> · 2026-08-28T10:51:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Calvarial_Doughnut_Lesions-bone_Fragility_Syndrome/2026-08-28T105103Z-aleixpuigb-b346da.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0007470 (SGMS2-related calvarial doughnut lesions with bone fragility).
+
+Deep research: one openscientist run (research/Calvarial_Doughnut_Lesions-bone_Fragility_Syndrome-deep-research-openscientist.md). Its reference_validation reported 10/10 references resolved, confabulation_rate 0.0, 0 off-topic.
+
+The DR report contributed the entry&#39;s central mechanistic source. The initial draft built the mislocalisation node from the discovery paper&#39;s functional summary and a 2025 lipidomics paper; the report surfaced PMID:36102623 (Sokoya 2022), a dedicated study showing that the severe SMS2 variants retain FULL enzymatic activity and fail to leave the ER because of a defective autonomous ER export signal, with ER sphingomyelin accumulation and disrupted transbilayer asymmetry reproduced in patient-derived fibroblasts. A new pathophysiology node (Disrupted Secretory-Pathway Lipid Landscape) was added for it, with the authors&#39; final step quoted as the postulate it is.
+
+The report also surfaced PMID:31847800, showing that Sms2-deficient mice have NO bone-formation deficit - the deficit requires additional osteoblast Sms1 deletion. This is recorded as an animal_models entry with relationship FAILS_TO_RECAPITULATE and a HUMAN_MODEL_MISMATCH discussion proposing a human-missense knock-in, since the severe human alleles are ER-retained active enzyme rather than nulls and a mouse null may model the wrong lesion. PMID:37886644 was added to characterise the cranial nerve palsies as transient, self-resolving and recurrent.
+
+PMID:40393762 (a pediatric pamidronate outcome the report cited with figures) was fetched but its cached record has an empty body - it is a Chinese-language case report with no English abstract - so it could not be cited and is not used.
+
+Mechanism: heterozygous SGMS2 variants -&gt; mislocalisation of SMS2 away from the plasma membrane (missense alleles retained in ER, p.Arg50* dislocated to cis/medial-Golgi) -&gt; disrupted secretory-pathway lipid landscape -&gt; defective bone matrix mineralization, plus a separate osteocyte lacunocanalicular node. A deliberate negative node records that osteoclast formation and function are normal, which excludes the high-resorption model and creates the tension with bisphosphonate use recorded as a discussion.
+
+The calvarial doughnut lesions are modelled with NO incoming causal edge from the mineralization branch, because a disease that under-mineralises the skeleton producing focal hypersclerosis has no proposed mechanism and drawing an edge would assert one.
+
+One error was caught by reference validation and fixed before commit: a snippet had been attributed to PMID:40978119 when it appears in PMID:34761145.
+
+HPO has no term for a calvarial doughnut lesion; HP:0004493 Craniofacial hyperostosis is used as the closest accurate ancestor, with a note recording that the ring morphology is not captured by the binding.
+
+Validation: just validate passes - schema, terms, and 42/42 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

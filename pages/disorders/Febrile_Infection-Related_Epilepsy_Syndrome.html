@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4500,6 +4553,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preceding-febrile-infection-trigger" data-dismech-node="Preceding Febrile Infection Trigger" data-dismech-type="pathophysiology">
                 <div class="item-name">Preceding Febrile Infection Trigger</div>
 
+
                 <div class="item-desc">A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.</div>
 
 
@@ -4617,6 +4671,7 @@ This pathophysiological event involves Leukocyte (CL:0000738). CL:0000738 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-il-1ra-deficiency-permissive-host-factor" data-dismech-node="Functional IL-1RA Deficiency (Permissive Host Factor)" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional IL-1RA Deficiency (Permissive Host Factor)</div>
+
 
                 <div class="item-desc">A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the &#34;loss of the anti-inflammatory brakes&#34; - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.</div>
 
@@ -4768,6 +4823,7 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-neuroinflammatory-activation" data-dismech-node="Innate Neuroinflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Neuroinflammatory Activation</div>
+
 
                 <div class="item-desc">The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.</div>
 
@@ -5048,6 +5104,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-driven-lowering-of-seizure-threshold" data-dismech-node="Cytokine-Driven Lowering of Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Driven Lowering of Seizure Threshold</div>
 
+
                 <div class="item-desc">Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5160,6 +5217,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-dysfunction" data-dismech-node="Blood-Brain Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Dysfunction</div>
+
 
                 <div class="item-desc">Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.</div>
 
@@ -5274,6 +5332,7 @@ This pathophysiological event involves increased Acute inflammatory response (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5348,6 +5407,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-super-refractory-status-epilepticus" data-dismech-node="Super-Refractory Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Super-Refractory Status Epilepticus</div>
+
 
                 <div class="item-desc">The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5491,6 +5551,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-injury-and-network-reorganization" data-dismech-node="Neuronal Injury and Network Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Injury and Network Reorganization</div>
 
+
                 <div class="item-desc">Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.</div>
 
 
@@ -5565,6 +5626,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-drug-resistant-epilepsy-and-neurocognitive-sequelae" data-dismech-node="Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae</div>
+
 
                 <div class="item-desc">In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5809,6 +5871,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5905,6 +5970,9 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5980,6 +6048,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-tonic-clonic-seizures" data-dismech-node="Bilateral Tonic-Clonic Seizures" data-dismech-type="phenotype">
@@ -6005,6 +6076,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6048,6 +6122,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
@@ -6073,6 +6150,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6147,6 +6227,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6213,6 +6296,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6302,6 +6388,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality chronic.
 
 
                     </div>
+
+
+
 
 
 
@@ -6418,6 +6507,9 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6569,6 +6661,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6579,6 +6674,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6773,6 +6871,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6783,6 +6884,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6933,6 +7037,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6943,6 +7050,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
     </div>
+
+
+
 
 
 
@@ -7115,6 +7225,9 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7125,6 +7238,9 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -7299,6 +7415,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7309,6 +7428,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7505,6 +7627,9 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7515,6 +7640,9 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9193,6 +9321,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Febrile Infection-Related Epilepsy Syndrome (FIRES)</strong> · 2026-07-24T12:29:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Febrile_Infection-Related_Epilepsy_Syndrome/2026-07-24T122932Z-claude-code-3c561b.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of FIRES (MONDO:0015584), the febrile subgroup of NORSE. Deep research provider: claude_code. Non-Mendelian so no GeneReviews; grounded in consensus definitions (Hirsch 2018 PMID:29399791), multicenter cohort (Kramer 2011 PMID:21883180), ketogenic diet (Nabbout 2010 PMID:20813015), anakinra/IL-1 mechanism (Kenney-Jung 2016 PMID:27770579), cytokine study (Hanin 2023 PMID:36871188), management consensus (Wickstrom 2022 PMID:35997591), and IL1RN functional-deficiency susceptibility (Clarkson 2019 PMID:30779222, surfaced by DR cross-check and independently verified). Pathophysiology deliberately partitioned into a biphasic cascade (febrile trigger -&gt; innate neuroinflammation/IL-1b-IL-6 -&gt; cytokine-driven hyperexcitability + BBB dysfunction -&gt; cortical E/I imbalance -&gt; acute super-refractory SE -&gt; neuronal injury -&gt; chronic refractory epilepsy) to minimize bundling. Includes prevalence, diagnosis, differentials (NORSE, anti-NMDAR encephalitis, HSV encephalitis, Dravet), IL1RN genetic susceptibility, and two knowledge-gap discussions. Validated: schema+terms pass; all 22 evidence snippets verified as exact substrings.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

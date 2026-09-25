@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">cardiomyopathy_maladaptive_remodeling</span>
-                <span class="badge badge-count">60 disorders</span>
+                <span class="badge badge-count">68 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1973,10 +2010,30 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">60</span>
+                <span class="card-count">68</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/ALPK3-Related_Hypertrophic_Cardiomyopathy.html">ALPK3-Related Hypertrophic Cardiomyopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ALPK3 Loss of Function → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Ventricular Hypertrophy → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Anthracycline-Induced_Cardiomyopathy.html">Anthracycline-Induced Cardiomyopathy</a>
@@ -1986,7 +2043,7 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         
                         
                         
-                        Anthracycline Exposure and Topoisomerase II-beta-Mediated Cardiomyocyte Injury → Primary Cardiomyocyte Insult
+                        Anthracycline-TOP2B-DNA Complex Formation → Primary Cardiomyocyte Insult
                         
                         
                         , 
@@ -1996,7 +2053,7 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         
                         , 
                         
-                        Progressive Contractile Dysfunction
+                        Reduced Ventricular Contractile Function → Progressive Contractile Dysfunction
                         
                         
                     </span>
@@ -2429,6 +2486,31 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1II.html">Dilated Cardiomyopathy 1II</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte Sarcomeric Stress-Protection Deficit → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Adverse Ventricular Remodeling and Myocardial Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Dilated_Cardiomyopathy_1J.html">Dilated Cardiomyopathy 1J</a>
                     
                     <span class="crosslink-desc">
@@ -2482,6 +2564,31 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         , 
                         
                         Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1NN.html">Dilated Cardiomyopathy 1NN</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        RAF1 Variant Altering Kinase Activity → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Ventricular Dilation and Systolic Dysfunction → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Heart Failure → Structural Cardiac Impairment and Heart Failure
                         
                         
                     </span>
@@ -2629,6 +2736,36 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1W.html">Dilated Cardiomyopathy 1W</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Metavinculin Tail Variant Altering Actin Cross-Linking → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        VCL Predicted Loss-of-Function Allele → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Ventricular Dilation and Systolic Dysfunction → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Heart Failure with Reduced Ejection Fraction → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Dilated_Cardiomyopathy_1X.html">Dilated Cardiomyopathy 1X</a>
                     
                     <span class="crosslink-desc">
@@ -2702,6 +2839,26 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         , 
                         
                         Left Ventricular Dilation and Systolic Failure → Progressive Contractile Dysfunction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_2B.html">Dilated Cardiomyopathy 2B</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Left Ventricular Dilation and Remodeling → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Chronic Systolic Heart Failure → Structural Cardiac Impairment and Heart Failure
                         
                         
                     </span>
@@ -3159,6 +3316,21 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Hypomyelinating_Leukodystrophy_23.html">Hypomyelinating Leukodystrophy 23</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac and Hepatic Involvement → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Left_Ventricular_Noncompaction_10.html">Left Ventricular Noncompaction 10</a>
                     
                     <span class="crosslink-desc">
@@ -3192,6 +3364,26 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         , 
                         
                         Congestive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte Energy Substrate Deficit → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyopathy and Ventricular Dysfunction → Structural Cardiac Impairment and Heart Failure
                         
                         
                     </span>
@@ -3262,6 +3454,41 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
                         
                         
                         Cardiomyocyte Z-Disc Aggregate Pathology → Primary Cardiomyocyte Insult
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MYPN Variant Altering Myopalladin → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Impaired Contractile and Passive Mechanics → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Neurohormonal Activation
+                        
+                        
+                        , 
+                        
+                        Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Structural Cardiac Impairment and Heart Failure
                         
                         
                     </span>
@@ -3402,11 +3629,13 @@ This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:00600
             
             <div class="item-box anchor-target" id="module-pathophysiology-primary-cardiomyocyte-insult" data-dismech-node="Primary Cardiomyocyte Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Primary Cardiomyocyte Insult</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The cascade is initiated by an insult to cardiomyocyte contractile function. In inherited cardiomyopathies this is a variant in a sarcomeric or cytoskeletal protein gene that perturbs sarcomere assembly and force generation; in acquired and secondary cardiomyopathies it is a hemodynamic (pressure or volume overload), metabolic, toxic, or inflammatory stress that impairs myocyte contraction. The specific lesion varies, but the downstream response converges on impaired contractile performance that the myocardium must compensate for.</div>
                 
@@ -3513,9 +3742,16 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/ALPK3-Related_Hypertrophic_Cardiomyopathy.html">ALPK3-Related Hypertrophic Cardiomyopathy</a>
+                            
+                            <span class="crosslink-desc">as ALPK3 Loss of Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Anthracycline-Induced_Cardiomyopathy.html">Anthracycline-Induced Cardiomyopathy</a>
                             
-                            <span class="crosslink-desc">as Anthracycline Exposure and Topoisomerase II-beta-Mediated Cardiomyocyte Injury</span>
+                            <span class="crosslink-desc">as Anthracycline-TOP2B-DNA Complex Formation</span>
                             
                         </div>
                         
@@ -3604,6 +3840,13 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1II.html">Dilated Cardiomyopathy 1II</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Sarcomeric Stress-Protection Deficit</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dilated_Cardiomyopathy_1J.html">Dilated Cardiomyopathy 1J</a>
                             
                             <span class="crosslink-desc">as EYA4 Heterozygous Truncating Variant</span>
@@ -3614,6 +3857,13 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                             <a href="../disorders/Dilated_Cardiomyopathy_1JJ.html">Dilated Cardiomyopathy 1JJ</a>
                             
                             <span class="crosslink-desc">as Loss of Laminin-Integrin Binding at the Cardiac Basement Membrane</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1NN.html">Dilated Cardiomyopathy 1NN</a>
+                            
+                            <span class="crosslink-desc">as RAF1 Variant Altering Kinase Activity</span>
                             
                         </div>
                         
@@ -3649,6 +3899,20 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                             <a href="../disorders/Dilated_Cardiomyopathy_1V.html">Dilated Cardiomyopathy 1V</a>
                             
                             <span class="crosslink-desc">as PSEN2 Ser130Leu Missense Variant in Cardiomyocytes</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1W.html">Dilated Cardiomyopathy 1W</a>
+                            
+                            <span class="crosslink-desc">as Metavinculin Tail Variant Altering Actin Cross-Linking</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1W.html">Dilated Cardiomyopathy 1W</a>
+                            
+                            <span class="crosslink-desc">as VCL Predicted Loss-of-Function Allele</span>
                             
                         </div>
                         
@@ -3793,6 +4057,13 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Energy Substrate Deficit</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a>
                             
                             <span class="crosslink-desc">as Cardiomyocyte Contractile Element Loss</span>
@@ -3810,6 +4081,13 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
                             <a href="../disorders/Myofibrillar_Myopathy.html">Myofibrillar Myopathy</a>
                             
                             <span class="crosslink-desc">as Cardiomyocyte Z-Disc Aggregate Pathology</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
+                            
+                            <span class="crosslink-desc">as MYPN Variant Altering Myopalladin</span>
                             
                         </div>
                         
@@ -3848,11 +4126,13 @@ This pathophysiological event involves abnormal Muscle Contraction (GO:0006936).
             
             <div class="item-box anchor-target" id="module-pathophysiology-neurohormonal-activation" data-dismech-node="Neurohormonal Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurohormonal Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Impaired contractile performance and the resulting fall in cardiac output trigger compensatory activation of the renin-angiotensin-aldosterone system and the sympathetic nervous system. While initially adaptive, chronic neurohormonal activation becomes maladaptive, directly stimulating cardiomyocyte hypertrophy and promoting fibrosis and apoptosis. This axis is the principal amplifier that converts an initial contractile deficit into progressive structural remodeling, and it is the target of the foundational heart-failure pharmacotherapies (ACE inhibitors, angiotensin receptor blockers, beta-blockers, mineralocorticoid receptor antagonists).</div>
                 
@@ -3943,6 +4223,11 @@ This pathophysiological event involves increased Cardiac Muscle Hypertrophy (GO:
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -3964,11 +4249,13 @@ This pathophysiological event involves increased Cardiac Muscle Hypertrophy (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-ventricular-remodeling" data-dismech-node="Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Remodeling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained insult and neurohormonal drive produce adverse structural remodeling of the ventricle. This central effector step combines cardiomyocyte hypertrophy and progressive cardiomyocyte loss (necrosis and apoptosis) with activation of resident cardiac fibroblasts into myofibroblasts that deposit excess collagen, producing interstitial fibrosis. The net geometric result is chamber dilation with wall thinning (dilated pattern) or wall thickening with reduced cavity size (hypertrophic pattern). Although the dominant geometry differs across disorders, expansion of the cardiac fibroblast population and interstitial matrix deposition are conserved features of the remodeling myocardium.</div>
                 
@@ -4103,6 +4390,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/ALPK3-Related_Hypertrophic_Cardiomyopathy.html">ALPK3-Related Hypertrophic Cardiomyopathy</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Hypertrophy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Anthracycline-Induced_Cardiomyopathy.html">Anthracycline-Induced Cardiomyopathy</a>
                             
                         </div>
@@ -4206,6 +4500,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1II.html">Dilated Cardiomyopathy 1II</a>
+                            
+                            <span class="crosslink-desc">as Adverse Ventricular Remodeling and Myocardial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dilated_Cardiomyopathy_1J.html">Dilated Cardiomyopathy 1J</a>
                             
                             <span class="crosslink-desc">as Adverse Ventricular Remodeling</span>
@@ -4216,6 +4517,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                             <a href="../disorders/Dilated_Cardiomyopathy_1JJ.html">Dilated Cardiomyopathy 1JJ</a>
                             
                             <span class="crosslink-desc">as Adverse Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1NN.html">Dilated Cardiomyopathy 1NN</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Dilation and Systolic Dysfunction</span>
                             
                         </div>
                         
@@ -4248,6 +4556,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1W.html">Dilated Cardiomyopathy 1W</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dilated_Cardiomyopathy_1X.html">Dilated Cardiomyopathy 1X</a>
                             
                             <span class="crosslink-desc">as Ventricular Remodeling and Myocardial Fibrosis</span>
@@ -4258,6 +4573,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                             <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
                             
                             <span class="crosslink-desc">as Adverse Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_2B.html">Dilated Cardiomyopathy 2B</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Remodeling</span>
                             
                         </div>
                         
@@ -4409,6 +4731,11 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Naxos_disease.html">Naxos disease</a>
                             
                             <span class="crosslink-desc">as Fibrofatty myocardial replacement</span>
@@ -4450,11 +4777,13 @@ This pathophysiological event involves increased Cardiomyocyte Apoptosis, annota
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-contractile-dysfunction" data-dismech-node="Progressive Contractile Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Contractile Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Adverse remodeling degrades pump function. Myocyte loss, fibrosis, and altered chamber geometry impair systolic shortening (reduced ejection fraction in dilated and end-stage disease) and/or diastolic relaxation and filling (stiffened, hypertrophied, or infiltrated myocardium). Increased wall stress further depresses contractile properties of surviving myocardium, creating a self-reinforcing cycle of declining performance that underlies the clinical progression of cardiomyopathy.</div>
                 
@@ -4534,6 +4863,8 @@ This pathophysiological event involves decreased Heart Contraction (GO:0060047).
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Anthracycline-Induced_Cardiomyopathy.html">Anthracycline-Induced Cardiomyopathy</a>
+                            
+                            <span class="crosslink-desc">as Reduced Ventricular Contractile Function</span>
                             
                         </div>
                         
@@ -4678,6 +5009,13 @@ This pathophysiological event involves decreased Heart Contraction (GO:0060047).
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
+                            
+                            <span class="crosslink-desc">as Impaired Contractile and Passive Mechanics</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a>
                             
                         </div>
@@ -4703,11 +5041,13 @@ This pathophysiological event involves decreased Heart Contraction (GO:0060047).
             
             <div class="item-box anchor-target" id="module-pathophysiology-structural-cardiac-impairment-and-heart-failure" data-dismech-node="Structural Cardiac Impairment and Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Cardiac Impairment and Heart Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The end state is cardiomyopathy: a structurally and functionally abnormal myocardium that can no longer meet circulatory demand, manifesting as heart failure with its attendant morbidity and mortality and risk of progression to end-stage disease requiring mechanical support or transplantation. While the dominant geometry (dilated, hypertrophic, restrictive) and the triggering lesion differ across disorders, the convergence on maladaptive structural remodeling and impaired pump function defines the shared cardiomyopathy phenotype.</div>
                 
@@ -4847,7 +5187,21 @@ This pathophysiological event involves abnormal Heart Contraction (GO:0060047). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1II.html">Dilated Cardiomyopathy 1II</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dilated_Cardiomyopathy_1JJ.html">Dilated Cardiomyopathy 1JJ</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1NN.html">Dilated Cardiomyopathy 1NN</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure</span>
                             
                         </div>
                         
@@ -4885,6 +5239,13 @@ This pathophysiological event involves abnormal Heart Contraction (GO:0060047). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1W.html">Dilated Cardiomyopathy 1W</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure with Reduced Ejection Fraction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dilated_Cardiomyopathy_1X.html">Dilated Cardiomyopathy 1X</a>
                             
                             <span class="crosslink-desc">as Dilated Cardiomyopathy with Systolic Failure</span>
@@ -4895,6 +5256,13 @@ This pathophysiological event involves abnormal Heart Contraction (GO:0060047). 
                             <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
                             
                             <span class="crosslink-desc">as Heart Failure, Ventricular Arrhythmia and Sudden Cardiac Death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_2B.html">Dilated Cardiomyopathy 2B</a>
+                            
+                            <span class="crosslink-desc">as Chronic Systolic Heart Failure</span>
                             
                         </div>
                         
@@ -4990,6 +5358,13 @@ This pathophysiological event involves abnormal Heart Contraction (GO:0060047). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hypomyelinating_Leukodystrophy_23.html">Hypomyelinating Leukodystrophy 23</a>
+                            
+                            <span class="crosslink-desc">as Cardiac and Hepatic Involvement</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Left_Ventricular_Noncompaction_10.html">Left Ventricular Noncompaction 10</a>
                             
                             <span class="crosslink-desc">as Neonatal Structural Cardiac Failure</span>
@@ -5004,9 +5379,21 @@ This pathophysiological event involves abnormal Heart Contraction (GO:0060047). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyopathy and Ventricular Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Myocarditis.html">Myocarditis</a>
                             
                             <span class="crosslink-desc">as Inflammatory Dilated Cardiomyopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MYPN-Related_Cardiomyopathy.html">MYPN-Related Cardiomyopathy</a>
                             
                         </div>
                         

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5063,6 +5116,7 @@ novel approaches in this group of patients."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paternal-genome-content-and-semi-allogeneic-tumour-identity" data-dismech-node="Paternal Genome Content and Semi-Allogeneic Tumour Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Paternal Genome Content and Semi-Allogeneic Tumour Identity</div>
 
+
                 <div class="item-desc">Gestational choriocarcinoma derives from the trophoblast of a prior conceptus, so its genome contains a paternal allele complement that is absent from the patient&#39;s own tissues. In the most common precursor, the complete hydatidiform mole, the conceptus genome is entirely androgenetic. The tumour is therefore a partial or complete natural allograft. Two consequences follow and organise the rest of the pathograph: detection of that foreign paternal allele set by STR genotyping definitively separates gestational from non-gestational choriocarcinoma, which matters because the two are treated differently; and the allogeneic tumour is intrinsically immunogenic and must actively suppress host T cells to survive. Non-gestational (germ cell) choriocarcinoma, by contrast, carries only the patient&#39;s own genome and lacks this feature. The imprinting biology of the molar precursor itself (CDKN1C/p57 loss) is curated in Hydatidiform_Mole and Gestational_Trophoblastic_Neoplasm.</div>
 
 
@@ -5209,6 +5263,7 @@ patient’s normal tissues"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-trophoblastic-transformation-without-villous-formation" data-dismech-node="Neoplastic Trophoblastic Transformation without Villous Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Trophoblastic Transformation without Villous Formation</div>
+
 
                 <div class="item-desc">The transformed cell population reconstitutes the two differentiation states of early implanting trophoblast — a proliferative mononuclear cytotrophoblast compartment and a fused, hormonally active syncytiotrophoblast compartment — but does so as a solid, sheet-like proliferation that never organises chorionic villi. Loss of the villous scaffold is not a cosmetic difference: villous architecture normally constrains trophoblast to a defined invasive front, and its absence accompanies unconstrained, vessel-permeating growth. The proliferative fraction is extreme (Ki-67 often above 90%), with marked nuclear atypia and atypical mitoses.</div>
 
@@ -5440,6 +5495,7 @@ trophoblast cells and an absence of chorionic villi."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcg-hypersecretion-by-neoplastic-syncytiotrophoblast" data-dismech-node="hCG Hypersecretion by Neoplastic Syncytiotrophoblast" data-dismech-type="pathophysiology">
                 <div class="item-name">hCG Hypersecretion by Neoplastic Syncytiotrophoblast</div>
 
+
                 <div class="item-desc">Neoplastic syncytiotrophoblast retains the endocrine function of normal placental syncytiotrophoblast and secretes human chorionic gonadotropin in quantities proportional to viable tumour burden. Because hCG is essentially absent in the non-pregnant state, this converts an internal, often radiographically occult tumour into a continuously measurable quantity: hCG establishes the diagnosis (a plateauing or rising titre after evacuation), contributes a weighted term to the FIGO/WHO prognostic score, tracks response during chemotherapy, and detects relapse. It is the reason gestational trophoblastic neoplasia can be treated to a biochemical endpoint without tissue confirmation.</div>
 
 
@@ -5614,6 +5670,7 @@ serum hCG measurement combined with imaging studies."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paraneoplastic-consequences-of-extreme-hcg-elevation" data-dismech-node="Paraneoplastic Consequences of Extreme hCG Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paraneoplastic Consequences of Extreme hCG Elevation</div>
 
+
                 <div class="item-desc">hCG shares an alpha subunit with TSH, LH and FSH and is a weak agonist at the thyrotropin receptor; when tumour-derived concentrations exceed roughly 100,000 mIU/mL, that weak cross-reactivity becomes clinically significant and produces biochemical or overt hyperthyroidism. The same extreme gonadotropin-like signal overstimulates the ovaries, producing bilateral theca-lutein cysts (occasionally with virilisation), and is associated with hyperemesis and pre-eclampsia. These paraneoplastic features are a direct dose-dependent consequence of the biomarker itself rather than of tumour mass, and they resolve as hCG falls with treatment.</div>
 
 
@@ -5746,6 +5803,7 @@ This pathophysiological event involves increased gonadotropin secretion (GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-trophoblast-invasion-and-vascular-permeation" data-dismech-node="Deregulated Trophoblast Invasion and Vascular Permeation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Trophoblast Invasion and Vascular Permeation</div>
+
 
                 <div class="item-desc">Normal extravillous trophoblast is physiologically one of the most invasive cell types in human biology: it penetrates decidua and myometrium and remodels spiral arteries, and it does so as a tightly regulated, self-limiting program. Choriocarcinoma is that program run without its brakes. Tumour trophoblast permeates myometrium and directly invades vascular channels, so intravasation is an early rather than a late event — this is the mechanistic reason choriocarcinoma metastasises hematogenously at small primary volumes and may present with a metastasis before any uterine lesion is apparent. Conformance note: the module&#39;s canonical upstream driver is EMT activation in a somatic epithelium; here the invasive phenotype is a retained developmental program of trophoblast rather than a de-differentiation event, so this node conforms at the invasion/intravasation step without asserting the module&#39;s EMT trigger node.</div>
 
@@ -5945,6 +6003,7 @@ ile vessels."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegf-driven-neoangiogenesis" data-dismech-node="VEGF-Driven Neoangiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">VEGF-Driven Neoangiogenesis</div>
 
+
                 <div class="item-desc">Neoplastic trophoblast drives VEGF-dependent neovascularisation, building the fragile, disorganised tumour vasculature that both sustains the rapidly expanding mass and creates the bleeding diathesis characteristic of choriocarcinoma deposits. This is the mechanistic anchor for the antiangiogenic arm of therapy: the VEGFR-2 inhibitor apatinib is combined with PD-1 blockade in multidrug-resistant disease, so the pathograph needs a node for that drug to target.</div>
 
 
@@ -6125,6 +6184,7 @@ This pathophysiological event involves increased vascular endothelial growth fac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-dissemination-and-pulmonary-colonisation" data-dismech-node="Hematogenous Dissemination and Pulmonary Colonisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous Dissemination and Pulmonary Colonisation</div>
+
 
                 <div class="item-desc">Tumour emboli entering uterine veins arrive first at the pulmonary capillary bed, which is why the lung is by far the commonest metastatic site and why multiple rounded pulmonary nodules are a classic radiographic presentation. Onward arterial spread reaches vagina, liver, brain, spleen, kidney and bowel. Metastatic site is a weighted term in the FIGO/WHO prognostic score precisely because it stratifies risk: lung scores 0, spleen/kidney 1, gastrointestinal 2, and liver or brain 4. Colonisation can occur at very small primary tumour volume, so metastatic disease is a common first presentation.</div>
 
@@ -6328,6 +6388,7 @@ hemorrhage as a result of metastasis"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haemorrhagic-destruction-of-colonised-organs" data-dismech-node="Haemorrhagic Destruction of Colonised Organs" data-dismech-type="pathophysiology">
                 <div class="item-name">Haemorrhagic Destruction of Colonised Organs</div>
 
+
                 <div class="item-desc">Every choriocarcinoma deposit reproduces the vascular-erosive phenotype of the primary, so metastases behave less like space-occupying nodules and more like bleeding lesions. Pulmonary deposits cause haemoptysis and dyspnoea; vaginal deposits bleed and should not be biopsied; hepatic deposits bleed intra-abdominally; cerebral deposits may be silent or may cause fatal intracranial haemorrhage. This is also why induction chemotherapy is deliberately gentle in very-high-score disease — rapid lysis of a friable, highly vascular tumour risks catastrophic pulmonary, intraperitoneal or intracranial bleeding.</div>
 
 
@@ -6454,6 +6515,7 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-l1-mediated-adaptive-immune-resistance" data-dismech-node="PD-L1-Mediated Adaptive Immune Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">PD-L1-Mediated Adaptive Immune Resistance</div>
+
 
                 <div class="item-desc">Gestational choriocarcinoma is an allograft growing in an immunocompetent host, which should be rejected — and occasionally is, since spontaneous regressions of metastatic disease are recorded. To survive, the tumour co-opts the same PD-1/PD-L1 axis that normal placental trophoblast uses to maintain fetomaternal tolerance: PD-L1 is expressed strongly and essentially uniformly by neoplastic trophoblast, engaging PD-1 on tumour-infiltrating T cells and shutting down the anti-tumour response. This is an unusually clean example of adaptive immune resistance, because the antigenic stimulus (a foreign paternal genome) is known rather than inferred, and it is directly druggable.</div>
 
@@ -6662,6 +6724,7 @@ gestational trophoblastic neoplasia (GTN)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-proliferative-fraction-and-chemosensitivity" data-dismech-node="High Proliferative Fraction and Chemosensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">High Proliferative Fraction and Chemosensitivity</div>
 
+
                 <div class="item-desc">The same feature that makes choriocarcinoma lethal untreated — a near-maximal proliferative fraction with Ki-67 frequently above 90% — makes it exceptionally vulnerable to cell-cycle-dependent cytotoxics. Antifolate (methotrexate), intercalating/transcription-blocking (dactinomycin), topoisomerase-II (etoposide), alkylating (cyclophosphamide) and antimitotic (vincristine) agents all act preferentially on rapidly cycling cells. Combined with a quantitative serum biomarker that permits treatment to a biochemical endpoint, this makes gestational choriocarcinoma one of the most curable of all solid malignancies — single-agent therapy cures low-risk disease and EMA-CO cures the great majority of high-risk disease. Non-gestational germ cell choriocarcinoma does not share this degree of sensitivity to the GTN regimens and is treated on germ cell lines. Modelling note: this node deliberately bundles a cellular property (near-maximal proliferative fraction) with the therapeutic-response property it produces, because the chemosensitivity is the clinically load-bearing consequence and three cytotoxic treatments attach to it via `target_mechanisms`. A future refactor could split it into a proliferation node and a drug-response node.</div>
 
 
@@ -6805,6 +6868,7 @@ immunostaining  &gt;  90%"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multidrug-resistant-refractory-disease" data-dismech-node="Multidrug-Resistant Refractory Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Multidrug-Resistant Refractory Disease</div>
+
 
                 <div class="item-desc">Fewer than 5% of women with gestational choriocarcinoma die, and when they do it is overwhelmingly from disease that has become resistant to multiple cytotoxic agents rather than from untreated bulk. This small refractory population — together with the inherently less chemosensitive non-gestational and intermediate-trophoblast tumours — is the entire remaining unmet need in an otherwise near-curable disease, and is the population in which PD-1/PD-L1 blockade has produced durable responses.</div>
 
@@ -7231,6 +7295,9 @@ This clinical feature is Abnormal vaginal bleeding (HP:0034263). HP:0034263 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7348,6 +7415,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as seve
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7448,6 +7518,9 @@ This clinical feature is Haemoperitoneum from ruptured hepatic metastases, annot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7517,6 +7590,9 @@ This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7601,6 +7677,9 @@ This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7679,6 +7758,9 @@ This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7752,6 +7834,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7839,6 +7924,9 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7906,6 +7994,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7985,6 +8076,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8071,6 +8165,9 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8140,6 +8237,9 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8234,6 +8334,9 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8307,6 +8410,9 @@ index gestation, where DNA genotyping can provide highly relevant information."<
                     Host (Non-Paternal) Genome of Non-Gestational Choriocarcinoma
 
                 </div>
+
+
+
 
 
 
@@ -8464,6 +8570,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8474,6 +8583,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8675,6 +8787,9 @@ This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8685,6 +8800,9 @@ This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8981,6 +9099,9 @@ This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8991,6 +9112,9 @@ This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9251,6 +9375,9 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9261,6 +9388,9 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9382,6 +9512,9 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9392,6 +9525,9 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -9605,6 +9741,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9615,6 +9754,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9839,6 +9981,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9849,6 +9994,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9961,6 +10109,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9971,6 +10122,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -10123,6 +10277,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10133,6 +10290,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -15225,6 +15385,41 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-check audit + reviewer response: split CNS therapy, add angiogenesis node, add MONDO-bound differentials, add node roles</strong> · 2026-08-01T02:33:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Choriocarcinoma/2026-08-01T023335Z-claude-code-a1a52a.yaml">View source</a></p>
+                        <p class="research-review-text">Independent fresh-context audit (adversarial cross-check of a self-reviewed PR), merged with the ai4c-reviewer CHANGES_REQUESTED findings.
+
+REVIEWER IMPORTANT 1 - CNS-Directed Therapy for Cerebral Metastases was typed as radiotherapy but modeled as chemotherapy. Agreed. The single treatment carried therapeutic_modality RADIOTHERAPY and NCIT:C15313 Radiation Therapy while its description and primary evidence were about CNS-penetrating high-dose methotrexate within EMA-CO, and a radiation action term was carrying a small-molecule therapeutic_agent. Split into two treatments exactly as suggested: CNS-Penetrating High-Dose Methotrexate EMA-CO (SMALL_MOLECULE, NCIT:C15632 Chemotherapy, methotrexate agent, EMA-CO regimen_term, PMID:38008872) and Adjunctive Cranial Radiotherapy (RADIOTHERAPY, NCIT:C15313, no agent, PMID:34669197). Both were given target_mechanisms join points that the merged treatment lacked: the methotrexate arm targets Hematogenous Dissemination and Pulmonary Colonisation, the radiotherapy arm targets Haemorrhagic Destruction of Colonised Organs, which is the node whose risk it is given to reduce.
+
+REVIEWER IMPORTANT 2 - angiogenesis not modeled anywhere in the pathograph. Agreed. Added a VEGF-Driven Neoangiogenesis node conforming to tumor_angiogenesis#Angiogenic Switch and VEGF-Driven Neovascularization, wired in from Neoplastic Trophoblastic Transformation and out to both Hematogenous Dissemination and Haemorrhagic Destruction. Two new references were fetched and cached for it. Evidence is deliberately tiered and the tiering is documented on the node: the direct mechanistic demonstration (PMID:40760271, Rap1/VEGF axis driving choriocarcinoma angiogenesis) is IN_VITRO because it is cell-line work, and the clinical evidence (PMID:41627371, camrelizumab plus apatinib achieving complete and durable responses in 70-80 percent of multidrug-resistant GTN) is marked PARTIAL because response to an antiangiogenic agent is indirect evidence for the mechanism and the combination confounds the antiangiogenic contribution with checkpoint blockade. The node notes explicitly record that no cited source quantifies VEGF expression or microvessel density in primary human gestational choriocarcinoma tissue, and that a microvessel-density or VEGF-IHC series would upgrade the node. This is stated rather than glossed because the deep-research artifact itself warns that much of the angiogenesis evidence in this disease comes from complete hydatidiform mole or cell lines rather than causal intervention in human gestational choriocarcinoma.
+
+FOUND BY INDEPENDENT AUDIT:
+1. All ten pathophysiology nodes were missing the role slot, while every node correctly carried biological_scale. Assigned roles using the vocabulary already dominant across the KB: trigger, central_effector, effector, consequence, outcome, adaptive_escape, therapeutic_vulnerability.
+2. differential_diagnoses was absent entirely. For choriocarcinoma this is a substantive gap, because the entity is defined largely by its boundaries. Added five structured, MONDO-bound differentials with distinguishing_features and verified evidence: placental site trophoblastic tumour (MONDO:0020552), epithelioid trophoblastic tumour (MONDO:0016787), invasive hydatidiform mole (MONDO:0020549), complete hydatidiform mole (MONDO:0016785) and non-gestational choriocarcinoma (MONDO:0004322). The PSTT and ETT boundaries are therapeutically consequential because both are relatively chemoresistant, and the non-gestational boundary is the most consequential of all, since it determines whether the semi-allogeneic trigger node applies at all and whether the patient is treated on GTN or germ-cell protocols.
+
+NOT FIXED, flagged for the author: all twelve phenotypes have no incoming causal edge from the pathograph. Wiring them is a modelling decision rather than a repair and would be better done by the curator who built the graph.
+
+ON THE CONTESTED-MODEL CHECK: the gestational versus non-gestational origin question was specifically examined for the failure mode where prose acknowledges a contested model while the graph silently encodes one arm as settled. This entry does NOT have that defect. The Paternal Genome Content and Semi-Allogeneic Tumour Identity trigger node is gestational-specific, and that limitation is explicitly carried as a KNOWLEDGE_GAP discussion attached to that node, asking whether non-gestational germ-cell choriocarcinoma shares the modeled pathophysiology. That is the correct treatment and it is now reinforced by the new non-gestational differential.
+
+VERIFICATION PERFORMED: all 77 ontology identifiers re-resolved with OAK and definitions read, not just labels. All 110 original evidence snippets checked against the cached references; all 110 matched byte-exactly, with zero normalisation needed - the strongest snippet-fidelity result of the four entries audited. All reference_title values diffed against cached paper titles; no misattributions.
+
+VALIDATION: just validate, just validate-terms and just validate-references all pass. 118/118 snippets verified. Weighted compliance 97.0 to 96.0 percent; the decrease is the expected effect of adding a differentials section and a new node, which introduce optional-field denominators that the previously very compact entry did not have.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Choriocarcinoma</strong> · 2026-08-01T00:11:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Choriocarcinoma/2026-08-01T001140Z-claude-code-cc9d5d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Choriocarcinoma.yaml for MONDO:0005207 [GitHub issue #7466, tracker #1079; recommended_action CURATE_ROOT_WITH_SUBTYPES]. Deep research provider: Edison/Falcon via &#39;just research-disorder falcon Choriocarcinoma&#39; - 1273s, 33 citations, 1 artifact; output at research/Choriocarcinoma-deep-research-falcon.md. Falcon output was treated as leads only: every PMID was fetched with &#39;just fetch-reference&#39; and every snippet verified as an exact substring of the cached abstract or full text. Named Entity Confusion preflight run against MONDO:0005207 with OAK - trophoblastic neoplasm plus germ cell tumor parents, NCIT:C2948 xref, ICDO:9100/3 - no confusion detected. Scope decision: this entry covers choriocarcinoma proper - gestational, non-gestational germ cell, and intraplacental early form as three has_subtypes; the wider gestational trophoblastic disease spectrum of invasive mole, PSTT and ETT, and the molar precursor imprinting biology of CDKN1C/p57, are cross-referenced to the existing Gestational_Trophoblastic_Neoplasm and Hydatidiform_Mole entries rather than duplicated. Content: 10 pathophysiology nodes with biological_scale tags and a fully wired downstream chain, conforming to invasion_and_metastasis at Local Invasion and Intravasation and at Metastatic Colonization, and to immune_checkpoint_blockade at Adaptive Immune Resistance; 11 phenotypes with HPO terms; 4 histopathology findings; structured prevalence using measure_type/prevalence_class/rate_per_100000 with no deprecated percentage; genetic section on the paternal androgenetic allele complement and STR genotyping as the gestational-versus-non-gestational discriminator; biochemical serum beta-hCG with a LOINC:21198-7 reference range and FIGO/WHO pre-treatment hCG interpretation bands; FIGO stages I-IV; risk-factor environmental section; 7 treatments including EMA-CO with regimen_term NCIT:C67511 and PD-1/PD-L1 checkpoint blockade wired via target_mechanisms; TROPHIMMUN trial NCT03135769. A red-team self-review against the dismech-pr-review skill was run in a fresh-context subagent before opening the PR, and its findings were applied: added a diagnosis section (hCG criteria, STR genotyping, staging imaging, hCG-defined remission and surveillance); added EMA-EP/TP-TE cytotoxic salvage wired to the refractory node; replaced radiotherapy-first brain-metastasis management with CNS-penetrating high-dose methotrexate within EMA-CO; downgraded eight inferential or disease-group-level evidence items from SUPPORT to PARTIAL; removed three frequency bands and one prevalence-class claim that the sources did not license; dropped an unsupported GO genomic-imprinting annotation; switched the hCG analyte from the free beta-subunit LOINC code to the total-hCG code 19080-1; upgraded two histopathology NCIT terms and one HPO term (hemoperitoneum); split the bundled age/ethnicity risk factor; added two KNOWLEDGE_GAP discussions with proposed experiments; and made the boundary with Gestational_Trophoblastic_Neoplasm bidirectional by adding a cross-reference to that entry&#39;s Choriocarcinoma subtype, flagging the lump/split question for curator adjudication. Additionally, every snippet was audited to be a byte-literal substring of its cache (not merely part-wise matched), and six that passed the validator but were not byte-exact were corrected. Validation: just validate PASS with 110/110 snippets verified, just validate-terms PASS, just validate-references PASS, just compliance 96.7 percent global and 97.0 percent weighted (residual gaps are datasets and evidence on not-yet-performed proposed experiments).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

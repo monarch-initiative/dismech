@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=TEX11-related%20spermatogenic%20failure"
@@ -4008,7 +4061,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4237,6 +4290,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tex11-loss-of-function" data-dismech-node="TEX11 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">TEX11 Loss of Function</div>
 
+
                 <div class="item-desc">Hemizygous TEX11 variants, including splice-site and missense changes and a recurrent 99 kb deletion removing three exons from the meiosis-specific SPO22 sporulation domain, abolish functional TEX11 protein. In normal human testis TEX11 is expressed in late spermatocytes and in round and elongated spermatids; in testes of affected men that expression is absent.</div>
 
 
@@ -4292,6 +4346,8 @@ This genetic context concerns TEX11 (hgnc:11733). hgnc:11733 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HEMIZYGOUS</span>
 
 
@@ -4299,6 +4355,9 @@ This genetic context concerns TEX11 (hgnc:11733). hgnc:11733 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4394,6 +4453,7 @@ This genetic context concerns TEX11 (hgnc:11733). hgnc:11733 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosomal-asynapsis-and-reduced-crossover-formation" data-dismech-node="Chromosomal Asynapsis and Reduced Crossover Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromosomal Asynapsis and Reduced Crossover Formation</div>
+
 
                 <div class="item-desc">TEX11 forms foci on synapsed regions of meiotic chromosomes as a constituent of recombination nodules, and it binds SYCP2, an integral component of the synaptonemal complex lateral element. That interaction is the proposed physical link between synapsis and recombination. Losing TEX11 produces asynapsis of homologous chromosomes together with a genome-wide reduction in crossover formation, rather than either defect alone.</div>
 
@@ -4655,6 +4715,7 @@ This pathophysiological event involves synaptonemal complex (GO:0000795). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pachytene-checkpoint-elimination-of-spermatocytes" data-dismech-node="Pachytene Checkpoint Elimination of Spermatocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Pachytene Checkpoint Elimination of Spermatocytes</div>
 
+
                 <div class="item-desc">Spermatocytes carrying asynapsed autosomes are removed by apoptosis at the pachytene stage. The selectivity matters: cells whose only asynapsed chromosomes are the sex chromosomes progress past this checkpoint, so the arrest is not a uniform block at one point but a filter that different cells fail at different stages.</div>
 
 
@@ -4787,6 +4848,7 @@ This pathophysiological event involves spermatocyte (CL:0000017). CL:0000017 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meiosis-i-nondisjunction-in-escaping-spermatocytes" data-dismech-node="Meiosis I Nondisjunction in Escaping Spermatocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Meiosis I Nondisjunction in Escaping Spermatocytes</div>
 
+
                 <div class="item-desc">Spermatocytes that survive the pachytene checkpoint carry too few crossovers to segregate their homologues, and undergo chromosome nondisjunction at the first meiotic division. These cells die too. This second, later loss is why TEX11 deficiency produces infertility rather than aneuploid offspring.</div>
 
 
@@ -4864,6 +4926,7 @@ This pathophysiological event involves spermatocyte (CL:0000017). CL:0000017 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spermatogenic-arrest-at-meiosis-i" data-dismech-node="Spermatogenic Arrest at Meiosis I" data-dismech-type="pathophysiology">
                 <div class="item-name">Spermatogenic Arrest at Meiosis I</div>
+
 
                 <div class="item-desc">Germ cell loss at both points empties the seminiferous epithelium of post-meiotic cells. The histological diagnosis is meiotic arrest, and it is the pattern in which TEX11 variants are most concentrated: they were found in a substantially higher fraction of men whose biopsy showed meiotic arrest than of azoospermic men overall.</div>
 
@@ -5095,7 +5158,7 @@ This pathophysiological event involves spermatocyte (CL:0000017). CL:0000017 is 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TEX11 forms foci on synapsed regions of meiotic chromosomes as a constituent of recombination nodules, and it binds SYCP2, an integral component of the synaptonemal complex lateral element. That interaction is the proposed physical link between synapsis and recombination. Losing TEX11 produces asynapsis of homologous chromosomes together with a genome-wide reduction in crossover formation, rather than either defect alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spermatocyte\"], \"biological_processes\": [\"synapsis\", \"synaptonemal complex assembly\"], \"animal_models\": [{\"name\": \"Tex11-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Tex11 null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that TEX11 loss produces asynapsis together with reduced crossover formation, and the TEX11-SYCP2 interaction that links synapsis to recombination.\"}]}}, {\"id\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spermatocytes that survive the pachytene checkpoint carry too few crossovers to segregate their homologues, and undergo chromosome nondisjunction at the first meiotic division. These cells die too. This second, later loss is why TEX11 deficiency produces infertility rather than aneuploid offspring.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-obstructive azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of spermatozoa in the ejaculate, with a testicular rather than obstructive cause. This is the presenting finding and is essentially universal in confirmed cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000027\"}}, {\"id\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spermatocytes carrying asynapsed autosomes are removed by apoptosis at the pachytene stage. The selectivity matters: cells whose only asynapsed chromosomes are the sex chromosomes progress past this checkpoint, so the arrest is not a uniform block at one point but a filter that different cells fail at different stages.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spermatocyte\"], \"animal_models\": [{\"name\": \"Tex11-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Tex11 null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes which spermatocytes are eliminated at pachytene and which escape, which is what makes the human histology mixed rather than uniform.\"}]}}, {\"id\": \"Spermatogenic Arrest at Meiosis I\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cell loss at both points empties the seminiferous epithelium of post-meiotic cells. The histological diagnosis is meiotic arrest, and it is the pattern in which TEX11 variants are most concentrated: they were found in a substantially higher fraction of men whose biopsy showed meiotic arrest than of azoospermic men overall.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TEX11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous TEX11 variants, including splice-site and missense changes and a recurrent 99 kb deletion removing three exons from the meiosis-specific SPO22 sporulation domain, abolish functional TEX11 protein. In normal human testis TEX11 is expressed in late spermatocytes and in round and elongated spermatids; in testes of affected men that expression is absent.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TEX11\", \"id\": \"hgnc:11733\"}]}}}, {\"id\": \"Tex11-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse in which the meiotic mechanism was established. It is the source of the asynapsis, crossover-reduction and two-stage cell-loss findings that this entry\u0027s pathophysiology chain rests on, and the founding human series explicitly matched patient histology to it.\"}], \"edges\": [{\"source\": \"TEX11 Loss of Function\", \"target\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without TEX11 at recombination nodules, synapsis and crossover formation both fail.\"}, {\"source\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"target\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asynapsed autosomes and unrepaired breaks activate the prophase checkpoint.\"}, {\"source\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"target\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells that pass the checkpoint still lack the chiasmata needed to segregate homologues.\"}, {\"source\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"target\": \"Spermatogenic Arrest at Meiosis I\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the spermatocyte population prevents progression to spermatids.\"}, {\"source\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"target\": \"Spermatogenic Arrest at Meiosis I\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The escaping population is lost at the first division rather than maturing.\"}, {\"source\": \"Spermatogenic Arrest at Meiosis I\", \"target\": \"Non-obstructive azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No mature spermatozoa reach the ejaculate.\"}, {\"source\": \"Tex11-deficient mouse\", \"target\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that TEX11 loss produces asynapsis together with reduced crossover formation, and the TEX11-SYCP2 interaction that links synapsis to recombination.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mechanism is established in mouse and inferred for human spermatocytes from cross-species conservation; no human cell assay of TEX11 function exists.\"}, {\"source\": \"Tex11-deficient mouse\", \"target\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes which spermatocytes are eliminated at pachytene and which escape, which is what makes the human histology mixed rather than uniform.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The stage-specific selectivity is a mouse observation; human biopsies show the mixed pattern it predicts but have not been used to test the chromosome-specific mechanism directly.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TEX11 forms foci on synapsed regions of meiotic chromosomes as a constituent of recombination nodules, and it binds SYCP2, an integral component of the synaptonemal complex lateral element. That interaction is the proposed physical link between synapsis and recombination. Losing TEX11 produces asynapsis of homologous chromosomes together with a genome-wide reduction in crossover formation, rather than either defect alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spermatocyte\"], \"biological_processes\": [\"synapsis\", \"synaptonemal complex assembly\"], \"animal_models\": [{\"name\": \"Tex11-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Tex11 null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that TEX11 loss produces asynapsis together with reduced crossover formation, and the TEX11-SYCP2 interaction that links synapsis to recombination.\"}]}}, {\"id\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spermatocytes that survive the pachytene checkpoint carry too few crossovers to segregate their homologues, and undergo chromosome nondisjunction at the first meiotic division. These cells die too. This second, later loss is why TEX11 deficiency produces infertility rather than aneuploid offspring.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-obstructive azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of spermatozoa in the ejaculate, with a testicular rather than obstructive cause. This is the presenting finding and is essentially universal in confirmed cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000027\"}}, {\"id\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spermatocytes carrying asynapsed autosomes are removed by apoptosis at the pachytene stage. The selectivity matters: cells whose only asynapsed chromosomes are the sex chromosomes progress past this checkpoint, so the arrest is not a uniform block at one point but a filter that different cells fail at different stages.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spermatocyte\"], \"animal_models\": [{\"name\": \"Tex11-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Tex11 null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes which spermatocytes are eliminated at pachytene and which escape, which is what makes the human histology mixed rather than uniform.\"}]}}, {\"id\": \"Spermatogenic Arrest at Meiosis I\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cell loss at both points empties the seminiferous epithelium of post-meiotic cells. The histological diagnosis is meiotic arrest, and it is the pattern in which TEX11 variants are most concentrated: they were found in a substantially higher fraction of men whose biopsy showed meiotic arrest than of azoospermic men overall.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TEX11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TEX11\"], \"gene_terms\": [{\"label\": \"TEX11\", \"id\": \"hgnc:11733\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TEX11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous TEX11 variants, including splice-site and missense changes and a recurrent 99 kb deletion removing three exons from the meiosis-specific SPO22 sporulation domain, abolish functional TEX11 protein. In normal human testis TEX11 is expressed in late spermatocytes and in round and elongated spermatids; in testes of affected men that expression is absent.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TEX11\", \"id\": \"hgnc:11733\"}]}}}, {\"id\": \"Tex11-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse in which the meiotic mechanism was established. It is the source of the asynapsis, crossover-reduction and two-stage cell-loss findings that this entry\u0027s pathophysiology chain rests on, and the founding human series explicitly matched patient histology to it.\"}], \"edges\": [{\"source\": \"TEX11 Loss of Function\", \"target\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without TEX11 at recombination nodules, synapsis and crossover formation both fail.\"}, {\"source\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"target\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asynapsed autosomes and unrepaired breaks activate the prophase checkpoint.\"}, {\"source\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"target\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells that pass the checkpoint still lack the chiasmata needed to segregate homologues.\"}, {\"source\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"target\": \"Spermatogenic Arrest at Meiosis I\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the spermatocyte population prevents progression to spermatids.\"}, {\"source\": \"Meiosis I Nondisjunction in Escaping Spermatocytes\", \"target\": \"Spermatogenic Arrest at Meiosis I\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The escaping population is lost at the first division rather than maturing.\"}, {\"source\": \"Spermatogenic Arrest at Meiosis I\", \"target\": \"Non-obstructive azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No mature spermatozoa reach the ejaculate.\"}, {\"source\": \"Tex11-deficient mouse\", \"target\": \"Chromosomal Asynapsis and Reduced Crossover Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that TEX11 loss produces asynapsis together with reduced crossover formation, and the TEX11-SYCP2 interaction that links synapsis to recombination.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mechanism is established in mouse and inferred for human spermatocytes from cross-species conservation; no human cell assay of TEX11 function exists.\"}, {\"source\": \"Tex11-deficient mouse\", \"target\": \"Pachytene Checkpoint Elimination of Spermatocytes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes which spermatocytes are eliminated at pachytene and which escape, which is what makes the human histology mixed rather than uniform.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The stage-specific selectivity is a mouse observation; human biopsies show the mixed pattern it predicts but have not been used to test the chromosome-specific mechanism directly.\"}, {\"source\": \"TEX11\", \"target\": \"TEX11 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5136,6 +5199,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5205,6 +5271,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5297,6 +5366,9 @@ This disease-associated gene is TEX11 (hgnc:11733). hgnc:11733 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5429,6 +5501,9 @@ This treatment is testicular sperm retrieval, annotated with Sperm Retrieval (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5439,6 +5514,9 @@ This treatment is testicular sperm retrieval, annotated with Sperm Retrieval (NC
 
 
     </div>
+
+
+
 
 
 
@@ -5558,6 +5636,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5568,6 +5649,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6965,6 +7049,67 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address review on PR #10921: diagnosis, histopathology, animal model, treatments, report rename</strong> · 2026-09-04T13:19:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/TEX11-related_spermatogenic_failure/2026-09-04T131908Z-claude-code-6ab92b.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR #10921. Six of the seven flagged items are closed by adding content; the seventh is closed by explaining an omission rather than filling it.
+
+1. Diagnosis block added: karyotype with Y-chromosome AZF microdeletion analysis as the two exclusions that precede gene-level testing, testicular biopsy, and TEX11 sequencing on a non-obstructive azoospermia panel. The sequencing step records that copy-number analysis belongs alongside sequencing, because the recurrent multi-exon deletion was found by array comparative genomic hybridisation and exon sequencing alone would miss it.
+
+2. Histopathology block added, which the reviewer correctly identified as the intellectual centre of the entry sitting only in prose. Meiotic arrest with germ cells present, with notes recording that focal Sertoli-cell-only tubules can coexist in the same biopsy and that such a report therefore does not exclude the diagnosis. The mixed pattern is tied back to the mechanism rather than left as an observation: spermatocytes whose only asynapsed chromosomes are the sex chromosomes escape the pachytene checkpoint and are lost later, so tubules arrest at different points. A second family&#39;s biopsy report was fetched (PMID:29661171) so the histology rests on two independent series rather than one.
+
+3. Elevated FSH is the one item not filled, and the reason is recorded rather than left implicit. The reviewer was right that the entry&#39;s own description asserted a hormone profile it did not model. Rather than bind HP:0008232 to a source that does not state it, the description was rewritten to attribute the profile to primary testicular failure generally rather than to TEX11 specifically, and a notes paragraph records that none of the cached sources states it for this disease, that a targeted PubMed search for one returned nothing quotable, and that binding the term would need a reference fetched for that purpose. Fixing the unsupported assertion was the more important half of this item.
+
+4. Animal models block added for the Tex11-null mouse, with two modeled_mechanisms links against the asynapsis node and the pachytene checkpoint node, both RECAPITULATES with fidelity HIGH, model_scale CELLULAR, and limitations recording that the mechanism is established in mouse and inferred for human spermatocytes. The link-level evidence for treating the model as informative is taken from the human founding series rather than from the model&#39;s own authors. This gives the existing HUMAN_MODEL_MISMATCH discussion a model object to be about, which was the reviewer&#39;s point.
+
+5. Treatments: genetic counselling added, with the reason it matters here rather than as boilerplate. Because the allele is X-linked, a daughter conceived through assisted reproduction using the father&#39;s retrieved sperm is an obligate carrier, so transmission is a foreseeable consequence of the treatment rather than an incidental family finding. Micro-TESE with ICSI was not added as a separate treatment: the entry&#39;s existing treatment already models the retrieval decision, and the cached source states that sperm were recovered in none of 17 TEX11 patients, so curating ICSI as standard care for this disease would assert something the source contradicts.
+
+6. treatment_term changed from NCIT:C15329 Surgical Procedure to NCIT:C94427 Sperm Retrieval. A notes line was added recording that therapeutic_modality SURGERY here tags the intervention being withheld rather than one administered, which the reviewer flagged as misparseable.
+
+7. Research report renamed with git mv from X-linked_Spermatogenic_Failure_1-deep-research-claude_code.md to TEX11-related_spermatogenic_failure-deep-research-claude_code.md, with its citations sidecar. Verified the reviewer&#39;s diagnosis directly against src/dismech/render.py, which globs research/&lt;disorder_slug&gt;-deep-research-*.md, so the pre-correction filename would have left the report invisible on the disorder page. This was a real defect introduced by the mid-curation retarget and would not have been caught by any gate.
+
+Suggestions also taken: the TESE snippet was replaced with the Discussion sentence stating that sperm were not recovered in any of 17 TEX11 patients, which is a finding, in place of the LIMITATIONS sentence previously quoted, which was a caveat about the study; the weaker sentence is retained as a second evidence item rather than discarded. GO:0007130 synaptonemal complex assembly added alongside GO:0007129 on the asynapsis node for tighter alignment with the module node it conforms to.
+
+Suggestions not taken: oligozoospermia and decreased testicular size were left out because no cached source for this entry states either, and adding them would repeat the mistake item 3 was about. No prevalence block, since the three case_fractions already carry the gene-share question and every available figure is a cohort share rather than a population rate.
+
+Validation: just validate, just validate-terms, just count-verified-snippets (28/28 verified, up from 17/17), just check-duplicate-keys, just check-entity-refs, just check-causal-targets, just check-qualifier-terms, just check-enum-values and just check-groupings (TEX11 SATISFIED) all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: TEX11-related spermatogenic failure (MONDO:0010647, SPGFX2)</strong> · 2026-09-04T12:53:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/TEX11-related_spermatogenic_failure/2026-09-04T125330Z-claude-code-6a1d44.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for the TEX11-associated X-linked spermatogenic failure, bound to MONDO:0010647 (OMIM 309120, SPGFX2).
+
+The claim that produced this entry named the wrong disease, and correcting that is the main thing this session established. Issue #10847 claimed MONDO:0056795 (X-linked spermatogenic failure 1) intending to curate TEX11. MONDO:0056795 is a different disease: verified against OLS, its definition is a Sertoli-cell-only phenotype in which only Sertoli cells line the seminiferous tubules and no sperm cells are present, with synonyms Del Castillo syndrome and germinal cell aplasia and xref OMIM:305700, and no causal gene is mapped for it. Verified against OMIM esummary that 305700 and 309120 are separate current entries titled SPGFX1 and SPGFX2 respectively. TEX11 is 309120. The signal that should have caught this before the claim was in the stub itself: stubs/X-linked_Spermatogenic_Failure_1.yaml carries no genes block, and per CLAUDE.md an absent block means MONDO records no causal gene, which is a positive statement rather than missing data. A gene-less stub for something about to be curated as a single-gene disease should have stopped the claim.
+
+This also corrects the automated research comment on #10847, which read the Sertoli-cell-only definition as a legacy artifact of OMIM 305700 before it was renamed SPGFX1 and assigned to TEX11. That is not what happened; 305700 was never assigned to TEX11, and the two entries still coexist. The comment&#39;s biology, the ZZS complex framing, the grouping phrasing problem and the TESE-prognosis literature were all correct and were used.
+
+Deep research: one claude_code run, filed under the old name (research/X-linked_Spermatogenic_Failure_1-deep-research-claude_code.md). Its reference validation was clean, 17/17 resolved, 0 unresolved, 1/1 quoted claim found in source. Its most valuable output was a nomenclature note at the head of the report distinguishing SPGFX1 from SPGFX2 and stating that SPGFX1 has no molecular literature to report, which is what prompted the verification above. The report is committed under its original filename because that is the run that happened; the entry it informed carries a different name.
+
+Pathograph: five nodes from TEX11 loss of function through asynapsis with reduced crossover formation to two separate points of germ cell loss, pachytene checkpoint apoptosis for spermatocytes with asynapsed autosomes and meiosis I nondisjunction for those that escape it, converging on spermatogenic arrest at meiosis I. The two-point loss is curated as two nodes rather than one because the source distinguishes them explicitly and it is what makes the histology mixed rather than a uniform block. Conformance declared to three nodes of meiotic_prophase_failure; deliberately not to the ovarian follicle depletion node or the somatic DNA repair and cancer predisposition node, since TEX11 is male-restricted and meiosis-specific with no reported somatic phenotype.
+
+Mouse evidence graded MODEL_ORGANISM with directness INDIRECT throughout. One evidence item is graded REFUTE: three human TEX11 missense alleles were modelled in transgenic mice and two were non-causative, which refutes the general proposition that a missense variant in this gene is pathogenic by virtue of being in it. That result is also the basis for a HUMAN_MODEL_MISMATCH discussion, since the mouse is currently the only functional assay applied to these variants and nothing establishes that murine spermatogenesis has the same tolerance for a given substitution as human spermatogenesis.
+
+Genetic section carries three case_fractions with their cohorts rather than a population prevalence, because every figure available is a share of a clinical cohort and not a population rate.
+
+The treatment modelled is a negative one: withholding or not repeating testicular sperm extraction, on the basis that TEX11 is one of only three genes with enough reported retrieval-negative cases to act on. This is an unusual shape for a treatment entry and is the clinically actionable part of the diagnosis.
+
+Also added TEX11-related spermatogenic failure to kb/groupings/Meiotic_Gametogenic_Failure.yaml, and fixed that grouping&#39;s description, which opened by calling the group autosomal recessive. TEX11 is X-linked, and SYCP3 is a dominant-negative heterozygous counterexample already sitting outside the members list, so the inheritance claim was wrong before this entry as well. The description now states that inheritance is autosomal recessive for most members but is not a membership criterion. just check-groupings reports TEX11 SATISFIED on the necessary-and-sufficient criterion.
+
+Deleted stubs/X-linked_Spermatogenic_Failure_1.yaml. SPGFX1 has no mapped gene and no established molecular mechanism, so there is no pathograph for dismech to carry; it is not curatable as a mechanism entry until a gene is found. This is recorded in the new entry&#39;s notes so the concept is not re-nominated as a single-gene disease.
+
+Not done: no separate entry for SPGFX1 itself, and no MONDO ticket, although the SPGFX1 and SPGFX2 naming is a genuine trap worth reporting upstream.
+
+Validation: just validate, just validate-terms, just count-verified-snippets (17/17 verified), just check-duplicate-keys, just check-entity-refs, just check-causal-targets, just check-qualifier-terms, just check-enum-values, just check-stubs, just validate-grouping and just check-groupings all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

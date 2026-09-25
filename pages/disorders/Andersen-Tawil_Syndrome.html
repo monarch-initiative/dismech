@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4835,6 +4888,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnj2-loss-of-function-variant" data-dismech-node="KCNJ2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNJ2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A germline, usually heterozygous loss-of-function variant in KCNJ2 alters the Kir2.1 strong inward-rectifier potassium channel. Reported mechanisms include defective trafficking of the channel to the surface membrane, altered gating, misfolding, and weakened coupling to PIP2. This is the upstream trigger of the entire ATS phenotype, and it is the ATS-specific substitution into the generic channelopathy module trigger node.</div>
 
 
@@ -5016,6 +5070,7 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-kir2-1-tetramer-dysfunction" data-dismech-node="Dominant-Negative Kir2.1 Tetramer Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Kir2.1 Tetramer Dysfunction</div>
+
 
                 <div class="item-desc">Kir2.1 functions as a homotetramer, so mutant and wild-type subunits coassemble into mixed channels. A single mutant subunit can poison the tetramer, so current falls far below the 50% predicted by haploinsufficiency. This dominant-negative amplification explains both the autosomal dominant inheritance and the severity of the current deficit, and it is the single molecular lesion from which the three tissue-specific arms of the disease diverge.</div>
 
@@ -5242,6 +5297,7 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cardiac-inward-rectifier-current" data-dismech-node="Reduced Cardiac Inward Rectifier Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cardiac Inward Rectifier Current</div>
+
 
                 <div class="item-desc">Loss of Kir2.1 lowers the cardiac inward-rectifier current IK1. IK1 has two jobs in the ventricular myocyte: it clamps the phase-4 resting membrane potential near the potassium equilibrium potential, and its strong inward rectification means it supplies most of the repolarizing current in the terminal (phase 3) portion of the action potential while contributing almost nothing during the plateau. Reducing it therefore destabilizes the resting potential and prolongs terminal repolarization, which is registered on the surface electrocardiogram as a prolonged QU interval with prominent U waves rather than as marked QTc prolongation.</div>
 
@@ -5480,6 +5536,7 @@ This pathophysiological event involves dysregulated regulation of membrane poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-terminal-repolarization-and-triggered-activity" data-dismech-node="Delayed Terminal Repolarization and Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Terminal Repolarization and Triggered Activity</div>
 
+
                 <div class="item-desc">With IK1 reduced, the late phase-3 repolarizing brake is weakened and the resting potential is less firmly clamped, so residual depolarizing drive (including sodium-calcium exchanger current responding to cytosolic calcium) more readily reaches threshold. The result is delayed afterdepolarizations and triggered beats arising at rest, which is why ATS produces heavy resting ventricular ectopy rather than the exercise-restricted arrhythmia of catecholaminergic polymorphic ventricular tachycardia. This is the ATS-specific instance of the arrhythmogenic substrate node of the cardiac channelopathy module, and it is the pharmacological target of the variant-specific flecainide debate.</div>
 
 
@@ -5652,6 +5709,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bidirectional-and-polymorphic-ventricular-tachycardia" data-dismech-node="Bidirectional and Polymorphic Ventricular Tachycardia" data-dismech-type="pathophysiology">
                 <div class="item-name">Bidirectional and Polymorphic Ventricular Tachycardia</div>
+
 
                 <div class="item-desc">The characteristic sustained rhythm of ATS is bidirectional ventricular tachycardia, a form of polymorphic ventricular tachycardia in which the QRS axis alternates beat to beat. Frequent premature ventricular contractions, couplets, and bigeminy are the far more common everyday manifestation. Torsade de pointes is comparatively rare in ATS despite the LQT7 label.</div>
 
@@ -5836,6 +5894,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrhythmic-loss-of-cardiac-output" data-dismech-node="Arrhythmic Loss of Cardiac Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmic Loss of Cardiac Output</div>
 
+
                 <div class="item-desc">When a ventricular tachyarrhythmia is sustained or degenerates, cardiac output falls and cerebral perfusion is lost, producing syncope and, if the rhythm does not terminate, sudden cardiac death. Life-threatening events are far less common in ATS than the ectopic burden would suggest, but they do occur and are the reason for rhythm surveillance and, in selected patients, defibrillator implantation.</div>
 
 
@@ -5944,6 +6003,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-skeletal-muscle-inward-rectifier-current" data-dismech-node="Reduced Skeletal Muscle Inward Rectifier Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Skeletal Muscle Inward Rectifier Current</div>
+
 
                 <div class="item-desc">The second arm of the divergence. Kir2.1 is also the dominant inward-rectifier channel of the skeletal myofiber sarcolemma and transverse tubules, where it holds the resting membrane potential near the potassium equilibrium potential. Myotubes cultured from ATS patients lack the inwardly rectifying barium-sensitive current entirely, and their resting potential shifts in the depolarizing direction. Importantly, ATS myoblasts show no morphological, proliferative, or fusion defect, so the muscle phenotype is electrical rather than dystrophic.</div>
 
@@ -6151,6 +6211,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-sarcolemmal-depolarization-and-inexcitability" data-dismech-node="Paradoxical Sarcolemmal Depolarization and Inexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical Sarcolemmal Depolarization and Inexcitability</div>
+
 
                 <div class="item-desc">Normally, a fall or rise in extracellular potassium is buffered by the strong inward rectifier, which holds resting potential near the potassium equilibrium potential. With Kir2.1 lost, that buffering fails and the fiber depolarizes paradoxically during potassium shifts. Sustained depolarization inactivates the voltage-gated sodium channels and the fiber becomes electrically inexcitable despite being structurally intact, producing flaccid weakness that resolves as the potassium disturbance corrects. This is why attacks in ATS may be hypokalaemic, hyperkalaemic, or normokalaemic: the defect is the loss of buffering, not a fixed direction of potassium sensitivity.</div>
 
@@ -6365,6 +6426,7 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-bioelectric-craniofacial-patterning" data-dismech-node="Disrupted Bioelectric Craniofacial Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Bioelectric Craniofacial Patterning</div>
+
 
                 <div class="item-desc">The third arm of the divergence, and the least understood. Beyond its role in excitable tissue, Kir2.1-dependent potassium flux establishes a regionalized pattern of resting membrane potential across the anterior ectoderm during early neurulation. This voltage pattern acts as a morphogenetic instruction: in Xenopus, misexpressing human ATS-associated KCNJ2 variants disrupts the voltage map, derails ten craniofacial patterning genes including cranial neural crest and placode markers, and produces craniofacial anomalies in the same structures affected in humans. Critically, the effect is voltage-specific rather than channel-specific: unrelated ion translocators that change membrane voltage reproduce the anomalies, whereas electroneutral or inactive channels do not. The resulting malformations are developmental and fixed, unlike the episodic cardiac and muscular manifestations.</div>
 
@@ -6754,6 +6816,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6818,6 +6883,9 @@ This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6917,6 +6985,9 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6986,6 +7057,9 @@ This clinical feature is Prominent U wave (HP:0025072). HP:0025072 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7050,6 +7124,9 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7149,6 +7226,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7218,6 +7298,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7282,6 +7365,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7365,6 +7451,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7443,6 +7532,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7516,6 +7608,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">An earlier draft of this entry additionally asserted that micrognathia is a risk marker for life-threatening arrhythmic events in ATS. That claim was removed because no cited source supports it: the largest ATS1 outcome cohort (PMID:32299589, 118 patients from 57 families) identifies a history of syncope, documented sustained ventricular tachycardia, and amiodarone administration as the predictors of life-threatening arrhythmic events, and does not report any dysmorphic feature among them. Those evidenced predictors are recorded in the progression section instead.</div>
@@ -7617,6 +7712,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7695,6 +7793,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7759,6 +7860,9 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7842,6 +7946,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7906,6 +8013,9 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7989,6 +8099,9 @@ This clinical feature is Episodic flaccid weakness (HP:0003752). HP:0003752 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8053,6 +8166,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8152,6 +8268,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8227,6 +8346,9 @@ This clinical feature is Periodic paralysis (HP:0003768). HP:0003768 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8328,6 +8450,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8401,6 +8526,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8515,6 +8643,9 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8641,6 +8772,9 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8693,6 +8827,9 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8845,6 +8982,9 @@ This treatment uses potassium chloride (CHEBI:32588). CHEBI:32588 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8855,6 +8995,9 @@ This treatment uses potassium chloride (CHEBI:32588). CHEBI:32588 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -8990,6 +9133,9 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9000,6 +9146,9 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -9135,6 +9284,9 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9145,6 +9297,9 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9331,6 +9486,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9341,6 +9499,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
     </div>
+
+
+
 
 
 
@@ -9479,6 +9640,9 @@ This treatment is implantable cardioverter-defibrillator implantation, annotated
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9489,6 +9653,9 @@ This treatment is implantable cardioverter-defibrillator implantation, annotated
 
 
     </div>
+
+
+
 
 
 
@@ -9627,6 +9794,9 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9637,6 +9807,9 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
     </div>
+
+
+
 
 
 
@@ -9800,6 +9973,9 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9810,6 +9986,9 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
     </div>
+
+
+
 
 
 
@@ -13134,6 +13313,19 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Andersen-Tawil_Syndrome</strong> · 2026-08-01T00:53:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Andersen-Tawil_Syndrome/2026-08-01T005358Z-claude-code-0f6d9c.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new dismech Disease entry for Andersen-Tawil syndrome (MONDO:0008222), an autosomal dominant KCNJ2/Kir2.1 channelopathy. NEC preflight was run first (runoak MONDO:0008222 -O obo) and confirmed the causal gene KCNJ2 (HGNC:6263), OMIM:170390, and the LQT7 synonym before any deep-research content was used. Deep research was performed with falcon (Edison Scientific) via &#39;just research-disorder falcon&#39;; the report was treated as leads only. Every PMID was independently fetched with &#39;just fetch-reference&#39; and every one of the 73 evidence snippets was verified twice: once by &#39;just validate-references&#39; against the committed cache, and once by an independent script re-fetching each abstract live from the PubMed efetch API, to guard against false-green validation from transiently full-text-enriched cache files. The GeneReviews chapter (PMID:20301441) was fetched, tagged in the top-level references block, and its Clinical Characteristics and Agents/Circumstances to Avoid sections were cross-referenced into the phenotypes and treatments. The pathograph models the entry&#39;s distinguishing feature, the divergence of a single Kir2.1 lesion into three tissue compartments: reduced cardiac IK1 leading to delayed terminal repolarization, triggered activity and bidirectional ventricular tachycardia; reduced skeletal-muscle IK1 leading to paradoxical sarcolemmal depolarization, fiber inexcitability and periodic paralysis; and disrupted Kir2.1-dependent bioelectric patterning of the anterior ectoderm leading to the craniofacial and skeletal dysmorphism. Five pathophysiology nodes declare conforms_to against the cardiac_ion_channel_repolarization module across its whole chain, including the key target &#39;Arrhythmogenic Substrate and Triggered Activity&#39;. Two discussions were added: a HUMAN_MODEL_MISMATCH covering the Xenopus-only bioelectric craniofacial mechanism, and a KNOWLEDGE_GAP covering variant-specific flecainide proarrhythmia. Andersen-Tawil Syndrome was also added as a member of the Inherited_Arrhythmia_Syndromes grouping, which its own NECESSARY_AND_SUFFICIENT classifier had already flagged as a candidate. Validation: just validate, just validate-references (73/73), just validate-terms, scripts/check_folded_hyphens.py, just validate-grouping and just check-groupings all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

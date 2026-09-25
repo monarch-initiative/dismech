@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4375,6 +4428,13 @@ Two features of that cohort are worth recording. Expressivity is graded by genot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-functional-nsun3-methyltransferase" data-dismech-node="Loss of Functional NSun3 Methyltransferase" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Functional NSun3 Methyltransferase</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic NSUN3 variants abolish the mitochondrial-matrix m5C methyltransferase. In the founding case, two predicted loss-of-function alleles left no detectable full-length NSun3 on western blot of patient fibroblasts, and lentiviral re-expression of NSUN3 complementary DNA restored the downstream phenotypes - the rescue arm is what makes this a causal node rather than a correlation.</div>
 
 
@@ -4532,6 +4592,13 @@ This pathophysiological event involves mt-tRNA cytosine-5 methyltransferase acti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-m5c34-in-mitochondrial-trna-met" data-dismech-node="Loss of m5C34 in Mitochondrial tRNA-Met" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of m5C34 in Mitochondrial tRNA-Met</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">NSun3&#39;s physiological substrate is a single position: cytosine 34, the wobble base of the anticodon loop of mt-tRNA-Met (mtDNA position 4432). Bisulfite RNA sequencing of patient fibroblasts showed methylation there falling to background, while m5C at the other mitochondrial tRNA positions the method detected - in mt-tRNA-Leu(UUR), mt-tRNA-Ser(AGY), mt-tRNA-His, mt-tRNA-Glu and mt-tRNA-Phe - was unchanged. The same assay run on blood or fibroblast RNA from a later five-family cohort gave the same result in every affected individual, against a control range of 26 to 33 percent, and is now the functional assay used to call an NSUN3 variant pathogenic.</div>
 
 
@@ -4668,6 +4735,13 @@ This pathophysiological event involves decreased tRNA wobble base cytosine methy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-f5c34-at-the-wobble-position" data-dismech-node="Absence of f5C34 at the Wobble Position" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of f5C34 at the Wobble Position</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The mature modification at C34 is not m5C but 5-formylcytidine. m5C34 is the obligatory precursor: ALKBH1/ABH1, an alpha-ketoglutarate- and Fe(II)-dependent dioxygenase resident in mitochondria, oxidises it to f5C34. Losing the first step therefore removes the second. In wild-type fibroblasts roughly 36 to 38 percent of mt-tRNA-Met reads carried f5C34 by two independent chemistries; in the NSun3-null patient neither method detected any.
 Note what this node does and does not claim. The founding report established the precursor-product relationship in patient cells but explicitly left the responsible dioxygenase unidentified; ALKBH1 was named in a separate study published the same year, on the strength of in vitro oxidation assays and RNAi depletion, and it is that work rather than the patient report that the ALKBH1 evidence here comes from.</div>
@@ -4807,6 +4881,13 @@ This pathophysiological event involves decreased 5-formylcytidine formation at t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-wobble-decoding-by-the-single-mitochondrial-trna-met" data-dismech-node="Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">This is the step that makes COXPD48 a different kind of lesion from the rest of the combined-OXPHOS series. Human mitochondria carry one tRNA-Met, used for both initiation and elongation, and it must read the universal AUG plus the non-universal AUA codon - and, at initiation, AUU. The wobble modification is what expands that decoding range, so a modification defect degrades the reading of every methionine codon in every mtDNA-encoded message rather than disabling one subunit or one assembly step.
 Confidence is PROVISIONAL rather than ESTABLISHED because the in vitro ribosome-binding data are more textured than the summary claim. One study concluded from anticodon-stem-loop work that f5C34 is required to decipher AUA; the other, testing modification states directly on ribosomes with mitochondrial initiation and elongation factors, found that AUA was read with similar efficiencies by all mt-tRNA-Met variants and that the differences it could resolve lay mostly in AUG recognition. Both agree the modification state changes codon recognition; they do not agree on the size or the codon specificity of the effect, and no reconstituted mitochondrial translation system exists to settle it.</div>
 
@@ -4931,6 +5012,13 @@ Confidence is PROVISIONAL rather than ESTABLISHED because the in vitro ribosome-
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-mitochondrial-protein-synthesis" data-dismech-node="Deficient Mitochondrial Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Mitochondrial Protein Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Pulse labelling with radiolabelled methionine under cytoplasmic-translation blockade showed the mitochondrial de novo synthesis rate markedly reduced in the patient&#39;s fibroblasts and substantially restored by NSUN3 re-expression. Independent RNAi work found that synthesis of all mitochondrial proteins fell on NSUN3 depletion, which is the expected signature of a methionine-decoding defect rather than of a subunit-specific lesion.
 Two negative results matter as much as the positive one, because together they localise the defect. mt-tRNA steady-state levels and aminoacylation were unchanged, and mtDNA copy number was unchanged - so this is not a tRNA stability defect, not a charging defect, and not a biogenesis defect. Mitochondrial transcript levels actually rose, which the authors read as compensatory.</div>
@@ -5096,6 +5184,13 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-enzyme-deficiency" data-dismech-node="Combined Respiratory Chain Enzyme Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Enzyme Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Complexes I, III, IV and V each contain mtDNA-encoded subunits and are exposed to the translation defect; complex II is entirely nuclear-encoded and is not. The measured pattern fits that prediction, but not uniformly. In the five-family cohort, spectrophotometric assay of one individual&#39;s muscle gave a complex I activity of 0.078 against a normal range of 0.118 to 0.332 and a complex IV activity of 0.003 against 0.013 to 0.039, both normalised to citrate synthase; western blotting of another family&#39;s muscle and fibroblasts showed reduced COX II and NDUFB8 but not complex II, III or V. Complex IV is the most consistently affected across reports, and complex III and V changes were not detected in this cohort even though both carry mtDNA-encoded subunits.
 Functional respirometry agrees: patient fibroblasts show reduced basal oxygen consumption and ATP production, remain below control even when uncoupled with FCCP, and grow poorly when forced onto galactose. The founding case&#39;s oxygen consumption defect was reversed by NSUN3 re-expression.
@@ -5349,6 +5444,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-bioenergetic-failure-and-optic-nerve-degeneration" data-dismech-node="Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Optic nerve involvement is the one feature that runs through nearly the whole reported spectrum - 7 of 8 individuals in the largest cohort - and it is the reason NSUN3 was rediscovered through inherited-optic-neuropathy clinics rather than through metabolic ones. Optical coherence tomography shows peripapillary retinal nerve fibre layer and ganglion cell layer thinning, and pattern electroretinography shows a reduced N95:P50 ratio consistent with retinal ganglion cell dysfunction.
 The proposed reason for the tissue selectivity is generic to mitochondrial optic neuropathies rather than specific to NSUN3: retinal ganglion cells have long axons with unmyelinated prelaminar segments and a correspondingly high dependence on mitochondrial ATP. It is recorded here as the field&#39;s explanation, offered in the cited review&#39;s own hedged terms, and it has not been tested in NSUN3 tissue - which is why this node is PROVISIONAL while the upstream biochemistry is ESTABLISHED.</div>
 
@@ -5494,6 +5596,13 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-myopathy-of-skeletal-muscle" data-dismech-node="Mitochondrial Myopathy of Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Myopathy of Skeletal Muscle</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Skeletal muscle carries the biochemical lesion but shows a strikingly variable histological one, and the variability is itself worth recording: in the five-family cohort one individual&#39;s biopsy had numerous COX-negative fibres while another&#39;s had none, and no affected individual had ragged red fibres. Subsarcolemmal mitochondrial aggregates were present in three. Ultrastructurally, mitochondria were swollen and elongated, spanning a sarcomere rather than sitting in the I-band, some with reduced and linearised cristae.
 Read the COX-negative-fibre claim carefully. The relevant figure legend in that paper states that affected individuals from Families 1, 2 and 3 displayed COX-negative fibres, but the results and discussion sections both say that the Family 1 proband did not, and that the Family 2 biopsy showed none either. The per-individual text is the narrower and better-supported claim and is what is cited here.</div>
@@ -5682,7 +5791,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of f5C34 at the Wobble Position\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mature modification at C34 is not m5C but 5-formylcytidine. m5C34 is the obligatory precursor: ALKBH1/ABH1, an alpha-ketoglutarate- and Fe(II)-dependent dioxygenase resident in mitochondria, oxidises it to f5C34. Losing the first step therefore removes the second. In wild-type fibroblasts roughly 36 to 38 percent of mt-tRNA-Met reads carried f5C34 by two independent chemistries; in the NSun3-null patient neither method detected any.\\nNote what this node does and does not claim. The founding report established the precursor-product relationship in patient cells but explicitly left the responsible dioxygenase unidentified; ALKBH1 was named in a separate study published the same year, on the strength of in vitro oxidation assays and RNAi depletion, and it is that work rather than the patient report that the ALKBH1 evidence here comes from.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"5-formylcytidine formation at the mt-tRNA-Met wobble base\"], \"role\": \"effector\"}}, {\"id\": \"Blue-dot cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate blue-white lens opacities, reported in four of roughly eleven published individuals: the Family 1 proband and his youngest brother, and both affected members of Family 3. Recurrent rather than incidental, and the cohort authors specifically looked for another cause and did not find one.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coenzyme Q10 (Ubiquinone) Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Started in one individual on the basis of a measured secondary deficiency - muscle ubiquinone of 94 pmol/mg against a reference range of 140 to 850 - rather than empirically. No outcome from that supplementation is reported, so this records a rational indication for checking muscle ubiquinone in an NSUN3 patient having a biopsy, not a demonstrated benefit.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"coenzyme Q10\"]}}, {\"id\": \"Combined Respiratory Chain Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complexes I, III, IV and V each contain mtDNA-encoded subunits and are exposed to the translation defect; complex II is entirely nuclear-encoded and is not. The measured pattern fits that prediction, but not uniformly. In the five-family cohort, spectrophotometric assay of one individual\u0027s muscle gave a complex I activity of 0.078 against a normal range of 0.118 to 0.332 and a complex IV activity of 0.003 against 0.013 to 0.039, both normalised to citrate synthase; western blotting of another family\u0027s muscle and fibroblasts showed reduced COX II and NDUFB8 but not complex II, III or V. Complex IV is the most consistently affected across reports, and complex III and V changes were not detected in this cohort even though both carry mtDNA-encoded subunits.\\nFunctional respirometry agrees: patient fibroblasts show reduced basal oxygen consumption and ATP production, remain below control even when uncoupled with FCCP, and grow poorly when forced onto galactose. The founding case\u0027s oxygen consumption defect was reversed by NSUN3 re-expression.\\nConformance note: this node declares conformance to the mitochondrial dysfunction module\u0027s central bioenergetic node, and only in part. The module\u0027s node pairs decreased oxidative phosphorylation with increased reactive oxygen species; the decreased-OXPHOS arm is directly evidenced in these patients, whereas no NSUN3 report measures reactive oxygen species, so that arm is not asserted here. The module\u0027s upstream node - age-related mitochondrial damage and mtDNA mutation - does not apply to a primary nuclear modification defect, and mtDNA copy number is explicitly normal, which is why conformance is declared at this node alone.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"species\": \"Mouse\", \"genotype\": \"Cardiac-restricted Nsun3 conditional knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiac Nsun3 loss reduces respiratory complex enzyme activities without reducing the corresponding mitochondrial transcripts, reproducing the translation-level character of the human biochemical defect in a single organ.\"}]}}, {\"id\": \"Deficient Mitochondrial Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulse labelling with radiolabelled methionine under cytoplasmic-translation blockade showed the mitochondrial de novo synthesis rate markedly reduced in the patient\u0027s fibroblasts and substantially restored by NSUN3 re-expression. Independent RNAi work found that synthesis of all mitochondrial proteins fell on NSUN3 depletion, which is the expected signature of a methionine-decoding defect rather than of a subunit-specific lesion.\\nTwo negative results matter as much as the positive one, because together they localise the defect. mt-tRNA steady-state levels and aminoacylation were unchanged, and mtDNA copy number was unchanged - so this is not a tRNA stability defect, not a charging defect, and not a biogenesis defect. Mitochondrial transcript levels actually rose, which the authors read as compensatory.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrial translation\"], \"role\": \"effector\"}}, {\"id\": \"External ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000544\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized axonal sensorimotor neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy with both sensory and motor involvement, on neurological assessment of the Family 2 proband. Reported in the same sentence as the sensorineural hearing loss already curated here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007141\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is characteristic of the early-onset, severe end of the spectrum - the genotypes with biallelic loss-of-function or SAM-domain missense alleles - and is absent from the isolated-optic-atrophy cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional cardiac deletion sidesteps the embryonic lethality and gives the only in vivo model of adult NSUN3 loss. Nsun3HKO hearts show enlarged mitochondria with fragmented cristae and progressively reduced respiratory complex enzyme activities, worse in older animals, while the mitochondrial mRNAs encoding those subunits are not reduced - the same transcript-versus-activity dissociation seen in patient cells, and a signature of a translation-level rather than a transcription-level lesion.\\nThe cardiac phenotype itself is enhanced contraction with age-associated mild enlargement, which is not the same as the hypertrophic cardiomyopathy reported in one human patient. The model is linked to the respiratory chain node it actually measures, not to the human cardiac phenotype.\"}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported once, in an 18-year-old with concentric left ventricular hypertrophy up to 20 mm septal thickness and preserved ejection fraction, diagnosed at 15 years. The authors present it as a new feature of the disorder rather than an established one, and it rests on a single case, so it is curated here as a reported association and not as a characteristic feature. Cardiac abnormalities of a different kind - bicuspid aortic valve and atrial septal defect - were reported in one individual in the earlier cohort; those are structural malformations, not a cardiomyopathy, and are not merged into this phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"One individual with a subacute LHON-like presentation received oral idebenone and recovered to 6/6 in both eyes within four months. That is a striking number, and it is why idebenone is worth recording here - but the same report makes clear it cannot be read as a treatment effect. Visual acuity in that individual had already begun improving spontaneously twelve months before idebenone was started, reaching 6/12 on its own; spontaneous recovery is well documented in childhood-onset LHON; and the authors say explicitly that they cannot separate genotype from treatment. This is curated as an uncontrolled single-patient observation, not as evidence of efficacy in COXPD48.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the step that makes COXPD48 a different kind of lesion from the rest of the combined-OXPHOS series. Human mitochondria carry one tRNA-Met, used for both initiation and elongation, and it must read the universal AUG plus the non-universal AUA codon - and, at initiation, AUU. The wobble modification is what expands that decoding range, so a modification defect degrades the reading of every methionine codon in every mtDNA-encoded message rather than disabling one subunit or one assembly step.\\nConfidence is PROVISIONAL rather than ESTABLISHED because the in vitro ribosome-binding data are more textured than the summary claim. One study concluded from anticodon-stem-loop work that f5C34 is required to decipher AUA; the other, testing modification states directly on ribosomes with mitochondrial initiation and elongation factors, found that AUA was read with similar efficiencies by all mt-tRNA-Met variants and that the differences it could resolve lay mostly in AUG recognition. Both agree the modification state changes codon recognition; they do not agree on the size or the codon specificity of the effect, and no reconstituted mitochondrial translation system exists to settle it.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\"}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised plasma lactate is the biochemical clue that prompts mitochondrial workup in the severe cases, and it was moderately elevated lactate that led to the muscle biopsy in the founding patient. It is not a reliable marker at the mild end: two affected members of one family with optic atrophy had normal lactate, so a normal value does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002151\"}}, {\"id\": \"Loss of Functional NSun3 Methyltransferase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic NSUN3 variants abolish the mitochondrial-matrix m5C methyltransferase. In the founding case, two predicted loss-of-function alleles left no detectable full-length NSun3 on western blot of patient fibroblasts, and lentiviral re-expression of NSUN3 complementary DNA restored the downstream phenotypes - the rescue arm is what makes this a causal node rather than a correlation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"mt-tRNA cytosine-5 methyltransferase activity\"], \"role\": \"trigger\", \"animal_models\": [{\"name\": \"Whole-body Nsun3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nsun3 constitutive knockout (homozygous null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete Nsun3 loss in the mouse produces mid-gestation lethality, whereas humans homozygous or compound heterozygous for predicted null alleles are liveborn and reach at least infancy.\"}]}}, {\"id\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSun3\u0027s physiological substrate is a single position: cytosine 34, the wobble base of the anticodon loop of mt-tRNA-Met (mtDNA position 4432). Bisulfite RNA sequencing of patient fibroblasts showed methylation there falling to background, while m5C at the other mitochondrial tRNA positions the method detected - in mt-tRNA-Leu(UUR), mt-tRNA-Ser(AGY), mt-tRNA-His, mt-tRNA-Glu and mt-tRNA-Phe - was unchanged. The same assay run on blood or fibroblast RNA from a later five-family cohort gave the same result in every affected individual, against a control range of 26 to 33 percent, and is now the functional assay used to call an NSUN3 variant pathogenic.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA wobble base cytosine methylation\"], \"role\": \"effector\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle carries the biochemical lesion but shows a strikingly variable histological one, and the variability is itself worth recording: in the five-family cohort one individual\u0027s biopsy had numerous COX-negative fibres while another\u0027s had none, and no affected individual had ragged red fibres. Subsarcolemmal mitochondrial aggregates were present in three. Ultrastructurally, mitochondria were swollen and elongated, spanning a sarcomere rather than sitting in the I-band, some with reduced and linearised cristae.\\nRead the COX-negative-fibre claim carefully. The relevant figure legend in that paper states that affected individuals from Families 1, 2 and 3 displayed COX-negative fibres, but the results and discussion sections both say that the Family 1 proband did not, and that the Family 2 biopsy showed none either. The per-individual text is the narrower and better-supported claim and is what is cited here.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle fiber\"], \"role\": \"effector\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in two unrelated individuals with different character - convergence nystagmus in the index case and rotatory nystagmus in both eyes in the 2024 optic-neuropathy report - so the general term is the honest binding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral optic atrophy is the most consistent feature of NSUN3-related disease and, at the mild end of the spectrum, may be the only one. It was present in 7 of 8 individuals in the largest cohort, and two independent reports arrived at NSUN3 from unsolved inherited-optic-neuropathy cohorts rather than from metabolic workup.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual loss is the presenting symptom in the milder cases, either slowly progressive or as a subacute LHON-like episode. Acuity is not a simple function of optic atrophy here: several individuals retained good acuity despite established atrophy, and one recovered from 6/120 to 6/6.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic nerve involvement is the one feature that runs through nearly the whole reported spectrum - 7 of 8 individuals in the largest cohort - and it is the reason NSUN3 was rediscovered through inherited-optic-neuropathy clinics rather than through metabolic ones. Optical coherence tomography shows peripapillary retinal nerve fibre layer and ganglion cell layer thinning, and pattern electroretinography shows a reduced N95:P50 ratio consistent with retinal ganglion cell dysfunction.\\nThe proposed reason for the tissue selectivity is generic to mitochondrial optic neuropathies rather than specific to NSUN3: retinal ganglion cells have long axons with unmyelinated prelaminar segments and a correspondingly high dependence on mitochondrial ATP. It is recorded here as the field\u0027s explanation, offered in the cited review\u0027s own hedged terms, and it has not been tested in NSUN3 tissue - which is why this node is PROVISIONAL while the upstream biochemistry is ESTABLISHED.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"effector\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is reported as mild where it occurs, in several individuals across two families, and in one family it was still under investigation at the time of publication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Whole-body Nsun3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Nsun3 deletion is embryonic lethal in the mouse: knockout embryos are alive with heartbeats at E10.5, somewhat smaller than wild-type, and dead by E12.5. This is a sharper phenotype than any human genotype produces - the founding patient carried two predicted null alleles and survived infancy - so the model bounds what the gene is required for rather than reproducing the disease.\"}], \"edges\": [{\"source\": \"Loss of Functional NSun3 Methyltransferase\", \"target\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"target\": \"Absence of f5C34 at the Wobble Position\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of f5C34 at the Wobble Position\", \"target\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"target\": \"Deficient Mitochondrial Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Mitochondrial Protein Synthesis\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Blue-dot cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Generalized axonal sensorimotor neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"target\": \"External ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone\", \"target\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Coenzyme Q10 (Ubiquinone) Supplementation\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-body Nsun3 knockout mouse\", \"target\": \"Loss of Functional NSun3 Methyltransferase\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete Nsun3 loss in the mouse produces mid-gestation lethality, whereas humans homozygous or compound heterozygous for predicted null alleles are liveborn and reach at least infancy.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The species divergence is the finding, not an artefact to be discounted: the model cannot be used to study postnatal NSUN3 disease at all, and any inference from it about human developmental requirements for NSUN3 has to cross that lethality gap. Human null-allele individuals are viable, so the mouse null is not a model of the human null state.\"}, {\"source\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cardiac Nsun3 loss reduces respiratory complex enzyme activities without reducing the corresponding mitochondrial transcripts, reproducing the translation-level character of the human biochemical defect in a single organ.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Restricted to heart, so it says nothing about the optic nerve, which is the most consistently affected human tissue. The deficit is age-progressive in the mouse whereas the severe human phenotype is present in infancy, and the mouse cardiac phenotype (enhanced contraction, mild enlargement) is not the hypertrophic cardiomyopathy reported once in humans.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of f5C34 at the Wobble Position\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mature modification at C34 is not m5C but 5-formylcytidine. m5C34 is the obligatory precursor: ALKBH1/ABH1, an alpha-ketoglutarate- and Fe(II)-dependent dioxygenase resident in mitochondria, oxidises it to f5C34. Losing the first step therefore removes the second. In wild-type fibroblasts roughly 36 to 38 percent of mt-tRNA-Met reads carried f5C34 by two independent chemistries; in the NSun3-null patient neither method detected any.\\nNote what this node does and does not claim. The founding report established the precursor-product relationship in patient cells but explicitly left the responsible dioxygenase unidentified; ALKBH1 was named in a separate study published the same year, on the strength of in vitro oxidation assays and RNAi depletion, and it is that work rather than the patient report that the ALKBH1 evidence here comes from.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"5-formylcytidine formation at the mt-tRNA-Met wobble base\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Blue-dot cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate blue-white lens opacities, reported in four of roughly eleven published individuals: the Family 1 proband and his youngest brother, and both affected members of Family 3. Recurrent rather than incidental, and the cohort authors specifically looked for another cause and did not find one.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coenzyme Q10 (Ubiquinone) Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Started in one individual on the basis of a measured secondary deficiency - muscle ubiquinone of 94 pmol/mg against a reference range of 140 to 850 - rather than empirically. No outcome from that supplementation is reported, so this records a rational indication for checking muscle ubiquinone in an NSUN3 patient having a biopsy, not a demonstrated benefit.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"coenzyme Q10\"]}}, {\"id\": \"Combined Respiratory Chain Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complexes I, III, IV and V each contain mtDNA-encoded subunits and are exposed to the translation defect; complex II is entirely nuclear-encoded and is not. The measured pattern fits that prediction, but not uniformly. In the five-family cohort, spectrophotometric assay of one individual\u0027s muscle gave a complex I activity of 0.078 against a normal range of 0.118 to 0.332 and a complex IV activity of 0.003 against 0.013 to 0.039, both normalised to citrate synthase; western blotting of another family\u0027s muscle and fibroblasts showed reduced COX II and NDUFB8 but not complex II, III or V. Complex IV is the most consistently affected across reports, and complex III and V changes were not detected in this cohort even though both carry mtDNA-encoded subunits.\\nFunctional respirometry agrees: patient fibroblasts show reduced basal oxygen consumption and ATP production, remain below control even when uncoupled with FCCP, and grow poorly when forced onto galactose. The founding case\u0027s oxygen consumption defect was reversed by NSUN3 re-expression.\\nConformance note: this node declares conformance to the mitochondrial dysfunction module\u0027s central bioenergetic node, and only in part. The module\u0027s node pairs decreased oxidative phosphorylation with increased reactive oxygen species; the decreased-OXPHOS arm is directly evidenced in these patients, whereas no NSUN3 report measures reactive oxygen species, so that arm is not asserted here. The module\u0027s upstream node - age-related mitochondrial damage and mtDNA mutation - does not apply to a primary nuclear modification defect, and mtDNA copy number is explicitly normal, which is why conformance is declared at this node alone.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"species\": \"Mouse\", \"genotype\": \"Cardiac-restricted Nsun3 conditional knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiac Nsun3 loss reduces respiratory complex enzyme activities without reducing the corresponding mitochondrial transcripts, reproducing the translation-level character of the human biochemical defect in a single organ.\"}]}}, {\"id\": \"Deficient Mitochondrial Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulse labelling with radiolabelled methionine under cytoplasmic-translation blockade showed the mitochondrial de novo synthesis rate markedly reduced in the patient\u0027s fibroblasts and substantially restored by NSUN3 re-expression. Independent RNAi work found that synthesis of all mitochondrial proteins fell on NSUN3 depletion, which is the expected signature of a methionine-decoding defect rather than of a subunit-specific lesion.\\nTwo negative results matter as much as the positive one, because together they localise the defect. mt-tRNA steady-state levels and aminoacylation were unchanged, and mtDNA copy number was unchanged - so this is not a tRNA stability defect, not a charging defect, and not a biogenesis defect. Mitochondrial transcript levels actually rose, which the authors read as compensatory.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrial translation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"External ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000544\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized axonal sensorimotor neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy with both sensory and motor involvement, on neurological assessment of the Family 2 proband. Reported in the same sentence as the sensorineural hearing loss already curated here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007141\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is characteristic of the early-onset, severe end of the spectrum - the genotypes with biallelic loss-of-function or SAM-domain missense alleles - and is absent from the isolated-optic-atrophy cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional cardiac deletion sidesteps the embryonic lethality and gives the only in vivo model of adult NSUN3 loss. Nsun3HKO hearts show enlarged mitochondria with fragmented cristae and progressively reduced respiratory complex enzyme activities, worse in older animals, while the mitochondrial mRNAs encoding those subunits are not reduced - the same transcript-versus-activity dissociation seen in patient cells, and a signature of a translation-level rather than a transcription-level lesion.\\nThe cardiac phenotype itself is enhanced contraction with age-associated mild enlargement, which is not the same as the hypertrophic cardiomyopathy reported in one human patient. The model is linked to the respiratory chain node it actually measures, not to the human cardiac phenotype.\"}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported once, in an 18-year-old with concentric left ventricular hypertrophy up to 20 mm septal thickness and preserved ejection fraction, diagnosed at 15 years. The authors present it as a new feature of the disorder rather than an established one, and it rests on a single case, so it is curated here as a reported association and not as a characteristic feature. Cardiac abnormalities of a different kind - bicuspid aortic valve and atrial septal defect - were reported in one individual in the earlier cohort; those are structural malformations, not a cardiomyopathy, and are not merged into this phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"One individual with a subacute LHON-like presentation received oral idebenone and recovered to 6/6 in both eyes within four months. That is a striking number, and it is why idebenone is worth recording here - but the same report makes clear it cannot be read as a treatment effect. Visual acuity in that individual had already begun improving spontaneously twelve months before idebenone was started, reaching 6/12 on its own; spontaneous recovery is well documented in childhood-onset LHON; and the authors say explicitly that they cannot separate genotype from treatment. This is curated as an uncontrolled single-patient observation, not as evidence of efficacy in COXPD48.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the step that makes COXPD48 a different kind of lesion from the rest of the combined-OXPHOS series. Human mitochondria carry one tRNA-Met, used for both initiation and elongation, and it must read the universal AUG plus the non-universal AUA codon - and, at initiation, AUU. The wobble modification is what expands that decoding range, so a modification defect degrades the reading of every methionine codon in every mtDNA-encoded message rather than disabling one subunit or one assembly step.\\nConfidence is PROVISIONAL rather than ESTABLISHED because the in vitro ribosome-binding data are more textured than the summary claim. One study concluded from anticodon-stem-loop work that f5C34 is required to decipher AUA; the other, testing modification states directly on ribosomes with mitochondrial initiation and elongation factors, found that AUA was read with similar efficiencies by all mt-tRNA-Met variants and that the differences it could resolve lay mostly in AUG recognition. Both agree the modification state changes codon recognition; they do not agree on the size or the codon specificity of the effect, and no reconstituted mitochondrial translation system exists to settle it.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised plasma lactate is the biochemical clue that prompts mitochondrial workup in the severe cases, and it was moderately elevated lactate that led to the muscle biopsy in the founding patient. It is not a reliable marker at the mild end: two affected members of one family with optic atrophy had normal lactate, so a normal value does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002151\"}}, {\"id\": \"Loss of Functional NSun3 Methyltransferase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic NSUN3 variants abolish the mitochondrial-matrix m5C methyltransferase. In the founding case, two predicted loss-of-function alleles left no detectable full-length NSun3 on western blot of patient fibroblasts, and lentiviral re-expression of NSUN3 complementary DNA restored the downstream phenotypes - the rescue arm is what makes this a causal node rather than a correlation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"mt-tRNA cytosine-5 methyltransferase activity\"], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Whole-body Nsun3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nsun3 constitutive knockout (homozygous null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete Nsun3 loss in the mouse produces mid-gestation lethality, whereas humans homozygous or compound heterozygous for predicted null alleles are liveborn and reach at least infancy.\"}]}}, {\"id\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSun3\u0027s physiological substrate is a single position: cytosine 34, the wobble base of the anticodon loop of mt-tRNA-Met (mtDNA position 4432). Bisulfite RNA sequencing of patient fibroblasts showed methylation there falling to background, while m5C at the other mitochondrial tRNA positions the method detected - in mt-tRNA-Leu(UUR), mt-tRNA-Ser(AGY), mt-tRNA-His, mt-tRNA-Glu and mt-tRNA-Phe - was unchanged. The same assay run on blood or fibroblast RNA from a later five-family cohort gave the same result in every affected individual, against a control range of 26 to 33 percent, and is now the functional assay used to call an NSUN3 variant pathogenic.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA wobble base cytosine methylation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle carries the biochemical lesion but shows a strikingly variable histological one, and the variability is itself worth recording: in the five-family cohort one individual\u0027s biopsy had numerous COX-negative fibres while another\u0027s had none, and no affected individual had ragged red fibres. Subsarcolemmal mitochondrial aggregates were present in three. Ultrastructurally, mitochondria were swollen and elongated, spanning a sarcomere rather than sitting in the I-band, some with reduced and linearised cristae.\\nRead the COX-negative-fibre claim carefully. The relevant figure legend in that paper states that affected individuals from Families 1, 2 and 3 displayed COX-negative fibres, but the results and discussion sections both say that the Family 1 proband did not, and that the Family 2 biopsy showed none either. The per-individual text is the narrower and better-supported claim and is what is cited here.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle fiber\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in two unrelated individuals with different character - convergence nystagmus in the index case and rotatory nystagmus in both eyes in the 2024 optic-neuropathy report - so the general term is the honest binding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral optic atrophy is the most consistent feature of NSUN3-related disease and, at the mild end of the spectrum, may be the only one. It was present in 7 of 8 individuals in the largest cohort, and two independent reports arrived at NSUN3 from unsolved inherited-optic-neuropathy cohorts rather than from metabolic workup.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual loss is the presenting symptom in the milder cases, either slowly progressive or as a subacute LHON-like episode. Acuity is not a simple function of optic atrophy here: several individuals retained good acuity despite established atrophy, and one recovered from 6/120 to 6/6.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic nerve involvement is the one feature that runs through nearly the whole reported spectrum - 7 of 8 individuals in the largest cohort - and it is the reason NSUN3 was rediscovered through inherited-optic-neuropathy clinics rather than through metabolic ones. Optical coherence tomography shows peripapillary retinal nerve fibre layer and ganglion cell layer thinning, and pattern electroretinography shows a reduced N95:P50 ratio consistent with retinal ganglion cell dysfunction.\\nThe proposed reason for the tissue selectivity is generic to mitochondrial optic neuropathies rather than specific to NSUN3: retinal ganglion cells have long axons with unmyelinated prelaminar segments and a correspondingly high dependence on mitochondrial ATP. It is recorded here as the field\u0027s explanation, offered in the cited review\u0027s own hedged terms, and it has not been tested in NSUN3 tissue - which is why this node is PROVISIONAL while the upstream biochemistry is ESTABLISHED.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is reported as mild where it occurs, in several individuals across two families, and in one family it was still under investigation at the time of publication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Whole-body Nsun3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Nsun3 deletion is embryonic lethal in the mouse: knockout embryos are alive with heartbeats at E10.5, somewhat smaller than wild-type, and dead by E12.5. This is a sharper phenotype than any human genotype produces - the founding patient carried two predicted null alleles and survived infancy - so the model bounds what the gene is required for rather than reproducing the disease.\"}], \"edges\": [{\"source\": \"Loss of Functional NSun3 Methyltransferase\", \"target\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of m5C34 in Mitochondrial tRNA-Met\", \"target\": \"Absence of f5C34 at the Wobble Position\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of f5C34 at the Wobble Position\", \"target\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met\", \"target\": \"Deficient Mitochondrial Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Mitochondrial Protein Synthesis\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Blue-dot cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Generalized axonal sensorimotor neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined Respiratory Chain Enzyme Deficiency\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Myopathy of Skeletal Muscle\", \"target\": \"External ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone\", \"target\": \"Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Coenzyme Q10 (Ubiquinone) Supplementation\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-body Nsun3 knockout mouse\", \"target\": \"Loss of Functional NSun3 Methyltransferase\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete Nsun3 loss in the mouse produces mid-gestation lethality, whereas humans homozygous or compound heterozygous for predicted null alleles are liveborn and reach at least infancy.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The species divergence is the finding, not an artefact to be discounted: the model cannot be used to study postnatal NSUN3 disease at all, and any inference from it about human developmental requirements for NSUN3 has to cross that lethality gap. Human null-allele individuals are viable, so the mouse null is not a model of the human null state.\"}, {\"source\": \"Heart-specific Nsun3 knockout mouse (Nsun3HKO)\", \"target\": \"Combined Respiratory Chain Enzyme Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cardiac Nsun3 loss reduces respiratory complex enzyme activities without reducing the corresponding mitochondrial transcripts, reproducing the translation-level character of the human biochemical defect in a single organ.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Restricted to heart, so it says nothing about the optic nerve, which is the most consistently affected human tissue. The deficit is age-progressive in the mouse whereas the severe human phenotype is present in infancy, and the mouse cardiac phenotype (enhanced contraction, mild enlargement) is not the hypertrophic cardiomyopathy reported once in humans.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5751,6 +5860,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5877,6 +5989,9 @@ This clinical feature is Mild sensorineural hearing loss, annotated with Sensori
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5950,6 +6065,9 @@ This clinical feature is Blue-dot cataract, annotated with Cataract (HP:0000518)
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to HP:0000518 Cataract with the specificity in preferred_term. HP:0007976 Cerulean cataract is the term whose definition matches the colloquial name most closely, but that definition asserts congenital onset and concentric peripheral layering, none of which these sources state, so binding it would manufacture detail. HP:0007648 Punctate cataract is a defensible alternative.</div>
@@ -6078,6 +6196,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6190,6 +6311,9 @@ This clinical feature is Bilateral optic atrophy, annotated with Optic atrophy (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6284,6 +6408,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6348,6 +6475,9 @@ This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6431,6 +6561,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6504,6 +6637,9 @@ This clinical feature is Increased plasma lactate, annotated with Increased circ
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6612,6 +6748,9 @@ This clinical feature is Muscular hypotonia, annotated with Generalized hypotoni
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6706,6 +6845,9 @@ This clinical feature is Proximally accentuated muscle weakness, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6781,6 +6923,9 @@ This clinical feature is Generalized axonal sensorimotor neuropathy, annotated w
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO has no term combining the axonal and sensorimotor characters, so this is a real choice between them. HP:0007141 Sensorimotor neuropathy is bound because sensorimotor is the distinction the source draws; HP:0003477 Peripheral axonal neuropathy is the defensible alternative, capturing the axonal character instead. HP:0007002 Motor axonal neuropathy, offered by the deep-research report, is wrong on its face - the source says sensorimotor. The full description is carried in preferred_term either way.</div>
 
 
@@ -6850,6 +6995,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6944,6 +7092,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7047,6 +7198,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7167,6 +7321,9 @@ This disease-associated gene is NSUN3 (hgnc:26208). hgnc:26208 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7258,6 +7415,9 @@ This disease-associated gene is ALKBH1 (hgnc:17911). hgnc:17911 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7387,6 +7547,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7397,6 +7560,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7513,6 +7679,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7523,6 +7692,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7744,6 +7916,9 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7754,6 +7929,9 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7903,6 +8081,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7913,6 +8094,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -11107,6 +11291,57 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 2: curate the three missing phenotypes and take all three suggestions</strong> · 2026-09-08T17:13:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Oxidative_Phosphorylation_Deficiency_48/2026-09-08T171340Z-claude-code-76dd70.yaml">View source</a></p>
+                        <p class="research-review-text">Answers the blocking phenotype-coverage finding and all three blue-tier suggestions in one push.
+
+BLOCKING - three recurrent phenotypes were documented in the cached sources and already quoted inside this file, but not curated. All three are now curated and wired into the pathograph so the entry does not regain floating nodes.
+
+Blue-dot cataract, HP:0000518 Cataract with the specificity in preferred_term. Four of roughly eleven published individuals across two unrelated families. HP:0007976 Cerulean cataract is the term whose definition most closely matches the colloquial name, and it is deliberately NOT used: that definition asserts congenital onset and concentric peripheral layering, neither of which the sources state, so binding it would manufacture detail. Three evidence items, including the authors&#39; negative cataract-panel result graded INDIRECT - it shows they looked for a separate cause and found none, which is why the finding is curated here rather than treated as an unrelated comorbidity, but it does not demonstrate NSUN3 causation.
+
+Nystagmus, HP:0000639. Two unrelated individuals with different character (convergence in the index case, rotatory bilateral in the 2024 report), so the general term is the honest binding rather than a character-specific child.
+
+Generalized axonal sensorimotor neuropathy, HP:0007141 Sensorimotor neuropathy. HPO has no term combining the axonal and sensorimotor characters - a real choice between them, recorded in the phenotype notes. HP:0007141 is bound because sensorimotor is the distinction the source draws; HP:0003477 Peripheral axonal neuropathy is the defensible alternative. The deep-research report&#39;s HP:0007002 Motor axonal neuropathy is wrong on its face, since the source says sensorimotor, and is not used. Every CURIE was resolved against ols:hp before binding rather than taken from the review.
+
+Pathograph wiring for the three: cataract and neuropathy from Combined Respiratory Chain Enzyme Deficiency, nystagmus from the optic-nerve node it is reported alongside. All INDIRECT_UNKNOWN_INTERMEDIATES with directness INDIRECT, matching the style established in the previous commit. The cataract edge explanation says plainly that the lens is avascular and glycolysis-dependent, so the route from a respiratory chain defect to lens opacity is not obvious and the source proposes none; it is recorded as an unexplained association rather than a demonstrated step. The nystagmus edge says the sources do not settle whether it is sensory, secondary to early visual loss, or independent brainstem or cerebellar involvement.
+
+SUGGESTION 1 - target_mechanisms added to both drug treatments, which were the last disconnected section. Idebenone links to the optic-nerve node with treatment_effect BYPASSES, its defining pharmacology (short-chain quinone carrying electrons to complex III, bypassing complex I). CoQ10 links to the respiratory chain node with RESTORES, replacing a measured secondary deficiency. Both evidence items are INDIRECT and both descriptions state that the link records the indication, not an outcome: the idebenone individual had begun recovering spontaneously twelve months before treatment, which this entry already carries as a REFUTE item, and no outcome of the CoQ10 supplementation is reported.
+
+SUGGESTION 2 - GO:0002097 tRNA wobble base modification removed from node 4. The node&#39;s claim is about decoding; modification is already carried by nodes 2 and 3, so the binding restated the upstream claim rather than describing this node. GO has no clean wobble-decoding term, so biological_processes is omitted rather than a misleading term bound, per the terms contract.
+
+SUGGESTION 3 - therapeutic_modality on Supportive and Multidisciplinary Care changed BEHAVIORAL to OTHER. That treatment bundles anticonvulsants, nutritional support and multi-organ surveillance, which BEHAVIORAL is narrower than. Genetic Counseling keeps BEHAVIORAL, the majority convention.
+
+Validation: just validate-disorders passes, 87/87 snippets verified, up from 76/76. All 15 phenotypes have an incoming edge. check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms clean. Zero snippets carrying two evidence_source values. No new references fetched and no new ontology terms outside the three verified HPO bindings.
+
+Process note: the round-1 review posted at 13:29 UTC and I did not see it until 17:10, because at two intervening check-ins I fetched check runs but not reviews for this PR. A comment I posted at 16:15 claimed the review had not run. That was wrong and is corrected on the PR.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: combined oxidative phosphorylation deficiency 48 (COXPD48, NSUN3)</strong> · 2026-09-08T08:16:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Oxidative_Phosphorylation_Deficiency_48/2026-09-08T081635Z-claude-code-5508fd.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of COXPD48 (MONDO:0033566, OMIM:619012, hgnc:26208 NSUN3) as a standalone Disease entry. Preflight re-derived against origin/main at ec5a66d1e3: MONDO:0033566 bound in zero files under kb/, hgnc:26208 absent, NSUN3 appearing only as a row in an unrelated Wilson disease Biomni gene-results TSV, no open PR. OMIM 619012 confirmed independently three ways (MONDO xref, literature, DR preflight).
+
+The curation is built around the mechanistic point that distinguishes this entity from the rest of the combined-OXPHOS series: NSUN3 is neither a respiratory chain subunit nor an assembly factor but an mt-tRNA wobble methyltransferase, so the lesion is a translation-level modification defect upstream of all thirteen mtDNA-encoded proteins. The pathophysiology chain is eight nodes, four of them molecular (enzyme loss, loss of m5C34, absence of f5C34, impaired wobble decoding) before reaching translation, combined respiratory chain deficiency, and the retinal ganglion cell and skeletal muscle tissue nodes.
+
+Sources: Van Haute 2016 Nat Commun (PMID:27356879, founding case), Jurkute 2025 IOVS (PMID:40465263, eight individuals from five families, the largest cohort), Paramasivam 2020 J Mol Neurosci (PMID:32488845), a 2024 Genes optic neuropathy case (PMID:38790159), a 2026 hypertrophic cardiomyopathy case report (PMID:41725275), mechanism work from Haag 2016 EMBO J (PMID:27497299) and Nakano 2016 Nat Chem Biol (PMID:27214402), and the Nsun3 mouse knockout study (PMID:36949224).
+
+Deep research was run with the claude_code provider; its report resolved 11/11 references but offered UBERON:0001780 named &#39;Optic nerve&#39; when UBERON calls it spinal nerve, and an obsolete CHEBI:5991 named &#39;Idebenone&#39;. Neither was used; every term in this entry was verified independently with runoak against the local builds, and NCIT diagnosis terms were additionally checked for reachability from NCIT:C25218.
+
+Evidence discipline: 68 evidence items, all snippets extracted programmatically and confirmed as exact substrings of the cached references before validation; several were trimmed to avoid non-breaking spaces and non-breaking hyphens introduced by full-text extraction. Two REFUTE items are curated deliberately - a family with normal lactate against the raised-lactate phenotype, and the documented spontaneous visual recovery preceding idebenone against attributing that recovery to the drug. Sideroblastic anemia was deliberately not curated because the cohort authors attribute it to a separate heme-synthesis gene variant in the same patient. Where the cohort paper&#39;s figure legend and its per-individual text disagree about COX-negative fibers, the narrower per-individual text is quoted.
+
+Module conformance: one node conforms to mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress, and only partly - the module&#39;s reactive oxygen species arm is not evidenced in any NSUN3 report and is not asserted, and the module&#39;s age-related mtDNA damage node does not apply to a primary nuclear modification defect. Conformance to complex_iv_assembly_deficiency was considered and declined because that module scopes itself to subunit, assembly, copper and heme A defects. Grouping membership: no existing grouping fits; the Mitochondrial_Complex_IV_Deficiency grouping is anchored to an isolated rather than a combined deficiency, and no mitochondrial-translation grouping exists. Recorded in notes with the reasoning rather than left open.
+
+Validation run to completion: just validate (68/68 snippets verified, term validation passed), validate-terms, count-verified-snippets, check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-snippet-length, check-title-snippets, check-snippet-grading, check-folded-hyphens, check-source-defect-claims, and validate-disorders. The curation stub was deleted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

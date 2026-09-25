@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5509,6 +5562,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-itm2b-danish-duplication-and-mutant-precursor-extension" data-dismech-node="ITM2B Danish Duplication and Mutant Precursor Extension" data-dismech-type="pathophysiology">
                 <div class="item-name">ITM2B Danish Duplication and Mutant Precursor Extension</div>
 
+
                 <div class="item-desc">The germline Danish 10-nucleotide duplication near the ITM2B stop codon causes a frameshift and C-terminal extension of mutant BRI2. It is the common upstream lesion for the ADan-gain and mature-BRI2-loss branches.</div>
 
 
@@ -5706,6 +5760,7 @@ This pathophysiological event involves ITM2B (hgnc:6174). hgnc:6174 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amyloidogenic-adan-precursor-peptide" data-dismech-node="Amyloidogenic ADan Precursor Peptide" data-dismech-type="pathophysiology">
                 <div class="item-name">Amyloidogenic ADan Precursor Peptide</div>
 
+
                 <div class="item-desc">Convertase cleavage of the extended mutant BRI2 precursor produces the 34-residue ADan peptide, whose C-terminal extension completes an otherwise incomplete amyloid-forming motif.</div>
 
 
@@ -5842,6 +5897,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adan-misfolding-and-beta-sheet-oligomerization" data-dismech-node="ADan Misfolding and Beta-Sheet Oligomerization" data-dismech-type="pathophysiology">
                 <div class="item-name">ADan Misfolding and Beta-Sheet Oligomerization</div>
 
+
                 <div class="item-desc">ADan self-assembles through an amyloidogenic C-terminal core. This node captures the molecular commitment to aggregation without equating soluble or prefibrillar species with established tissue deposits.</div>
 
 
@@ -5977,6 +6033,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adan-fibril-formation-and-extracellular-deposition" data-dismech-node="ADan Fibril Formation and Extracellular Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">ADan Fibril Formation and Extracellular Deposition</div>
+
 
                 <div class="item-desc">ADan aggregates form vascular amyloid and parenchymal deposits. Human FDD parenchyma contains predominantly pre-amyloid lesions, so the node does not imply that every parenchymal deposit is a mature fibril.</div>
 
@@ -6135,6 +6192,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-adan-amyloid-accumulation" data-dismech-node="Progressive Cerebral ADan Amyloid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral ADan Amyloid Accumulation</div>
 
+
                 <div class="item-desc">ADan accumulates in leptomeninges, vessel walls, and brain parenchyma. This node is ADan-specific and excludes the separately represented Aβ co-deposition.</div>
 
 
@@ -6280,6 +6338,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adan-containing-cerebral-amyloid-angiopathy" data-dismech-node="ADan-Containing Cerebral Amyloid Angiopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">ADan-Containing Cerebral Amyloid Angiopathy</div>
 
+
                 <div class="item-desc">Vascular ADan deposition in leptomeningeal and cerebral vessels produces the defining CAA pathology. Aβ-containing vascular deposits are represented separately because their topology and causal role differ.</div>
 
 
@@ -6404,6 +6463,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-a-co-deposition-with-adan" data-dismech-node="Aβ Co-deposition with ADan" data-dismech-type="pathophysiology">
                 <div class="item-name">Aβ Co-deposition with ADan</div>
 
+
                 <div class="item-desc">Aβ species co-deposit with ADan in FDD vascular and parenchymal lesions. This descriptive human pathology node is separate from ADan accumulation and does not assert heterotypic seeding or faster clinical progression.</div>
 
 
@@ -6490,6 +6550,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurofibrillary-degeneration" data-dismech-node="Neurofibrillary Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurofibrillary Degeneration</div>
 
+
                 <div class="item-desc">Severe neurofibrillary pathology with PHF-like tau occurs in human FDD. The tau lesion is canonical pathology, whereas its placement downstream of ADan remains an emerging interpretation.</div>
 
 
@@ -6575,6 +6636,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mature-bri2-at-synapses" data-dismech-node="Reduced Mature BRI2 at Synapses" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Mature BRI2 at Synapses</div>
+
 
                 <div class="item-desc">The Danish mutant precursor shows impaired maturation and reduced mature BRI2 at synapses in knock-in models and transfected cells. This loss branch is parallel to ADan amyloidogenesis.</div>
 
@@ -6733,6 +6795,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glutamatergic-transmission-in-fdd-models" data-dismech-node="Impaired Glutamatergic Transmission in FDD Models" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glutamatergic Transmission in FDD Models</div>
+
 
                 <div class="item-desc">Danish-mutation mouse and humanized-APP rat models show reduced spontaneous glutamate release, reduced AMPAR-mediated responses, and altered short-term synaptic facilitation. Human disease relevance is unresolved.</div>
 
@@ -6903,6 +6966,7 @@ This pathophysiological event involves decreased synaptic transmission, glutamat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-app-processing-and-app-derived-metabolite-burden" data-dismech-node="Increased APP Processing and APP-Derived Metabolite Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased APP Processing and APP-Derived Metabolite Burden</div>
+
 
                 <div class="item-desc">Loss of mature BRI2 increases APP processing and several APP-derived metabolites in FDD knock-in mice. A similar biochemical pattern was reported in one human FDD brain, but the toxic product is unidentified and cannot be reduced to Aβ alone.</div>
 
@@ -7091,6 +7155,7 @@ This pathophysiological event involves increased amyloid precursor protein metab
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-and-memory-dysfunction-in-fdd-knock-in-models" data-dismech-node="Synaptic and Memory Dysfunction in FDD Knock-In Models" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic and Memory Dysfunction in FDD Knock-In Models</div>
 
+
                 <div class="item-desc">Heterozygous FDD knock-in mice show synaptic-plasticity and memory impairments that are genetically suppressed by reducing APP dosage. This is a model endpoint, not a proxy asserted to equal human dementia.</div>
 
 
@@ -7151,6 +7216,7 @@ This pathophysiological event involves increased amyloid precursor protein metab
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synthetic-adan-induced-mitochondrial-oxidative-apoptosis" data-dismech-node="Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis</div>
+
 
                 <div class="item-desc">Acute synthetic pyroglutamylated-ADan challenge is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation. This does not establish that deposited ADan follows the same route in human brain.</div>
 
@@ -7352,6 +7418,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebrovascular-permeability-and-fibrinogen-leakage" data-dismech-node="Cerebrovascular Permeability and Fibrinogen Leakage" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebrovascular Permeability and Fibrinogen Leakage</div>
 
+
                 <div class="item-desc">Aged FDD-KI rats and postmortem FDD cerebellum show extravascular fibrinogen around amyloid-positive vessels, consistent with a vascular-permeability lesion. The direction from CAA is observational.</div>
 
 
@@ -7470,6 +7537,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-microglial-and-macrophage-activation" data-dismech-node="Reactive Microglial and Macrophage Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Microglial and Macrophage Activation</div>
+
 
                 <div class="item-desc">Reactive microglial/macrophage activation accompanies vascular amyloid and cerebellar demyelination in the FDD-KI rat. This is not the same as a cell-autonomous BRI2–TREM2 mechanism.</div>
 
@@ -7662,6 +7730,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-myelin-disruption-and-axonal-loss" data-dismech-node="Cerebellar Myelin Disruption and Axonal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Myelin Disruption and Axonal Loss</div>
 
+
                 <div class="item-desc">Age-related cerebellar myelin disruption and axonal-fiber loss occur in the FDD-KI rat and are reported as consistent with postmortem human FDD.</div>
 
 
@@ -7818,6 +7887,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-and-gait-dysfunction-in-fdd-ki-rats" data-dismech-node="Motor and Gait Dysfunction in FDD-KI Rats" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor and Gait Dysfunction in FDD-KI Rats</div>
+
 
                 <div class="item-desc">FDD-KI rats show age-accelerated motor deficits and gait abnormalities. The node is explicitly model-specific and is not treated as a validated surrogate for human ataxia.</div>
 
@@ -8178,6 +8248,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8312,6 +8385,9 @@ This clinical feature is Cataract (HP:0000518), qualified as course progressive;
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8410,6 +8486,9 @@ This clinical feature is Cerebral amyloid angiopathy (HP:0011970). HP:0011970 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8519,6 +8598,9 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073), qualified a
 
 
                     </div>
+
+
+
 
 
 
@@ -8647,6 +8729,9 @@ This clinical feature is Intention tremor (HP:0002080), qualified as young adult
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8740,6 +8825,9 @@ This clinical feature is Dysarthria (HP:0001260), qualified as middle age onset.
 
 
                     </div>
+
+
+
 
 
 
@@ -8840,6 +8928,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive;
 
 
                     </div>
+
+
+
 
 
 
@@ -8968,6 +9059,9 @@ This clinical feature is Paranoia (HP:0011999), qualified as middle age onset. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9085,6 +9179,9 @@ This disease-associated gene is ITM2B (hgnc:6174). hgnc:6174 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9193,6 +9290,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and family testing are relevant because ADan amyloidosis is an autosomal dominant, gene-defined ITM2B disorder.</div>
 
 
@@ -9276,6 +9379,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9470,6 +9579,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9480,6 +9592,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -13402,6 +13517,65 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: ADan amyloidosis (Changes required)</strong> · 2026-05-30T02:54:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ADan_amyloidosis/2026-05-30T025402Z-github-review-3413.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3413
+Issue state: OPEN
+Issue created: 2026-05-30T02:54:02Z
+Issue updated: 2026-05-30T02:57:58Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **ADan amyloidosis**
+- Entry: `kb/disorders/ADan_amyloidosis.yaml`
+- Selection basis: #26 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Diagnosis and management are largely absent.** The YAML has ITM2B genetic testing but no clinical diagnostic, neuroimaging, neuropathology, audiology/ophthalmology, dementia/ataxia care, or family counseling management.
+2. **Human ADan amyloid pathology should be separated from model-derived BRI2/synaptic mechanisms.** The YAML includes human amyloid deposition and neurofibrillary degeneration, plus `Synaptic BRI2 loss` and `Impaired glutamatergic transmission`. The latter are likely model/mechanistic inferences and should not be presented at the same certainty level as human Danish dementia pathology unless direct evidence supports it.
+3. **Phenotype coverage is too narrow.** Cataract, sensorineural hearing impairment, ataxia, and dementia are present. Familial Danish dementia/ADan amyloidosis also includes progressive neuropsychiatric/cognitive decline, spasticity or motor findings in some descriptions, cerebral amyloid angiopathy, and neuropathologic overlap with Alzheimer-like changes.
+4. **Progression/natural history should be modeled.** This is a progressive adult-onset neurodegenerative amyloidosis; the entry should not read as a static four-feature syndrome.
+5. **Pathology and biomarker content should be explicit.** ADan peptide generated by the ITM2B Danish mutation, parenchymal/vascular amyloid deposition, neurofibrillary tangles, and cerebral amyloid angiopathy are central disease mechanisms/diagnostic context.
+
+## Research-artifact cross-check
+
+Checked `research/ADan_amyloidosis-deep-research-asta.md` and `.citations.md`. Because the artifact is Asta retrieval, the entry should be rechecked against primary familial Danish dementia/ITM2B literature before adding mechanistic detail.
+
+## Content-completeness summary
+
+- **Phenotypes:** incomplete for progression and neuropsychiatric/motor/pathologic context.
+- **Subtype/lumping:** clarify ADan/familial Danish dementia versus ABri/familial British dementia under ITM2B.
+- **Pathophysiology:** split human amyloid pathology from animal/model synaptic mechanisms.
+- **Management/diagnosis:** add genetic testing, neuro/ophthalmic/audiologic evaluation, dementia care, and counseling.
+- **References:** verify primary human and model evidence separately.
+
+## Suggested remediation
+
+Add progressive natural history, diagnostic/pathology content, management/counseling, and evidence-source distinctions for model-derived mechanisms.
+
+## Sources used
+
+- Familial Danish dementia overview: https://pubmed.ncbi.nlm.nih.gov/10801100/
+- ADan amyloidosis model context: https://scholarworks.indianapolis.iu.edu/server/api/core/bitstreams/5db90246-087b-45ae-a072-f3a6fe5f934c/content
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

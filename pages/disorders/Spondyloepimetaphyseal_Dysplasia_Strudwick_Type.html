@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4258,6 +4311,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-triple-helix-disruption" data-dismech-node="Collagen Triple Helix Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen Triple Helix Disruption</div>
 
+
                 <div class="item-desc">Glycine-to-amino-acid substitutions in the Gly-X-Y repeats of the COL2A1 triple-helical domain destabilize the type II collagen triple helix through a dominant-negative mechanism. Because glycine is the only amino acid small enough to fit in the center of the triple helix, its substitution prevents proper chain folding. Even a single mutant alpha-1(II) chain incorporated into a trimeric molecule disrupts the entire structure, causing altered electrophoretic mobility, reduced thermostability, and slow secretion.
 </div>
 
@@ -4579,6 +4633,7 @@ This pathophysiological event involves abnormal extracellular matrix (GO:0031012
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-retention-and-impaired-procollagen-proteostasis" data-dismech-node="ER Retention and Impaired Procollagen Proteostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Retention and Impaired Procollagen Proteostasis</div>
 
+
                 <div class="item-desc">Misfolded type II procollagen molecules accumulate in the endoplasmic reticulum of chondrocytes, causing ER distention and an ER storage disorder phenotype. The cellular response to this accumulation is variant-dependent: some mutations activate canonical ER stress and the unfolded protein response (UPR), leading to chondrocyte apoptosis and growth plate disorganization. However, recent iPSC-derived cartilage models demonstrate that certain COL2A1 substitutions cause ER retention and defective matrix deposition without robust UPR activation, indicating a failure in cellular surveillance where misfolded procollagen evades ER quality control. Both pathways converge on reduced chondrocyte proliferation and compromised cartilage matrix.
 </div>
 
@@ -4869,6 +4924,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum (GO:000578
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-endochondral-ossification" data-dismech-node="Disrupted Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Endochondral Ossification</div>
+
 
                 <div class="item-desc">The combined effects of ER stress-induced chondrocyte dysfunction, reduced proliferation, and premature apoptosis in the growth plate disrupt the normal sequence of endochondral ossification. Chondrocytes fail to organize into proper columns, and the progression from proliferative to hypertrophic zones is impaired. The resulting disorganized growth plate architecture underlies the characteristic skeletal abnormalities including short-trunk dwarfism, platyspondyly, and metaphyseal dysplasia.
 </div>
@@ -5206,6 +5262,7 @@ This pathophysiological event involves Bone Development (GO:0060348). GO:0060348
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreous-collagen-abnormality" data-dismech-node="Vitreous Collagen Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreous Collagen Abnormality</div>
 
+
                 <div class="item-desc">Type II collagen is a major component of the vitreous humor. Dominant COL2A1 triple-helix disruption can therefore weaken vitreoretinal structure, producing myopia and susceptibility to retinal detachment in SEMD Strudwick.
 </div>
 
@@ -5334,6 +5391,7 @@ This pathophysiological event involves abnormal extracellular matrix (GO:0031012
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-articular-cartilage-matrix" data-dismech-node="Defective Articular Cartilage Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Articular Cartilage Matrix</div>
+
 
                 <div class="item-desc">Type II collagen is the major structural protein of articular cartilage. Mutant collagen molecules that are secreted form abnormal fibrils with compromised mechanical properties. Combined with abnormal joint geometry from the skeletal dysplasia (coxa vara, genu valgum), this predisposes to accelerated cartilage degradation and premature osteoarthritis.
 </div>
@@ -5612,6 +5670,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5706,6 +5767,9 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5779,6 +5843,9 @@ This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5873,6 +5940,9 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6000,6 +6070,7 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6066,6 +6137,9 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6165,6 +6239,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6234,6 +6311,9 @@ This clinical feature is Hip subluxation (HP:0030043). HP:0030043 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6298,6 +6378,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6381,6 +6464,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6450,6 +6536,9 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6514,6 +6603,9 @@ This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6613,6 +6705,9 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6677,6 +6772,9 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6779,6 +6877,7 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6850,6 +6949,9 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6914,6 +7016,9 @@ This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7008,6 +7113,9 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7111,6 +7219,9 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7229,6 +7340,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7330,6 +7444,12 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The core SEMD Strudwick variant class consists of heterozygous missense substitutions of obligate glycine residues within the COL2A1 Gly-X-Y triple-helical repeats, producing dominant-negative disruption of type II collagen.
 </div>
 
@@ -7419,6 +7539,12 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent Gly154Arg substitution in type II collagen reported in two unrelated individuals with SEMD and radiographic evolution consistent with the Strudwick subtype.
 </div>
 
@@ -7506,6 +7632,12 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
         COL2A1 Gly283Arg substitution
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Gly283Arg substitution producing a metaphyseal dysplasia pattern that matches Murdoch type metaphyseal dysplasia, subsequently renamed Strudwick type SEMD.
@@ -7627,6 +7759,9 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7637,6 +7772,9 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -7731,6 +7869,12 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Regular ophthalmologic evaluation for myopia progression and retinal detachment screening. Type II collagen abnormalities in the vitreous create ongoing risk for retinal complications.
 </div>
 
@@ -7759,6 +7903,12 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Rehabilitation and orthotic support to manage mobility limitations and prevent progressive deformity.
 </div>
 
@@ -7774,6 +7924,12 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
                 <div class="item-name">
                     Pulmonary Monitoring
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9467,6 +9623,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

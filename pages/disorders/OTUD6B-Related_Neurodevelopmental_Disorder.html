@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4294,6 +4347,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-otud6b-loss-of-function-variants" data-dismech-node="Biallelic OTUD6B Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic OTUD6B Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">The disorder is initiated by inheritance of two damaging OTUD6B alleles. The reported allelic spectrum includes nonsense alleles, canonical splice-donor alleles that abolish normal splicing and trigger nonsense-mediated decay, frameshift alleles, and rare missense alleles within the catalytic OTU domain.</div>
 
 
@@ -4445,6 +4499,7 @@ This pathophysiological event involves OTUD6B (hgnc:24281). hgnc:24281 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-otud6b-deubiquitinase-activity" data-dismech-node="Loss of OTUD6B Deubiquitinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of OTUD6B Deubiquitinase Activity</div>
+
 
                 <div class="item-desc">OTUD6B encodes a member of the ovarian tumor (OTU) domain subfamily of deubiquitinating enzymes, which remove ubiquitin from substrate proteins and thereby counterbalance E1/E2/E3 ubiquitin conjugation. Loss of this activity removes a node of control over ubiquitin-dependent protein turnover, trafficking, and signaling.</div>
 
@@ -4631,6 +4686,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-allele-dependent-residual-otud6b-function" data-dismech-node="Allele-Dependent Residual OTUD6B Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Allele-Dependent Residual OTUD6B Function</div>
 
+
                 <div class="item-desc">The severity of the clinical phenotype tracks the predicted functional severity of the specific OTUD6B alleles. Truncating and splice alleles that trigger nonsense-mediated decay give little or no product, whereas some missense alleles only locally destabilize the protein and others distort the overall fold. Molecular dynamics modeling of two OTU-domain missense alleles predicted localized destabilization for the allele found in a mildly affected individual and gross fold distortion for the allele found in a severely affected individual. In one replication family, residual wild-type splicing of under one percent, together with alleles that spare the short OTUD6B-2 isoform, was proposed to explain an unusually mild presentation.</div>
 
 
@@ -4756,6 +4812,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-26s-proteasome-assembly" data-dismech-node="Impaired 26S Proteasome Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired 26S Proteasome Assembly</div>
+
 
                 <div class="item-desc">Peripheral blood mononuclear cells from an affected individual show reduced incorporation of 19S regulatory-particle subunits into 26S proteasomes. The mature 26S holoenzyme is formed by capping the 20S catalytic core with the 19S regulatory particle, so defective 19S incorporation reduces the pool of assembly-competent, ubiquitin-receptive proteasomes.</div>
 
@@ -4926,6 +4983,7 @@ This pathophysiological event involves proteasome accessory complex (19S regulat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-proteasomal-chymotrypsin-like-activity" data-dismech-node="Reduced Proteasomal Chymotrypsin-Like Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Proteasomal Chymotrypsin-Like Activity</div>
 
+
                 <div class="item-desc">Chymotrypsin-like peptidase activity, the rate-limiting catalytic activity of the 20S core, is decreased in patient peripheral blood mononuclear cells, indicating functionally reduced proteolytic throughput and not merely an assembly stoichiometry change.</div>
 
 
@@ -5060,6 +5118,7 @@ This pathophysiological event involves proteasome complex (GO:0000502). GO:00005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-ubiquitin-protein-conjugates" data-dismech-node="Accumulation of Ubiquitin-Protein Conjugates" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Ubiquitin-Protein Conjugates</div>
+
 
                 <div class="item-desc">Polyubiquitinated proteins accumulate in patient cells, the expected consequence of a reduced-capacity ubiquitin-proteasome system. This is the proteostatic lesion that the developing organism must tolerate.</div>
 
@@ -5200,6 +5259,7 @@ This pathophysiological event involves decreased ubiquitin-dependent protein cat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-mtorc1-linked-translation-initiation" data-dismech-node="Dysregulated mTORC1-Linked Translation Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated mTORC1-Linked Translation Initiation</div>
 
+
                 <div class="item-desc">Independently of the proteasome arm, OTUD6B regulates protein synthesis downstream of mTORC1. It associates with the protein synthesis initiation complex and modifies components of the 48S preinitiation complex, and its two main splicing isoforms act in opposing directions, with the long OTUD6B-1 isoform inhibitory and the short OTUD6B-2 isoform stimulatory. This work was performed in non-small cell lung cancer cell lines rather than in neural tissue, so its relevance to the human developmental phenotype is inferential.</div>
 
 
@@ -5338,6 +5398,7 @@ This pathophysiological event involves abnormal regulation of translation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cell-growth-and-proliferation" data-dismech-node="Impaired Cell Growth and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cell Growth and Proliferation</div>
+
 
                 <div class="item-desc">Both the proteostatic arm and the translational arm converge on reduced growth and proliferative capacity. In cell models the two OTUD6B isoforms have opposing effects on DNA synthesis, so loss of the balanced isoform pair perturbs proliferation control rather than simply slowing it.</div>
 
@@ -5486,6 +5547,7 @@ This pathophysiological event involves decreased growth (GO:0040007). GO:0040007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-embryonic-organogenesis-and-growth" data-dismech-node="Disrupted Embryonic Organogenesis and Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Embryonic Organogenesis and Growth</div>
+
 
                 <div class="item-desc">The organism-level convergence node. Reduced proliferative and biosynthetic capacity during embryogenesis produces prenatal-onset growth restriction, microcephaly and structural brain malformation, congenital heart defects, and the distal limb and craniofacial patterning anomalies that define the syndrome. Homozygous Otud6b knockout mice recapitulate the severe end of this spectrum, being subviable and small with congenital heart defects.</div>
 
@@ -5717,6 +5779,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5794,6 +5859,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates the specific cardiac lesions for OMIM:617452 against a cardiac-evaluated denominator of 6, giving atrial septal defect 3/6 (50 percent) and ventricular septal defect 2/6 (33 percent), both curated from PMID:28343629. Either maps to the FREQUENT band (30-79 percent), so FREQUENT is applied to the parent cardiac term. Note the denominator is 6, not the 12 used for the neurological terms, because only a subset of the founding cohort had cardiac assessment reported.</div>
@@ -5928,6 +5996,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0011968 Feeding difficulties for OMIM:617452 at 9/12 (75 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent).</div>
 
 
@@ -6011,6 +6082,9 @@ This clinical feature is Cupped ear (HP:0000378). HP:0000378 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6084,6 +6158,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6192,6 +6269,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6258,6 +6338,9 @@ This clinical feature is Optic disc hypoplasia (HP:0007766). HP:0007766 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: PMID:41188742 states that none of the 27 previously reported IDDFSDA cases exhibited ocular developmental abnormalities, and reports one new case with them. That gives 1 of 28 reported individuals (approximately 3.6 percent), which maps to the VERY_RARE band (1-4 percent). This is the only phenotype in this entry with a published denominator; all others omit a frequency band deliberately.</div>
@@ -6354,6 +6437,9 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6464,6 +6550,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6530,6 +6619,9 @@ This clinical feature is Long palpebral fissure (HP:0000637). HP:0000637 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0000637 Long palpebral fissure for OMIM:617452 at 6/12 (50 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent).</div>
@@ -6601,6 +6693,9 @@ This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Attribution caveat. This observation comes from the single proband of PMID:34680978, who carries both a hemizygous OTUD6B c.873delA allele in trans with a paternally inherited 0.118 Mb 8q21.3 whole-gene deletion AND a heterozygous ZMIZ1 splice variant, c.1491 + 2T &gt; C, shown by mRNA study to skip exon 14. ZMIZ1 causes its own autosomal dominant neurodevelopmental disorder with dysmorphic facies (MONDO:0032855), which is recorded in this entry&#39;s differential_diagnoses, so the facial gestalt in this proband cannot be attributed to OTUD6B alone. The authors themselves only &#34;suggest&#34; the expansion. Curated with supports PARTIAL for that reason. No frequency band is given: this is a single case with no denominator.</div>
@@ -6676,6 +6771,9 @@ This clinical feature is Hanging cheek, annotated with Abnormal cheek morphology
                     </div>
 
 
+
+
+
                     <div class="item-desc">Ontology gap. HPO has no term for &#34;hanging cheek&#34;. HP:0034273 Premature sagging cheeks is defined as sagging beyond that expected for age and HP:0000293 Full cheeks describes increased fullness, neither of which is what the authors describe, so this is bound to the immediate parent HP:0004426 Abnormal cheek morphology with the published wording kept in preferred_term. Same attribution caveat as Periorbital Edema: the single PMID:34680978 proband also carries a heterozygous ZMIZ1 c.1491 + 2T &gt; C splice variant that skips exon 14, and ZMIZ1-related disorder (MONDO:0032855, in this entry&#39;s differential_diagnoses) itself causes dysmorphic facies, so attribution to OTUD6B alone is not secure.</div>
 
 
@@ -6745,6 +6843,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. phenotype.hpoa does carry long philtrum at 7/12 for OMIM:617452 from PMID:28343629, which would map to FREQUENT, but the snippet cited here is the single-proband PMID:34680978 sentence rather than the cohort count, so the band is omitted rather than attributed to a source this entry does not quote. Same ZMIZ1 attribution caveat as Periorbital Edema applies to the PMID:34680978 observation itself.</div>
@@ -6818,6 +6919,9 @@ This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated separately from Long Philtrum because HPO codes philtral length (HP:0000343) and philtral depth (HP:0000319) as distinct terms, and the source sentence asserts both. Unlike long philtrum, smooth philtrum has no corroborating HPOA annotation for OMIM:617452, so it rests entirely on this one proband, who also carries the heterozygous ZMIZ1 c.1491 + 2T &gt; C variant.</div>
 
 
@@ -6889,6 +6993,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0000252 Microcephaly for OMIM:617452 at 9/12 (75 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent).</div>
@@ -6965,6 +7072,9 @@ This clinical feature is Macrodontia (HP:0001572). HP:0001572 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7029,6 +7139,9 @@ This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7105,6 +7218,9 @@ This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7169,6 +7285,9 @@ This clinical feature is Delayed eruption of primary teeth (HP:0000680). HP:0000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7249,6 +7368,9 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7350,6 +7472,9 @@ This clinical feature is Soft skin (HP:0000977). HP:0000977 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7416,6 +7541,9 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7500,6 +7628,9 @@ This clinical feature is Broad distal phalanges of the thumbs and halluces, anno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0011304 Broad thumb for OMIM:617452 at 6/12 (50 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent). The HPO disease annotation uses the thumb term, which is also the digit the primary reports single out, so that term is bound here; the halluces are affected in parallel but are not separately annotated in HPOA.</div>
 
 
@@ -7574,6 +7705,9 @@ This clinical feature is Prominent interphalangeal joints (HP:0006237). HP:00062
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7638,6 +7772,9 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7722,6 +7859,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0001290 Generalized hypotonia for OMIM:617452 at 9/12 (75 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent). The generalized term is used here to match the HPO disease annotation.</div>
 
 
@@ -7793,6 +7933,9 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7876,6 +8019,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7942,6 +8088,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0010864 Severe intellectual disability for OMIM:617452 at 12/12 (100 percent), curated from PMID:28343629, supporting a VERY_FREQUENT band (80-100 percent) for intellectual disability as such. This entry deliberately binds the broader HP:0001249 rather than the severe-ID term, because the 12/12 severity annotation reflects the ascertainment-biased 2017 cohort and is contradicted by later mild cases (PMID:30364145, PMID:34354232).</div>
@@ -8040,6 +8189,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0001250 Seizure for OMIM:617452 at 12/12 (100 percent), curated from PMID:28343629. That maps to the VERY_FREQUENT band (80-100 percent).</div>
@@ -8141,6 +8293,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8207,6 +8362,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8308,6 +8466,9 @@ This clinical feature is Mirror movements, annotated with Bimanual synkinesia (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8385,6 +8546,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: phenotype.hpoa annotates HP:0001511 Intrauterine growth retardation for OMIM:617452 at 7/12 (58 percent), curated from PMID:28343629. That maps to the FREQUENT band (30-79 percent).</div>
@@ -8530,6 +8694,9 @@ This disease-associated gene is OTUD6B (hgnc:24281). hgnc:24281 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8714,6 +8881,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8724,6 +8894,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8840,6 +9013,9 @@ This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHE
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8850,6 +9026,9 @@ This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHE
 
 
     </div>
+
+
+
 
 
 
@@ -8974,6 +9153,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because hypothyroidism and hypogammaglobulinemia have recurred in unrelated affected individuals and both are treatable, thyroid function testing and immunoglobulin quantification are recommended at diagnosis and on follow-up.</div>
 
 
@@ -9054,6 +9239,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9172,6 +9363,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12472,6 +12669,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: OTUD6B-Related_Neurodevelopmental_Disorder</strong> · 2026-08-01T07:59:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/OTUD6B-Related_Neurodevelopmental_Disorder/2026-08-01T075927Z-claude-code-50e029.yaml">View source</a></p>
+                        <p class="research-review-text">Created the dismech entry for OTUD6B-related neurodevelopmental disorder (IDDFSDA), anchored on MONDO:0044319 / OMIM:617452 / OTUD6B (hgnc:24281). NEC preflight run first: &#39;uv run runoak -i sqlite:obo:mondo info MONDO:0044319 -O obo&#39; confirmed the RO:0004003 gene-association relation points to HGNC:24281 OTUD6B. The entry is explicitly kept distinct from the near-identically-named MONDO:0060596 (BPTF-related NEDDFL) and MONDO:0032855, and from the other OTU-family disease genes OTUD5, OTUD7A and OTUD1/OTUB1; the large OTUD6B-AS1 lncRNA cancer literature was excluded. Deep research provider: claude_code (just research-disorder claude_code), 17m23s, 6 web searches, 96 turns, 40 citations, report committed under research/. No GeneReviews chapter exists for OTUD6B (PubMed searches for &#39;OTUD6B GeneReviews&#39; returned zero hits), so no GeneReviews baseline was available. Content: 9 atomic pathophysiology nodes forming one connected DAG rooted at &#39;Biallelic OTUD6B Loss-of-Function Variants&#39;, covering the patient-validated 26S proteasome assembly arm (19S incorporation defect, reduced chymotrypsin-like activity, ubiquitin-conjugate accumulation) and the mTORC1-linked translation-initiation arm, converging on impaired growth/proliferation and disrupted organogenesis; every causal edge carries its own evidence item. 25 phenotypes with HPO bindings, including a REFUTE-flagged Retinal Degeneration entry recording that the retinal phenotype in PMID:34354232 was traced to a co-segregating RP1L1 variant rather than OTUD6B. Frequency bands were applied only where a published denominator exists: eight bands derived from phenotype.hpoa n/m counts for OMIM:617452 (independently verified against the current HPO release, not taken on trust from the research report) and one from the explicit 1-of-28 denominator in PMID:41188742; all other bands omitted by design, with the ascertainment-bias caveat recorded in notes. Also added genetic, inheritance, prevalence, classifications and four treatment entries. Structured-source citations (CGGV for the ClinGen Definitive assertion, ORPHA:505237) could not be generated in this environment and are recorded descriptively in notes per the guidance in issue 7622. Validation: &#39;just validate&#39; clean (schema, terms, references), 84/84 snippets verified by both the built-in reference validator and the independent scripts/check_snippets_verbatim.py, check_folded_hyphens.py clean, compliance 99.5 percent global / 100 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

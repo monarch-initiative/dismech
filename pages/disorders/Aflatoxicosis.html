@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4306,6 +4359,7 @@ This is a dose-and-duration disease, and the entry is scoped to the acute and su
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-aflatoxin-b1-bioactivation" data-dismech-node="Hepatic Aflatoxin B1 Bioactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Aflatoxin B1 Bioactivation</div>
 
+
                 <div class="item-desc">Aflatoxin B1 arriving at the liver is oxidised by cytochrome P450 to the reactive exo-8,9-epoxide. This step is shared with chronic aflatoxin carcinogenesis; everything downstream of it in this entry is not.</div>
 
 
@@ -4440,6 +4494,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macromolecular-adduct-formation" data-dismech-node="Macromolecular Adduct Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Macromolecular Adduct Formation</div>
 
+
                 <div class="item-desc">A small but fixed fraction of ingested aflatoxin binds irreversibly to protein and DNA. The albumin adduct is the measurable one and, because it is not repaired, it persists with the half-life of albumin itself — which is what makes it a usable exposure biomarker weeks after the meal.</div>
 
 
@@ -4544,6 +4599,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-synthesis-disruption-and-oxidative-injury" data-dismech-node="Protein Synthesis Disruption and Oxidative Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Synthesis Disruption and Oxidative Injury</div>
+
 
                 <div class="item-desc">The cytotoxic arm that distinguishes acute aflatoxicosis from the chronic carcinogenic route. Adducted macromolecules disrupt protein synthesis, and DNA damage, oxidative stress and lipid peroxidation act alongside it. This node exists because it is the acute-specific mechanism: none of it is the TP53 mutagenesis that drives the chronic arm curated in Aflatoxin_Related_HCC.</div>
 
@@ -4756,6 +4812,7 @@ This pathophysiological event involves increased response to oxidative stress (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-necrosis" data-dismech-node="Hepatocyte Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Necrosis</div>
 
+
                 <div class="item-desc">Centrilobular hepatocyte death at acute dose. Split from acute hepatic failure, which is the organism-level consequence, because the two sit at different biological scales and the second follows from the first.</div>
 
 
@@ -4888,6 +4945,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-hepatic-failure" data-dismech-node="Acute Hepatic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Hepatic Failure</div>
+
 
                 <div class="item-desc">Organ-level failure: jaundice, coagulopathy, ascites and death. The clinical presentation is nonspecific enough that the 2004 outbreak was investigated as acute jaundice of unknown origin, with the seven patients who had serum tested negative for every hepatotropic virus known to circulate in the region.</div>
 
@@ -5225,6 +5283,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately not linked into the pathograph. Whether the marrow suppression is a direct extrahepatic toxic effect or a consequence of hepatic failure with sepsis is exactly the open question recorded in the extrahepatic_acute_toxicity discussion, and drawing either edge would settle it by assertion. It is left unlinked with the discussion attached instead.</div>
 
 
@@ -5316,6 +5377,9 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No coagulation assay result is reported in any of the cited outbreak investigations, so no reference range is curated. The HPO label bound here is the canonical &#34;Abnormality of the coagulation cascade&#34;; &#34;Coagulopathy&#34; is a synonym of HP:0003256 and is kept as the preferred_term.</div>
@@ -5450,6 +5514,9 @@ This clinical feature is Jaundice (HP:0000952), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5566,6 +5633,9 @@ This clinical feature is Acute hepatic failure (HP:0006554), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5634,6 +5704,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5734,6 +5807,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5841,6 +5917,9 @@ This clinical feature is Diarrhoea, annotated with Diarrhea (HP:0002014). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,6 +5997,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6076,6 +6158,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8233,6 +8321,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Aflatoxicosis (MONDO:0700296), acute aflatoxin poisoning</strong> · 2026-09-08T08:32:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Aflatoxicosis/2026-09-08T083207Z-claude-code-a3fb58.yaml">View source</a></p>
+                        <p class="research-review-text">Curated de novo from a Perplexity sonar-deep-research report (research/Aflatoxicosis-deep-research-perplexity.md). 23 evidence snippets, all verified by dismech.reference_snippet_audit against references_cache/.
+
+Scope decision: this is the acute and subacute poisoning syndrome, deliberately distinct from the existing Aflatoxin_Related_HCC entry. They share an exposure and the first two steps of its metabolism (CYP450 bioactivation to the exo-8,9-epoxide, adduct formation) and diverge completely after that: chronic low-dose exposure gives TP53 R249S and carcinoma over decades, acute high-dose exposure gives hepatocyte necrosis and death in weeks. The carcinogenesis chain is not restated here and the boundary is recorded in notes.
+
+The report&#39;s causal framing was explicitly rejected. It presented the acute and chronic arms as one continuous nine-step chain in which carcinogenesis (step 7) follows acute hepatic necrosis (step 6). That is backwards -- they are alternative dose-dependent outcomes, not sequential steps -- and adopting it would have produced a pathograph asserting that acute liver failure causes cancer. The entry models the shared bioactivation node once and branches.
+
+The report cited no PMIDs in its body at all, only URLs. The primary literature was assembled by hand: PMID:16330363 (Azziz-Baumgartner, the 2004 Kenya case-control study, which is the source for most of the entry), PMID:17308181 (Probst, S-strain A. flavus as causal agent), PMID:48730 (the 1974 western India outbreak), PMID:16175785 (a detailed case report). PMID:6123648 (Ngindu, Lancet 1982) was fetched but has no abstract in the cache, so it could not support a verified snippet and was not cited. PMID:11401911 (TP53 249ser meta-analysis) was fetched but belongs to the chronic/HCC arm and was deliberately not used.
+
+Evidence-grading notes. Two snippets from PMID:16330363 are sentences that are themselves citations to earlier work within that paper (&#39;Disruption of proteins and DNA bases in hepatocytes causes liver toxicity (Tandon et al. 1978)&#39;); the explanation says so explicitly, because the cited paper reports rather than demonstrates that step. The supportive-care treatment evidence is a single uncontrolled case report and is graded directness: INDIRECT with the reason stated. The pancytopenia phenotype rests on that same single case and says so in its own description.
+
+Three discussions record what is not known: whether the observed hepatitis B association in acute disease is causal or confounded (the chronic HBV-aflatoxin interaction model was deliberately not imported), the unknown acute human dose threshold -- every regulatory limit is anchored to carcinogenic risk instead -- and whether the reported marrow suppression is direct toxicity or secondary to liver failure.
+
+Validation run in the worktree: linkml-validate (Disease) clean; linkml-term-validator validate-data --labels clean; reference_snippet_audit 23/23; check_duplicate_yaml_keys, check_entity_refs, check_causal_targets, check_enum_values clean; check_environmental_evidence clean (the exposure carries its own evidence, no waiver used).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Pancytopenia-Developmental%20Delay%20Syndrome"
@@ -4010,7 +4063,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4458,6 +4511,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ercc6l2-loss-of-function" data-dismech-node="ERCC6L2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ERCC6L2 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic truncating variants at or upstream of the helicase domain remove the protein&#39;s function and, for the originally described alleles, its subcellular localisation and stability.</div>
 
 
@@ -4552,6 +4606,8 @@ This genetic context concerns ERCC6L2 (hgnc:26922). hgnc:26922 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">allele_type: FRAMESHIFT</span>
 
 
@@ -4580,6 +4636,9 @@ This genetic context concerns ERCC6L2 (hgnc:26922). hgnc:26922 is a gene from th
 
 
 
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4588,6 +4647,39 @@ This genetic context concerns ERCC6L2 (hgnc:26922). hgnc:26922 is a gene from th
 	                            <span class="crosslink-meta">Failed Transcription-Coupled Repair and R-Loop Accumulation</span>
 
 	                            <span class="crosslink-desc">ERCC6L2 occupies gene bodies with RNA Pol II and DNA-PK; without it, transcript elongation is not terminated correctly after DNA damage and DNA-RNA hybrids accumulate.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental delay</span>
+
+	                            <span class="crosslink-desc">The neurodevelopmental features are drawn from the germline lesion itself rather than from any step in the haematopoietic chain, because that is what the evidence supports and no more: ERCC6L2 is ubiquitously expressed and the same repair deficiency is present in neural tissue, but no study has shown which step produces the delay, and it is not a consequence of marrow failure. The tissue-level mechanism is genuinely unknown.
+Note the penetrance caveat already recorded on the phenotype: the 2018 six-patient series found developmental delay in all of them, but across the pooled 31-patient literature the combined microcephaly/developmental-delay figure is 6 of 31.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microcephaly</span>
+
+	                            <span class="crosslink-desc">Curated from the germline lesion for the same reason as developmental delay, and reported in the same patients. Whether the small head size reflects reduced neural progenitor output from the same replication stress seen in haematopoietic progenitors is a plausible reading that no cited source demonstrates.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebellar involvement</span>
+
+	                            <span class="crosslink-desc">Reported in a single patient, with interval deterioration on serial MRI. Linked here rather than left detached because it belongs to the same neurological arm, and flagged as VERY_RARE on the phenotype itself so the edge is not read as a general feature.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Retinal dystrophy</span>
+
+	                            <span class="crosslink-desc">The remaining non-haematologic feature, also VERY_RARE. Grouped with the neurological arm on the same basis: a consequence of the ubiquitously expressed germline lesion, with no established route.</span>
 
 
 	                        </div>
@@ -4637,6 +4729,7 @@ This genetic context concerns ERCC6L2 (hgnc:26922). hgnc:26922 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-transcription-coupled-repair-and-r-loop-accumulation" data-dismech-node="Failed Transcription-Coupled Repair and R-Loop Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Transcription-Coupled Repair and R-Loop Accumulation</div>
+
 
                 <div class="item-desc">Patient cells are hypersensitive to agents that specifically activate transcription-coupled nucleotide excision repair, and also to transcription inhibitors that interfere with RNA Pol II, with an abnormally delayed transcription recovery. ERCC6L2 interacts with DNA-PK, a regulatory component of the RNA Pol II transcription complex.</div>
 
@@ -4809,6 +4902,7 @@ This pathophysiological event involves abnormal transcription elongation by RNA 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replication-stress-and-dna-damage-in-haematopoietic-stem-and-progenitor-cells" data-dismech-node="Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells</div>
 
+
                 <div class="item-desc">Sustained replication stress and DNA damage in haematopoietic stem and progenitor cells. The haematopoietic restriction of a ubiquitously expressed repair gene is not fully explained.</div>
 
 
@@ -4954,6 +5048,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-pathway-activation-and-hspc-attrition" data-dismech-node="p53 Pathway Activation and HSPC Attrition" data-dismech-type="pathophysiology">
                 <div class="item-name">p53 Pathway Activation and HSPC Attrition</div>
+
 
                 <div class="item-desc">p53 activation drives cell cycle arrest and apoptosis, and Ercc6l2 deficiency also lowers expression of the master haematopoietic regulators Runx1 and Gata1. The result is fewer stem and progenitor cells.</div>
 
@@ -5163,6 +5258,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-erythroid-differentiation" data-dismech-node="Impaired Erythroid Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Erythroid Differentiation</div>
 
+
                 <div class="item-desc">Delayed erythroid differentiation with a shift toward polychromatic and away from orthochromatic erythroblasts. The stromal compartment is also affected: patient-derived mesenchymal stromal cells show enhanced osteogenesis and suppressed adipogenesis, so the niche is remodelled as well as the stem cell.</div>
 
 
@@ -5300,6 +5396,21 @@ This pathophysiological event involves decreased erythrocyte differentiation (GO
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Anemia</span>
+
+	                            <span class="crosslink-desc">The erythroid arrest is what makes anaemia the most consistent cytopenia in this disease, present more often than the thrombocytopenia and neutropenia that arise from generalised marrow hypoplasia.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5368,6 +5479,7 @@ This pathophysiological event involves decreased erythrocyte differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-hypoplasia" data-dismech-node="Bone Marrow Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Hypoplasia</div>
 
+
                 <div class="item-desc">Severe marrow hypoplasia. Peripheral counts understate it, which is why the diagnosis is often delayed and why active surveillance rather than count monitoring is what the literature recommends.</div>
 
 
@@ -5389,6 +5501,38 @@ This pathophysiological event involves decreased erythrocyte differentiation (GO
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pancytopenia</span>
+
+	                            <span class="crosslink-desc">Loss of marrow output across lineages. The entry&#39;s own phenotype record notes that presentation is often bilineage or isolated rather than trilineage, so this edge asserts the route to cytopenia, not that all three lineages fall together in every patient.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thrombocytopenia</span>
+
+	                            <span class="crosslink-desc">The megakaryocytic consequence of reduced marrow output.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neutropenia</span>
+
+	                            <span class="crosslink-desc">The granulocytic consequence of reduced marrow output.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Anemia</span>
+
+	                            <span class="crosslink-desc">Generalised marrow hypoplasia contributes to the anaemia alongside the specific erythroid differentiation block above. Both edges are drawn because the sources report trilineage cytopenia with a disproportionate erythroid defect, which is two contributions rather than one.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Somatic TP53 Clonal Rescue</span>
@@ -5443,6 +5587,7 @@ This pathophysiological event involves decreased erythrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-tp53-clonal-rescue" data-dismech-node="Somatic TP53 Clonal Rescue" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic TP53 Clonal Rescue</div>
+
 
                 <div class="item-desc">Somatic TP53 mutation restores the fitness of the ERCC6L2-deficient stem cell and corrects the marrow failure. It does not correct the replication stress, so DNA damage keeps accumulating in a clone that can no longer arrest or die. This is the pivot of the whole disease.</div>
 
@@ -5615,6 +5760,7 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-mutated-erythroid-predominant-myeloid-malignancy" data-dismech-node="TP53-Mutated Erythroid-Predominant Myeloid Malignancy" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53-Mutated Erythroid-Predominant Myeloid Malignancy</div>
 
+
                 <div class="item-desc">Myelodysplastic syndrome or acute myeloid leukaemia with somatic TP53 mutations and erythroid predominance. Three-year overall survival falls to 19% once this develops.</div>
 
 
@@ -5632,6 +5778,29 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myelodysplastic syndrome or acute myeloid leukemia</span>
+
+	                            <span class="crosslink-desc">The clinical diagnosis this node describes. Both are curated as one phenotype because ERCC6L2 disease is reported as a continuum in which the MDS/AML boundary is often not drawn.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acute myeloid leukemia</span>
+
+	                            <span class="crosslink-desc">The specific malignancy curated separately from the combined MDS/AML phenotype above, for entries and queries that need AML as its own term.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5828,7 +5997,7 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only potentially curative option. Timing is the whole question: 1-year and 3-year overall survival are 79% and 54%, but a previous history of excess blasts predicts markedly inferior survival with a hazard ratio of 6.8 and a median survival of 12 months. Transplanting before transformation is therefore the intervention, not transplanting at all.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Bone Marrow Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe marrow hypoplasia. Peripheral counts understate it, which is why the diagnosis is often delayed and why active surveillance rather than count monitoring is what the literature recommends.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ERCC6L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERCC6L2\"], \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ERCC6L2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic truncating variants at or upstream of the helicase domain remove the protein\u0027s function and, for the originally described alleles, its subcellular localisation and stability.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERCC6L2\"], \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}], \"genetic_context\": {\"allele_type\": \"FRAMESHIFT\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}]}}}, {\"id\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human primary haematopoietic stem/progenitor cells and mesenchymal stromal cells, silenced or patient-derived, challenged ex vivo.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Ercc6l2-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"In vitro and in vivo model systems used together to separate the marrow failure from the leukaemic transformation, including the p53-inactivated arm that reproduces the somatic rescue seen in patients.\"}, {\"id\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells are hypersensitive to agents that specifically activate transcription-coupled nucleotide excision repair, and also to transcription inhibitors that interfere with RNA Pol II, with an abnormally delayed transcription recovery. ERCC6L2 interacts with DNA-PK, a regulatory component of the RNA Pol II transcription complex.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription-coupled nucleotide-excision repair\", \"transcription elongation by RNA polymerase II\"]}}, {\"id\": \"Impaired Erythroid Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed erythroid differentiation with a shift toward polychromatic and away from orthochromatic erythroblasts. The stromal compartment is also affected: patient-derived mesenchymal stromal cells show enhanced osteogenesis and suppressed adipogenesis, so the niche is remodelled as well as the stem cell.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythroblast\", \"mesenchymal stem cell\"], \"biological_processes\": [\"erythrocyte differentiation\"], \"experimental_models\": [{\"name\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the clonogenic defect and the erythroid maturation delay, and shows the stromal phenotype alongside it.\"}]}}, {\"id\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained replication stress and DNA damage in haematopoietic stem and progenitor cells. The haematopoietic restriction of a ubiquitously expressed repair gene is not fully explained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Somatic TP53 Clonal Rescue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic TP53 mutation restores the fitness of the ERCC6L2-deficient stem cell and corrects the marrow failure. It does not correct the replication stress, so DNA damage keeps accumulating in a clone that can no longer arrest or die. This is the pivot of the whole disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"animal_models\": [{\"name\": \"Ercc6l2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc6l2 deficient, with and without somatic Trp53 mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Somatic Trp53 mutation restores fitness and corrects the marrow failure phenotype in the mouse, exactly as the human TP53 clones do.\"}]}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelodysplastic syndrome or acute myeloid leukaemia with somatic TP53 mutations and erythroid predominance. Three-year overall survival falls to 19% once this develops.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"p53 Pathway Activation and HSPC Attrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p53 activation drives cell cycle arrest and apoptosis, and Ercc6l2 deficiency also lowers expression of the master haematopoietic regulators Runx1 and Gata1. The result is fewer stem and progenitor cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"signal transduction by p53 class mediator\", \"apoptotic process\"], \"animal_models\": [{\"name\": \"Ercc6l2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc6l2 deficient, with and without somatic Trp53 mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces reduced HSPC numbers, marrow hypocellularity and cytopenias through p53-dependent arrest and apoptosis.\"}]}}], \"edges\": [{\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERCC6L2 occupies gene bodies with RNA Pol II and DNA-PK; without it, transcript elongation is not terminated correctly after DNA damage and DNA-RNA hybrids accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"target\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"target\": \"p53 Pathway Activation and HSPC Attrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p53 Pathway Activation and HSPC Attrition\", \"target\": \"Bone Marrow Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p53 Pathway Activation and HSPC Attrition\", \"target\": \"Impaired Erythroid Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid commitment is disproportionately affected, which is the cellular basis of the erythroid predominance seen later in the marrow and in the leukaemias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because p53 activation is what removes the mutant stem cells, inactivating p53 restores their fitness. The selection pressure created by the disease selects for the clone that will kill the patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic TP53 Clonal Rescue\", \"target\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic haematopoietic stem cell transplantation\", \"target\": \"ERCC6L2 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"target\": \"Impaired Erythroid Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the clonogenic defect and the erythroid maturation delay, and shows the stromal phenotype alongside it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Ex vivo culture cannot reproduce the marrow niche, and silencing is acute rather than constitutional. The clinically decisive event, TP53 clonal selection over decades, is outside what this system can show.\"}, {\"source\": \"Ercc6l2-deficient mouse\", \"target\": \"p53 Pathway Activation and HSPC Attrition\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces reduced HSPC numbers, marrow hypocellularity and cytopenias through p53-dependent arrest and apoptosis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse haematopoiesis differs in stem-cell replication rate and telomere biology from human, and the model does not address the neurodevelopmental features of the human syndrome at all.\"}, {\"source\": \"Ercc6l2-deficient mouse\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Somatic Trp53 mutation restores fitness and corrects the marrow failure phenotype in the mouse, exactly as the human TP53 clones do.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse establishes the mechanism but not the timescale; human transformation has a median onset of 37 years, which no mouse experiment reproduces.\"}, {\"source\": \"ERCC6L2\", \"target\": \"ERCC6L2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute myeloid leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Erythroid-predominant, with TP53 mutations. Pure or acute erythroid leukaemia is a recognised presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004808\"}}, {\"id\": \"Allogeneic haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only potentially curative option. Timing is the whole question: 1-year and 3-year overall survival are 79% and 54%, but a previous history of excess blasts predicts markedly inferior survival with a hazard ratio of 6.8 and a median survival of 12 months. Transplanting before transformation is therefore the intervention, not transplanting at all.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Bone Marrow Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe marrow hypoplasia. Peripheral counts understate it, which is why the diagnosis is often delayed and why active surveillance rather than count monitoring is what the literature recommends.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bone marrow hypocellularity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Bone Marrow Hypoplasia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The biopsy measurement of this node\u0027s state, and what the diagnosis rests on: the marrow finding is disproportionate to the blood counts, which is the feature that most often delays recognition. An observational readout, not a causal edge.\"}], \"term_id\": \"HP:0005528\"}}, {\"id\": \"Cerebellar involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia and dysmetria with interval deterioration of the corpus callosum and generalised volume loss on MRI, reported in one patient.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in all six patients of the 2018 series, but that series is not representative: across the pooled 31-patient literature the combined microcephaly/developmental-delay figure is 6/31, and three individuals in one family had the same genotype with none of these features. The disease name overstates this.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"ERCC6L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERCC6L2\"], \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ERCC6L2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic truncating variants at or upstream of the helicase domain remove the protein\u0027s function and, for the originally described alleles, its subcellular localisation and stability.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERCC6L2\"], \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}], \"genetic_context\": {\"allele_type\": \"FRAMESHIFT\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ERCC6L2\", \"id\": \"hgnc:26922\"}]}}}, {\"id\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human primary haematopoietic stem/progenitor cells and mesenchymal stromal cells, silenced or patient-derived, challenged ex vivo.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Ercc6l2-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"In vitro and in vivo model systems used together to separate the marrow failure from the leukaemic transformation, including the p53-inactivated arm that reproduces the somatic rescue seen in patients.\"}, {\"id\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells are hypersensitive to agents that specifically activate transcription-coupled nucleotide excision repair, and also to transcription inhibitors that interfere with RNA Pol II, with an abnormally delayed transcription recovery. ERCC6L2 interacts with DNA-PK, a regulatory component of the RNA Pol II transcription complex.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription-coupled nucleotide-excision repair\", \"transcription elongation by RNA polymerase II\"]}}, {\"id\": \"Impaired Erythroid Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed erythroid differentiation with a shift toward polychromatic and away from orthochromatic erythroblasts. The stromal compartment is also affected: patient-derived mesenchymal stromal cells show enhanced osteogenesis and suppressed adipogenesis, so the niche is remodelled as well as the stem cell.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythroblast\", \"mesenchymal stem cell\"], \"biological_processes\": [\"erythrocyte differentiation\"], \"experimental_models\": [{\"name\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the clonogenic defect and the erythroid maturation delay, and shows the stromal phenotype alongside it.\"}]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Myelodysplastic syndrome or acute myeloid leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The two are curated as one phenotype because the literature reports them as a single progression endpoint and gives a combined denominator. Roughly a third of the pooled cohort reaches it.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002863\"}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytopenias are usually mild relative to the marrow findings, and can present as isolated or bilineage rather than trilineage loss. Two adolescents presented with unexplained prolonged bicytopenia and nothing else.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001876\"}}, {\"id\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained replication stress and DNA damage in haematopoietic stem and progenitor cells. The haematopoietic restriction of a ubiquitously expressed repair gene is not fully explained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000556\"}}, {\"id\": \"Somatic TP53 Clonal Rescue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic TP53 mutation restores the fitness of the ERCC6L2-deficient stem cell and corrects the marrow failure. It does not correct the replication stress, so DNA damage keeps accumulating in a clone that can no longer arrest or die. This is the pivot of the whole disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"animal_models\": [{\"name\": \"Ercc6l2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc6l2 deficient, with and without somatic Trp53 mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Somatic Trp53 mutation restores fitness and corrects the marrow failure phenotype in the mouse, exactly as the human TP53 clones do.\"}]}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelodysplastic syndrome or acute myeloid leukaemia with somatic TP53 mutations and erythroid predominance. Three-year overall survival falls to 19% once this develops.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"p53 Pathway Activation and HSPC Attrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p53 activation drives cell cycle arrest and apoptosis, and Ercc6l2 deficiency also lowers expression of the master haematopoietic regulators Runx1 and Gata1. The result is fewer stem and progenitor cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"signal transduction by p53 class mediator\", \"apoptotic process\"], \"animal_models\": [{\"name\": \"Ercc6l2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc6l2 deficient, with and without somatic Trp53 mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces reduced HSPC numbers, marrow hypocellularity and cytopenias through p53-dependent arrest and apoptosis.\"}]}}], \"edges\": [{\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERCC6L2 occupies gene bodies with RNA Pol II and DNA-PK; without it, transcript elongation is not terminated correctly after DNA damage and DNA-RNA hybrids accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental features are drawn from the germline lesion itself rather than from any step in the haematopoietic chain, because that is what the evidence supports and no more: ERCC6L2 is ubiquitously expressed and the same repair deficiency is present in neural tissue, but no study has shown which step produces the delay, and it is not a consequence of marrow failure. The tissue-level mechanism is genuinely unknown.\\nNote the penetrance caveat already recorded on the phenotype: the 2018 six-patient series found developmental delay in all of them, but across the pooled 31-patient literature the combined microcephaly/developmental-delay figure is 6 of 31.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Curated from the germline lesion for the same reason as developmental delay, and reported in the same patients. Whether the small head size reflects reduced neural progenitor output from the same replication stress seen in haematopoietic progenitors is a plausible reading that no cited source demonstrates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Cerebellar involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported in a single patient, with interval deterioration on serial MRI. Linked here rather than left detached because it belongs to the same neurological arm, and flagged as VERY_RARE on the phenotype itself so the edge is not read as a general feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ERCC6L2 Loss of Function\", \"target\": \"Retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The remaining non-haematologic feature, also VERY_RARE. Grouped with the neurological arm on the same basis: a consequence of the ubiquitously expressed germline lesion, with no established route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Transcription-Coupled Repair and R-Loop Accumulation\", \"target\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Replication Stress and DNA Damage in Haematopoietic Stem and Progenitor Cells\", \"target\": \"p53 Pathway Activation and HSPC Attrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p53 Pathway Activation and HSPC Attrition\", \"target\": \"Bone Marrow Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p53 Pathway Activation and HSPC Attrition\", \"target\": \"Impaired Erythroid Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid commitment is disproportionately affected, which is the cellular basis of the erythroid predominance seen later in the marrow and in the leukaemias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Erythroid Differentiation\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The erythroid arrest is what makes anaemia the most consistent cytopenia in this disease, present more often than the thrombocytopenia and neutropenia that arise from generalised marrow hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of marrow output across lineages. The entry\u0027s own phenotype record notes that presentation is often bilineage or isolated rather than trilineage, so this edge asserts the route to cytopenia, not that all three lineages fall together in every patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The megakaryocytic consequence of reduced marrow output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The granulocytic consequence of reduced marrow output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalised marrow hypoplasia contributes to the anaemia alongside the specific erythroid differentiation block above. Both edges are drawn because the sources report trilineage cytopenia with a disproportionate erythroid defect, which is two contributions rather than one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because p53 activation is what removes the mutant stem cells, inactivating p53 restores their fitness. The selection pressure created by the disease selects for the clone that will kill the patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic TP53 Clonal Rescue\", \"target\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"target\": \"Myelodysplastic syndrome or acute myeloid leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical diagnosis this node describes. Both are curated as one phenotype because ERCC6L2 disease is reported as a continuum in which the MDS/AML boundary is often not drawn.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53-Mutated Erythroid-Predominant Myeloid Malignancy\", \"target\": \"Acute myeloid leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specific malignancy curated separately from the combined MDS/AML phenotype above, for entries and queries that need AML as its own term.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic haematopoietic stem cell transplantation\", \"target\": \"ERCC6L2 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ERCC6L2-silenced and patient-derived HSPCs and MSCs\", \"target\": \"Impaired Erythroid Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the clonogenic defect and the erythroid maturation delay, and shows the stromal phenotype alongside it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Ex vivo culture cannot reproduce the marrow niche, and silencing is acute rather than constitutional. The clinically decisive event, TP53 clonal selection over decades, is outside what this system can show.\"}, {\"source\": \"Ercc6l2-deficient mouse\", \"target\": \"p53 Pathway Activation and HSPC Attrition\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces reduced HSPC numbers, marrow hypocellularity and cytopenias through p53-dependent arrest and apoptosis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse haematopoiesis differs in stem-cell replication rate and telomere biology from human, and the model does not address the neurodevelopmental features of the human syndrome at all.\"}, {\"source\": \"Ercc6l2-deficient mouse\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Somatic Trp53 mutation restores fitness and corrects the marrow failure phenotype in the mouse, exactly as the human TP53 clones do.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse establishes the mechanism but not the timescale; human transformation has a median onset of 37 years, which no mouse experiment reproduces.\"}, {\"source\": \"Bone Marrow Hypoplasia\", \"target\": \"Bone marrow hypocellularity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The biopsy measurement of this node\u0027s state, and what the diagnosis rests on: the marrow finding is disproportionate to the blood counts, which is the feature that most often delays recognition. An observational readout, not a causal edge.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ERCC6L2\", \"target\": \"ERCC6L2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"Somatic TP53 Clonal Rescue\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5891,6 +6060,9 @@ This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5967,6 +6139,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6038,6 +6213,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6104,6 +6282,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6182,6 +6363,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6250,6 +6434,9 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6376,6 +6563,9 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6456,6 +6646,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6531,6 +6724,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6638,6 +6834,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6766,6 +6965,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6879,6 +7081,9 @@ This disease-associated gene is ERCC6L2 (hgnc:26922). hgnc:26922 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -6957,6 +7162,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -7133,6 +7341,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7143,6 +7354,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
     </div>
+
+
+
 
 
 
@@ -7305,6 +7519,9 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7315,6 +7532,9 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -8572,6 +8792,64 @@ pathophysiology:
         loops).
       explanation: &gt;-
         Both halves of the mechanism are measured in patient-derived cells.
+  - target: Developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The neurodevelopmental features are drawn from the germline lesion itself
+      rather than from any step in the haematopoietic chain, because that is
+      what the evidence supports and no more: ERCC6L2 is ubiquitously expressed
+      and the same repair deficiency is present in neural tissue, but no study
+      has shown which step produces the delay, and it is not a consequence of
+      marrow failure. The tissue-level mechanism is genuinely unknown.
+
+      Note the penetrance caveat already recorded on the phenotype: the 2018
+      six-patient series found developmental delay in all of them, but across
+      the pooled 31-patient literature the combined
+      microcephaly/developmental-delay figure is 6 of 31.
+    evidence:
+    - reference: PMID:29633571
+      reference_title: ERCC6L2-associated inherited bone marrow failure syndrome.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        All patients displayed bone marrow failure, learning or developmental
+        delay and microcephaly.
+      explanation: &gt;-
+        Establishes that the neurodevelopmental features co-segregate with the
+        marrow phenotype in biallelic ERCC6L2 disease, which is what licenses
+        an edge from the germline lesion. It does not establish a mechanism,
+        which is why the link type is INDIRECT_UNKNOWN_INTERMEDIATES.
+  - target: Microcephaly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Curated from the germline lesion for the same reason as developmental
+      delay, and reported in the same patients. Whether the small head size
+      reflects reduced neural progenitor output from the same replication
+      stress seen in haematopoietic progenitors is a plausible reading that no
+      cited source demonstrates.
+    evidence:
+    - reference: PMID:29633571
+      reference_title: ERCC6L2-associated inherited bone marrow failure syndrome.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        All patients displayed bone marrow failure, learning or developmental
+        delay and microcephaly.
+      explanation: &gt;-
+        Names microcephaly alongside the marrow failure in the same cohort.
+  - target: Cerebellar involvement
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Reported in a single patient, with interval deterioration on serial MRI.
+      Linked here rather than left detached because it belongs to the same
+      neurological arm, and flagged as VERY_RARE on the phenotype itself so the
+      edge is not read as a general feature.
+  - target: Retinal dystrophy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The remaining non-haematologic feature, also VERY_RARE. Grouped with the
+      neurological arm on the same basis: a consequence of the ubiquitously
+      expressed germline lesion, with no established route.
 - name: Failed Transcription-Coupled Repair and R-Loop Accumulation
   biological_scale: MOLECULAR
   description: &gt;-
@@ -8780,6 +9058,26 @@ pathophysiology:
     explanation: &gt;-
       The niche phenotype is measured in patient-derived stromal cells, so the
       disease is not purely stem-cell intrinsic.
+  downstream:
+  - target: Anemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The erythroid arrest is what makes anaemia the most consistent cytopenia
+      in this disease, present more often than the thrombocytopenia and
+      neutropenia that arise from generalised marrow hypoplasia.
+    evidence:
+    - reference: PMID:36790458
+      reference_title: &#34;ERCC6L2-related disease: a novel entity of bone marrow failure disorder with high risk of clonal evolution.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most patients presented with trilineage cytopenia
+      explanation: &gt;-
+        Establishes the cytopenia this node contributes to. The source reports
+        trilineage involvement rather than isolating the erythroid lineage, so
+        it supports anaemia being present without attributing it to this node
+        alone — the marrow hypoplasia node below contributes to the same
+        finding.
 - name: Bone Marrow Hypoplasia
   biological_scale: TISSUE
   description: &gt;-
@@ -8798,6 +9096,28 @@ pathophysiology:
     explanation: &gt;-
       Severe hypoplasia with mild count changes is measured across the cohort.
   downstream:
+  - target: Pancytopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Loss of marrow output across lineages. The entry&#39;s own phenotype record
+      notes that presentation is often bilineage or isolated rather than
+      trilineage, so this edge asserts the route to cytopenia, not that all
+      three lineages fall together in every patient.
+  - target: Thrombocytopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The megakaryocytic consequence of reduced marrow output.
+  - target: Neutropenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The granulocytic consequence of reduced marrow output.
+  - target: Anemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Generalised marrow hypoplasia contributes to the anaemia alongside the
+      specific erythroid differentiation block above. Both edges are drawn
+      because the sources report trilineage cytopenia with a disproportionate
+      erythroid defect, which is two contributions rather than one.
   - target: Somatic TP53 Clonal Rescue
     causal_link_type: DIRECT
     description: &gt;-
@@ -8865,6 +9185,32 @@ pathophysiology:
     Myelodysplastic syndrome or acute myeloid leukaemia with somatic TP53
     mutations and erythroid predominance. Three-year overall survival falls to
     19% once this develops.
+  downstream:
+  - target: Myelodysplastic syndrome or acute myeloid leukemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical diagnosis this node describes. Both are curated as one
+      phenotype because ERCC6L2 disease is reported as a continuum in which the
+      MDS/AML boundary is often not drawn.
+    evidence:
+    - reference: PMID:36952636
+      reference_title: &#34;The clinical picture of ERCC6L2 disease: from bone marrow failure to acute leukemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Biallelic germ line excision repair cross-complementing 6 like 2
+        (ERCC6L2) variants strongly predispose to bone marrow failure (BMF) and
+        myeloid malignancies, characterized by somatic TP53-mutated clones and
+        erythroid predominance.
+      explanation: &gt;-
+        Establishes the predisposition this node realises, and names both
+        defining features of it — the somatic TP53 clones and the erythroid
+        predominance.
+  - target: Acute myeloid leukemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The specific malignancy curated separately from the combined MDS/AML
+      phenotype above, for entries and queries that need AML as its own term.
   evidence:
   - reference: PMID:36952636
     reference_title: &#34;The clinical picture of ERCC6L2 disease: from bone marrow failure to acute leukemia.&#34;
@@ -8954,6 +9300,13 @@ phenotypes:
     term:
       id: HP:0005528
       label: Bone marrow hypocellularity
+  reports_on:
+  - target: Bone Marrow Hypoplasia
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The biopsy measurement of this node&#39;s state, and what the diagnosis rests on: the marrow finding is disproportionate to the blood counts, which is the feature that most often delays recognition. An observational readout, not a causal edge.
   evidence:
   - reference: PMID:36952636
     reference_title: &#34;The clinical picture of ERCC6L2 disease: from bone marrow failure to acute leukemia.&#34;
@@ -9808,6 +10161,172 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">The counterintuitive core of this disease is that the somatic event which corrects the marrow failure is the same one that causes the leukaemia. Somatic TP53 mutation is selected for because it reverses the p53-dependent attrition of ERCC6L2-deficient stem cells, but it does not touch the replication stress, so the rescued clone keeps accumulating damage without being able to arrest or die. A patient whose counts improve is not necessarily getting better.
+The MONDO label understates the disease on both counts; see the open discussion.
+A note on the 19% microcephaly/developmental-delay figure used here. The deep-research report attributed it to &#34;De Vitis et al.&#34;; no such paper exists in PubMed. The figure itself is real and is now cited to its actual source, Baccelli et al. 2023 (PMID:36790458), which reports 6/31. The number was right and the attribution was invented, which is a failure mode worth knowing about: checking that a cited claim is true is not the same as checking that the named author wrote it. PMID:42415356, a 2026 Br J Haematol paper on advanced fibrosis and TP53 variants as diagnostic harbingers, is relevant but was not cited: its PubMed record carries no abstract, so there is no quotable text and a title is not a finding.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR review: fix the inverted REFUTE item, re-band the neurodevelopmental phenotypes to a real source, unbind conditioning, add histopathology</strong> · 2026-08-31T17:19:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pancytopenia-Developmental_Delay_Syndrome/2026-08-31T171925Z-claude-code-4d74b9.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the automated review on PR #10232 (review 5068809988, 4 IMPORTANT, no
+CRITICAL), plus the non-blocking suggestions for histopathology, a references
+block and missing phenotypes.
+
+IMPORTANT 1 - the REFUTE item on Developmental delay quoted a sentence that
+AFFIRMS the association (&#34;ERCC6L2-associated disease has been so far frequently
+related to neurodevelopmental delay...&#34;). As graded it said the opposite of what
+it read. Replaced with the genuinely refuting sentence from the same cached full
+text: &#34;Our patients, both homozygous for this variant, as well as the brother of
+one of them with the same genotype, did not exhibit microcephaly, developmental
+delay, or dysmorphic features.&#34;
+
+IMPORTANT 2 - Developmental delay and Microcephaly were graded FREQUENT on no
+cited frequency. Both lowered to OCCASIONAL and now cited. Tracing the reviewer&#39;s
+19% figure produced a finding worth recording: the deep-research report
+attributed it to &#34;De Vitis et al.&#34;, and no such paper exists in PubMed - searches
+for `De Vitis[AU] AND ERCC6L2` and `Vitis[AU] AND ERCC6L2` both return nothing.
+The number itself is real. Following the report&#39;s own citation [11] to
+PMC9998559 resolves to PMID:36790458, Baccelli et al. 2023, which states &#34;Regarding
+neurological features, 6/31 patients presented microcephaly&#34; and &#34;Developmental
+delay and/or learning difficulties were also described in 6 patients&#34;. So the
+figure was right and the attribution was invented. That reference was fetched and
+is now cited directly.
+
+IMPORTANT 3 - NCIT:C15747 &#34;Supportive Care&#34; was the wrong binding for
+conditioning intensity, which is cytotoxic pre-transplant therapy. The separate
+treatment entry was removed and its evidence folded into the HSCT entry, whose
+notes already carried the conditioning guidance.
+
+IMPORTANT 4 - the MDS phenotype was graded FREQUENT on a snippet that never names
+MDS. Renamed to &#34;Myelodysplastic syndrome or acute myeloid leukemia&#34; (the
+literature reports them as one progression endpoint with a combined denominator)
+and re-evidenced with &#34;approximately a third of the whole cohort of patients
+(10/31) developed MDS or AML&#34; plus the reviewer&#39;s suggested hallmark sentence
+from PMID:41628318 and the TP53-clone proportion (7/10 progressors, none of the
+non-progressors).
+
+SUGGESTIONS taken. Added a histopathology: section with the two marrow pictures
+and their denominators - hypocellular without dysplasia in 20 of 26 patients with
+reported morphology at presentation, versus megakaryocytic/erythroid dysplasia
+with erythroid predominance as the progression picture. Added Thrombocytopenia,
+Anemia and Neutropenia at VERY_FREQUENT. Added a top-level references: block for
+all nine PMIDs. Added the monosomy 7 cytogenetic finding to the malignancy node.
+
+SUGGESTION not done: OMIM/ORPHA mappings cannot be expressed. DiseaseMappings
+supports only icd10cm/icd11f/mondo/ncit sub-slots; schema validation rejects
+omim_mappings and orphanet_mappings. Same wall as PRs #10226 and #10227 in this
+run.
+
+GeneReviews: the reviewer could not check. Confirmed here - `ERCC6L2
+GeneReviews[All Fields]` returns nothing, and a GeneReviews[Book] search returns
+only other IBMFS chapters (Fanconi anemia, dyskeratosis congenita, SAMD9L,
+monosomy 7 predisposition), none of them ERCC6L2. No chapter exists.
+
+One tooling observation from this round: the trilineage-cytopenia sentence in
+PMID:36790458 carries a mid-sentence PMC citation marker (&#34;between 4000 and [23]
+166,000/μL&#34;), and the reference validator strips bracketed spans before matching,
+so the exact sentence cannot be quoted in full. The snippet was shortened to the
+clause before the marker. This is the same class of problem as issue #10192
+(HGVS designations in square brackets).
+
+Validation after fixes: `just validate` passes schema, term and reference checks
+with 59/59 snippets verified (up from 49/49). check-entity-refs,
+check-duplicate-keys, check-folded-hyphens, check-snippet-length,
+check-title-snippets and check-snippet-grading all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Pancytopenia-Developmental Delay Syndrome</strong> · 2026-08-31T16:17:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pancytopenia-Developmental_Delay_Syndrome/2026-08-31T161758Z-claude-code-e74d89.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Pancytopenia-Developmental_Delay_Syndrome.yaml
+(MONDO:0014317, ERCC6L2; also BMFS2 / &#34;ERCC6L2 disease&#34;).
+
+Deep research: Perplexity (sonar-deep-research) -&gt;
+research/Pancytopenia-Developmental_Delay_Syndrome-deep-research-perplexity.md.
+Inline validation set `term_validation.needs_review: true` with 13 of 38 checked
+labels naming a different term. The NCIT bindings were wrong without exception:
+Blood Transfusion -&gt; Health Services Research, Antibiotic Therapy -&gt; Rabies,
+Colony-Stimulating Factor Therapy -&gt; Medical Castration, Supportive Care -&gt;
+Scientist Exchange Program, Hematopoietic Stem Cell Transplantation -&gt;
+Psychosocial Assessment and Care, Bone Marrow Transplantation -&gt; Health
+Promotion. HP:0005518 was offered as &#34;bone marrow hypocellularity&#34; (HPO:
+&#34;Increased mean corpuscular volume&#34;) and HP:0002352 as &#34;cerebellar atrophy&#34;
+(HPO: &#34;Leukoencephalopathy&#34;). GO:0007067 is obsolete. None was bound; all terms
+here were resolved independently against the committed caches. Citation 18 is
+the bare string &#34;ACMG guidelines&#34;.
+
+References used, all sourced independently from PubMed: PMID:24507776 (Tummala
+2014 discovery), PMID:29633571 (six-patient phenotype series), PMID:29987015
+(transcription deficiency, DNA-PK interaction, R loops), PMID:36156210 (impaired
+erythropoiesis and MSC niche remodelling), PMID:36952636 (52-subject global
+cohort with the survival figures), PMID:41490322 (mouse: replication stress, p53
+activation, somatic Trp53 rescue), PMID:41628318 (first systematic HSCT
+analysis), PMID:39906419 (Croatian non-classical presentations).
+
+One reference was deliberately not cited: PMID:42415356 (Br J Haematol 2026,
+&#34;Advanced fibrosis, TP53 variants and acute/pure erythroid leukaemia: Diagnostic
+harbingers of ERCC6L2-related bone marrow failure&#34;). It is relevant, but its
+PubMed record carries no abstract, so `just fetch-reference` cached a title-only
+file and there is no quotable text. Per the evidence SOP a title is not a
+finding, so it is named in the entry&#39;s notes instead. This is recorded because
+&#34;relevant but unquotable&#34; is a category the KB currently has no slot for.
+
+One error I made and the gate caught: the 3-year survival snippet was
+transcribed as &#34;...for patients with BMF and HMs, respectively&#34; where the
+abstract says &#34;HM&#34;. `just validate` reported it as an abstract-only
+near-miss and it was corrected to the exact substring.
+
+Curation choices. The `Developmental delay` phenotype carries a SUPPORT item
+from the six-patient series where it was universal AND a REFUTE item from the
+Croatian report, whose patients had unremarkable histories and normal physical
+findings. Per the CLAUDE.md guidance on evidence that supports one part of a
+claim and contradicts another, these are two items rather than one hedged item.
+An open KNOWLEDGE_GAP argues that the MONDO label understates the disease on
+both counts, since the cytopenias are mild relative to the marrow hypoplasia and
+the defining feature is TP53-mutant transformation; the field has largely moved
+to &#34;ERCC6L2 disease&#34;. TP53 is curated as a second `genetic:` entry with
+`relationship_type: SOMATIC_DRIVER`, because the somatic mutation is selected
+for rather than incidental - it reverses the p53-dependent attrition that causes
+the marrow failure.
+
+CORRECTION (appended 2026-08-31T18:52Z, before merge): the sentence below
+originally read &#34;No GeneReviews chapter exists for this disorder.&#34; That is
+false as written. No DEDICATED chapter exists, but the GeneReviews &#34;Monosomy
+7 Predisposition Syndromes Overview&#34; (NBK571103) covers this disorder, and
+it was already cached in this PR&#39;s own references_cache/ when I wrote that
+line. Its Table 1 gives ERCC6L2 / Bone marrow failure syndrome 2
+(OMIM 615715) / AR / 1%-5% of monosomy 7 predisposition / adult onset /
+&#34;Microcephaly, learning difficulties, DD&#34;, and its physical-examination
+section names ERCC6L2-related bone marrow failure among the causes of
+microcephaly. An absolute &#34;does not exist&#34; would have told the next curator
+not to look. This is the third time in this run I recorded an absence that
+the cache contradicted; the other two were a grep truncated by head -5 and
+an ASCII search for a full-width numeral.
+
+Not cited, and the reason is itself worth recording: that cache is stored as
+raw HTML, and every ERCC6L2 mention is wrapped in &lt;i&gt; tags mid-sentence, so
+no sentence naming the gene survives as an exact substring. I added the
+microcephaly sentence as an evidence item, ran just validate, got &#34;Text part
+not found as substring&#34;, and removed it rather than ship an unverified
+snippet. A reviewer suggested the chapter was quotable; it is quotable on
+screen and not in the bytes, which is the same rendered-form-versus-actual-
+bytes mistake as the full-width numeral, made in the other direction.
+
+Validation: `just validate` passes schema, term and reference checks with 49/49
+snippets verified. check-entity-refs, check-duplicate-keys, check-folded-hyphens,
+check-snippet-length, check-title-snippets and check-snippet-grading all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10247,7 +10766,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pancytopenia-Developmental Delay Syndrome", "mondoId": "MONDO:0014317", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pancytopenia-Developmental_Delay_Syndrome", "yamlRevision": "3d760ffa1d6c"};
+        const OS_CONFIG = {"diseaseName": "Pancytopenia-Developmental Delay Syndrome", "mondoId": "MONDO:0014317", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pancytopenia-Developmental_Delay_Syndrome", "yamlRevision": "77675499e4ef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

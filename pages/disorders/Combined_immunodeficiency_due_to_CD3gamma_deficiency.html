@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5161,6 +5214,7 @@ remission."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cd3g-loss-of-function-variants" data-dismech-node="Biallelic CD3G Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CD3G Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Biallelic CD3G variants impair the CD3gamma subunit of the TCR/CD3 complex. Complete transcript and protein loss was demonstrated for homozygous c.1A&gt;G in cultured blasts from one child; PBMC protein loss was also shown in the two adults reported in 2026. These results establish that human T-cell development can persist without detectable CD3gamma; they do not establish identical residual function for every reported allele. The original Spanish siblings were compound heterozygotes, not homozygotes for the initiation-codon variant.</div>
 
 
@@ -5312,6 +5366,7 @@ This pathophysiological event involves CD3G (hgnc:1675). hgnc:1675 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tcr-cd3-complex-assembly-and-surface-expression" data-dismech-node="Impaired TCR/CD3 Complex Assembly and Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TCR/CD3 Complex Assembly and Surface Expression</div>
+
 
                 <div class="item-desc">CD3gamma deficiency lowers, without invariably abolishing, surface TCR/CD3 expression in human T cells. CD3G-knockdown Jurkat cells show unstable partial receptor ensembles, ER retention and deficient zeta-dimer incorporation, but their profound receptor loss does not quantitatively reproduce patient cells. Patient-cell reconstitution supports a role for CD3gamma in surface expression; the precise assembly/export constraints depend on the cellular system. Human gamma-delta receptors can incorporate CD3delta, providing a supported explanation for partial compensation in that lineage.</div>
 
@@ -5509,6 +5564,7 @@ conﬁrming the diagnosis of CD3 g deﬁciency (Figures 1B– D)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-t-cell-receptor-signaling" data-dismech-node="Attenuated T-Cell Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated T-Cell Receptor Signaling</div>
 
+
                 <div class="item-desc">Reduced and structurally altered TCR/CD3 complexes change signaling in a response-dependent manner. Cultured patient-derived lines retain several proximal responses but have altered adhesion/polarization and increased activation-induced death. In reconstituted JGN cells, removal of the CD3gamma intracellular domain impaired IL-2/TNF-alpha production while preserving proximal phosphorylation and CD69 induction. These model findings do not establish global absence of T-cell activation in patients; PHA and anti-CD3/CD28 responses can be preserved in particular patients or assay conditions.</div>
 
 
@@ -5689,6 +5745,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distorted-thymic-selection-and-self-reactive-repertoire" data-dismech-node="Distorted Thymic Selection and Self-Reactive Repertoire" data-dismech-type="pathophysiology">
                 <div class="item-name">Distorted Thymic Selection and Self-Reactive Repertoire</div>
 
+
                 <div class="item-desc">Reduced TCR signaling is proposed to alter thymic selection and the fate of self-reactive CD4 cells. Peripheral repertoire sequencing in six patients with autoimmunity found reduced Treg repertoire diversity and a hydrophobic CDR3 signature associated with self-reactivity in conventional CD4 cells. This is a molecular surrogate and a mechanistic interpretation, not direct observation of failed negative selection or demonstration of each clone&#39;s autoantigen specificity. The same self-reactivity signature was not found in CD8 cells.</div>
 
 
@@ -5856,6 +5913,7 @@ This pathophysiological event involves decreased thymic T cell selection (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regulatory-t-cell-deficiency-and-impaired-suppression" data-dismech-node="Regulatory T-Cell Deficiency and Impaired Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Regulatory T-Cell Deficiency and Impaired Suppression</div>
+
 
                 <div class="item-desc">In the 2018 autoimmune cohort, circulating Treg proportions and repertoire diversity were reduced; suppression was tested in four patients and was impaired. Reduced TCR signaling may affect Treg selection, maintenance and suppressive function, but the relative contribution of these processes remains unresolved. A Taiwanese adult had preserved Treg proportion and suppressive activity with no recognized autoimmunity. Treg deficiency is therefore an important variable mechanism, not a universal requirement for CD3G-associated disease.</div>
 
@@ -6062,6 +6120,7 @@ upon stimulation"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-proliferative-response" data-dismech-node="Impaired T-Cell Proliferative Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T-Cell Proliferative Response</div>
 
+
                 <div class="item-desc">Mitogen-driven T-cell division is impaired in several CD3G cohorts, consistent with altered receptor signaling. The response depends on stimulus, cell subset, age and assay: anti-CD3 plus CD28 restored near-control responses in the 2018 study, and the Taiwanese patient had normal PHA responses despite reduced ConA incorporation. The 2026 count of 11/11 abnormal responses to at least one mitogen does not establish universal impairment of PHA-induced transformation or predict clinical severity.</div>
 
 
@@ -6208,6 +6267,7 @@ CD81 T cells from patients and controls (Figure 2A-D)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-humoral-immune-failure" data-dismech-node="Humoral Immune Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Humoral Immune Failure</div>
 
+
                 <div class="item-desc">Humoral impairment ranges from profound low immunoglobulins and deficient vaccine responses to normal or elevated concentrations. Reduced switched-memory B cells and diminished CD40L induction in a Taiwanese patient suggest impaired T-cell help as one contributor; intrinsic B-cell dysfunction was not demonstrated by rescue or Tfh/B-cell coculture. Nephrotic protein loss, glucocorticoids and immunoglobulin replacement can also influence measured concentrations. The 2026 9/18 hypo-/dysgammaglobulinemia aggregate cannot be assigned to low total IgG alone.</div>
 
 
@@ -6350,6 +6410,7 @@ reported in some patients with CVID and hyper IgM"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-autoimmunity" data-dismech-node="Multisystem Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Autoimmunity</div>
+
 
                 <div class="item-desc">Defective central and peripheral tolerance can permit autoreactive T-cell activity and autoantibody-associated tissue injury. The 2018 repertoire/suppression study proposes this mechanism for the patients&#39; autoimmunity, rather than directly demonstrating every organ-specific effector pathway. Thyroid disease, autoimmune cytopenias, enteropathy, hepatitis, vitiligo and a lupus-like presentation occur variably. The absence of autoimmunity in a patient with preserved Treg function is a scope constraint, not evidence that autoimmunity is absent from the disorder.</div>
 
@@ -6516,6 +6577,7 @@ the..."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-adaptive-host-defense" data-dismech-node="Defective Adaptive Host Defense" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Adaptive Host Defense</div>
 
+
                 <div class="item-desc">Impaired T-cell effector responses and, in some patients, antibody deficiency reduce adaptive control of infection. Clinical expression ranges from recurrent sinopulmonary bacterial infections to severe viral, fungal and intestinal infections. Preserved PHA responses and Treg function in the Taiwanese adult coexist with humoral failure and recurrent respiratory infection. Neither a single proliferation assay nor surface receptor intensity is a validated predictor of infection severity.</div>
 
 
@@ -6672,6 +6734,7 @@ impaired lymphocyte proliferation"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-infection-associated-airway-injury" data-dismech-node="Chronic Infection-Associated Airway Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Infection-Associated Airway Injury</div>
 
+
                 <div class="item-desc">Repeated sinopulmonary infection can produce structural airway damage and bronchiectasis. The Taiwanese case explicitly describes bronchiectasis as a complication of recurrent infections and later links worsening bronchiectasis to increased pulmonary artery pressure and cor pulmonale. The route is supported within that longitudinal case and is not a claim that every patient develops permanent lung disease.</div>
 
 
@@ -6792,6 +6855,7 @@ the age of 14-years."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-help-for-memory-b-cell-maturation" data-dismech-node="Impaired T-Cell Help for Memory B-Cell Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T-Cell Help for Memory B-Cell Maturation</div>
 
+
                 <div class="item-desc">In the Taiwanese adult, stimulated CD4 cells expressed about half the control CD40L level and class-switched memory B cells were reduced. The authors propose insufficient CD40L-dependent help as a contributor to B-cell maturation failure. CD40L was measured after PMA/ionomycin, not direct TCR triggering; the CD3G-to-CD40L route and its prevalence remain unresolved, and the proposed Tfh/B-cell coculture was not performed.</div>
 
 
@@ -6869,6 +6933,7 @@ were performed."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-gastrointestinal-mucosal-injury" data-dismech-node="Immune-Mediated Gastrointestinal Mucosal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Mediated Gastrointestinal Mucosal Injury</div>
+
 
                 <div class="item-desc">Autoimmune enteropathy with anti-enterocyte reactivity was demonstrated in the 2021 child, together with chronic active gastritis and colitis. Persistent gastrointestinal mucosal injury can account for diarrhea and nutritional failure; improvement during immunosuppression and in another patient after HSCT supports an immune contribution. The gastric contribution is inferred from the overall inflammatory presentation rather than a demonstrated stomach-specific effector. This mechanism is not assigned to every infectious or unclassified episode of diarrhea.</div>
 
@@ -6977,6 +7042,7 @@ were performed."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suspected-nodular-regenerative-hepatic-remodeling" data-dismech-node="Suspected Nodular Regenerative Hepatic Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Suspected Nodular Regenerative Hepatic Remodeling</div>
+
 
                 <div class="item-desc">The Taiwanese adult had imaging and clinical findings interpreted as nodular regenerative hyperplasia. Liver biopsy was declined. The authors favored a slowly progressive portal-hypertensive pattern after an unsuccessful steroid trial for possible autoimmune hepatitis. The upstream relation to CD3G/humoral deficiency is not established; the local hepatic-to-portal/splenic interpretation remains provisional.</div>
 
@@ -7092,6 +7158,7 @@ with the CD3 γ Del 213A mutation"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-thymic-output-and-altered-t-cell-homeostasis" data-dismech-node="Reduced Thymic Output and Altered T-Cell Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Thymic Output and Altered T-Cell Homeostasis</div>
 
+
                 <div class="item-desc">Human CD3G case studies infer reduced thymic output from low TRECs and naive-cell numbers despite preservation or later accumulation of peripheral polyclonal memory T cells. Absolute CD4/CD8 counts vary, and TCR/CD3-dependent gating can underestimate cells. The relative effects of production, selection, peripheral survival and treatment cannot be separated in every patient.</div>
 
 
@@ -7154,6 +7221,7 @@ with the CD3 γ Del 213A mutation"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-helicobacter-pylori-associated-gastric-disease" data-dismech-node="Helicobacter pylori-Associated Gastric Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Helicobacter pylori-Associated Gastric Disease</div>
+
 
                 <div class="item-desc">Adult P2 developed H. pylori-associated gastric MALT lymphoma, which entered remission after eradication. This treatment response supports a local infectious contribution to the lymphoma; the report does not establish that CD3G deficiency caused the infection or conferred a general lymphoma predisposition.</div>
 
@@ -7275,19 +7343,19 @@ remission."</div>
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(12)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(10)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Integument<span class="pill-count">(2)</span></button>
 
@@ -7301,8 +7369,6 @@ remission."</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Growth<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-14">Other<span class="pill-count">(4)</span></button>
-
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
@@ -7311,7 +7377,7 @@ remission."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">11</span>
+                    <span class="cat-count">12</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-surface-tcr-cd3-expression" data-dismech-node="Reduced surface TCR/CD3 expression" data-dismech-type="phenotype">
@@ -7339,6 +7405,9 @@ This clinical feature is Reduced surface TCR/CD3 expression, annotated with Abno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7413,6 +7482,9 @@ This clinical feature is Impaired phytohemagglutinin-induced T lymphocyte transf
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7517,6 +7589,9 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7583,6 +7658,9 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7677,6 +7755,9 @@ This clinical feature is Decreased circulating immunoglobulin concentration (HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7778,6 +7859,9 @@ This clinical feature is Decreased regulatory T cell proportion (HP:0020113). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7849,6 +7933,9 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7890,6 +7977,158 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-cd4-t-cell-count" data-dismech-node="Decreased CD4 T-cell count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased CD4 T-cell count
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total CD4+ T cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:5210418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased CD4 T-cell count, annotated with Decreased total CD4+ T cell count (HP:5210418). HP:5210418 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" target="_blank">url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a low CD4 1 cell count was observed in P4,
+and decreased CD8 1 cell counts were detected in P2, P4, and
+P6."</div>
+
+
+                <div class="evidence-explanation">The six-patient study distinguishes absolute CD4 and CD8 count deficits by patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-cd8-t-cell-count" data-dismech-node="Decreased CD8 T-cell count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased CD8 T-cell count
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total CD8+ T cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:5210426</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased CD8 T-cell count, annotated with Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" target="_blank">url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a low CD4 1 cell count was observed in P4,
+and decreased CD8 1 cell counts were detected in P2, P4, and
+P6."</div>
+
+
+                <div class="evidence-explanation">Three specified patients had low absolute CD8 counts, unlike the separate CD4 finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-naive-cd4-t-cell-proportion" data-dismech-node="Decreased naive CD4 T-cell proportion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased naive CD4 T-cell proportion
@@ -7904,15 +8143,18 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0410378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0410378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased naive CD4 T-cell proportion, annotated with Decreased naive CD4+ T cell proportion (HP:0410378). HP:0410378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8001,15 +8243,18 @@ Supplemental Figure 2)."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased class-switched memory B-cell proportion, annotated with Decreased class-switched memory B cell proportion (HP:0030388). HP:0030388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8058,77 +8303,6 @@ memory B cells"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response-to-vaccination" data-dismech-node="Impaired specific antibody response to vaccination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired specific antibody response to vaccination
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased specific antibody response to vaccination</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0032140</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired specific antibody response to vaccination, annotated with Decreased specific antibody response to vaccination (HP:0032140). HP:0032140 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33215322" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33215322" target="_blank">PMID:33215322</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Reduced numbers of switched and unswitched memory B cells, hypogammaglobulinemia (IgG 338 mg/dL), and impaired vaccination response to Haemophilus influenzae type B and Pneumococcus were also present (Table 1)."</div>
-
-
-                <div class="evidence-explanation">The child had several directly documented humoral defects before replacement therapy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-malt-lymphoma" data-dismech-node="Gastric MALT lymphoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastric MALT lymphoma
@@ -8145,15 +8319,18 @@ This clinical feature is Impaired specific antibody response to vaccination, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0045038</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0045038</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastric MALT lymphoma, annotated with Gastric lymphoma (HP:0045038). HP:0045038 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8226,15 +8403,18 @@ remission."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8324,15 +8504,18 @@ sia without evidence of lymphoma or other malignancy."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001409</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001409</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8395,15 +8578,18 @@ been caused by autoimmune hepatitis, but the treatment failed ."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8468,15 +8654,18 @@ gradually developed"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hypertension, annotated with Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8539,15 +8728,18 @@ gradually progressed to cor pulmonale."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8602,7 +8794,7 @@ gradually progressed to cor pulmonale."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-protracted-diarrhea" data-dismech-node="Protracted diarrhea" data-dismech-type="phenotype">
@@ -8619,15 +8811,18 @@ gradually progressed to cor pulmonale."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8674,6 +8869,78 @@ This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a pheno
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune hepatitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autoimmune hepatitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:5210421</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24910257" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24910257" target="_blank">PMID:24910257</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found all five patients to display autoimmunity: autoimmune thyroiditis (n = 5), autoimmune haemolytic anaemia (n = 2), immune thrombocytopenia (n = 1), autoimmune hepatitis (n = 1), minimal change nephrotic syndrome (n = 1), vitiligo (n = 1) and positive antinuclear antibodies (n = 3) as..."</div>
+
+
+                <div class="evidence-explanation">The primary series assigns autoimmune hepatitis to one of five patients, not both siblings collectively.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-colitis" data-dismech-node="Chronic colitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic colitis
@@ -8688,15 +8955,18 @@ This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100281</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100281</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic colitis (HP:0100281). HP:0100281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8757,15 +9027,18 @@ This clinical feature is Chronic colitis (HP:0100281). HP:0100281 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005218</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005218</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anoperineal fistula (HP:0005218). HP:0005218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8826,15 +9099,18 @@ This clinical feature is Anoperineal fistula (HP:0005218). HP:0005218 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005231" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005231</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005231" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0005231</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic gastritis (HP:0005231). HP:0005231 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8906,15 +9182,18 @@ This clinical feature is Chronic gastritis (HP:0005231). HP:0005231 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100646</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100646</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune thyroiditis, annotated with Thyroiditis (HP:0100646). HP:0100646 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9000,15 +9279,18 @@ This clinical feature is Autoimmune thyroiditis, annotated with Thyroiditis (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9071,15 +9353,18 @@ roidism secondary to Hashimoto thyroiditis."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000836</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000836</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9151,15 +9436,18 @@ steroids, high dose IVIG"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012579</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Minimal change glomerulonephritis (HP:0012579). HP:0012579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9212,8 +9500,82 @@ This clinical feature is Minimal change glomerulonephritis (HP:0012579). HP:0012
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-oral-thrush" data-dismech-node="Recurrent oral thrush" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent oral thrush
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chronic oral candidiasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0009098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent oral thrush, annotated with Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18482219" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18482219" target="_blank">PMID:18482219</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient had suffered from intractable diarrhea, recurrent pulmonary infections and oral moniliasis since two months of age."</div>
+
+
+                <div class="evidence-explanation">Oral moniliasis was part of the infant&#39;s early recurring infectious phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-mastoiditis" data-dismech-node="Mastoiditis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -9229,15 +9591,18 @@ This clinical feature is Minimal change glomerulonephritis (HP:0012579). HP:0012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000265</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mastoiditis (HP:0000265). HP:0000265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9294,7 +9659,7 @@ the age of 14-years."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-combined-immunodeficiency" data-dismech-node="Combined immunodeficiency" data-dismech-type="phenotype">
@@ -9311,15 +9676,18 @@ the age of 14-years."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0005387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0005387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9380,15 +9748,18 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9451,15 +9822,18 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9506,9 +9880,9 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-oral-thrush" data-dismech-node="Recurrent oral thrush" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response-to-vaccination" data-dismech-node="Impaired specific antibody response to vaccination" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Recurrent oral thrush
+                        Impaired specific antibody response to vaccination
 
 
 
@@ -9517,20 +9891,23 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Chronic oral candidiasis</span>
+                        <span class="phenotype-term-label">Decreased specific antibody response to vaccination</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0009098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0032140</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent oral thrush, annotated with Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Impaired specific antibody response to vaccination, annotated with Decreased specific antibody response to vaccination (HP:0032140). HP:0032140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9542,10 +9919,10 @@ This clinical feature is Recurrent oral thrush, annotated with Chronic oral cand
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18482219" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:33215322" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18482219" target="_blank">PMID:18482219</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33215322" target="_blank">PMID:33215322</a>
                     </span>
 
 
@@ -9558,10 +9935,10 @@ This clinical feature is Recurrent oral thrush, annotated with Chronic oral cand
 
                 </div>
 
-                <div class="evidence-snippet">"The patient had suffered from intractable diarrhea, recurrent pulmonary infections and oral moniliasis since two months of age."</div>
+                <div class="evidence-snippet">"Reduced numbers of switched and unswitched memory B cells, hypogammaglobulinemia (IgG 338 mg/dL), and impaired vaccination response to Haemophilus influenzae type B and Pneumococcus were also present (Table 1)."</div>
 
 
-                <div class="evidence-explanation">Oral moniliasis was part of the infant&#39;s early recurring infectious phenotype.</div>
+                <div class="evidence-explanation">The child had several directly documented humoral defects before replacement therapy.</div>
 
 
 
@@ -9591,15 +9968,18 @@ This clinical feature is Recurrent oral thrush, annotated with Chronic oral cand
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0031693</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0031693</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe Epstein-Barr virus infection, annotated with Severe Epstein Barr virus infection (HP:0031693). HP:0031693 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9660,15 +10040,18 @@ This clinical feature is Severe Epstein-Barr virus infection, annotated with Sev
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003493</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003493</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9729,15 +10112,18 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9800,15 +10186,18 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lupus-like systemic autoimmunity, annotated with Systemic lupus erythematosus (HP:0002725). HP:0002725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9871,15 +10260,18 @@ This clinical feature is Lupus-like systemic autoimmunity, annotated with System
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003765</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003765</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psoriasis, annotated with Psoriasiform dermatitis (HP:0003765). HP:0003765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9929,6 +10321,83 @@ psoriasis, asthma"</div>
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-varicella-infection" data-dismech-node="Severe varicella infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe varicella infection
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Severe chickenpox infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210299" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:5210299</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe varicella infection, annotated with Severe chickenpox infection (HP:5210299). HP:5210299 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42661620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42661620" target="_blank">PMID:42661620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"15 F10-1/Turkey m &gt;30 y NM_000073.3:c.205A&gt;T
+(p.Lys69Ter)
+Hom severe varicella infection, respiratory infections,
+psoriasis, asthma"</div>
+
+
+                <div class="evidence-explanation">The patient-specific row records severe varicella; the table was visually checked for column identity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-8">
@@ -9952,15 +10421,18 @@ psoriasis, asthma"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001045</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001045</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vitiligo (HP:0001045). HP:0001045 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10023,15 +10495,18 @@ This clinical feature is Vitiligo (HP:0001045). HP:0001045 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002232</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002232</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia areata, annotated with Patchy alopecia (HP:0002232). HP:0002232 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10107,15 +10582,18 @@ SCIG"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100759</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0100759</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger clubbing, annotated with Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10187,15 +10665,18 @@ apnea."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10269,15 +10750,18 @@ the age of 14-years."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002870</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002870</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10351,15 +10835,18 @@ apnea."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10422,15 +10909,18 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0006530</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0006530</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interstitial lung disease, annotated with Abnormal pulmonary interstitial morphology (HP:0006530). HP:0006530 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10516,15 +11006,18 @@ This clinical feature is Interstitial lung disease, annotated with Abnormal pulm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exertional tachypnea, annotated with Tachypnea (HP:0002789). HP:0002789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10596,15 +11089,18 @@ apnea."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10665,15 +11161,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10705,304 +11204,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">The 2026 case table explicitly lists short stature for F5-2; the observation does not establish a growth mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-14">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune hepatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmune hepatitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:5210421</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24910257" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24910257" target="_blank">PMID:24910257</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We found all five patients to display autoimmunity: autoimmune thyroiditis (n = 5), autoimmune haemolytic anaemia (n = 2), immune thrombocytopenia (n = 1), autoimmune hepatitis (n = 1), minimal change nephrotic syndrome (n = 1), vitiligo (n = 1) and positive antinuclear antibodies (n = 3) as..."</div>
-
-
-                <div class="evidence-explanation">The primary series assigns autoimmune hepatitis to one of five patients, not both siblings collectively.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-cd4-t-cell-count" data-dismech-node="Decreased CD4 T-cell count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased CD4 T-cell count
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased total CD4+ T cell count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:5210418</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased CD4 T-cell count, annotated with Decreased total CD4+ T cell count (HP:5210418). HP:5210418 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" target="_blank">url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a low CD4 1 cell count was observed in P4,
-and decreased CD8 1 cell counts were detected in P2, P4, and
-P6."</div>
-
-
-                <div class="evidence-explanation">The six-patient study distinguishes absolute CD4 and CD8 count deficits by patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-cd8-t-cell-count" data-dismech-node="Decreased CD8 T-cell count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased CD8 T-cell count
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased total CD8+ T cell count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:5210426</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased CD8 T-cell count, annotated with Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf" target="_blank">url:https://www.ucm.es/data/cont/docs/1572-2019-04-22-Blood%202018.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a low CD4 1 cell count was observed in P4,
-and decreased CD8 1 cell counts were detected in P2, P4, and
-P6."</div>
-
-
-                <div class="evidence-explanation">Three specified patients had low absolute CD8 counts, unlike the separate CD4 finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-varicella-infection" data-dismech-node="Severe varicella infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe varicella infection
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Severe chickenpox infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210299" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:5210299</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe varicella infection, annotated with Severe chickenpox infection (HP:5210299). HP:5210299 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42661620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42661620" target="_blank">PMID:42661620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"15 F10-1/Turkey m &gt;30 y NM_000073.3:c.205A&gt;T
-(p.Lys69Ter)
-Hom severe varicella infection, respiratory infections,
-psoriasis, asthma"</div>
-
-
-                <div class="evidence-explanation">The patient-specific row records severe varicella; the table was visually checked for column identity.</div>
 
 
 
@@ -11086,6 +11287,9 @@ This disease-associated gene is CD3G (hgnc:1675). hgnc:1675 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -11237,6 +11441,9 @@ This treatment uses therapeutic immune globulin (NCIT:C2701). NCIT:C2701 is a th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11247,6 +11454,9 @@ This treatment uses therapeutic immune globulin (NCIT:C2701). NCIT:C2701 is a th
 
 
     </div>
+
+
+
 
 
 
@@ -11438,6 +11648,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11448,6 +11661,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -11673,6 +11889,9 @@ This treatment uses sirolimus (NCIT:C1212). NCIT:C1212 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11683,6 +11902,9 @@ This treatment uses sirolimus (NCIT:C1212). NCIT:C1212 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -11947,6 +12169,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11957,6 +12182,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12144,6 +12372,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12154,6 +12385,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -17834,6 +18068,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Combined immunodeficiency due to CD3gamma deficiency (MONDO:0014276)</strong> · 2026-08-29T02:27:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Immunodeficiency_Due_To_CD3gamma_Deficiency/2026-08-29T022716Z-claude-code-c95c48.yaml">View source</a></p>
+                        <p class="research-review-text">New de novo Disease entry for combined immunodeficiency due to CD3gamma deficiency (MONDO:0014276, CD3G, hgnc:1675). entry_type decided as DISEASE: the disorder has its own MONDO term under combined immunodeficiency, a single conserved pathograph (biallelic CD3G null -&gt; impaired TCR/CD3 assembly -&gt; reduced surface receptor -&gt; attenuated TCR signalling -&gt; distorted thymic selection and Treg failure -&gt; autoimmunity plus infection susceptibility), and no existing kb entry mentions CD3G.
+
+Named Entity Confusion check: &#39;just preflight-dr&#39; PASS on the falcon deep-research report (CD3G mentioned 40 times, top gene by a wide margin, OMIM 615607 consistent). The main same-gene confusion risk here is with the other CD3 chain deficiencies (CD3D/CD3E/CD3Z), which are severe combined immunodeficiencies rather than this disorder; every citation was checked to be about CD3G/CD3gamma specifically, and the CD3D/CD3E material is confined to the differential_diagnoses entry where it belongs.
+
+Evidence-source convention, stated in the entry notes and applied consistently: patient-sample measurements (flow cytometry, repertoire sequencing, clinical course) HUMAN_CLINICAL; culture-dependent or engineered-line work (PHA-driven T-cell blasts, Treg suppression co-cultures, Jurkat and JGN lines) IN_VITRO; mouse data MODEL_ORGANISM.
+
+Deliberately curated as a negative-result model link: the Cd3g-null mouse (PMID:9524111) PARTIALLY_RECAPITULATES the receptor-expression defect but FAILS_TO_RECAPITULATE the preserved peripheral T-cell compartment and skewed repertoire, with the species basis (human but not mouse gamma-delta TCR incorporates CD3delta) from PMID:17923503. Paired with a HUMAN_MODEL_MISMATCH discussion. A second KNOWLEDGE_GAP records the absent genotype-phenotype correlation.
+
+Not curated: no clinical_trials (none registered for this disorder), no datasets, no environmental factors, no biochemical reference ranges. Membership of an existing IEI grouping (Combined_Immunodeficiencies_IEIs) was noted as a follow-up rather than made here, to keep this PR to its own entry.
+
+Validation: just validate exit 0 (72/72 snippets verified), just validate-terms exit 0, check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

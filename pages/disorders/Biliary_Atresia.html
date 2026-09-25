@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4385,6 +4438,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholangiocyte-injury-of-the-bile-duct-epithelium" data-dismech-node="Cholangiocyte Injury of the Bile Duct Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholangiocyte Injury of the Bile Duct Epithelium</div>
 
+
                 <div class="item-desc">The initiating lesion is injury to the cholangiocytes lining the extrahepatic (and later intrahepatic) bile ducts. Candidate insults include perinatal hepatotropic viral infection (cytomegalovirus, reovirus, rotavirus), exposure to a plant/environmental toxin (the isoflavonoid biliatresone, which causes an analogous extrahepatic cholangiopathy in livestock and zebrafish), and defective bile duct morphogenesis. Cholangiocyte apoptosis and loss of epithelial integrity expose ductal antigens and initiate the downstream inflammatory cascade.</div>
 
 
@@ -4620,6 +4674,7 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-periductal-inflammation" data-dismech-node="Immune-Mediated Periductal Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Mediated Periductal Inflammation</div>
+
 
                 <div class="item-desc">Following the initial cholangiocyte insult, a Th1-polarized (interferon-gamma driven) and Th17-associated inflammatory response targets the bile duct epithelium. Portal tracts are infiltrated by CD4+ and cytotoxic CD8+ T cells, macrophages, and NK cells; a relative deficiency of regulatory T cells is thought to permit an autoimmune-like attack on the duct. This immune-mediated periductal inflammation amplifies and perpetuates the epithelial injury that began the disease.</div>
 
@@ -4943,6 +4998,7 @@ This pathophysiological event involves increased T cell mediated cytotoxicity (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-mesenchymal-cell-activation" data-dismech-node="Portal Mesenchymal Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Mesenchymal Cell Activation</div>
 
+
                 <div class="item-desc">Sustained inflammation activates portal fibroblasts and transdifferentiates hepatic stellate cells into a myofibroblast-like, matrix-secreting phenotype — the organ-specific mesenchymal activation step of the conserved fibrotic response in the biliary atresia portal tract.</div>
 
 
@@ -5055,6 +5111,7 @@ This pathophysiological event involves increased hepatic stellate cell activatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibro-obliteration-of-the-biliary-tree" data-dismech-node="Fibro-obliteration of the Biliary Tree" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibro-obliteration of the Biliary Tree</div>
+
 
                 <div class="item-desc">Activated portal myofibroblasts deposit excess extracellular matrix around and within the injured ducts, producing a fibro-obliterative process that progressively narrows and obliterates the extrahepatic biliary tree and damages the intrahepatic ducts, forming the characteristic fibrous remnant at the porta hepatis. This obliteration is the anatomic substrate that the Kasai portoenterostomy attempts to bypass.</div>
 
@@ -5169,6 +5226,7 @@ This pathophysiological event involves increased collagen fibril organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholestasis-and-progression-to-biliary-cirrhosis" data-dismech-node="Cholestasis and Progression to Biliary Cirrhosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholestasis and Progression to Biliary Cirrhosis</div>
+
 
                 <div class="item-desc">Obliteration of the biliary tree blocks bile flow, causing cholestasis with accumulation of conjugated bilirubin and bile acids. Retained bile constituents are hepatotoxic and, together with ongoing portal fibrosis, drive progression to biliary cirrhosis, portal hypertension, and ultimately end-stage liver disease. Even after a technically successful Kasai procedure, intrahepatic disease frequently progresses, which is why most patients eventually require liver transplantation.</div>
 
@@ -5365,6 +5423,9 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-splenomegaly" data-dismech-node="Splenomegaly" data-dismech-type="phenotype">
@@ -5392,6 +5453,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5437,6 +5501,9 @@ This clinical feature is Polysplenia (HP:0001748). HP:0001748 is a phenotype fro
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-situs-inversus-totalis" data-dismech-node="Situs inversus totalis" data-dismech-type="phenotype">
@@ -5464,6 +5531,9 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5509,6 +5579,9 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5580,6 +5653,9 @@ This clinical feature is Acholic stools (HP:0011985). HP:0011985 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5660,6 +5736,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-biliary-cirrhosis" data-dismech-node="Biliary cirrhosis" data-dismech-type="phenotype">
@@ -5696,6 +5775,9 @@ This clinical feature is Biliary cirrhosis (HP:0002613). HP:0002613 is a phenoty
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cholangitis" data-dismech-node="Cholangitis" data-dismech-type="phenotype">
@@ -5723,6 +5805,9 @@ This clinical feature is Cholangitis (HP:0030151). HP:0030151 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5777,6 +5862,9 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5822,6 +5910,9 @@ This clinical feature is Conjugated hyperbilirubinemia (HP:0002908). HP:0002908 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5858,6 +5949,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5941,6 +6035,9 @@ This disease-associated gene is GPC1 (hgnc:4449). hgnc:4449 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6009,6 +6106,9 @@ This disease-associated gene is ADD3 (hgnc:245). hgnc:245 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
 
@@ -6110,6 +6210,9 @@ This disease-associated gene is PKD1L1 (hgnc:18053). hgnc:18053 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6203,6 +6306,9 @@ This disease-associated gene is CFC1 (hgnc:18292). hgnc:18292 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6308,6 +6414,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6318,6 +6427,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6431,6 +6543,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6441,6 +6556,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6557,6 +6675,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6567,6 +6688,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -6650,6 +6774,12 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Antibiotic prophylaxis is commonly used after portoenterostomy to reduce the frequency of ascending bacterial cholangitis, and acute cholangitis episodes are treated with broad-spectrum antibiotics.</div>
 
 
@@ -6704,6 +6834,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6714,6 +6847,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -6774,6 +6910,9 @@ This treatment is corticosteroid pharmacotherapy, annotated with Pharmacotherapy
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6784,6 +6923,9 @@ This treatment is corticosteroid pharmacotherapy, annotated with Pharmacotherapy
 
 
     </div>
+
+
+
 
 
 
@@ -6878,6 +7020,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6888,6 +7033,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7022,6 +7170,9 @@ This treatment uses N-acetyl-L-cysteine (CHEBI:28939). CHEBI:28939 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7032,6 +7183,9 @@ This treatment uses N-acetyl-L-cysteine (CHEBI:28939). CHEBI:28939 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -7884,10 +8038,10 @@ This environmental factor is biliatresone toxin exposure, annotated with exposur
 
                 </div>
 
-                <div class="evidence-snippet">"Biliary atresia was positively associated with female sex (adjusted PR, 1.68; 95% CI, 1.33-2.12)"</div>
+                <div class="evidence-snippet">"This population-based registry study examined infants born in Texas between 1999 and 2014. Epidemiologic data relevant to fetal development were compared between cases of biliary atresia identified in the Texas Birth Defects Registry (n = 305) vs all live births (n = 4 689 920), and Poisson..."</div>
 
 
-                <div class="evidence-explanation">Documents the female predominance of biliary atresia birth prevalence.</div>
+                <div class="evidence-explanation">This Texas birth-registry study reports 0.65 biliary-atresia cases per 10,000 live births and a female-sex adjusted prevalence ratio of 1.68. It supports the sex association in the notes, not the separate Korean rate of 10.6 per 100,000.</div>
 
 
 
@@ -8345,10 +8499,18 @@ prevalence:
         reference_title: &#34;The Epidemiology of Biliary Atresia: Exploring the Role of Developmental Factors on Birth Prevalence.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
-        snippet: &#34;Biliary atresia was positively associated with female sex (adjusted PR, 1.68; 95% CI, 1.33-2.12)&#34;
+        snippet: &gt;-
+          This population-based registry study examined infants born in Texas between 1999 and 2014.
+          Epidemiologic data relevant to fetal development were compared between cases of biliary
+          atresia identified in the Texas Birth Defects Registry (n = 305) vs all live births (n = 4
+          689 920), and Poisson regression was used to calculate prevalence ratios (PRs) and 95%
+          CIs. ... The prevalence of biliary atresia over the study period was 0.65 per 10 000 live
+          births. Biliary atresia was positively associated with female sex (adjusted PR, 1.68; 95%
+          CI, 1.33-2.12)
         explanation: &gt;-
-          Documents the female predominance of biliary atresia birth prevalence.
-
+          This Texas birth-registry study reports 0.65 biliary-atresia cases per 10,000 live births
+          and a female-sex adjusted prevalence ratio of 1.68. It supports the sex association in the
+          notes, not the separate Korean rate of 10.6 per 100,000.
 pathophysiology:
   - name: Cholangiocyte Injury of the Bile Duct Epithelium
     biological_scale: CELLULAR
@@ -9295,6 +9457,58 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Create: Biliary Atresia</strong> · 2026-08-13T00:28:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Biliary_Atresia/2026-08-13T002849Z-claude-code-fc0c08.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo entry for Biliary Atresia (MONDO:0008867), a complex multifactorial neonatal fibro-obliterative cholangiopathy. Deep-research provider: claude_code. Connected 4-node pathograph (cholangiocyte injury -&gt; immune-mediated periductal inflammation -&gt; progressive periductal fibrosis/ductal obliteration -&gt; cholestasis/biliary cirrhosis) with downstream edges plus three environmental influences_mechanisms onto the injury node. Genes typed SUSCEPTIBILITY. Added a diagnosis block and treatments (Kasai portoenterostomy, liver transplant, UDCA, post-Kasai corticosteroids with the negative START RCT, maralixibat). Red-team pass: replaced a title-quoting snippet, retagged a model-organism paper to MODEL_ORGANISM and added a human Treg study, added missing trial-backed treatments and diagnostics. Validated: schema+terms pass, 28/28 snippets verified, title-snippet guard clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Biliary Atresia</strong> · 2026-08-13T00:06:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Biliary_Atresia/2026-08-13T000641Z-claude-code-545521.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new de-novo entry for Biliary Atresia (MONDO:0008867), a complex /
+multifactorial perinatal fibro-obliterative cholangiopathy of the intra- and
+extrahepatic bile ducts.
+
+Deep research was performed with the claude_code provider
+(research/Biliary_Atresia-deep-research-claude_code.md; 22 web searches, 24
+turns, 84 citations). The report was treated as leads, not ground truth: every
+PMID was fetched and each snippet verified as an exact abstract substring, and
+all ontology IDs were re-verified with OAK. Notably the report suggested
+incorrect HGNC IDs (ADD3 as hgnc:238=ADCY7, GPC1 as hgnc:4451=GPC3); the correct
+IDs (ADD3=hgnc:245, GPC1=hgnc:4449, PKD1L1=hgnc:18053, CFC1=hgnc:18292) were used.
+
+Curated a 4-node pathophysiology chain: cholangiocyte injury of the bile duct
+epithelium -&gt; Th1/Th17 immune-mediated periductal inflammation -&gt; progressive
+periductal fibrosis and ductal obliteration (conforms_to
+fibrotic_response#Mesenchymal Cell Activation, hepatic stellate cell as the
+organ-specific mesenchymal substitution) -&gt; cholestasis and progression to
+biliary cirrhosis. Plus 12 phenotypes (including BASM laterality-subtype
+features: polysplenia, situs inversus), 3 biochemical markers (conjugated
+bilirubin, high GGT, emerging serum MMP7 biomarker), 4 susceptibility genes
+typed SUSCEPTIBILITY to reflect the non-Mendelian architecture (ADD3, GPC1 GWAS
+loci; PKD1L1, CFC1 BASM laterality genes), 3 environmental factors (perinatal
+hepatotropic virus, biliatresone plant toxin, prenatal maternal infection), and
+5 treatments (Kasai hepatoportoenterostomy, liver transplantation, UDCA,
+prophylactic antibiotics, fat-soluble vitamin/nutritional support).
+
+20 evidence items, each with a verified abstract snippet. No GeneReviews article
+exists for biliary atresia (non-Mendelian), so the GeneReviews baseline step did
+not apply. Twin-discordance evidence (PMID:32504124) records the non-Mendelian
+susceptibility model.
+
+Validation: `just validate` (schema + terms + snippets 20/20) and
+`just validate-disorders` (CI-equivalent, --no-full-text) both pass;
+weighted compliance 76.9%. A red-team review pass was run before commit.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9908,7 +10122,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Biliary Atresia", "mondoId": "MONDO:0008867", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Biliary_Atresia", "yamlRevision": "f9354a53c17e"};
+        const OS_CONFIG = {"diseaseName": "Biliary Atresia", "mondoId": "MONDO:0008867", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Biliary_Atresia", "yamlRevision": "60ba43783fcb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

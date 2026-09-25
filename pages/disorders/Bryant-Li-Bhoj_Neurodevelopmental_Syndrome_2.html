@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5552,6 +5605,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-h3-3b-variant-altering-histone-h3-3" data-dismech-node="De Novo H3-3B Variant Altering Histone H3.3" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo H3-3B Variant Altering Histone H3.3</div>
 
+
                 <div class="item-desc">BLBS2 begins with a de novo heterozygous variant in H3-3B, one of the two genes encoding the replication-independent histone variant H3.3. H3-3A and H3-3B produce an identical 135-amino-acid protein but differ in their regulatory and coding sequences, giving different expression patterns and levels — the only basis on which the two BLBS entities are separated. Unlike the recurrent oncohistone substitutions of pediatric glioma, BLBS alleles are largely private and distributed across the whole protein (tail and core), and include missense, synonymous/transcript-dependent and stop-loss changes. They act through gain-of-function or dominant-negative mechanisms, not haploinsufficiency, which is why a single altered allele of a highly constrained histone gene produces disease.</div>
 
 
@@ -5756,6 +5810,7 @@ This pathophysiological event involves structural constituent of chromatin (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nucleosome-assembly-and-chaperone-interaction" data-dismech-node="Disrupted Nucleosome Assembly and Chaperone Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Nucleosome Assembly and Chaperone Interaction</div>
+
 
                 <div class="item-desc">Molecular modelling of the full BLBS variant set shows that the substituted residues disrupt contacts with DNA, with the other core histones, and with histone chaperones. Residues essential for H3.3-specific recognition (for example p.G90, required for DAXX/UBN1 binding, and p.S31, required for ZMYND11 recognition) are mutated in patients, and some alleles change how much H3.3 protein is present or how tightly it binds its chaperone: several constructs reduce H3.3 protein levels, one (p.R41C) accumulates above wild-type, and p.R129H binds the chaperone DAXX more strongly than wild-type. The common consequence is that the formation, deposition and stability of H3.3-containing nucleosomes is altered.</div>
 
@@ -6001,6 +6056,7 @@ This pathophysiological event involves abnormal DNA binding (GO:0003677). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-local-histone-post-translational-modification" data-dismech-node="Aberrant Local Histone Post-Translational Modification" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Local Histone Post-Translational Modification</div>
 
+
                 <div class="item-desc">Mass-spectrometric profiling of histones from BLBS patient cells — including lymphoblasts carrying the H3F3B p.A29P and p.P121R alleles — shows aberrant post-translational modification patterns that are local rather than global. This is a mechanistically important contrast with the somatic oncohistone lysine substitutions (H3.3 K27M, K36M), which poison methyltransferases in trans and cause genome-wide PTM collapse. In BLBS the epigenetic disturbance is restricted to the neighbourhood of the variant nucleosome, which helps explain why germline H3.3 variants cause a developmental syndrome without the malignancy risk of the oncohistones.</div>
 
 
@@ -6202,6 +6258,7 @@ This pathophysiological event involves abnormal histone binding (GO:0042393). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-chromatin-accessibility-and-transcriptional-dysregulation" data-dismech-node="Altered Chromatin Accessibility and Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Chromatin Accessibility and Transcriptional Dysregulation</div>
+
 
                 <div class="item-desc">The convergent cellular lesion is a remodelled chromatin landscape with coordinated transcriptional dysregulation. In an isogenic iPSC model of the H3-3B p.Leu48Arg allele, the variant increases H3-3B expression and drives hyper-deposition of H3.3 into nucleosomes; multi-omic profiling of the derived neural progenitors and forebrain neurons shows paired changes in chromatin accessibility and gene expression affecting neuronal fate, cell adhesion, neurotransmission and excitatory/inhibitory balance. In patient fibroblasts the transcriptional signature is dominated by up-regulated mitosis and cell-division genes.</div>
 
@@ -6481,6 +6538,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-cell-proliferation" data-dismech-node="Deregulated Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Cell Proliferation</div>
 
+
                 <div class="item-desc">Patient fibroblast lines carrying germline H3.3 variants — including the H3F3B p.G34V and H3F3B p.V117V/p.S146X alleles — proliferate faster than matched controls, matching the mitosis/cell-division transcriptional signature. This is proposed as the point of convergence between germline BLBS variants and the somatic oncohistone mutations. Importantly, the convergence is at the level of proliferative control only: germline carriers do not show the malignancy that follows somatic H3.3 substitution, and the community-wide cancer incidence in germline histonopathies (1%) falls below the threshold used to justify routine tumour surveillance.</div>
 
 
@@ -6663,6 +6721,7 @@ This pathophysiological event involves increased regulation of cell population p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation-and-maturation" data-dismech-node="Impaired Neuronal Differentiation and Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation and Maturation</div>
+
 
                 <div class="item-desc">In dorsal forebrain organoids carrying the H3-3B p.Leu48Arg allele the proportions of radial glia and mature neuronal populations are shifted, and whole-cell patch clamp shows that the neurons that do form are electrophysiologically immature, with decreased electrical activity relative to isogenic controls. This couples the chromatin lesion to a concrete neurodevelopmental deficit: fewer properly specified, properly maturing, properly firing cortical neurons.</div>
 
@@ -6968,6 +7027,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-and-craniofacial-developmental-defect" data-dismech-node="Neural Crest and Craniofacial Developmental Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest and Craniofacial Developmental Defect</div>
 
+
                 <div class="item-desc">H3.3 is required for the neural crest program that builds the craniofacial skeleton. In zebrafish, a dominant h3f3a p.D123N allele — two residues from a patient variant — reproduces craniofacial anomalies, and homozygous h3f3a mutants lose neural-crest-derived jaw cartilage entirely and show reduced foxd3-positive neural-crest-derived glia along with melanocyte and xanthophore loss. The glial defect is proposed to underlie the hypomyelination seen on patient neuroimaging, making this node a shared origin for the facial dysmorphism and part of the white-matter phenotype.</div>
 
 
@@ -7260,6 +7320,7 @@ This pathophysiological event involves decreased glial cell differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-brain-development-and-progressive-neurologic-dysfunction" data-dismech-node="Abnormal Brain Development and Progressive Neurologic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Brain Development and Progressive Neurologic Dysfunction</div>
+
 
                 <div class="item-desc">The organism-level endpoint is a malformed, hypomyelinated brain with a characteristic imaging signature — small posterior fossa, dysgenesis of the corpus callosum (especially the splenium), cortical developmental abnormalities such as dysgyria and hypoplastic temporal poles, and deformity of the lateral ventricles — accompanied by developmental delay/intellectual disability, abnormal muscle tone, epilepsy and oculomotor dysfunction. Unlike a purely static encephalopathy, a subset of individuals show a progressive course with loss of milestones, worsening gait, spasticity and camptocormia, which is why BLBS was first described as a neurodegenerative disorder. Cortical atrophy is also reported, although longitudinal neuronal loss remains unproven.</div>
 
@@ -7661,6 +7722,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7764,6 +7828,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7837,6 +7904,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7920,6 +7990,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7998,6 +8071,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8066,6 +8142,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8142,6 +8221,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8208,6 +8290,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8290,6 +8375,9 @@ This clinical feature is Abnormality of the genital system (HP:0000078). HP:0000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8389,6 +8477,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8466,6 +8557,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8565,6 +8659,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8629,6 +8726,9 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8703,6 +8803,9 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8772,6 +8875,9 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8836,6 +8942,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8912,6 +9021,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8983,6 +9095,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9049,6 +9164,9 @@ This clinical feature is Small posterior fossa (HP:0040010). HP:0040010 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9131,6 +9249,9 @@ This clinical feature is Dermatologic anomalies, annotated with Abnormality of t
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The source also groups 2/3 toe syndactyly under dermal findings but does not specify cutaneous versus bony fusion, so it is not used to characterize this integument-bound phenotype.</div>
@@ -9243,6 +9364,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9339,6 +9463,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9405,6 +9532,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9479,6 +9609,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9543,6 +9676,9 @@ This clinical feature is Camptocormia (HP:0100595). HP:0100595 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9619,6 +9755,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9685,6 +9824,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9767,6 +9909,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9866,6 +10011,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9932,6 +10080,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10026,6 +10177,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10127,6 +10281,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10193,6 +10350,9 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10268,6 +10428,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10371,6 +10534,9 @@ This clinical feature is Aplasia/Hypoplasia of the corpus callosum (HP:0007370).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10469,6 +10635,9 @@ This clinical feature is Abnormal cerebral cortex morphology (HP:0002538). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10533,6 +10702,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10607,6 +10779,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10673,6 +10848,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10774,6 +10952,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10865,6 +11046,9 @@ This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10966,6 +11150,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11041,6 +11228,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11135,6 +11325,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11282,6 +11475,9 @@ This disease-associated gene is H3-3B (hgnc:4765). hgnc:4765 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -11393,6 +11589,7 @@ This disease-associated gene is H3-3B (hgnc:4765). hgnc:4765 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11414,7 +11611,13 @@ This variant is in H3-3B (hgnc:4765). hgnc:4765 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The BLBS2 allele modelled in the isogenic iPSC system. It increases H3-3B expression and drives hyper-deposition of H3.3 into nucleosomes, with downstream changes in chromatin accessibility, neuronal fate, adhesion, neurotransmission and excitatory/inhibitory balance. Bryant et al. classify p.L48R structurally as a variant that may alter the interaction of H3.3 with other nucleosomal histones.</div>
@@ -11500,6 +11703,7 @@ This variant is in H3-3B (hgnc:4765). hgnc:4765 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11521,7 +11725,13 @@ This variant is in H3-3B (hgnc:4765). hgnc:4765 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A germline BLBS2 allele at a residue that is also mutated somatically in pediatric high-grade glioma. In the somatic setting p.G34V drives oncogenesis only in combination with ATRX/DAXX and TP53 lesions; in the germline setting carriers develop BLBS without malignancy, and patient fibroblasts show increased proliferation. This allele is the clearest illustration of the germline-versus-somatic mechanistic divergence in H3.3 disease.</div>
@@ -11582,6 +11792,7 @@ This variant is in H3-3B (hgnc:4765). hgnc:4765 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11603,7 +11814,13 @@ This variant is in H3-3B (hgnc:4765). hgnc:4765 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent BLBS2 allele, found in two unrelated individuals with H3-3B variants in the founding cohort (and in one further individual as the corresponding H3-3A change). Patient lymphoblasts carrying this allele were among those used to demonstrate the local histone PTM disturbance.</div>
@@ -11714,6 +11931,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11724,6 +11944,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -11840,6 +12063,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11850,6 +12076,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11966,6 +12195,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11976,6 +12208,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12092,6 +12327,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12102,6 +12340,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12218,6 +12459,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12228,6 +12472,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12347,6 +12594,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12357,6 +12607,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -15980,6 +16233,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Bryant-Li-Bhoj Neurodevelopmental Syndrome 2</strong> · 2026-08-01T17:55:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_2/2026-08-01T175513Z-claude-code-dbba7d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of BLBS2 (H3-3B / MONDO:0030607 / OMIM:619721). Deep research provider: falcon (Edison Scientific), report at research/Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_2-deep-research-falcon.md (12 citations, 468s runtime). The DR report was used as leads only: every PMID, snippet and ontology term was independently re-verified against fetched PubMed abstracts and OAK. NEC preflight was run against MONDO:0030607 (causal gene H3-3B/HGNC:4765, OMIM:619721 xref, BRYLIB2 synonym) because BLBS is a numbered series with a paralog twin (BLBS1/H3-3A); no entity confusion was found. GeneReviews baseline PMID:37782742 was fetched, tagged in the top-level references block, and cross-referenced against the phenotype list. The entry carries an 8-node pathograph running from the de novo H3-3B variant through disrupted nucleosome assembly and chaperone interaction and aberrant local histone PTM (explicitly contrasted with the global PTM collapse of somatic oncohistones) to altered chromatin accessibility, then to impaired neuronal differentiation and maturation, a neural-crest craniofacial defect, deregulated proliferation, and the organism-level brain phenotype. 42 phenotypes with HPO bindings and cohort-derived frequencies; H3-3B-specific figures are quoted wherever sources stratify by gene (seizures 59 vs 45 percent, genital anomalies 28 vs 17 percent, delayed walking 65 vs 85 percent, dysmorphism 86 vs 95 percent). Five knowledge-gap discussions, one of them a HUMAN_MODEL_MISMATCH covering the fact that the zebrafish evidence models the h3f3a paralog rather than h3f3b. Validation: just validate passes for schema, terms and references, with 114/114 snippets verified against cached references; check-snippet-length is clean for this file; compliance root score 50 percent with only datasets missing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4483,6 +4536,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldh4a1-p5c-dehydrogenase-deficiency" data-dismech-node="ALDH4A1 P5C Dehydrogenase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALDH4A1 P5C Dehydrogenase Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function ALDH4A1 variants abolish mitochondrial delta-1-pyrroline-5-carboxylate dehydrogenase (P5CDH) activity, the second enzymatic step of proline catabolism, which oxidizes glutamate-gamma-semialdehyde to glutamate. Structural work on the human enzyme shows how the recurrent S352L missense allele inactivates catalysis by rearranging the catalytic loop and eliminating NAD+ binding.</div>
 
 
@@ -4759,6 +4813,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyrroline-5-carboxylate-and-proline-accumulation" data-dismech-node="Pyrroline-5-Carboxylate and Proline Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyrroline-5-Carboxylate and Proline Accumulation</div>
 
+
                 <div class="item-desc">The metabolic block causes accumulation of delta-1-pyrroline-5-carboxylate (P5C), the reactive intermediate of proline catabolism, together with markedly elevated proline in plasma, urine, and cerebrospinal fluid. The presence of accumulating P5C is the biochemical feature that separates HPII from hyperprolinemia type 1, in which the earlier proline-oxidase block prevents P5C formation.</div>
 
 
@@ -4867,6 +4922,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyridoxal-5-phosphate-inactivation-by-p5c" data-dismech-node="Pyridoxal 5&#39;-Phosphate Inactivation by P5C" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyridoxal 5&#39;-Phosphate Inactivation by P5C</div>
+
 
                 <div class="item-desc">P5C acts as an endogenous vitamin antagonist. In vitro NMR and mass spectrometry show that the activated C-4 carbon of the pyrroline ring undergoes a Claisen (Knoevenagel-type) condensation with the aldehyde carbon of pyridoxal 5&#39;-phosphate, the active vitamin B6 coenzyme, generating stable adducts and removing PLP from the functional cofactor pool. Analogous P5C adducts with acetoacetic acid and malonic acid have been recovered from patient urine and plasma, establishing that the reaction occurs in vivo.</div>
 
@@ -4995,6 +5051,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-vitamin-b6-deficiency" data-dismech-node="Secondary Vitamin B6 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Vitamin B6 Deficiency</div>
+
 
                 <div class="item-desc">Ongoing P5C-driven consumption of pyridoxal 5&#39;-phosphate produces a secondary, acquired vitamin B6 deficiency that is not explained by diet or medication. Measured serum vitamin B6 is low in affected patients. Because PLP is the coenzyme for many decarboxylases and transaminases, including those of neurotransmitter metabolism, this deficiency is the proposed proximate cause of the seizure phenotype; the specific PLP-dependent enzymes limiting in vivo have not been established in HPII patients.</div>
 
@@ -5130,6 +5187,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizures-and-metabolic-encephalopathy" data-dismech-node="Seizures and Metabolic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizures and Metabolic Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical endpoint of HPII is a metabolic epilepsy. Reported presentations range from infantile seizures refractory to multiple antiepileptic drugs to a late-onset adult presentation with status epilepticus and severe lactic acidosis. Intercurrent febrile illness is a recurrent precipitant: reported episodes followed upper respiratory infection, and the single Japanese HPII case was ascertained during influenza-associated encephalopathy, prompting the proposal that HPII lowers the convulsive threshold.</div>
 
@@ -5277,6 +5335,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A mild mitochondrial arm accompanies HPII. In the only cohort to look for it, three of four metabolically confirmed patients had biochemical markers suggesting mitochondrial dysfunction, and the finding was confirmed on muscle biopsy in one; mitochondrial enzyme complex activity and fibroblast oxygen consumption were measured because ALDH4A1 is itself a mitochondrial matrix enzyme. The arm is modeled as provisional because no mechanistic route from the enzyme deficiency to impaired oxidative phosphorylation has been demonstrated. It is retained because it is the only candidate explanation on offer for the severe lactic acidosis reported during HPII crisis, which otherwise has no mechanistic anchor in this pathograph.</div>
 
@@ -5450,6 +5515,13 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-behavioral-impairment" data-dismech-node="Neurodevelopmental and Behavioral Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and Behavioral Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond seizures, HPII patients show intellectual disability and prominent behavioral and psychiatric features. In the four-patient cohort, all had significant behavioral problems including anxiety and hallucinations, and two adolescents had intellectual disability; intellectual deficit and mild developmental delay are also part of the authoritative Orphanet disease definition. This node is marked HYPOTHETICAL rather than established because no mechanistic route links the metabolic block to these features: the primary literature exempts only the secondary B6 deficiency from that doubt, and a systematic review of 35 studies found no biochemical-clinical phenotype correlation.</div>
 
 
@@ -5585,7 +5657,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH4A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ALDH4A1\"], \"gene_terms\": [{\"label\": \"ALDH4A1\", \"id\": \"hgnc:406\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function ALDH4A1 variants abolish mitochondrial delta-1-pyrroline-5-carboxylate dehydrogenase (P5CDH) activity, the second enzymatic step of proline catabolism, which oxidizes glutamate-gamma-semialdehyde to glutamate. Structural work on the human enzyme shows how the recurrent S352L missense allele inactivates catalysis by rearranging the catalytic loop and eliminating NAD+ binding.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"L-proline catabolic process\"], \"molecular_functions\": [\"L-glutamate gamma-semialdehyde dehydrogenase activity\"], \"genes\": [\"ALDH4A1\"], \"gene_terms\": [{\"label\": \"ALDH4A1\", \"id\": \"hgnc:406\"}], \"role\": \"trigger\"}}, {\"id\": \"High-Dose Pyridoxine (Vitamin B6) Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the proposed pathomechanism is consumption of pyridoxal 5\u0027-phosphate by accumulating P5C, replacing the depleted cofactor is the mechanistically targeted intervention. High-dose vitamin B6 abolished further seizures in the reported late-onset case, and long-term supplementation was proposed as preventive when the P5C-PLP condensation was first characterized. Evidence is limited to case-level observation; no controlled trial exists.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis in serum and CSF accompanied the reported late-onset HPII crisis; it is not an established feature of typical HPII.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Mitochondrial Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"Lactic acidosis is the expected laboratory readout of impaired oxidative phosphorylation, and the mild mitochondrial dysfunction documented in the HPII cohort is the only candidate mechanism for it in this pathograph. This is an observational readout link, not a claim that the mitochondrial arm has been shown to cause the reported crisis-level lactate.\"}], \"term_id\": \"HP:0003128\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mild mitochondrial arm accompanies HPII. In the only cohort to look for it, three of four metabolically confirmed patients had biochemical markers suggesting mitochondrial dysfunction, and the finding was confirmed on muscle biopsy in one; mitochondrial enzyme complex activity and fibroblast oxygen consumption were measured because ALDH4A1 is itself a mitochondrial matrix enzyme. The arm is modeled as provisional because no mechanistic route from the enzyme deficiency to impaired oxidative phosphorylation has been demonstrated. It is retained because it is the only candidate explanation on offer for the severe lactic acidosis reported during HPII crisis, which otherwise has no mechanistic anchor in this pathograph.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"amplifier\"}}, {\"id\": \"Neurodevelopmental and Behavioral Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond seizures, HPII patients show intellectual disability and prominent behavioral and psychiatric features. In the four-patient cohort, all had significant behavioral problems including anxiety and hallucinations, and two adolescents had intellectual disability; intellectual deficit and mild developmental delay are also part of the authoritative Orphanet disease definition. This node is marked HYPOTHETICAL rather than established because no mechanistic route links the metabolic block to these features: the primary literature exempts only the secondary B6 deficiency from that doubt, and a systematic review of 35 studies found no biochemical-clinical phenotype correlation.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\"}}, {\"id\": \"P5C-derived adduct biomarkers\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:15893\", \"term_label\": \"1-pyrroline-5-carboxylate\", \"readouts\": [{\"target\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of P5C condensation adducts in vivo supports the same condensation chemistry that inactivates pyridoxal 5\u0027-phosphate.\"}]}}, {\"id\": \"Plasma and urinary proline elevation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17203\", \"term_label\": \"L-proline\", \"readouts\": [{\"target\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated proline reports the block in proline catabolism and is the primary diagnostic screen for hyperprolinemia.\"}]}}, {\"id\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5C acts as an endogenous vitamin antagonist. In vitro NMR and mass spectrometry show that the activated C-4 carbon of the pyrroline ring undergoes a Claisen (Knoevenagel-type) condensation with the aldehyde carbon of pyridoxal 5\u0027-phosphate, the active vitamin B6 coenzyme, generating stable adducts and removing PLP from the functional cofactor pool. Analogous P5C adducts with acetoacetic acid and malonic acid have been recovered from patient urine and plasma, establishing that the reaction occurs in vivo.\", \"meta\": {\"evidence_count\": 4, \"role\": \"central_effector\"}}, {\"id\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic block causes accumulation of delta-1-pyrroline-5-carboxylate (P5C), the reactive intermediate of proline catabolism, together with markedly elevated proline in plasma, urine, and cerebrospinal fluid. The presence of accumulating P5C is the biochemical feature that separates HPII from hyperprolinemia type 1, in which the earlier proline-oxidase block prevents P5C formation.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\"}}, {\"id\": \"Secondary Vitamin B6 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing P5C-driven consumption of pyridoxal 5\u0027-phosphate produces a secondary, acquired vitamin B6 deficiency that is not explained by diet or medication. Measured serum vitamin B6 is low in affected patients. Because PLP is the coenzyme for many decarboxylases and transaminases, including those of neurotransmitter metabolism, this deficiency is the proposed proximate cause of the seizure phenotype; the specific PLP-dependent enzymes limiting in vivo have not been established in HPII patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"amplifier\"}}, {\"id\": \"Seizures and Metabolic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of HPII is a metabolic epilepsy. Reported presentations range from infantile seizures refractory to multiple antiepileptic drugs to a late-onset adult presentation with status epilepticus and severe lactic acidosis. Intercurrent febrile illness is a recurrent precipitant: reported episodes followed upper respiratory infection, and the single Japanese HPII case was ascertained during influenza-associated encephalopathy, prompting the proposal that HPII lowers the convulsive threshold.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"target\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the P5CDH step causes its substrate P5C, and the upstream amino acid proline, to accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because ALDH4A1 is a mitochondrial matrix enzyme, its loss was hypothesized to compromise mitochondrial function; the steps between the missing dehydrogenase and impaired oxidative phosphorylation have not been established, so this edge records an observed association rather than a worked-out route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated P5C condenses with pyridoxal 5\u0027-phosphate at the activated C-4 carbon of the pyrroline ring, forming stable adducts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Neurodevelopmental and Behavioral Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether the metabolic abnormality causes the neurodevelopmental and psychiatric features is explicitly unsettled: the cohort literature exempts only the secondary B6 deficiency from that doubt, and a systematic review found no correlation between proline levels and psychiatric phenotype.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"target\": \"Secondary Vitamin B6 Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Consumption of pyridoxal 5\u0027-phosphate by adduct formation depletes the functional vitamin B6 pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Vitamin B6 Deficiency\", \"target\": \"Seizures and Metabolic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional vitamin B6 depletion lowers the seizure threshold; the intervening PLP-dependent neurotransmitter steps are inferred from general B6 biochemistry rather than measured in HPII patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"High-Dose Pyridoxine (Vitamin B6) Supplementation\", \"target\": \"Secondary Vitamin B6 Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Plasma and urinary proline elevation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated proline reports the block in proline catabolism and is the primary diagnostic screen for hyperprolinemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"target\": \"P5C-derived adduct biomarkers\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of P5C condensation adducts in vivo supports the same condensation chemistry that inactivates pyridoxal 5\u0027-phosphate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Lactic acidosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lactic acidosis is the expected laboratory readout of impaired oxidative phosphorylation, and the mild mitochondrial dysfunction documented in the HPII cohort is the only candidate mechanism for it in this pathograph. This is an observational readout link, not a claim that the mitochondrial arm has been shown to cause the reported crisis-level lactate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"ALDH4A1\", \"target\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH4A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ALDH4A1\"], \"gene_terms\": [{\"label\": \"ALDH4A1\", \"id\": \"hgnc:406\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function ALDH4A1 variants abolish mitochondrial delta-1-pyrroline-5-carboxylate dehydrogenase (P5CDH) activity, the second enzymatic step of proline catabolism, which oxidizes glutamate-gamma-semialdehyde to glutamate. Structural work on the human enzyme shows how the recurrent S352L missense allele inactivates catalysis by rearranging the catalytic loop and eliminating NAD+ binding.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"L-proline catabolic process\"], \"molecular_functions\": [\"L-glutamate gamma-semialdehyde dehydrogenase activity\"], \"genes\": [\"ALDH4A1\"], \"gene_terms\": [{\"label\": \"ALDH4A1\", \"id\": \"hgnc:406\"}], \"role\": \"trigger\"}}, {\"id\": \"High-Dose Pyridoxine (Vitamin B6) Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the proposed pathomechanism is consumption of pyridoxal 5\u0027-phosphate by accumulating P5C, replacing the depleted cofactor is the mechanistically targeted intervention. High-dose vitamin B6 abolished further seizures in the reported late-onset case, and long-term supplementation was proposed as preventive when the P5C-PLP condensation was first characterized. Evidence is limited to case-level observation; no controlled trial exists.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis in serum and CSF accompanied the reported late-onset HPII crisis; it is not an established feature of typical HPII.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Mitochondrial Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"Lactic acidosis is the expected laboratory readout of impaired oxidative phosphorylation, and the mild mitochondrial dysfunction documented in the HPII cohort is the only candidate mechanism for it in this pathograph. This is an observational readout link, not a claim that the mitochondrial arm has been shown to cause the reported crisis-level lactate.\"}], \"term_id\": \"HP:0003128\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mild mitochondrial arm accompanies HPII. In the only cohort to look for it, three of four metabolically confirmed patients had biochemical markers suggesting mitochondrial dysfunction, and the finding was confirmed on muscle biopsy in one; mitochondrial enzyme complex activity and fibroblast oxygen consumption were measured because ALDH4A1 is itself a mitochondrial matrix enzyme. The arm is modeled as provisional because no mechanistic route from the enzyme deficiency to impaired oxidative phosphorylation has been demonstrated. It is retained because it is the only candidate explanation on offer for the severe lactic acidosis reported during HPII crisis, which otherwise has no mechanistic anchor in this pathograph.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neurodevelopmental and Behavioral Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond seizures, HPII patients show intellectual disability and prominent behavioral and psychiatric features. In the four-patient cohort, all had significant behavioral problems including anxiety and hallucinations, and two adolescents had intellectual disability; intellectual deficit and mild developmental delay are also part of the authoritative Orphanet disease definition. This node is marked HYPOTHETICAL rather than established because no mechanistic route links the metabolic block to these features: the primary literature exempts only the secondary B6 deficiency from that doubt, and a systematic review of 35 studies found no biochemical-clinical phenotype correlation.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"P5C-derived adduct biomarkers\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:15893\", \"term_label\": \"1-pyrroline-5-carboxylate\", \"readouts\": [{\"target\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of P5C condensation adducts in vivo supports the same condensation chemistry that inactivates pyridoxal 5\u0027-phosphate.\"}]}}, {\"id\": \"Plasma and urinary proline elevation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17203\", \"term_label\": \"L-proline\", \"readouts\": [{\"target\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated proline reports the block in proline catabolism and is the primary diagnostic screen for hyperprolinemia.\"}]}}, {\"id\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5C acts as an endogenous vitamin antagonist. In vitro NMR and mass spectrometry show that the activated C-4 carbon of the pyrroline ring undergoes a Claisen (Knoevenagel-type) condensation with the aldehyde carbon of pyridoxal 5\u0027-phosphate, the active vitamin B6 coenzyme, generating stable adducts and removing PLP from the functional cofactor pool. Analogous P5C adducts with acetoacetic acid and malonic acid have been recovered from patient urine and plasma, establishing that the reaction occurs in vivo.\", \"meta\": {\"evidence_count\": 4, \"role\": \"central_effector\"}}, {\"id\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic block causes accumulation of delta-1-pyrroline-5-carboxylate (P5C), the reactive intermediate of proline catabolism, together with markedly elevated proline in plasma, urine, and cerebrospinal fluid. The presence of accumulating P5C is the biochemical feature that separates HPII from hyperprolinemia type 1, in which the earlier proline-oxidase block prevents P5C formation.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\"}}, {\"id\": \"Secondary Vitamin B6 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing P5C-driven consumption of pyridoxal 5\u0027-phosphate produces a secondary, acquired vitamin B6 deficiency that is not explained by diet or medication. Measured serum vitamin B6 is low in affected patients. Because PLP is the coenzyme for many decarboxylases and transaminases, including those of neurotransmitter metabolism, this deficiency is the proposed proximate cause of the seizure phenotype; the specific PLP-dependent enzymes limiting in vivo have not been established in HPII patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"amplifier\"}}, {\"id\": \"Seizures and Metabolic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of HPII is a metabolic epilepsy. Reported presentations range from infantile seizures refractory to multiple antiepileptic drugs to a late-onset adult presentation with status epilepticus and severe lactic acidosis. Intercurrent febrile illness is a recurrent precipitant: reported episodes followed upper respiratory infection, and the single Japanese HPII case was ascertained during influenza-associated encephalopathy, prompting the proposal that HPII lowers the convulsive threshold.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"target\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the P5CDH step causes its substrate P5C, and the upstream amino acid proline, to accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because ALDH4A1 is a mitochondrial matrix enzyme, its loss was hypothesized to compromise mitochondrial function; the steps between the missing dehydrogenase and impaired oxidative phosphorylation have not been established, so this edge records an observed association rather than a worked-out route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated P5C condenses with pyridoxal 5\u0027-phosphate at the activated C-4 carbon of the pyrroline ring, forming stable adducts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Neurodevelopmental and Behavioral Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether the metabolic abnormality causes the neurodevelopmental and psychiatric features is explicitly unsettled: the cohort literature exempts only the secondary B6 deficiency from that doubt, and a systematic review found no correlation between proline levels and psychiatric phenotype.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"target\": \"Secondary Vitamin B6 Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Consumption of pyridoxal 5\u0027-phosphate by adduct formation depletes the functional vitamin B6 pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Vitamin B6 Deficiency\", \"target\": \"Seizures and Metabolic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional vitamin B6 depletion lowers the seizure threshold; the intervening PLP-dependent neurotransmitter steps are inferred from general B6 biochemistry rather than measured in HPII patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"High-Dose Pyridoxine (Vitamin B6) Supplementation\", \"target\": \"Secondary Vitamin B6 Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyrroline-5-Carboxylate and Proline Accumulation\", \"target\": \"Plasma and urinary proline elevation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated proline reports the block in proline catabolism and is the primary diagnostic screen for hyperprolinemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Pyridoxal 5\u0027-Phosphate Inactivation by P5C\", \"target\": \"P5C-derived adduct biomarkers\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of P5C condensation adducts in vivo supports the same condensation chemistry that inactivates pyridoxal 5\u0027-phosphate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Lactic acidosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lactic acidosis is the expected laboratory readout of impaired oxidative phosphorylation, and the mild mitochondrial dysfunction documented in the HPII cohort is the only candidate mechanism for it in this pathograph. This is an observational readout link, not a claim that the mitochondrial arm has been shown to cause the reported crisis-level lactate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"ALDH4A1\", \"target\": \"ALDH4A1 P5C Dehydrogenase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5644,6 +5716,9 @@ This clinical feature is Prolinuria (HP:0003137). HP:0003137 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5722,6 +5797,9 @@ This clinical feature is Hyperprolinemia (HP:0008358). HP:0008358 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5823,6 +5901,9 @@ This clinical feature is Reduced circulating vitamin B6, annotated with Reduced 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5914,6 +5995,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in a single late-onset case; frequency deliberately omitted because no cohort data support a frequency band. Linked as a readout of the provisional Mitochondrial Dysfunction node rather than left orphaned, but the connection is inferred: the cohort that documented mitochondrial dysfunction did not report lactic acidosis, and the case that reported lactic acidosis did not assess mitochondrial function.</div>
 
 
@@ -5997,6 +6081,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6065,6 +6152,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
             </div>
+
 
 
             <div class="context-notes">Onset is most often neonatal, in early infancy, or in early childhood, but an adult (age 64) first presentation has been reported.</div>
@@ -6142,6 +6230,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6211,6 +6302,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6275,6 +6369,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Two of four is not curated as a frequency band: the entire denominator is a single four-patient cohort, which per docs/frequency-evidence-guidelines.md is too small to support a FrequencyEnum value.</div>
@@ -6371,6 +6468,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The systematic review pools HPI and HPII and cannot be used to assign an HPII-specific frequency; the Orphanet definition and PMID:41602883 are the HPII-specific anchors. Note that the genotype in PMID:41602883 is a homozygous ALDH4A1 variant of uncertain significance rather than a established pathogenic allele, so it corroborates rather than proves the association.</div>
@@ -6496,6 +6596,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately curated with no frequency band. The single HPII-specific report rests on a variant of uncertain significance, and the systematic review does not separate HPII from HPI, so neither source alone establishes the association.</div>
 
 
@@ -6592,6 +6695,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">4/4 in a single four-patient cohort; frequency band omitted because the denominator is too small to support one.</div>
@@ -6693,6 +6799,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6757,6 +6866,9 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6898,6 +7010,9 @@ This disease-associated gene is ALDH4A1 (hgnc:406). hgnc:406 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -7077,6 +7192,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7087,6 +7205,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9123,6 +9244,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review follow-up: cohort literature, mitochondrial arm, MAXO to NCIT repair</strong> · 2026-07-31T21:19:12Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hyperprolinemia_Type_2/2026-07-31T211912Z-claude-code-be4068.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the CHANGES_REQUESTED review on PR #7338 and repairs a break introduced by main. (1) Branch refreshed from main via the GitHub update-branch flow; main had meanwhile removed MAXO (#7228), invalidating this entry&#39;s MAXO:0000106 treatment term. Remapped to NCIT:C15433 Nutritional Support per the frozen crosswalk docs/superpowers/maxo_ncit_final_map.tsv. (2) Incorporated PMID:24173411 (van de Ven 2014, the only HPII cohort, n=4 from a 20,991-sample screen): added REFUTE counter-evidence to the pyridoxine treatment (clinical course independent of B6 concentration and B6 therapy), intellectual disability, behavioral, anxiety and hallucination phenotypes, and a PROVISIONAL Mitochondrial Dysfunction pathophysiology node. (3) An independent PubMed sweep (documented in research/Hyperprolinemia_Type_2-deep-research-claude-code.md) surfaced two papers the review did not flag: PMID:21168532 (Drosophila P5CDh-null model with swollen mitochondria, MODEL_ORGANISM cross-species corroboration of the mitochondrial arm) and PMID:41602883 (2025 HPII case presenting with global developmental delay and ASD; the ALDH4A1 variant is of uncertain significance, so curated PARTIAL). (4) Added a HYPOTHETICAL Neurodevelopmental and Behavioral Impairment node reached by a causal_link_type UNKNOWN edge, quoting the literature&#39;s own statement that the causal relation between the metabolic abnormalities and the clinical features is frequently debated. (5) The orphaned Lactic acidosis phenotype now attaches via reports_on READOUT_OF to the mitochondrial node, with the inferential nature of that link stated in notes. (6) Added a diagnosis section (plasma proline with urinary P5C criteria; the P5C-adduct biomarker assay). (7) Cached ORPHA:79101 (the record carries no HPO table, so no frequency bands are derivable from it). (8) Fixed the preferred_term duplication of an upstream HPO label typo. No frequency bands were added anywhere: all clinical data remain case reports plus one n=4 cohort. Validation: schema, term, and 76/76 reference snippets verified; grouping/foreign-key/history tests pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

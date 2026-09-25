@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Familial%20Hypocalciuric%20Hypercalcemia%201"
@@ -4001,7 +4054,7 @@ The clinical stakes are therefore diagnostic rather than therapeutic. FHH1 produ
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4404,6 +4457,13 @@ Management inverts the adult rule. Parathyroidectomy is generally inappropriate 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-casr-loss-of-function-variant" data-dismech-node="Heterozygous CASR Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous CASR Loss-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">An inactivating variant, most often missense and frequently in the large extracellular calcium-binding domain, that raises the calcium concentration required to activate the receptor. Nonsense and frameshift alleles occur as well. Functional work on hypercalcaemia-associated missense alleles shows the defect is not confined to one step: expression, plasma-membrane targeting and signalling can each be impaired.</div>
 
 
@@ -4461,9 +4521,14 @@ This genetic context concerns CASR (hgnc:1514). hgnc:1514 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4598,6 +4663,13 @@ This pathophysiological event involves calcium-sensing receptor activity, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-shifted-calcium-set-point" data-dismech-node="Right-Shifted Calcium Set Point" data-dismech-type="pathophysiology">
                 <div class="item-name">Right-Shifted Calcium Set Point</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The set point is the serum calcium concentration at which PTH secretion is half-maximal. Shifting it upward is the single mechanistic statement from which the rest of the disease follows: nothing downstream is broken, but every calcium-sensing tissue is now regulating toward a higher target.</div>
 
 
@@ -4719,6 +4791,13 @@ This pathophysiological event involves decreased G protein-coupled receptor sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-suppress-parathyroid-hormone-secretion" data-dismech-node="Failure to Suppress Parathyroid Hormone Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Suppress Parathyroid Hormone Secretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Parathyroid chief cells continue to secrete PTH at calcium concentrations that should silence them. The cells are not autonomous and the glands are not neoplastic, which is why removing them does not address the lesion - they are obeying a receptor that is under-reporting the calcium level.</div>
 
@@ -4867,6 +4946,13 @@ This pathophysiological event involves increased parathyroid hormone secretion (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-renal-tubular-calcium-reabsorption" data-dismech-node="Increased Renal Tubular Calcium Reabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Renal Tubular Calcium Reabsorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In the thick ascending limb the receptor normally responds to a rise in blood calcium by reducing paracellular calcium permeability, acting through the tight-junction protein claudin-14. A blunted receptor does not apply that brake, so calcium continues to be reabsorbed at concentrations where it should be shed. This is the limb that converts what would otherwise be ordinary hypercalcaemia into the hypocalciuric form.</div>
 
@@ -5023,6 +5109,13 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypocalciuria" data-dismech-node="Hypocalciuria" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypocalciuria</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Urinary calcium that is low in absolute terms or, more informatively, low relative to the prevailing serum calcium. It is simultaneously the diagnostic signature of the disease and the reason for its benign course, since the renal complications of chronic hypercalcaemia require calcium to be passing through the kidney.</div>
 
 
@@ -5083,6 +5176,13 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-renal-magnesium-excretion" data-dismech-node="Reduced Renal Magnesium Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Renal Magnesium Excretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Magnesium shares the claudin-gated paracellular route that the receptor regulates, so a blunted receptor retains magnesium alongside calcium. The resulting serum magnesium is typically high-normal to mildly raised rather than overtly abnormal.</div>
 
@@ -5159,6 +5259,13 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypercalcemia-with-non-suppressed-pth" data-dismech-node="Hypercalcemia with Non-Suppressed PTH" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypercalcemia with Non-Suppressed PTH</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The biochemical core of the disease and the source of its entire clinical problem, which is that it looks like mild primary hyperparathyroidism. The hypercalcaemia is lifelong, non-progressive and usually mild, and the PTH accompanying it is normal or slightly raised rather than suppressed as it would be if the hypercalcaemia had a non-parathyroid cause.</div>
 
@@ -5252,6 +5359,13 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypermagnesemia" data-dismech-node="Hypermagnesemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypermagnesemia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Mildly raised serum magnesium, a supportive rather than a diagnostic finding. It is worth recording because it is a point of difference from primary hyperparathyroidism, where magnesium is typically normal or low.</div>
 
 
@@ -5312,6 +5426,13 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-bone-mineral-density-despite-chronic-pth-elevation" data-dismech-node="Preserved Bone Mineral Density Despite Chronic PTH Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Bone Mineral Density Despite Chronic PTH Elevation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A deliberately negative node. Patients carry raised PTH and alkaline phosphatase for decades without losing bone, and bone density does not track the severity of the CASR variant. This is a real dissociation rather than an absence of data, and it belongs in the pathograph because it is one of the things that makes FHH1 mechanistically unlike primary hyperparathyroidism despite the shared biochemistry.</div>
 
@@ -5421,7 +5542,7 @@ This pathophysiological event involves increased paracellular calcium reabsorpti
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium/creatinine clearance ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypocalciuria\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Expresses urinary calcium relative to the prevailing serum calcium and renal function, which is what makes it more informative than a raw 24-hour calcium.\"}]}}, {\"id\": \"Chondrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium pyrophosphate deposition in cartilage, one of the few complications attributable to the chronic hypercalcaemia itself. Like the other symptomatic presentations of FHH1 it is reported in the moderate-to-severe end of the hypercalcaemic range rather than across carriers generally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000934\"}}, {\"id\": \"Cinacalcet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A calcimimetic - a positive allosteric modulator that lowers the calcium concentration needed to activate the receptor - and therefore a drug aimed at the actual lesion rather than at the number. It is reserved for the minority with symptomatic or marked hypercalcaemia, since most carriers need nothing. Reported to lower serum calcium and improve calcium clearance, and used successfully in the neonatal forms as well.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cinacalcet\"]}}, {\"id\": \"Elevated or Inappropriately Normal Parathyroid Hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PTH that is not suppressed in the face of hypercalcaemia. It may sit within the reference interval - which is itself abnormal at this calcium level - or be frankly raised. This is the finding that puts primary hyperparathyroidism on the differential and cannot be used to exclude it.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003165\"}}, {\"id\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parathyroid chief cells continue to secrete PTH at calcium concentrations that should silence them. The cells are not autonomous and the glands are not neoplastic, which is why removing them does not address the lesion - they are obeying a receptor that is under-reporting the calcium level.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"parathyroid chief cell\"], \"biological_processes\": [\"parathyroid hormone secretion\"]}}, {\"id\": \"Heterozygous CASR Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An inactivating variant, most often missense and frequently in the large extracellular calcium-binding domain, that raises the calcium concentration required to activate the receptor. Nonsense and frameshift alleles occur as well. Functional work on hypercalcaemia-associated missense alleles shows the defect is not confined to one step: expression, plasma-membrane targeting and signalling can each be impaired.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"calcium-sensing receptor activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}]}}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lifelong, non-progressive and usually mild. Most often found incidentally on a routine calcium measurement rather than through symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003072\"}}, {\"id\": \"Hypercalcemia with Non-Suppressed PTH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical core of the disease and the source of its entire clinical problem, which is that it looks like mild primary hyperparathyroidism. The hypercalcaemia is lifelong, non-progressive and usually mild, and the PTH accompanying it is normal or slightly raised rather than suppressed as it would be if the hypercalcaemia had a non-parathyroid cause.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypermagnesemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly raised serum magnesium, reflecting the same paracellular transport defect that retains calcium. Supportive rather than diagnostic, and mild enough that it is often reported as high-normal rather than frankly raised.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002918\"}}, {\"id\": \"Hypocalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low urinary calcium excretion relative to serum calcium, conventionally expressed as a calcium/creatinine clearance ratio. It is the finding the disease is named for and the one that separates it from primary hyperparathyroidism, though the separation is imperfect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003127\"}}, {\"id\": \"Increased Renal Tubular Calcium Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the thick ascending limb the receptor normally responds to a rise in blood calcium by reducing paracellular calcium permeability, acting through the tight-junction protein claudin-14. A blunted receptor does not apply that brake, so calcium continues to be reabsorbed at concentrations where it should be shed. This is the limb that converts what would otherwise be ordinary hypercalcaemia into the hypocalciuric form.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"paracellular calcium reabsorption in the thick ascending limb\"]}}, {\"id\": \"Intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"NCIT:C41027\", \"term_label\": \"Parathyroid Hormone\", \"readouts\": [{\"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A PTH that is normal or raised alongside hypercalcaemia reports the parathyroid limb of the lesion.\"}]}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An uncommon association, and reported in the subset with moderate-to-severe hypercalcaemia rather than across FHH1 generally. Its causal attribution to FHH1 is contested rather than settled, and it should not be assumed in an individual patient without excluding the usual causes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Preserved Bone Mineral Density Despite Chronic PTH Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A deliberately negative node. Patients carry raised PTH and alkaline phosphatase for decades without losing bone, and bone density does not track the severity of the CASR variant. This is a real dissociation rather than an absence of data, and it belongs in the pathograph because it is one of the things that makes FHH1 mechanistically unlike primary hyperparathyroidism despite the shared biochemistry.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced Renal Magnesium Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Magnesium shares the claudin-gated paracellular route that the receptor regulates, so a blunted receptor retains magnesium alongside calcium. The resulting serum magnesium is typically high-normal to mildly raised rather than overtly abnormal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Right-Shifted Calcium Set Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The set point is the serum calcium concentration at which PTH secretion is half-maximal. Shifting it upward is the single mechanistic statement from which the rest of the disease follows: nothing downstream is broken, but every calcium-sensing tissue is now regulating toward a higher target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"]}}, {\"id\": \"Serum total and ionised calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the raised set point as it appears in the circulation.\"}]}}], \"edges\": [{\"source\": \"Heterozygous CASR Loss-of-Function Variant\", \"target\": \"Right-Shifted Calcium Set Point\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A receptor that requires more calcium to activate is, at the level of the whole homeostatic loop, a receptor with a higher set point.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right-Shifted Calcium Set Point\", \"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parathyroid limb of the shifted set point.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right-Shifted Calcium Set Point\", \"target\": \"Increased Renal Tubular Calcium Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal limb. It is a separate edge rather than a consequence of the parathyroid limb, because the receptor acts on the tubule directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued PTH secretion sustains bone resorption and renal calcium retention, holding serum calcium above the normal range.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Hypocalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reabsorbed calcium is calcium that does not appear in the urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal retention contributes to the circulating excess independently of the parathyroid limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Reduced Renal Magnesium Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same paracellular pathway carries magnesium, so the transport defect is not selective for calcium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Renal Magnesium Excretion\", \"target\": \"Hypermagnesemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention raises circulating magnesium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Preserved Bone Mineral Density Despite Chronic PTH Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic exposure to a modestly raised PTH does not, in this disease, translate into the bone loss the same biochemistry causes in primary hyperparathyroidism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Chondrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium pyrophosphate deposition follows the sustained calcium elevation rather than the receptor defect directly, and is reported at the moderate-to-severe end of the range rather than across carriers.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported among the classical hypercalcaemic presentations at the moderate-to-severe end of the range. The attribution is contested rather than settled, which is why the phenotype records it as VERY_RARE.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical finding corresponding to the pathophysiology node.\"}, {\"source\": \"Elevated or Inappropriately Normal Parathyroid Hormone\", \"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The circulating readout of the parathyroid limb of the lesion.\"}, {\"source\": \"Hypermagnesemia\", \"target\": \"Hypermagnesemia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical finding corresponding to the pathophysiology node.\"}, {\"source\": \"Cinacalcet\", \"target\": \"Right-Shifted Calcium Set Point\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Serum total and ionised calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the raised set point as it appears in the circulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hypocalciuria\", \"target\": \"Calcium/creatinine clearance ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Expresses urinary calcium relative to the prevailing serum calcium and renal function, which is what makes it more informative than a raw 24-hour calcium.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"target\": \"Intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A PTH that is normal or raised alongside hypercalcaemia reports the parathyroid limb of the lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CASR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CASR\"], \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Calcium/creatinine clearance ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypocalciuria\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Expresses urinary calcium relative to the prevailing serum calcium and renal function, which is what makes it more informative than a raw 24-hour calcium.\"}]}}, {\"id\": \"Chondrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium pyrophosphate deposition in cartilage, one of the few complications attributable to the chronic hypercalcaemia itself. Like the other symptomatic presentations of FHH1 it is reported in the moderate-to-severe end of the hypercalcaemic range rather than across carriers generally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000934\"}}, {\"id\": \"Cinacalcet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A calcimimetic - a positive allosteric modulator that lowers the calcium concentration needed to activate the receptor - and therefore a drug aimed at the actual lesion rather than at the number. It is reserved for the minority with symptomatic or marked hypercalcaemia, since most carriers need nothing. Reported to lower serum calcium and improve calcium clearance, and used successfully in the neonatal forms as well.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cinacalcet\"]}}, {\"id\": \"Elevated or Inappropriately Normal Parathyroid Hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PTH that is not suppressed in the face of hypercalcaemia. It may sit within the reference interval - which is itself abnormal at this calcium level - or be frankly raised. This is the finding that puts primary hyperparathyroidism on the differential and cannot be used to exclude it.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003165\"}}, {\"id\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parathyroid chief cells continue to secrete PTH at calcium concentrations that should silence them. The cells are not autonomous and the glands are not neoplastic, which is why removing them does not address the lesion - they are obeying a receptor that is under-reporting the calcium level.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"parathyroid chief cell\"], \"biological_processes\": [\"parathyroid hormone secretion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Heterozygous CASR Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An inactivating variant, most often missense and frequently in the large extracellular calcium-binding domain, that raises the calcium concentration required to activate the receptor. Nonsense and frameshift alleles occur as well. Functional work on hypercalcaemia-associated missense alleles shows the defect is not confined to one step: expression, plasma-membrane targeting and signalling can each be impaired.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"calcium-sensing receptor activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lifelong, non-progressive and usually mild. Most often found incidentally on a routine calcium measurement rather than through symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003072\"}}, {\"id\": \"Hypercalcemia with Non-Suppressed PTH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical core of the disease and the source of its entire clinical problem, which is that it looks like mild primary hyperparathyroidism. The hypercalcaemia is lifelong, non-progressive and usually mild, and the PTH accompanying it is normal or slightly raised rather than suppressed as it would be if the hypercalcaemia had a non-parathyroid cause.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypermagnesemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly raised serum magnesium, reflecting the same paracellular transport defect that retains calcium. Supportive rather than diagnostic, and mild enough that it is often reported as high-normal rather than frankly raised.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002918\"}}, {\"id\": \"Hypocalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low urinary calcium excretion relative to serum calcium, conventionally expressed as a calcium/creatinine clearance ratio. It is the finding the disease is named for and the one that separates it from primary hyperparathyroidism, though the separation is imperfect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003127\"}}, {\"id\": \"Increased Renal Tubular Calcium Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the thick ascending limb the receptor normally responds to a rise in blood calcium by reducing paracellular calcium permeability, acting through the tight-junction protein claudin-14. A blunted receptor does not apply that brake, so calcium continues to be reabsorbed at concentrations where it should be shed. This is the limb that converts what would otherwise be ordinary hypercalcaemia into the hypocalciuric form.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"paracellular calcium reabsorption in the thick ascending limb\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"NCIT:C41027\", \"term_label\": \"Parathyroid Hormone\", \"readouts\": [{\"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A PTH that is normal or raised alongside hypercalcaemia reports the parathyroid limb of the lesion.\"}]}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An uncommon association, and reported in the subset with moderate-to-severe hypercalcaemia rather than across FHH1 generally. Its causal attribution to FHH1 is contested rather than settled, and it should not be assumed in an individual patient without excluding the usual causes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Preserved Bone Mineral Density Despite Chronic PTH Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A deliberately negative node. Patients carry raised PTH and alkaline phosphatase for decades without losing bone, and bone density does not track the severity of the CASR variant. This is a real dissociation rather than an absence of data, and it belongs in the pathograph because it is one of the things that makes FHH1 mechanistically unlike primary hyperparathyroidism despite the shared biochemistry.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Renal Magnesium Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Magnesium shares the claudin-gated paracellular route that the receptor regulates, so a blunted receptor retains magnesium alongside calcium. The resulting serum magnesium is typically high-normal to mildly raised rather than overtly abnormal.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Right-Shifted Calcium Set Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The set point is the serum calcium concentration at which PTH secretion is half-maximal. Shifting it upward is the single mechanistic statement from which the rest of the disease follows: nothing downstream is broken, but every calcium-sensing tissue is now regulating toward a higher target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Serum total and ionised calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the raised set point as it appears in the circulation.\"}]}}], \"edges\": [{\"source\": \"Heterozygous CASR Loss-of-Function Variant\", \"target\": \"Right-Shifted Calcium Set Point\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A receptor that requires more calcium to activate is, at the level of the whole homeostatic loop, a receptor with a higher set point.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right-Shifted Calcium Set Point\", \"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parathyroid limb of the shifted set point.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right-Shifted Calcium Set Point\", \"target\": \"Increased Renal Tubular Calcium Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal limb. It is a separate edge rather than a consequence of the parathyroid limb, because the receptor acts on the tubule directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued PTH secretion sustains bone resorption and renal calcium retention, holding serum calcium above the normal range.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Hypocalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reabsorbed calcium is calcium that does not appear in the urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal retention contributes to the circulating excess independently of the parathyroid limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Renal Tubular Calcium Reabsorption\", \"target\": \"Reduced Renal Magnesium Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same paracellular pathway carries magnesium, so the transport defect is not selective for calcium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Renal Magnesium Excretion\", \"target\": \"Hypermagnesemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention raises circulating magnesium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Preserved Bone Mineral Density Despite Chronic PTH Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic exposure to a modestly raised PTH does not, in this disease, translate into the bone loss the same biochemistry causes in primary hyperparathyroidism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Chondrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium pyrophosphate deposition follows the sustained calcium elevation rather than the receptor defect directly, and is reported at the moderate-to-severe end of the range rather than across carriers.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported among the classical hypercalcaemic presentations at the moderate-to-severe end of the range. The attribution is contested rather than settled, which is why the phenotype records it as VERY_RARE.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hypercalcemia\", \"target\": \"Hypercalcemia with Non-Suppressed PTH\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical finding corresponding to the pathophysiology node.\"}, {\"source\": \"Elevated or Inappropriately Normal Parathyroid Hormone\", \"target\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The circulating readout of the parathyroid limb of the lesion.\"}, {\"source\": \"Hypermagnesemia\", \"target\": \"Hypermagnesemia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical finding corresponding to the pathophysiology node.\"}, {\"source\": \"Cinacalcet\", \"target\": \"Right-Shifted Calcium Set Point\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hypercalcemia with Non-Suppressed PTH\", \"target\": \"Serum total and ionised calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the raised set point as it appears in the circulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hypocalciuria\", \"target\": \"Calcium/creatinine clearance ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Expresses urinary calcium relative to the prevailing serum calcium and renal function, which is what makes it more informative than a raw 24-hour calcium.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Failure to Suppress Parathyroid Hormone Secretion\", \"target\": \"Intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A PTH that is normal or raised alongside hypercalcaemia reports the parathyroid limb of the lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CASR\", \"target\": \"Heterozygous CASR Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5488,6 +5609,9 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5570,6 +5694,9 @@ This clinical feature is Elevated circulating parathyroid hormone level (HP:0003
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5657,6 +5784,9 @@ This clinical feature is Hypocalciuria (HP:0003127). HP:0003127 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5758,6 +5888,9 @@ This clinical feature is Hypercalcemia (HP:0003072), qualified as course stable.
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5833,6 +5966,9 @@ This clinical feature is Hypermagnesemia (HP:0002918). HP:0002918 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5925,6 +6061,9 @@ This clinical feature is Chondrocalcinosis (HP:0000934). HP:0000934 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5981,6 +6120,9 @@ This clinical feature is Chondrocalcinosis (HP:0000934). HP:0000934 is a phenoty
 
 
                     </div>
+
+
+
 
 
 
@@ -6149,6 +6291,9 @@ This disease-associated gene is CASR (hgnc:1514). hgnc:1514 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6299,6 +6444,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6309,6 +6457,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6403,6 +6554,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6413,6 +6567,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6554,6 +6711,9 @@ This treatment uses cinacalcet (CHEBI:48390). CHEBI:48390 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6564,6 +6724,9 @@ This treatment uses cinacalcet (CHEBI:48390). CHEBI:48390 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 

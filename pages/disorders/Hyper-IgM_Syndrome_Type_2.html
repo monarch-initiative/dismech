@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4507,6 +4560,7 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aid-enzymatic-loss-of-function" data-dismech-node="AID Enzymatic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">AID Enzymatic Loss of Function</div>
 
+
                 <div class="item-desc">Activation-induced cytidine deaminase is a member of the cytidine deaminase family whose expression is restricted to germinal center B cells. It initiates antibody diversification by deaminating cytosine to uracil in single-stranded DNA at the immunoglobulin switch and variable regions, creating the U:G mismatches that downstream repair pathways convert into either switch-region double-strand breaks or point mutations. Biallelic loss-of-function AICDA variants abolish this enzymatic activity, removing the single upstream trigger for both antibody-diversification programs. Anchors the module&#39;s conformance here rather than on either downstream node (Failed Immunoglobulin Class-Switch Recombination, Failed Somatic Hypermutation) because this is the molecular lesion that causes both of them: neither downstream node alone covers the module&#39;s bundled &#34;Germinal Center Reaction&#34; claim, but this one node, read alongside its two direct downstream edges, does.</div>
 
 
@@ -4735,6 +4789,7 @@ This pathophysiological event involves cytidine deaminase activity (GO:0004126),
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-immunoglobulin-class-switch-recombination" data-dismech-node="Failed Immunoglobulin Class-Switch Recombination" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Immunoglobulin Class-Switch Recombination</div>
 
+
                 <div class="item-desc">Class-switch recombination replaces the IgM/IgD constant region with a downstream constant region, converting a naive B cell&#39;s output to IgG, IgA, or IgE without altering antigen specificity. In AID deficiency this recombination does not occur. The block is B-cell intrinsic: germline switch transcripts are still produced and the upstream T-cell help signal is intact, so the lesion lies at the DNA-modification step itself.</div>
 
 
@@ -4915,6 +4970,7 @@ This pathophysiological event involves Immunoglobulin isotype switching, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-somatic-hypermutation" data-dismech-node="Failed Somatic Hypermutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Somatic Hypermutation</div>
+
 
                 <div class="item-desc">Somatic hypermutation introduces point mutations into immunoglobulin variable-region genes, generating the sequence variation on which affinity-based selection acts in the germinal center. AID deficiency abolishes it. Memory B cells are still generated in normal numbers but carry unmutated variable regions. This arm is independent of the CSR arm: C-terminal AICDA variants can spare it while still blocking CSR.</div>
 
@@ -5127,6 +5183,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igm-restricted-antibody-repertoire" data-dismech-node="IgM-Restricted Antibody Repertoire" data-dismech-type="pathophysiology">
                 <div class="item-name">IgM-Restricted Antibody Repertoire</div>
 
+
                 <div class="item-desc">The systemic consequence of the switching block is a humoral compartment that produces only IgM. Serum IgM is normal or elevated — partly because unswitched B cells continue to be driven by antigen — while IgG, IgA, and IgE are absent or very low. Circulating B-cell numbers are normal, which distinguishes HIGM2 from the agammaglobulinemias, where the lesion is a developmental block upstream of B-cell egress.</div>
 
 
@@ -5330,6 +5387,7 @@ This pathophysiological event involves decreased Immunoglobulin production (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-affinity-maturation" data-dismech-node="Absent Affinity Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Affinity Maturation</div>
 
+
                 <div class="item-desc">Memory B cells are produced but their variable regions remain in germline configuration, so the antibody repertoire never improves in affinity across repeated antigen encounters. Secondary responses are therefore no better than primary ones, compounding the isotype deficit.</div>
 
 
@@ -5478,6 +5536,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-opsonizing-and-mucosal-antibody-function" data-dismech-node="Loss of Opsonizing and Mucosal Antibody Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Opsonizing and Mucosal Antibody Function</div>
 
+
                 <div class="item-desc">The two arms converge here. The patient retains antibody, but it is of the wrong isotype and of germline affinity: no IgG to opsonize encapsulated bacteria and fix complement efficiently in tissue, no secretory IgA to exclude organisms at respiratory and gastrointestinal mucosal surfaces, and no affinity-matured binding to compensate. Humoral protection against extracellular bacteria is therefore lost, while cellular immunity is untouched.</div>
 
 
@@ -5592,6 +5651,7 @@ This pathophysiological event involves decreased Complement activation and opson
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-bacterial-sinopulmonary-and-mucosal-infection" data-dismech-node="Recurrent Bacterial Sinopulmonary and Mucosal Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Bacterial Sinopulmonary and Mucosal Infection</div>
 
+
                 <div class="item-desc">Clinically the infections are bacterial and mucosal — recurrent sinusitis, otitis media, and pneumonia progressing to bronchiectasis, with gastrointestinal involvement. The spectrum is narrower than in the CD40L/CD40 hyper-IgM syndromes: because AID acts only in B cells and leaves T-cell and macrophage effector function intact, HIGM2 patients do not show the Pneumocystis, Cryptosporidium, and other opportunistic infections that characterize the CD40 pathway defects. Immunoglobulin replacement markedly reduces infection frequency.</div>
 
 
@@ -5677,6 +5737,7 @@ This pathophysiological event involves decreased Complement activation and opson
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-germinal-center-formation" data-dismech-node="Giant Germinal Center Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Giant Germinal Center Formation</div>
+
 
                 <div class="item-desc">The histological hallmark of AID deficiency. B cells that cannot complete the diversification program are repeatedly restimulated and re-enter the germinal center rather than exiting as switched or affinity-matured progeny. Germinal centers consequently become greatly enlarged and are packed with strongly activated B cells — the &#34;giant germinal centers&#34; described in the original report and reproduced in AID-null mice.</div>
 
@@ -5826,6 +5887,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-massive-lymphoid-hyperplasia" data-dismech-node="Massive Lymphoid Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Massive Lymphoid Hyperplasia</div>
 
+
                 <div class="item-desc">Generalized enlargement of secondary lymphoid tissue — lymphadenopathy and tonsillar enlargement — is present in the majority of patients and is disproportionate to that seen in other primary antibody deficiencies. It can regress on immunoglobulin replacement but persists in a minority.</div>
 
 
@@ -5886,6 +5948,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-breakdown-of-b-cell-self-tolerance" data-dismech-node="Breakdown of B-Cell Self-Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Breakdown of B-Cell Self-Tolerance</div>
+
 
                 <div class="item-desc">AID has a role in B-cell tolerance that is separable from its diversification role. In AID-deficient patients both the central checkpoint (new emigrant/transitional B cells) and the peripheral checkpoint (mature naive B cells) fail to remove autoreactive clones, and anti-nuclear IgM is detectable in serum. This provides the mechanistic explanation for the autoimmunity seen in a disease that is otherwise one of immune deficiency.</div>
 
@@ -6035,6 +6098,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-and-inflammatory-disease" data-dismech-node="Autoimmune and Inflammatory Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune and Inflammatory Disease</div>
 
+
                 <div class="item-desc">A substantial minority of AID-deficient patients develop autoimmune or inflammatory disease. The reported spectrum is broad and not confined to one organ — autoimmune cytopenias (hemolytic anemia, immune thrombocytopenia), polyarthritis, autoimmune hepatitis, type 1 diabetes, Crohn&#39;s disease, and chronic uveitis have all been described in a single cohort.</div>
 
 
@@ -6141,7 +6205,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(1)</span></button>
 
@@ -6150,8 +6214,6 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6189,6 +6251,9 @@ This clinical feature is Lymphoid hyperplasia (HP:0034839). HP:0034839 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6267,6 +6332,9 @@ This clinical feature is Increased circulating IgM level (HP:0003496). HP:000349
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6335,6 +6403,9 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6413,6 +6484,9 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6482,6 +6556,9 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6546,6 +6623,9 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6624,6 +6704,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6723,6 +6806,9 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6770,8 +6856,80 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune Hepatitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autoimmune Hepatitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:5210421</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14962793" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14962793" target="_blank">PMID:14962793</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is striking to note that six patients developed autoimmune or inflammatory disorders including diabetes mellitus, polyarthritis, autoimmune hepatitis, hemolytic anemia, immune thrombocytopenia, Crohn&#39;s disease and chronic uveitis."</div>
+
+
+                <div class="evidence-explanation">Autoimmune hepatitis is named among the autoimmune disorders in the cohort. Reported in one or two patients, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-crohn-s-disease" data-dismech-node="Crohn&#39;s Disease" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6787,15 +6945,18 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6865,15 +7026,18 @@ This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic suppurative otitis media, annotated with Otitis media (HP:0000388). HP:0000388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6945,15 +7109,18 @@ This clinical feature is Chronic suppurative otitis media, annotated with Otitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7043,15 +7210,18 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune and inflammatory disease, annotated with Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7121,15 +7291,18 @@ This clinical feature is Autoimmune and inflammatory disease, annotated with Aut
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyarthritis, annotated with Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7199,15 +7372,18 @@ This clinical feature is Polyarthritis, annotated with Arthritis (HP:0001369). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7239,84 +7415,6 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                 <div class="evidence-explanation">Bilateral bronchiectasis in a genetically confirmed HIGM2 patient. Single case report, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune Hepatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmune Hepatitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:5210421</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14962793" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14962793" target="_blank">PMID:14962793</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is striking to note that six patients developed autoimmune or inflammatory disorders including diabetes mellitus, polyarthritis, autoimmune hepatitis, hemolytic anemia, immune thrombocytopenia, Crohn&#39;s disease and chronic uveitis."</div>
-
-
-                <div class="evidence-explanation">Autoimmune hepatitis is named among the autoimmune disorders in the cohort. Reported in one or two patients, so no frequency band is asserted.</div>
 
 
 
@@ -7404,6 +7502,9 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7509,6 +7610,9 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7607,6 +7711,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7626,11 +7731,17 @@ This variant is in AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous C-terminal nonsense variant removing the AID nuclear export signal. Causes a class-switch-recombination defect with preserved somatic hypermutation, inherited as an autosomal dominant trait.</div>
@@ -7749,6 +7860,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7759,6 +7873,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -7955,6 +8072,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7965,6 +8085,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8043,6 +8166,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8053,6 +8179,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -9374,6 +9503,7 @@ pathophysiology:
         The IUIS Table 3 associated-features column for AID deficiency lists
         bacterial infections as the cardinal clinical consequence.
 - name: Recurrent Bacterial Sinopulmonary and Mucosal Infection
+  conforms_to: &#34;germinal_center_reaction#Clinical Susceptibility to Infection&#34;
   biological_scale: ORGANISM
   description: &gt;-
     Clinically the infections are bacterial and mucosal — recurrent sinusitis,
@@ -10555,7 +10685,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hyper-IgM Syndrome Type 2", "mondoId": "MONDO:0011528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyper-IgM_Syndrome_Type_2", "yamlRevision": "ddc207cb3fe6"};
+        const OS_CONFIG = {"diseaseName": "Hyper-IgM Syndrome Type 2", "mondoId": "MONDO:0011528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyper-IgM_Syndrome_Type_2", "yamlRevision": "02fedba5e4dd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

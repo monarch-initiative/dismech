@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4467,6 +4520,7 @@ The second is that one downstream consequence has been traced end to end at the 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b4galt1-biallelic-loss-of-function" data-dismech-node="B4GALT1 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">B4GALT1 Biallelic Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion. Biallelic B4GALT1 variants abolish functional beta-1,4-galactosyltransferase 1. In the index patient a single-nucleotide insertion caused premature termination and loss of the C-terminal 50 amino acids, and the resulting truncated polypeptide was mislocalised - it stayed in the endoplasmic reticulum instead of reaching the Golgi, so the enzyme was absent from the compartment where it works as well as being catalytically dead.</div>
 
 
@@ -4527,6 +4581,8 @@ This pathophysiological event involves B4GALT1 (hgnc:924). hgnc:924 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4539,6 +4595,9 @@ This pathophysiological event involves B4GALT1 (hgnc:924). hgnc:924 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4681,6 +4740,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-golgi-galactosyltransferase-activity" data-dismech-node="Loss of Golgi Galactosyltransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Golgi Galactosyltransferase Activity</div>
 
+
                 <div class="item-desc">Galactosyltransferase activity in patient fibroblasts and leukocytes falls to about 5% of control. B4GALT1 is the major enzyme performing this transfer, so the residual activity of other family members does not compensate.</div>
 
 
@@ -4819,6 +4879,7 @@ This pathophysiological event involves decreased UDP-galactosyltransferase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypogalactosylation-and-loss-of-terminal-sialylation-of-n-glycans" data-dismech-node="Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans</div>
+
 
                 <div class="item-desc">N-glycan antennae terminate two residues early, lacking both galactose and the sialic acid that would cap it. This is a Golgi-processing (type II) defect rather than an assembly (type I) one, which is what the CDG-IId designation records. The consequence is not a single missing protein but a systemic change to the finish of every N-glycosylated protein the Golgi handles.</div>
 
@@ -4967,6 +5028,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypogalactosylated-cholesteryl-ester-transfer-protein" data-dismech-node="Hypogalactosylated Cholesteryl Ester Transfer Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypogalactosylated Cholesteryl Ester Transfer Protein</div>
 
+
                 <div class="item-desc">CETP carries N-glycans, is hypogalactosylated in B4GALT1-CDG, and is measurably less active as a result. This is the best-characterised single substrate in the disease and the reason the entry can describe a lipoprotein mechanism rather than attributing the lipid findings to hypoglycosylation in general.</div>
 
 
@@ -5106,6 +5168,7 @@ This pathophysiological event involves decreased cholesterol transfer activity (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-plasma-lipoprotein-profile" data-dismech-node="Altered Plasma Lipoprotein Profile" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Plasma Lipoprotein Profile</div>
 
+
                 <div class="item-desc">Significantly lowered non-HDL cholesterol, a lowered total-to-HDL cholesterol ratio, and abnormally large HDL particles - the profile CETP hypofunction predicts, measured against matched controls.</div>
 
 
@@ -5229,6 +5292,13 @@ This pathophysiological event involves dysregulated lipoprotein metabolic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-glycoprotein-dysfunction" data-dismech-node="Systemic Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Glycoprotein Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The route from the glycan defect to the neurological, muscular, hepatic, haematological, cardiovascular and renal features. Graded HYPOTHETICAL because, unlike the CETP arm, no source here identifies which hypogalactosylated proteins mediate these manifestations - the attribution is to hypoglycosylation as a class. This is the usual state of affairs in the CDGs, and the contrast with the CETP arm in the same disease is what makes it worth marking rather than leaving implicit.</div>
 
@@ -5462,7 +5532,7 @@ This pathophysiological event involves dysregulated lipoprotein metabolic proces
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coagulopathy, present in all reported patients and one of the three features named in the original description alongside hydrocephalus and myopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001928\"}}, {\"id\": \"Altered Plasma Lipoprotein Profile\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Significantly lowered non-HDL cholesterol, a lowered total-to-HDL cholesterol ratio, and abnormally large HDL particles - the profile CETP hypofunction predicts, measured against matched controls.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lipoprotein metabolic process\"]}}, {\"id\": \"B4GALT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"B4GALT1\"], \"gene_terms\": [{\"label\": \"B4GALT1\", \"id\": \"hgnc:924\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"B4GALT1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Biallelic B4GALT1 variants abolish functional beta-1,4-galactosyltransferase 1. In the index patient a single-nucleotide insertion caused premature termination and loss of the C-terminal 50 amino acids, and the resulting truncated polypeptide was mislocalised - it stayed in the endoplasmic reticulum instead of reaching the Golgi, so the enzyme was absent from the compartment where it works as well as being catalytically dead.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"B4GALT1\"], \"gene_terms\": [{\"label\": \"B4GALT1\", \"id\": \"hgnc:924\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cholestatic jaundice from birth, transient in every reported case - resolving within the first month in two patients and within the first year overall. The 2020 cohort is explicit that none of these patients had hepatocellular disease at any point, so the cholestasis is not a marker of progressive liver injury.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex hyperkinetic movement disorder in patient B1, the most severely affected of the 2020 cohort - chorea and athetosis together with dystonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Colony-Stimulating Factor Therapy for Neutropenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chronic granulocyte colony stimulating factor for the neutropenia of the marrow failure. Given long term in two of the three 2020 patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"granulocyte colony stimulating factor\"]}}, {\"id\": \"Cystoperitoneal Shunt for Hydrocephalus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical CSF diversion in the index patient at four months, for hydrocephalus progressing on the Dandy-Walker malformation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dandy-Walker malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior fossa malformation in the index patient, and the stated cause of his hydrocephalus. Reported in one of the six published patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001305\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia, part of the same complex movement disorder in patient B1.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum creatine kinase, which together with electromyography is what established the myopathy in the index patient.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Myopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"Raised serum creatine kinase is the laboratory correlate of the muscle involvement, and is what the founding paper cites - with electromyography - as having established the myopathy in its patient.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum transaminases, present in all reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxic gait with dysmetria in patient A-1, who walks independently. A different motor picture from patient B1, who is wheelchair bound with a hyperkinetic movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined hepatic and splenic enlargement at presentation in two of the 2020 patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus, named in the original description as one of the three defining features of the disease, and there caused by a Dandy-Walker malformation. The 2020 cohort of three did not report it, so across the whole published literature it stands at one of six rather than at the near-universal frequency the single-patient description implies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CETP carries N-glycans, is hypogalactosylated in B4GALT1-CDG, and is measurably less active as a result. This is the best-characterised single substrate in the disease and the reason the entry can describe a lipoprotein mechanism rather than attributing the lipid findings to hypoglycosylation in general.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"cholesterol transfer activity\"]}}, {\"id\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-glycan antennae terminate two residues early, lacking both galactose and the sialic acid that would cap it. This is a Golgi-processing (type II) defect rather than an assembly (type I) one, which is what the CDG-IId designation records. The consequence is not a single missing protein but a systemic change to the finish of every N-glycosylated protein the Golgi handles.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low muscle tone, one of the features shared by all previously reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability, part of the uniform presentation in the 2020 cohort of three patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Golgi Galactosyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Galactosyltransferase activity in patient fibroblasts and leukocytes falls to about 5% of control. B4GALT1 is the major enzyme performing this transfer, so the residual activity of other family members does not compensate.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"UDP-galactosyltransferase activity\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large head in the index patient, secondary to the hydrocephalus and severe enough at birth to require vacuum extraction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy, one of the three defining features in the original description.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrotic syndrome, also described as novel in the 2020 cohort. The specific term is used because the source names the syndrome rather than isolated proteinuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000100\"}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked pancytopenia requiring chronic management - a substantial clinical burden and one of the findings that broadened the phenotype beyond the original description.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001876\"}}, {\"id\": \"Platelet Transfusion for Acute Bleeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Platelets, with an antifibrinolytic, during acute bleeding episodes. The disease\u0027s bleeding tendency has two contributions - the thrombocytopenia and the coagulation defect - and this addresses the platelet side.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension of the newborn. Present at birth in all three patients of the 2020 cohort and resolved within the first month in each, so the binding to the unqualified HPO term understates how transient it is - HPO has no PPHN term. Novel to the disease phenotype rather than rare among patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Romiplostim for Thrombocytopenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Weekly thrombopoietin analogue for the thrombocytopenia, given chronically in two of the three 2020 patients alongside the G-CSF.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"romiplostim\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy with onset between 13 months and 2 years in all three patients of the 2020 cohort, refractory in each: all three remain on three antiepileptic drugs and two still have seizures years later.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from the glycan defect to the neurological, muscular, hepatic, haematological, cardiovascular and renal features. Graded HYPOTHETICAL because, unlike the CETP arm, no source here identifies which hypogalactosylated proteins mediate these manifestations - the attribution is to hypoglycosylation as a class. This is the usual state of affairs in the CDGs, and the contrast with the CETP arm in the same disease is what makes it worth marking rather than leaving implicit.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Ursodeoxycholic Acid for Cholestasis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bile acid therapy for the transient neonatal cholestatic jaundice.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ursodeoxycholic acid\"]}}], \"edges\": [{\"source\": \"B4GALT1 Biallelic Loss of Function\", \"target\": \"Loss of Golgi Galactosyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No functional enzyme reaches the Golgi, so galactosyltransferase activity in patient cells collapses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Golgi Galactosyltransferase Activity\", \"target\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without galactose transfer the N-glycan antenna stops short, and because sialic acid is added onto galactose, the terminal sialic acid is lost with it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"target\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CETP is an N-glycosylated plasma protein and is hypogalactosylated in these patients, which is the one substrate whose altered glycosylation has been followed through to a measured functional consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"target\": \"Systemic Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route to the neurological, muscular, hepatic and haematological features. Which hypogalactosylated proteins mediate them is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"target\": \"Altered Plasma Lipoprotein Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CETP activity leaves cholesteryl ester in HDL rather than transferring it, enlarging HDL particles and lowering non-HDL cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Dandy-Walker malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hydrocephalus is reached through the malformation rather than directly: the founding paper names the Dandy-Walker malformation as its cause, so that edge lives on the phenotype and this one stops at the malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Abnormality of coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Nephrotic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dandy-Walker malformation\", \"target\": \"Hydrocephalus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The founding paper states the causal direction twice and in its own words - the hydrocephalus is due to, and progresses because of, the Dandy-Walker malformation. The edge is DIRECT on that basis rather than on the general association between posterior fossa malformation and CSF obstruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydrocephalus\", \"target\": \"Macrocephaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The 2020 literature table states the direction in three words. Encoded as an edge because the Macrocephaly description already asserted it in prose while nothing in the graph carried it, and prose that the graph contradicts is the defect this entry has already been corrected for once.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Colony-Stimulating Factor Therapy for Neutropenia\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Romiplostim for Thrombocytopenia\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ursodeoxycholic Acid for Cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Platelet Transfusion for Acute Bleeding\", \"target\": \"Abnormality of coagulation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Platelet Transfusion for Acute Bleeding\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cystoperitoneal Shunt for Hydrocephalus\", \"target\": \"Hydrocephalus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Myopathy\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised serum creatine kinase is the laboratory correlate of the muscle involvement, and is what the founding paper cites - with electromyography - as having established the myopathy in its patient.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"B4GALT1\", \"target\": \"B4GALT1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coagulopathy, present in all reported patients and one of the three features named in the original description alongside hydrocephalus and myopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001928\"}}, {\"id\": \"Altered Plasma Lipoprotein Profile\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Significantly lowered non-HDL cholesterol, a lowered total-to-HDL cholesterol ratio, and abnormally large HDL particles - the profile CETP hypofunction predicts, measured against matched controls.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lipoprotein metabolic process\"]}}, {\"id\": \"B4GALT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"B4GALT1\"], \"gene_terms\": [{\"label\": \"B4GALT1\", \"id\": \"hgnc:924\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"B4GALT1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Biallelic B4GALT1 variants abolish functional beta-1,4-galactosyltransferase 1. In the index patient a single-nucleotide insertion caused premature termination and loss of the C-terminal 50 amino acids, and the resulting truncated polypeptide was mislocalised - it stayed in the endoplasmic reticulum instead of reaching the Golgi, so the enzyme was absent from the compartment where it works as well as being catalytically dead.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"B4GALT1\"], \"gene_terms\": [{\"label\": \"B4GALT1\", \"id\": \"hgnc:924\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cholestatic jaundice from birth, transient in every reported case - resolving within the first month in two patients and within the first year overall. The 2020 cohort is explicit that none of these patients had hepatocellular disease at any point, so the cholestasis is not a marker of progressive liver injury.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex hyperkinetic movement disorder in patient B1, the most severely affected of the 2020 cohort - chorea and athetosis together with dystonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Colony-Stimulating Factor Therapy for Neutropenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chronic granulocyte colony stimulating factor for the neutropenia of the marrow failure. Given long term in two of the three 2020 patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"granulocyte colony stimulating factor\"]}}, {\"id\": \"Cystoperitoneal Shunt for Hydrocephalus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical CSF diversion in the index patient at four months, for hydrocephalus progressing on the Dandy-Walker malformation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dandy-Walker malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior fossa malformation in the index patient, and the stated cause of his hydrocephalus. Reported in one of the six published patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001305\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia, part of the same complex movement disorder in patient B1.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum creatine kinase, which together with electromyography is what established the myopathy in the index patient.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Myopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"Raised serum creatine kinase is the laboratory correlate of the muscle involvement, and is what the founding paper cites - with electromyography - as having established the myopathy in its patient.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum transaminases, present in all reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxic gait with dysmetria in patient A-1, who walks independently. A different motor picture from patient B1, who is wheelchair bound with a hyperkinetic movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined hepatic and splenic enlargement at presentation in two of the 2020 patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus, named in the original description as one of the three defining features of the disease, and there caused by a Dandy-Walker malformation. The 2020 cohort of three did not report it, so across the whole published literature it stands at one of six rather than at the near-universal frequency the single-patient description implies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CETP carries N-glycans, is hypogalactosylated in B4GALT1-CDG, and is measurably less active as a result. This is the best-characterised single substrate in the disease and the reason the entry can describe a lipoprotein mechanism rather than attributing the lipid findings to hypoglycosylation in general.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"cholesterol transfer activity\"]}}, {\"id\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-glycan antennae terminate two residues early, lacking both galactose and the sialic acid that would cap it. This is a Golgi-processing (type II) defect rather than an assembly (type I) one, which is what the CDG-IId designation records. The consequence is not a single missing protein but a systemic change to the finish of every N-glycosylated protein the Golgi handles.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low muscle tone, one of the features shared by all previously reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability, part of the uniform presentation in the 2020 cohort of three patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Golgi Galactosyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Galactosyltransferase activity in patient fibroblasts and leukocytes falls to about 5% of control. B4GALT1 is the major enzyme performing this transfer, so the residual activity of other family members does not compensate.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"UDP-galactosyltransferase activity\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large head in the index patient, secondary to the hydrocephalus and severe enough at birth to require vacuum extraction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy, one of the three defining features in the original description.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrotic syndrome, also described as novel in the 2020 cohort. The specific term is used because the source names the syndrome rather than isolated proteinuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000100\"}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked pancytopenia requiring chronic management - a substantial clinical burden and one of the findings that broadened the phenotype beyond the original description.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001876\"}}, {\"id\": \"Platelet Transfusion for Acute Bleeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Platelets, with an antifibrinolytic, during acute bleeding episodes. The disease\u0027s bleeding tendency has two contributions - the thrombocytopenia and the coagulation defect - and this addresses the platelet side.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension of the newborn. Present at birth in all three patients of the 2020 cohort and resolved within the first month in each, so the binding to the unqualified HPO term understates how transient it is - HPO has no PPHN term. Novel to the disease phenotype rather than rare among patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Romiplostim for Thrombocytopenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Weekly thrombopoietin analogue for the thrombocytopenia, given chronically in two of the three 2020 patients alongside the G-CSF.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"romiplostim\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy with onset between 13 months and 2 years in all three patients of the 2020 cohort, refractory in each: all three remain on three antiepileptic drugs and two still have seizures years later.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from the glycan defect to the neurological, muscular, hepatic, haematological, cardiovascular and renal features. Graded HYPOTHETICAL because, unlike the CETP arm, no source here identifies which hypogalactosylated proteins mediate these manifestations - the attribution is to hypoglycosylation as a class. This is the usual state of affairs in the CDGs, and the contrast with the CETP arm in the same disease is what makes it worth marking rather than leaving implicit.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Ursodeoxycholic Acid for Cholestasis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bile acid therapy for the transient neonatal cholestatic jaundice.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ursodeoxycholic acid\"]}}], \"edges\": [{\"source\": \"B4GALT1 Biallelic Loss of Function\", \"target\": \"Loss of Golgi Galactosyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No functional enzyme reaches the Golgi, so galactosyltransferase activity in patient cells collapses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Golgi Galactosyltransferase Activity\", \"target\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without galactose transfer the N-glycan antenna stops short, and because sialic acid is added onto galactose, the terminal sialic acid is lost with it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"target\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CETP is an N-glycosylated plasma protein and is hypogalactosylated in these patients, which is the one substrate whose altered glycosylation has been followed through to a measured functional consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypogalactosylation and Loss of Terminal Sialylation of N-Glycans\", \"target\": \"Systemic Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route to the neurological, muscular, hepatic and haematological features. Which hypogalactosylated proteins mediate them is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypogalactosylated Cholesteryl Ester Transfer Protein\", \"target\": \"Altered Plasma Lipoprotein Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CETP activity leaves cholesteryl ester in HDL rather than transferring it, enlarging HDL particles and lowering non-HDL cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Dandy-Walker malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hydrocephalus is reached through the malformation rather than directly: the founding paper names the Dandy-Walker malformation as its cause, so that edge lives on the phenotype and this one stops at the malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Abnormality of coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Glycoprotein Dysfunction\", \"target\": \"Nephrotic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dandy-Walker malformation\", \"target\": \"Hydrocephalus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The founding paper states the causal direction twice and in its own words - the hydrocephalus is due to, and progresses because of, the Dandy-Walker malformation. The edge is DIRECT on that basis rather than on the general association between posterior fossa malformation and CSF obstruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydrocephalus\", \"target\": \"Macrocephaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The 2020 literature table states the direction in three words. Encoded as an edge because the Macrocephaly description already asserted it in prose while nothing in the graph carried it, and prose that the graph contradicts is the defect this entry has already been corrected for once.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Colony-Stimulating Factor Therapy for Neutropenia\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Romiplostim for Thrombocytopenia\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ursodeoxycholic Acid for Cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Platelet Transfusion for Acute Bleeding\", \"target\": \"Abnormality of coagulation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Platelet Transfusion for Acute Bleeding\", \"target\": \"Pancytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cystoperitoneal Shunt for Hydrocephalus\", \"target\": \"Hydrocephalus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Myopathy\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised serum creatine kinase is the laboratory correlate of the muscle involvement, and is what the founding paper cites - with electromyography - as having established the myopathy in its patient.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"B4GALT1\", \"target\": \"B4GALT1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5538,6 +5608,9 @@ This clinical feature is coagulopathy, annotated with Abnormality of coagulation
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5604,6 +5677,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5707,6 +5783,9 @@ This clinical feature is persistent pulmonary hypertension of the newborn, annot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5798,6 +5877,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5896,6 +5978,9 @@ This clinical feature is transient cholestatic jaundice, annotated with Cholesta
 
 
                     </div>
+
+
+
 
 
 
@@ -6006,6 +6091,9 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6081,6 +6169,9 @@ This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6189,6 +6280,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6269,6 +6363,9 @@ This clinical feature is elevated serum transaminases, annotated with Elevated c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6323,6 +6420,8 @@ This clinical feature is elevated serum transaminases, annotated with Elevated c
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
 
 
 
@@ -6331,10 +6430,13 @@ This clinical feature is elevated serum transaminases, annotated with Elevated c
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6445,6 +6547,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6511,6 +6616,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6594,6 +6702,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6674,6 +6785,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6740,6 +6854,9 @@ This clinical feature is refractory epilepsy, annotated with Seizure (HP:0001250
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6841,6 +6958,9 @@ This clinical feature is chorea and athetosis, annotated with Choreoathetosis (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6912,6 +7032,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6978,6 +7101,9 @@ This clinical feature is ataxic gait with dysmetria, annotated with Gait ataxia 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7092,6 +7218,9 @@ This disease-associated gene is B4GALT1 (hgnc:924). hgnc:924 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -7248,6 +7377,12 @@ This treatment uses granulocyte colony stimulating factor, annotated with Recomb
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Chronic granulocyte colony stimulating factor for the neutropenia of the marrow failure. Given long term in two of the three 2020 patients.</div>
 
 
@@ -7375,6 +7510,12 @@ This treatment uses romiplostim (NCIT:C52183). NCIT:C52183 is a therapeutic agen
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7529,6 +7670,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7539,6 +7683,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -7647,6 +7794,12 @@ This treatment is Platelet Transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7788,6 +7941,9 @@ This treatment is cystoperitoneal shunt insertion, annotated with Surgical Proce
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7798,6 +7954,9 @@ This treatment is cystoperitoneal shunt insertion, annotated with Surgical Proce
 
 
     </div>
+
+
+
 
 
 
@@ -9167,10 +9326,10 @@ phenotypes:
     Raised serum creatine kinase, which together with electromyography is what
     established the myopathy in the index patient.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   frequency: FREQUENT
   evidence:
   - reference: PMID:11901181
@@ -9743,6 +9902,47 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 1: curate Dandy-Walker and eight more phenotypes from cached full text, correct two frequency bands, add treatments</strong> · 2026-09-10T20:07:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/B4GALT1-Congenital_Disorder_of_Glycosylation/2026-09-10T200716Z-claude-code-769b5e.yaml">View source</a></p>
+                        <p class="research-review-text">Review round 1 on PR #11644, answering the ai4c-reviewer CHANGES_REQUESTED verdict in a single push.
+
+CORRECTION TO THE PRECEDING RECORD IN THIS DIRECTORY. That record states the deep-research report &#34;carries no reference_validation or term_validation block&#34;. That is false; the committed report carries both, with 5/5 references verified, 80 terms and a 0.0 confabulation rate. History records are append-only, so the earlier record stands as written and this one supersedes the claim. The same false claim was made in all five PR descriptions of this batch and in five history records. It originated in reading the report frontmatter seconds after the provider returned, before the recipe appends the validation blocks, and then repeating that stale observation four more times without re-reading.
+
+THE CRITICAL FINDING, AND IT WAS WORSE THAN THE REVIEW SAID. The entry&#39;s notes claimed Dandy-Walker malformation &#34;is sometimes associated with B4GALT1-CDG in secondary sources&#34; and that &#34;none of the three papers cited here reports it&#34;. The reviewer found it in the 2020 review&#39;s literature table. It is also, and more damningly, in the founding paper PMID:11901181 - already cited six times in this entry - twice in its own prose: &#34;a hydrocephalus due to a Dandy-Walker malformation&#34;, and again describing the cystoperitoneal shunt inserted at four months for hydrocephalus &#34;caused by a Dandy-Walker malformation&#34;. So the note was not merely wrong about a table cell; it asserted the absence of a finding that the entry&#39;s primary source states outright.
+
+Curated as a phenotype bound to HP:0001305, OCCASIONAL at one of six published patients, with a sequela edge to Hydrocephalus typed DIRECT. The DIRECT typing rests on the source stating the causal direction in its own words, not on the general association between posterior fossa malformation and CSF obstruction. Worth noting for a future reviewer: the review&#39;s quoted table cell, &#34;Macrocephaly due to hydrocephalus. Dandy-Walker malformation.&#34;, does NOT itself state that the hydrocephalus is due to the malformation - the &#34;due to&#34; there links macrocephaly to hydrocephalus. The causal claim comes from the founding paper, which is why that is what the edge cites.
+
+ROOT CAUSE, which produced four omissions rather than one. Both sentences sit in the body of a content_type: full_text_xml cache file rather than in its abstract. Reading the abstract and stopping is what also lost the refractory epilepsy, the transient cholestasis and hepatosplenomegaly, and the true frequency of the pulmonary hypertension.
+
+PHENOTYPES ADDED, nine in total. Dandy-Walker malformation (HP:0001305, OCCASIONAL). Macrocephaly (HP:0000256, OCCASIONAL) - in the founding paper&#39;s prose, severe enough at birth to require vacuum extraction. Seizure (HP:0001250, FREQUENT) with preferred_term &#34;refractory epilepsy&#34; - onset 13 months to 2 years in all three 2020 patients, all on three antiepileptic drugs. Cholestasis (HP:0001396, FREQUENT, temporality TRANSIENT) with a second evidence item carrying the source&#39;s own negative finding that none of these patients had hepatocellular disease at any point, so the cholestasis is not read as progressive liver injury. Hepatosplenomegaly (HP:0001433, FREQUENT). Elevated circulating creatine kinase concentration (HP:0003236, FREQUENT). Choreoathetosis (HP:0001266) and Dystonia (HP:0001332), both OCCASIONAL, curated separately because HPO treats dystonia as a distinct movement disorder from the choreoathetoid pair. Gait ataxia (HP:0002066, OCCASIONAL).
+
+TWO FREQUENCY BANDS CORRECTED, in opposite directions, by the same recount. Pulmonary arterial hypertension moves OCCASIONAL to FREQUENT: the earlier band read the abstract&#39;s word &#34;novel&#34; as a claim about rarity, when the paper&#39;s own discussion says PPHN &#34;has not been described so far as part of other glycosylation defects&#34; - novel to the CDG phenotype, not rare among patients, and present in three of six. Its preferred_term is now &#34;persistent pulmonary hypertension of the newborn&#34; with temporality TRANSIENT, because it resolved within the first month in every case and the unqualified HPO term suggests something chronic; HPO has no PPHN term. Hydrocephalus moves FREQUENT to OCCASIONAL: the original single-patient description names it as one of three defining features, which is how it came to be banded high, but across six published patients it appears in one. The band follows the patient count, not the emphasis of the first report. The reviewer asked for the first of these; the second follows from applying the same method consistently and was not requested.
+
+TREATMENTS. The section did not exist. Five added, all quoted from the cached full text: colony-stimulating factor therapy for the neutropenia, romiplostim for the thrombocytopenia (with dosing_interval weekly / dosing_interval_days 7), ursodeoxycholic acid for the cholestasis, platelet transfusion for acute bleeding, and the cystoperitoneal shunt for the hydrocephalus. The shunt is bound to the generic NCIT:C15329 rather than NCIT:C168483 (Ventriculoperitoneal Shunt Placement), which is a different operation - the source says cystoperitoneal, draining the posterior fossa cyst. therapeutic_modality is left unset on the two recombinant-protein treatments; neither PROTEIN_REPLACEMENT nor PEPTIDE states what a G-CSF or a peptibody given pharmacologically is.
+
+CONNECTIVITY. Systemic Glycoprotein Dysfunction now emits fifteen edges rather than four, covering every phenotype the node&#39;s own evidence names. Its description is widened to cardiovascular and renal, and two further evidence items are added to license that - the 2020 statement of the disease&#39;s organ range and the abstract sentence naming pulmonary hypertension and nephrotic syndrome. The direct edge to Hydrocephalus is replaced by an edge to Dandy-Walker malformation, so the hydrocephalus is now reached through the malformation the source names as its cause.
+
+CLASSIFICATIONS AND MAPPINGS, both suggestions, both taken. icimd_category n_linked_protein_glycosylation, with a caveat the single-category assignment cannot express: beta-1,4-galactosyltransferase 1 transfers galactose onto terminal GlcNAc wherever it occurs, so O-linked glycans and glycolipids are substrates too, and the N-linked assignment names where the defect is diagnosed rather than the enzyme&#39;s full reach. mappings icd10cm E77.8 as a broadMatch, matching the sibling MOGS-CDG entry.
+
+GENEREVIEWS, stated precisely. The earlier note said &#34;No GeneReviews chapter exists for B4GALT1-CDG; a PubMed search returned nothing.&#34; There is no B4GALT1-specific chapter, but the nearest thing does exist and is cached in this repository: PMID:20301507, the multi-pathway N-linked glycosylation overview, which is a retired chapter for historical reference only and contains zero B4GALT1 or CDG-IId content. It is deliberately neither tagged GeneReviews nor cited, and the note now says that rather than implying nothing was found.
+
+VALIDATION. just validate passes with 57/57 snippets verified, up from 35/35. just validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-snippet-length, check-snippet-grading and check-title-snippets all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: B4GALT1-Congenital Disorder of Glycosylation (MONDO:0011772)</strong> · 2026-09-10T19:01:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/B4GALT1-Congenital_Disorder_of_Glycosylation/2026-09-10T190136Z-claude-code-66877a.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of B4GALT1-CDG (CDG-IId). Deep research: one Perplexity sonar-deep-research report, committed; it carries no reference_validation or term_validation block and cites URLs rather than identifiers, so it was used for orientation only and every reference was located independently via PubMed and cached. Evidence: PMID:11901181 (original CDG-IId description), PMID:32157688 (phenotypic and molecular spectrum expansion), PMID:31800099 (CETP glycosylation and activity). Three curation choices are flagged in the entry notes. First, the transferrin biomarker carries two evidence items of opposite direction from the same paper - a SUPPORT for the type 2 pattern being a shared feature and a REFUTE for its consistency, quoting the sentence reporting two patients with normal transferrin - following the CLAUDE.md rule that a source supporting one part of a claim and contradicting another is two items rather than one graded item; presence is VARIABLE for the same reason. This is clinically consequential: a normal transferrin screen does not exclude the disease, and would have missed two of the six patients in the literature. Second, Systemic Glycoprotein Dysfunction is graded HYPOTHETICAL while the parallel CETP arm is not, because only the CETP arm has a named substrate with measured glycosylation and activity changes; marking the contrast shows which half of the disease is mechanistically understood. Third, two biochemical markers are deliberately left unbound because no ontology term was found for a type 2 transferrin isoform pattern or for the Man3GlcNAc4Fuc1 glycan species. Dandy-Walker malformation was mentioned in the claim issue before the primary literature was read; none of the three cited papers reports it, so it is not curated and the notes record that it was considered and dropped for lack of a source. No GeneReviews chapter exists. Validation: just validate passed, 35/35 snippets verified, just validate-terms passed, entity-refs / causal-targets / duplicate-keys passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10186,7 +10386,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "B4GALT1-Congenital Disorder of Glycosylation", "mondoId": "MONDO:0011772", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "B4GALT1-Congenital_Disorder_of_Glycosylation", "yamlRevision": "a0ac0c239741"};
+        const OS_CONFIG = {"diseaseName": "B4GALT1-Congenital Disorder of Glycosylation", "mondoId": "MONDO:0011772", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "B4GALT1-Congenital_Disorder_of_Glycosylation", "yamlRevision": "45924c9b9c39"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

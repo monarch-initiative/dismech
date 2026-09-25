@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autosomal%20Recessive%20Nonsyndromic%20Hearing%20Loss%2097"
@@ -4002,7 +4055,7 @@ Two things about this entry need stating before it is read. First, the gene. MET
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4456,6 +4509,7 @@ The inference is a good one - the two manipulations disable the same ligand-rece
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-met-missense-variant" data-dismech-node="Biallelic MET Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MET Missense Variant</div>
 
+
                 <div class="item-desc">Both published alleles are homozygous missense variants and both are private to their family.
 The Pakistani allele c.2521T&gt;G, p.Phe841Val, was found after homozygosity mapping placed the locus on 7q31.2 with a LOD of 4.8. It cosegregated with hearing loss in the family and was absent from 800 ethnically matched control chromosomes and from 136,602 chromosomes in public variant databases.
 The Moroccan allele c.948A&gt;G, p.Ile316Met, lies in the SEMA domain - the ligand-binding region of the receptor - and molecular dynamics simulation predicted that it costs the domain flexibility.
@@ -4511,6 +4565,8 @@ This genetic context concerns MET (hgnc:7029). hgnc:7029 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4521,6 +4577,9 @@ This genetic context concerns MET (hgnc:7029). hgnc:7029 is a gene from the HUGO
 
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous in both consanguineous families. functional_impact_category is deliberately omitted: the alleles are missense, no functional assay has been performed on either, and the only mechanistic prediction available is an in silico structural one. Asserting LOSS_OF_FUNCTION here would be inferring the very thing the evidence base does not supply.</div>
 
@@ -4645,6 +4704,7 @@ This genetic context concerns MET (hgnc:7029). hgnc:7029 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hgf-met-signalling-in-the-developing-cochlea" data-dismech-node="Reduced HGF/MET Signalling in the Developing Cochlea" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced HGF/MET Signalling in the Developing Cochlea</div>
+
 
                 <div class="item-desc">HGF is expressed in the cochlear epithelium at the site that will become the stria vascularis, and its receptor MET is expressed both in that epithelium and on the melanocyte-derived intermediate cells. The signalling is therefore local, developmental and reciprocal, which is what makes an otherwise ubiquitous growth-factor pathway produce a phenotype confined to the ear.</div>
 
@@ -4805,6 +4865,7 @@ This pathophysiological event occurs in stria vascularis of the cochlear duct, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-melanocyte-incorporation-into-the-stria-vascularis" data-dismech-node="Failed Melanocyte Incorporation into the Stria Vascularis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Melanocyte Incorporation into the Stria Vascularis</div>
+
 
                 <div class="item-desc">In normal development a subpopulation of neural-crest-derived melanocytes migrates into a subregion of the cochlear epithelium and becomes the intermediate cell layer of the stria vascularis. Removing c-MET signalling stops that incorporation.
 This is the step that makes DFNB97 a neurocristopathy in the ear - a migration failure of a neural crest derivative - even though nothing outside the cochlea is affected.</div>
@@ -5021,6 +5082,7 @@ This pathophysiological event occurs in stria vascularis of the cochlear duct, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-endolymphatic-potassium-homeostasis" data-dismech-node="Failure of Endolymphatic Potassium Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Endolymphatic Potassium Homeostasis</div>
 
+
                 <div class="item-desc">The stria vascularis is a nonsensory structure whose function is to maintain the potassium concentration of the scala media and, with it, the endocochlear potential - the standing voltage across the endolymph that supplies the driving force for hair cell transduction.
 Two clinical observations in the founding family fit a lesion confined to this structure and are recorded here rather than as phenotypes. Vestibular function was spared: the affected individuals walked independently at 12 to 13 months and had normal tandem gait and Romberg testing, which is what a defect of the stria vascularis of the cochlear duct predicts and a general inner-ear defect would not. The testing was clinical rather than VEMP or video head-impulse, so mild dysfunction would not have been detected, and the authors hedge to &#34;intact, or at least residual&#34;.
 A caveat about provenance. The endocochlear potential itself has been measured in the HGF arm of this pathway, not the MET arm: a mouse carrying a noncoding Hgf deletion has neural crest cells failing to enter the strial intermediate layer and a significantly reduced endocochlear potential. That animal models DFNB39, the paired locus, not DFNB97. It is cited here because it measures the step, and the reader should know the measurement comes from the ligand side.</div>
@@ -5208,6 +5270,7 @@ This pathophysiological event occurs in stria vascularis of the cochlear duct, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-prelingual-sensorineural-hearing-loss" data-dismech-node="Severe Prelingual Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Prelingual Sensorineural Hearing Loss</div>
 
+
                 <div class="item-desc">The clinical endpoint, and it is confined to hearing. In the Pakistani family the affected individuals walked at 12 to 13 months, had normal tandem gait and Romberg testing, and had normal blood counts, serum chemistry, liver function and fundoscopy. In mouse, developmental inactivation of either the ligand or the receptor produced profound hearing loss in young adults.</div>
 
 
@@ -5374,7 +5437,7 @@ This pathophysiological event involves decreased sensory perception of sound (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic MET Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both published alleles are homozygous missense variants and both are private to their family.\\nThe Pakistani allele c.2521T\u003eG, p.Phe841Val, was found after homozygosity mapping placed the locus on 7q31.2 with a LOD of 4.8. It cosegregated with hearing loss in the family and was absent from 800 ethnically matched control chromosomes and from 136,602 chromosomes in public variant databases.\\nThe Moroccan allele c.948A\u003eG, p.Ile316Met, lies in the SEMA domain - the ligand-binding region of the receptor - and molecular dynamics simulation predicted that it costs the domain flexibility.\\nNeither allele has been characterised functionally at the bench. That absence is what the ClinGen review means by case-level evidence only, and it is why the receptor-signalling node below is inferred rather than measured in a patient allele.\", \"meta\": {\"evidence_count\": 4, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"description\": \"Homozygous in both consanguineous families. functional_impact_category is deliberately omitted: the alleles are missense, no functional assay has been performed on either, and the only mechanistic prediction available is an in silico structural one. Asserting LOSS_OF_FUNCTION here would be inferring the very thing the evidence base does not supply.\", \"gene_terms\": [{\"label\": \"MET\", \"id\": \"hgnc:7029\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for severe prelingual sensorineural hearing loss, and the mechanism of this disease argues for it more directly than most. The lesion is in the stria vascularis: it removes the endocochlear potential that drives current through the hair cells, but the hair cells and the spiral ganglion are not themselves the target of the defect, and no cochlear structural malformation has been described in either family. An implant stimulates the auditory nerve directly and so does not need the missing battery.\\nNo outcome data exist for DFNB97 patients specifically - there are two families - and this is recorded without an evidence item rather than with a quote from the general cochlear-implant literature, which would not be about this disease.\"}, {\"id\": \"Conditional c-Met inner ear inactivation mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The source of the entire mechanism. It establishes where the ligand and receptor are expressed in the developing cochlea, shows by genetic dissection that melanocyte incorporation into the future stria vascularis requires c-MET signalling, and shows that developmental inactivation produces profound hearing loss in young adults. The paper names DFNB97 as one of the human diseases its mechanism may underlie.\"}, {\"id\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In normal development a subpopulation of neural-crest-derived melanocytes migrates into a subregion of the cochlear epithelium and becomes the intermediate cell layer of the stria vascularis. Removing c-MET signalling stops that incorporation.\\nThis is the step that makes DFNB97 a neurocristopathy in the ear - a migration failure of a neural crest derivative - even though nothing outside the cochlea is affected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"melanocyte migration into the developing stria vascularis\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"], \"animal_models\": [{\"name\": \"Conditional c-Met inner ear inactivation mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional inactivation of c-Met (and, in parallel arms, of Hgf) in the developing inner ear\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Removing c-MET signalling in the developing inner ear stops the neural-crest-derived melanocytes entering the strial intermediate layer.\"}]}}, {\"id\": \"Failure of Endolymphatic Potassium Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stria vascularis is a nonsensory structure whose function is to maintain the potassium concentration of the scala media and, with it, the endocochlear potential - the standing voltage across the endolymph that supplies the driving force for hair cell transduction.\\nTwo clinical observations in the founding family fit a lesion confined to this structure and are recorded here rather than as phenotypes. Vestibular function was spared: the affected individuals walked independently at 12 to 13 months and had normal tandem gait and Romberg testing, which is what a defect of the stria vascularis of the cochlear duct predicts and a general inner-ear defect would not. The testing was clinical rather than VEMP or video head-impulse, so mild dysfunction would not have been detected, and the authors hedge to \\\"intact, or at least residual\\\".\\nA caveat about provenance. The endocochlear potential itself has been measured in the HGF arm of this pathway, not the MET arm: a mouse carrying a noncoding Hgf deletion has neural crest cells failing to enter the strial intermediate layer and a significantly reduced endocochlear potential. That animal models DFNB39, the paired locus, not DFNB97. It is cited here because it measures the step, and the reader should know the measurement comes from the ligand side.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"endolymphatic potassium homeostasis maintained by the stria vascularis\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"]}}, {\"id\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HGF is expressed in the cochlear epithelium at the site that will become the stria vascularis, and its receptor MET is expressed both in that epithelium and on the melanocyte-derived intermediate cells. The signalling is therefore local, developmental and reciprocal, which is what makes an otherwise ubiquitous growth-factor pathway produce a phenotype confined to the ear.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"HGF receptor signalling through MET\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"]}}, {\"id\": \"Severe Prelingual Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral and severe. In the Pakistani family, pure tone averages across 500 Hz to 4000 Hz ran from 74 to 89 dB HL with variation between affected relatives, and onset was at or before two years of age, noticed as delayed speech. The Moroccan child had total bilateral loss.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0008625\", \"animal_models\": [{\"name\": \"Conditional c-Met inner ear inactivation mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional inactivation of c-Met (and, in parallel arms, of Hgf) in the developing inner ear\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Developmental inactivation of the receptor produces profound hearing loss in young adult mice, matching the severity and the developmental timing of the human phenotype.\"}]}}], \"edges\": [{\"source\": \"Biallelic MET Missense Variant\", \"target\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inference from a missense receptor allele to reduced signalling. It is plausible for a SEMA-domain variant and it has not been measured for either allele.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"target\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic dissection in mouse shows the incorporation step requires c-MET signalling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"target\": \"Failure of Endolymphatic Potassium Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate cell layer is what the stria vascularis needs in order to do its ion transport job; without it, the job is not done.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Endolymphatic Potassium Homeostasis\", \"target\": \"Severe Prelingual Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair cells that are structurally intact cannot transduce without the endocochlear potential to drive current through them.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Failure of Endolymphatic Potassium Homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional c-Met inner ear inactivation mouse\", \"target\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Removing c-MET signalling in the developing inner ear stops the neural-crest-derived melanocytes entering the strial intermediate layer.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a conditional inactivation, not a knock-in of either human missense allele. Whether p.Phe841Val or p.Ile316Met reduces signalling enough to reproduce the developmental failure is exactly what has not been tested, and it is the reason ClinGen rates the human relationship Limited. Human cochlear histology in DFNB97 does not exist and will not, so the strial defect in patients is inferred from the mouse rather than observed.\"}, {\"source\": \"Conditional c-Met inner ear inactivation mouse\", \"target\": \"Severe Prelingual Sensorineural Hearing Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Developmental inactivation of the receptor produces profound hearing loss in young adult mice, matching the severity and the developmental timing of the human phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse loss is described as profound and the human families are severe, and the mouse is a conditional null where the patients carry missense alleles - so the model probably sits at a more severe point on the allelic range than the disease does. Onset is \\\"young adult\\\" in mouse against prelingual in humans, which are not directly comparable developmental stages.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic MET Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both published alleles are homozygous missense variants and both are private to their family.\\nThe Pakistani allele c.2521T\u003eG, p.Phe841Val, was found after homozygosity mapping placed the locus on 7q31.2 with a LOD of 4.8. It cosegregated with hearing loss in the family and was absent from 800 ethnically matched control chromosomes and from 136,602 chromosomes in public variant databases.\\nThe Moroccan allele c.948A\u003eG, p.Ile316Met, lies in the SEMA domain - the ligand-binding region of the receptor - and molecular dynamics simulation predicted that it costs the domain flexibility.\\nNeither allele has been characterised functionally at the bench. That absence is what the ClinGen review means by case-level evidence only, and it is why the receptor-signalling node below is inferred rather than measured in a patient allele.\", \"meta\": {\"evidence_count\": 4, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"description\": \"Homozygous in both consanguineous families. functional_impact_category is deliberately omitted: the alleles are missense, no functional assay has been performed on either, and the only mechanistic prediction available is an in silico structural one. Asserting LOSS_OF_FUNCTION here would be inferring the very thing the evidence base does not supply.\", \"gene_terms\": [{\"label\": \"MET\", \"id\": \"hgnc:7029\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for severe prelingual sensorineural hearing loss, and the mechanism of this disease argues for it more directly than most. The lesion is in the stria vascularis: it removes the endocochlear potential that drives current through the hair cells, but the hair cells and the spiral ganglion are not themselves the target of the defect, and no cochlear structural malformation has been described in either family. An implant stimulates the auditory nerve directly and so does not need the missing battery.\\nNo outcome data exist for DFNB97 patients specifically - there are two families - and this is recorded without an evidence item rather than with a quote from the general cochlear-implant literature, which would not be about this disease.\"}, {\"id\": \"Conditional c-Met inner ear inactivation mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The source of the entire mechanism. It establishes where the ligand and receptor are expressed in the developing cochlea, shows by genetic dissection that melanocyte incorporation into the future stria vascularis requires c-MET signalling, and shows that developmental inactivation produces profound hearing loss in young adults. The paper names DFNB97 as one of the human diseases its mechanism may underlie.\"}, {\"id\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In normal development a subpopulation of neural-crest-derived melanocytes migrates into a subregion of the cochlear epithelium and becomes the intermediate cell layer of the stria vascularis. Removing c-MET signalling stops that incorporation.\\nThis is the step that makes DFNB97 a neurocristopathy in the ear - a migration failure of a neural crest derivative - even though nothing outside the cochlea is affected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"melanocyte migration into the developing stria vascularis\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"], \"animal_models\": [{\"name\": \"Conditional c-Met inner ear inactivation mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional inactivation of c-Met (and, in parallel arms, of Hgf) in the developing inner ear\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Removing c-MET signalling in the developing inner ear stops the neural-crest-derived melanocytes entering the strial intermediate layer.\"}]}}, {\"id\": \"Failure of Endolymphatic Potassium Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stria vascularis is a nonsensory structure whose function is to maintain the potassium concentration of the scala media and, with it, the endocochlear potential - the standing voltage across the endolymph that supplies the driving force for hair cell transduction.\\nTwo clinical observations in the founding family fit a lesion confined to this structure and are recorded here rather than as phenotypes. Vestibular function was spared: the affected individuals walked independently at 12 to 13 months and had normal tandem gait and Romberg testing, which is what a defect of the stria vascularis of the cochlear duct predicts and a general inner-ear defect would not. The testing was clinical rather than VEMP or video head-impulse, so mild dysfunction would not have been detected, and the authors hedge to \\\"intact, or at least residual\\\".\\nA caveat about provenance. The endocochlear potential itself has been measured in the HGF arm of this pathway, not the MET arm: a mouse carrying a noncoding Hgf deletion has neural crest cells failing to enter the strial intermediate layer and a significantly reduced endocochlear potential. That animal models DFNB39, the paired locus, not DFNB97. It is cited here because it measures the step, and the reader should know the measurement comes from the ligand side.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"endolymphatic potassium homeostasis maintained by the stria vascularis\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"]}}, {\"id\": \"MET\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MET\"], \"gene_terms\": [{\"label\": \"MET\", \"id\": \"hgnc:7029\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HGF is expressed in the cochlear epithelium at the site that will become the stria vascularis, and its receptor MET is expressed both in that epithelium and on the melanocyte-derived intermediate cells. The signalling is therefore local, developmental and reciprocal, which is what makes an otherwise ubiquitous growth-factor pathway produce a phenotype confined to the ear.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"HGF receptor signalling through MET\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"]}}, {\"id\": \"Severe Prelingual Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral and severe. In the Pakistani family, pure tone averages across 500 Hz to 4000 Hz ran from 74 to 89 dB HL with variation between affected relatives, and onset was at or before two years of age, noticed as delayed speech. The Moroccan child had total bilateral loss.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0008625\", \"animal_models\": [{\"name\": \"Conditional c-Met inner ear inactivation mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional inactivation of c-Met (and, in parallel arms, of Hgf) in the developing inner ear\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Developmental inactivation of the receptor produces profound hearing loss in young adult mice, matching the severity and the developmental timing of the human phenotype.\"}]}}], \"edges\": [{\"source\": \"Biallelic MET Missense Variant\", \"target\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inference from a missense receptor allele to reduced signalling. It is plausible for a SEMA-domain variant and it has not been measured for either allele.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced HGF/MET Signalling in the Developing Cochlea\", \"target\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic dissection in mouse shows the incorporation step requires c-MET signalling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"target\": \"Failure of Endolymphatic Potassium Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate cell layer is what the stria vascularis needs in order to do its ion transport job; without it, the job is not done.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Endolymphatic Potassium Homeostasis\", \"target\": \"Severe Prelingual Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair cells that are structurally intact cannot transduce without the endocochlear potential to drive current through them.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Failure of Endolymphatic Potassium Homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional c-Met inner ear inactivation mouse\", \"target\": \"Failed Melanocyte Incorporation into the Stria Vascularis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Removing c-MET signalling in the developing inner ear stops the neural-crest-derived melanocytes entering the strial intermediate layer.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a conditional inactivation, not a knock-in of either human missense allele. Whether p.Phe841Val or p.Ile316Met reduces signalling enough to reproduce the developmental failure is exactly what has not been tested, and it is the reason ClinGen rates the human relationship Limited. Human cochlear histology in DFNB97 does not exist and will not, so the strial defect in patients is inferred from the mouse rather than observed.\"}, {\"source\": \"Conditional c-Met inner ear inactivation mouse\", \"target\": \"Severe Prelingual Sensorineural Hearing Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Developmental inactivation of the receptor produces profound hearing loss in young adult mice, matching the severity and the developmental timing of the human phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse loss is described as profound and the human families are severe, and the mouse is a conditional null where the patients carry missense alleles - so the model probably sits at a more severe point on the allelic range than the disease does. Onset is \\\"young adult\\\" in mouse against prelingual in humans, which are not directly comparable developmental stages.\"}, {\"source\": \"MET\", \"target\": \"Biallelic MET Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5417,6 +5480,9 @@ This clinical feature is Severe sensorineural hearing impairment (HP:0008625). H
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5518,6 +5584,9 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5601,6 +5670,9 @@ This disease-associated gene is MET (hgnc:7029). hgnc:7029 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5883,6 +5955,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5893,6 +5968,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -5972,6 +6050,9 @@ This treatment is auditory habilitation, annotated with Rehabilitation (NCIT:C15
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5982,6 +6063,9 @@ This treatment is auditory habilitation, annotated with Rehabilitation (NCIT:C15
 
 
     </div>
+
+
+
 
 
 
@@ -7785,6 +7869,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named entity check, and it is the reason this entry was flagged. MET is an oncogene and its literature is overwhelmingly tumour biology, so a gene-frequency preflight on any MET retrieval passes trivially while telling you nothing. Deep-research preflight on the report for this disease flagged HGF at 33% of MET mentions - the paired DFNB39 locus bleeding in - and every citation used here was checked individually for whether it is about the deafness phenotype rather than about MET.
+Nothing from the oncology literature is curated. Somatic amplification, exon 14 skipping, kinase-domain activation and hereditary papillary renal cell carcinoma appear only in the gene notes and the differential diagnoses, as the things DFNB97 is not. The clinical counterpart is curated as a phenotype: the affected family was screened and had no tumours and no liver, kidney or heart disease.
+HGF separation. DFNB39 is a different disease with a different gene and a different variant class, and it converges with DFNB97 only downstream. The one place HGF evidence is used for a DFNB97 node is the endocochlear potential, because that is where the measurement exists; it is graded PARTIAL, labelled in the node description, and carries its own HUMAN_MODEL_MISMATCH discussion. The 2016 c-MET paper is different: it inactivates ligand and receptor in parallel arms and reports the receptor result, so it is MET evidence and is graded accordingly.
+Two absent findings, and where they went. Preserved vestibular function and absence of neoplasia are both examined-and-negative observations that matter for this disease. They were initially curated as phenotypes bound to the HP term for the absent thing with evidence graded REFUTE, and that was wrong: src/dismech/export/kgx_export.py builds the DiseaseToPhenotypicFeatureAssociation from phenotype_term and frequency alone and never reads supports, so those entries would have exported as DFNB97 has_phenotype Neoplasm - exactly the MET-oncology contamination this entry exists to avoid. Both were removed. The vestibular negative now sits in the endocochlear-potential node description as positive evidence that the lesion is confined to the cochlear duct, and the cancer negative is in the hereditary papillary renal cell carcinoma differential, which is where it does its work. Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104 handles its own vestibular negative the same way. There is still no way to assert an examined-and-absent phenotype in this schema; the answer is not to fake one.
+Evidence grading. The mechanism is mouse and is graded MODEL_ORGANISM throughout. The molecular dynamics analysis of the Moroccan allele is graded COMPUTATIONAL and PARTIAL rather than being allowed to stand in for a functional assay - that absence is the subject of a knowledge gap.
+What is deliberately absent. No treatments: management is generic hearing habilitation with no DFNB97-specific evidence, and a curated treatment implies a curated indication. No clinical trials, no datasets, no biochemical markers.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Nonsyndromic Hearing Loss 97 (DFNB97, MET)</strong> · 2026-08-29T02:47:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_97/2026-08-29T024728Z-claude-code-02414c.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DFNB97 from MONDO:0014739. entry_type DISEASE: two published families, a conserved developmental pathograph running from a biallelic MET missense allele through failed neural-crest melanocyte incorporation into the stria vascularis to endolymphatic potassium failure and severe prelingual hearing loss, and its own OMIM and DFNB identity. ClinGen Hearing Loss GCEP rates MET-nonsyndromic hearing loss Limited; recorded as an external_assertion with the panel&#39;s own explanation of why only one of three reported variants scored. The gene is typed CAUSATIVE rather than DISPUTED because Limited means insufficient rather than contradicted, and the uncertainty is carried by a knowledge gap instead of being double-counted in the relationship type. Named entity handling for an oncogene: preflight flagged HGF at 33 percent of MET mentions in the deep-research report, so every citation was checked individually for whether it concerns the deafness phenotype. Nothing from the oncology literature is curated; hereditary papillary renal cell carcinoma appears only under differential_diagnoses, and the family&#39;s screened absence of tumours and organ disease is curated as a phenotype. HGF/DFNB39 separation: it is a separate differential entity with a different variant class, and the single place HGF evidence supports a DFNB97 node - the endocochlear potential, which has only ever been measured in the Hgf arm - is graded PARTIAL, labelled in the node description, and carries its own HUMAN_MODEL_MISMATCH discussion. Two examined-and-absent findings, preserved vestibular function and absence of neoplasia, are curated with the HP term for the absent thing and evidence graded REFUTE, because Phenotype has no presence slot and FrequencyEnum has no EXCLUDED value; the workaround is flagged in notes. functional_impact_category is deliberately omitted from the genetic_context because neither missense allele has been functionally assayed - that absence is the subject of the second knowledge gap. No treatments curated, since management is generic habilitation with no DFNB97-specific evidence. Validated: just validate exit 0, just validate-terms exit 0, validate-disorders exit 0 with 36/36 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

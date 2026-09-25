@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3820,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Central%20Nervous%20System%20Germ%20Cell%20Tumor"
@@ -3969,7 +4022,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4006,7 +4059,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4015,7 +4068,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4586,7 +4639,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">8 support</span>
+                    <span class="evidence-support support-SUPPORT">9 support</span>
 
                 </div>
 
@@ -4622,7 +4675,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (8 references)
+            Show evidence (9 references)
         </summary>
         <div class="evidence-list">
 
@@ -4702,7 +4755,7 @@
             </div>
 
 
-            <div class="evidence-more">+ 5 more references</div>
+            <div class="evidence-more">+ 6 more references</div>
 
         </div>
     </details>
@@ -4728,7 +4781,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">9 support</span>
+                    <span class="evidence-support support-SUPPORT">12 support</span>
 
                 </div>
 
@@ -4764,7 +4817,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (9 references)
+            Show evidence (12 references)
         </summary>
         <div class="evidence-list">
 
@@ -4844,7 +4897,7 @@
             </div>
 
 
-            <div class="evidence-more">+ 6 more references</div>
+            <div class="evidence-more">+ 9 more references</div>
 
         </div>
     </details>
@@ -4870,7 +4923,9 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">3 support</span>
+                    <span class="evidence-support support-SUPPORT">4 support</span>
+
+                    <span class="evidence-support support-NO_EVIDENCE">2 no evidence</span>
 
                 </div>
 
@@ -4906,7 +4961,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -4985,6 +5040,8 @@
 
             </div>
 
+
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -5812,11 +5869,18 @@ This readout is measured by clonogenic transformation assay.</span>
 
 
 
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-checkpoint-expressing-tumor-immune-microenvironment">pathophysiology#Immune Checkpoint-Expressing Tumor Immune Microenvironment</a>
+
+
+
                     </div>
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">Clinical failure is heterogeneous. A pooled analysis separated 24 progressions during treatment, 11 growing-teratoma-syndrome events, and 83 post-treatment relapses. Large genomic studies predominantly profile primary tumors, and the recent NGGCT cohort sequenced only 12 paired tumor-blood samples; neither design compares diagnosis with residual, progressive, and relapsed viable tumor within patients. A separate study observed early-branched evolution across only two histology-changing longitudinal cases, which supports feasibility but not a recurrent driver. An older serial yolk-sac-tumor case likewise showed increasing copy-number complexity over two recurrences, but its single-case, arm-level design and unreported regimen or exposure details do not establish a resistance locus. Molecular subtypes such as immune-hot, MYC/E2F, and SHH are therefore candidates, not validated resistance states. The miR-214-3p–BCL2L11 result supplies a specific in-vitro cisplatin-tolerance candidate, but lacks a resistant-versus-sensitive clinical cohort, a patient-derived CNS model, and rescue evidence. Histologic mixture, sampling bias, radiation geography, pharmacokinetics, and therapy-selected clonal evolution remain competing explanations. A resistance node, predictive biomarker, or targeted therapy should not be added until longitudinal molecular change is linked to function and outcome.</div>
+                <div class="item-desc" style="margin-top: 10px;">Clinical failure is heterogeneous. A pooled analysis separated 24 progressions during treatment, 11 growing-teratoma-syndrome events, and 83 post-treatment relapses. Large genomic studies predominantly profile primary tumors, and the recent NGGCT cohort sequenced only 12 paired tumor-blood samples; neither design compares diagnosis with residual, progressive, and relapsed viable tumor within patients. A separate study observed early-branched evolution across only two histology-changing longitudinal cases, which supports feasibility but not a recurrent driver. An older serial yolk-sac-tumor case likewise showed increasing copy-number complexity over two recurrences, but its single-case, arm-level design and unreported regimen or exposure details do not establish a resistance locus. Molecular subtypes such as immune-hot, MYC/E2F, and SHH are therefore candidates, not validated resistance states. The miR-214-3p–BCL2L11 result supplies a specific in-vitro cisplatin-tolerance candidate, but lacks a resistant-versus-sensitive clinical cohort, a patient-derived CNS model, and rescue evidence. Histologic mixture, sampling bias, radiation geography, pharmacokinetics, an immunosuppressive checkpoint-expressing microenvironment, and therapy-selected clonal evolution remain competing explanations. The immune profile is cross-sectional in every available CNS germ cell tumor series, so a microenvironmental sanctuary is a competing hypothesis rather than a demonstrated failure route. A resistance node, predictive biomarker, or targeted therapy should not be added until longitudinal molecular change is linked to function and outcome.</div>
 
 
                 <div class="experiment-section">
@@ -7233,11 +7297,12 @@ This readout is measured by longitudinal late-effect assessment.</span>
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-kit-ras-signaling-alterations" data-dismech-node="Recurrent KIT-RAS Signaling Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent KIT-RAS Signaling Alterations</div>
+
 
                 <div class="item-desc">Somatic alterations in KIT and other KIT/RAS-pathway genes recur in human intracranial germ cell tumors. They are enriched in germinoma but are not present in every tumor. Cross-sectional sequencing establishes recurrence, not whether these lesions initiate disease or are required to maintain it.</div>
 
@@ -7446,7 +7511,8 @@ This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-akt-mtor-signaling-alterations" data-dismech-node="Recurrent AKT-mTOR Signaling Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent AKT-mTOR Signaling Alterations</div>
 
-                <div class="item-desc">A subset of intracranial germ cell tumors carries AKT/mTOR-pathway lesions, including focal AKT1 copy-number gain with increased AKT1 expression. Recurrence supports a tumor molecular state but does not establish when the alteration arose or whether it is sufficient for transformation.</div>
+
+                <div class="item-desc">A subset of intracranial germ cell tumors carries AKT/mTOR-pathway lesions, including focal AKT1 copy-number gain with increased AKT1 expression and recurrent somatic MTOR point mutations. Tumor-derived mutant MTOR is pathway-activating and supports anchorage-independent growth in cell culture, so these lesions are not inert passengers; recurrence and in-vitro activation still do not establish when the alteration arose in a patient or whether it is sufficient for transformation of a germ-cell precursor.</div>
 
 
 
@@ -7493,6 +7559,45 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
 
 
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MTOR
+
+
+    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3942</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
 
@@ -7511,7 +7616,7 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -7540,6 +7645,56 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:26956871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26956871" target="_blank">PMID:26956871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings indicate that the dominant genetic drivers of GCTs regardless of the site of origin are activation of the MAPK and/or PI3K pathways by somatic point mutations."</div>
+
+
+                <div class="evidence-explanation">Exome and targeted sequencing of 124 CNS germ cell tumors plus testicular comparators is the largest cohort supporting recurrent MAPK and PI3K lesions in this family. The authors&#39; &#34;driver&#34; wording is an inference from recurrence and mutual exclusivity in a cross-sectional cohort; no temporal ordering or necessity test was performed in patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26956871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26956871" target="_blank">PMID:26956871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutated MTOR identified in CNS GCTs upregulated phosphorylation of the AKT pathway proteins including AKT and 4EBP1 in nutrient-deprived conditions and enhanced soft-agar colony formation; both events were suppressed in a dose-dependent manner by addition of the MTOR inhibitor pp242."</div>
+
+
+                <div class="evidence-explanation">Cell-based assays on tumor-derived MTOR alleles show the mutation is functionally activating and supports anchorage-independent growth that is reversible by MTOR inhibition. This bears on whether the lesion can cooperate in maintaining a transformed state; it is not evidence that the mutation initiates disease in a human germ-cell precursor.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -7549,6 +7704,7 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germinoma-global-dna-hypomethylation" data-dismech-node="Germinoma Global DNA Hypomethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Germinoma Global DNA Hypomethylation</div>
+
 
                 <div class="item-desc">Pure germinomas show a globally hypomethylated tumor state distinct from other intracranial germ cell tumor subtypes. Its resemblance to migrating primordial germ cells is relevant to developmental-origin hypotheses but is not lineage tracing.</div>
 
@@ -7610,6 +7766,7 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosome-12p-gain" data-dismech-node="Chromosome 12p Gain" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromosome 12p Gain</div>
+
 
                 <div class="item-desc">Additional 12p copy number occurs across CNS germ cell tumors but is more frequent in NGGCT and in tumors with malignant components. It is a prognostic genomic feature, not a demonstrated universal driver.</div>
 
@@ -7697,6 +7854,7 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurohypophyseal-dysfunction-in-suprasellar-germinoma" data-dismech-node="Neurohypophyseal Dysfunction in Suprasellar Germinoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurohypophyseal Dysfunction in Suprasellar Germinoma</div>
 
+
                 <div class="item-desc">Suprasellar or neurohypophyseal germinoma can disrupt posterior-pituitary function, producing central diabetes insipidus that may precede tumor diagnosis for more than a year and often persists after tumor treatment.</div>
 
 
@@ -7721,11 +7879,11 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002198" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002198</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002198" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON:0002198 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7819,6 +7977,7 @@ This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracranial-tumor-mass-effect-and-cerebrospinal-fluid-obstruction" data-dismech-node="Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction</div>
 
+
                 <div class="item-desc">Pineal, ventricular, and other intracranial CNS germ cell tumors can obstruct cerebrospinal-fluid pathways. This location-dependent effect is distinct from tumor histology and from the still-unresolved initiating mechanism.</div>
 
 
@@ -7894,6 +8053,7 @@ This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-marker-secretion-by-cns-germ-cell-tumor-components" data-dismech-node="Tumor-Marker Secretion by CNS Germ Cell Tumor Components" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor-Marker Secretion by CNS Germ Cell Tumor Components</div>
+
 
                 <div class="item-desc">AFP and HCG secretion varies by histologic component. Marker elevation can support clinical classification as NGGCT, but absence does not exclude malignant disease and AFP elevation is not specific to a yolk-sac component.</div>
 
@@ -8003,6 +8163,182 @@ This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-checkpoint-expressing-tumor-immune-microenvironment" data-dismech-node="Immune Checkpoint-Expressing Tumor Immune Microenvironment" data-dismech-type="pathophysiology">
+                <div class="item-name">Immune Checkpoint-Expressing Tumor Immune Microenvironment</div>
+
+
+                <div class="item-desc">CNS germ cell tumors sit in a T-cell-infiltrated microenvironment in which PD-1, PD-L1, and CTLA-4 are expressed in most tumors, regulatory T cells are present, and the checkpoint profile differs between arms of the family: CTLA-4 higher in germinoma, PD-L1 higher in NGGCT. These are cross-sectional immunohistochemical observations on resected tumors. They do not show that this microenvironment shelters residual disease from therapy, and they do not support describing NGGCT as immune-cold, since PD-1 and PD-L1 were positive in over 90% of tumors in both arms and infiltration was heterogeneous case to case.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        FOXP3+ regulatory T cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000815</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves FOXP3+ regulatory T cell, annotated with regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        PD-1-positive CD8+ tumor-infiltrating lymphocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000625</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves PD-1-positive CD8+ tumor-infiltrating lymphocyte, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39958339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958339" target="_blank">PMID:39958339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CTLA-4 expression was detected in 58.06% of cases, while PD-1 and PD-L1 were expressed in over 90%, with higher CTLA-4 levels in germinomas and elevated PD-L1 levels in NGGCTs."</div>
+
+
+                <div class="evidence-explanation">Immunohistochemistry on 93 specimens from 90 patients establishes that checkpoint expression is near-universal across the family and that the germinoma-versus-NGGCT difference is one of degree. The design is cross-sectional and cannot link the profile to within-patient treatment failure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39958339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958339" target="_blank">PMID:39958339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The study revealed that germinomas exhibited significantly higher infiltration of CD4+ and Foxp3+ T cells compared to non-germinomatous GCTs (NGGCTs)."</div>
+
+
+                <div class="evidence-explanation">The same cohort documents regulatory and helper T-cell infiltration and its subtype distribution. Infiltration density is a descriptive tumor state here; the study reports prognostic associations but does not establish that any immune feature causes progression or relapse.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31773448" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31773448" target="_blank">PMID:31773448</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data suggest that the tumor immune microenvironment, including PD-1/PD-L1 signaling, is associated with the growth of intracranial germinomas."</div>
+
+
+                <div class="evidence-explanation">An eight-patient germinoma series relating checkpoint and lymphocyte staining to symptom duration and tumor size. It is the smallest and most selected observation here, it concerns tumor growth rather than treatment failure, and the authors&#39; own wording is associative.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
         </div>
 
 
@@ -8028,7 +8364,7 @@ This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AKT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AKT1\"], \"gene_terms\": [{\"label\": \"AKT1\", \"id\": \"hgnc:391\"}], \"association\": \"Recurrent somatic copy-number gain with increased expression\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Central Diabetes Insipidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central diabetes insipidus is a location-dependent presentation of suprasellar or bifocal germinoma and may precede diagnosis for a prolonged interval. The frequency band is based on one broader regional CNS-GCT cohort and should not be generalized to every site or histology.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000863\"}}, {\"id\": \"Elevated Circulating Alpha-Fetoprotein Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum or CSF AFP supports NGGCT clinical classification, but it is not specific to a yolk-sac component and can occur with immature teratoma.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Central Nervous System Nongerminomatous Germ Cell Tumor\"], \"reports_on\": [{\"target\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"AFP elevation is a tumor-marker readout, not a unique histology label.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Elevated Circulating Beta Chorionic Gonadotropin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum or CSF HCG is a diagnostic tumor-marker readout across selected CNS germ cell tumor components; it does not by itself resolve every histologic distinction.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"HCG elevation is a tumor-marker readout used in clinical classification.\"}], \"term_id\": \"HP:6000485\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive hydrocephalus is a common presentation of intracranial CNS germ cell tumors, especially lesions near ventricular cerebrospinal-fluid pathways. This does not describe rare primary spinal tumors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pineal, ventricular, and other intracranial CNS germ cell tumors can obstruct cerebrospinal-fluid pathways. This location-dependent effect is distinct from tumor histology and from the still-unresolved initiating mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KIT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIT\"], \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}], \"association\": \"Recurrent germinoma-enriched somatic mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KRAS\"], \"gene_terms\": [{\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}], \"association\": \"Recurrent somatic KIT-RAS-pathway mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"association\": \"Recurrent somatic KIT-RAS-pathway mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Neurohypophyseal Dysfunction in Suprasellar Germinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Suprasellar or neurohypophyseal germinoma can disrupt posterior-pituitary function, producing central diabetes insipidus that may precede tumor diagnosis for more than a year and often persists after tumor treatment.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Central Nervous System Germinoma\"], \"locations\": [\"neurohypophysis\"]}}, {\"id\": \"Recurrent AKT-mTOR Signaling Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of intracranial germ cell tumors carries AKT/mTOR-pathway lesions, including focal AKT1 copy-number gain with increased AKT1 expression. Recurrence supports a tumor molecular state but does not establish when the alteration arose or whether it is sufficient for transformation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AKT1\"], \"gene_terms\": [{\"label\": \"AKT1\", \"id\": \"hgnc:391\"}]}}, {\"id\": \"Recurrent KIT-RAS Signaling Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic alterations in KIT and other KIT/RAS-pathway genes recur in human intracranial germ cell tumors. They are enriched in germinoma but are not present in every tumor. Cross-sectional sequencing establishes recurrence, not whether these lesions initiate disease or are required to maintain it.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KIT\", \"KRAS\", \"NRAS\"], \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}]}}, {\"id\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFP and HCG secretion varies by histologic component. Marker elevation can support clinical classification as NGGCT, but absence does not exclude malignant disease and AFP elevation is not specific to a yolk-sac component.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Neurohypophyseal Dysfunction in Suprasellar Germinoma\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior-pituitary dysfunction impairs vasopressin regulation and produces central diabetes insipidus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Disruption of posterior-pituitary vasopressin regulation.\"]}, {\"source\": \"Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction of cerebrospinal-fluid flow causes hydrocephalus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"target\": \"Elevated Circulating Alpha-Fetoprotein Concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"AFP elevation is a tumor-marker readout, not a unique histology label.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"target\": \"Elevated Circulating Beta Chorionic Gonadotropin Concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"HCG elevation is a tumor-marker readout used in clinical classification.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"KIT\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRAS\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AKT1\", \"target\": \"Recurrent AKT-mTOR Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AKT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AKT1\"], \"gene_terms\": [{\"label\": \"AKT1\", \"id\": \"hgnc:391\"}], \"association\": \"Recurrent somatic copy-number gain with increased expression\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Central Diabetes Insipidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central diabetes insipidus is a location-dependent presentation of suprasellar or bifocal germinoma and may precede diagnosis for a prolonged interval. The frequency band is based on one broader regional CNS-GCT cohort and should not be generalized to every site or histology.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000863\"}}, {\"id\": \"Elevated Circulating Alpha-Fetoprotein Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum or CSF AFP supports NGGCT clinical classification, but it is not specific to a yolk-sac component and can occur with immature teratoma.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Central Nervous System Nongerminomatous Germ Cell Tumor\"], \"reports_on\": [{\"target\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"AFP elevation is a tumor-marker readout, not a unique histology label.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Elevated Circulating Beta Chorionic Gonadotropin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum or CSF HCG is a diagnostic tumor-marker readout across selected CNS germ cell tumor components; it does not by itself resolve every histologic distinction.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"HCG elevation is a tumor-marker readout used in clinical classification.\"}], \"term_id\": \"HP:6000485\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive hydrocephalus is a common presentation of intracranial CNS germ cell tumors, especially lesions near ventricular cerebrospinal-fluid pathways. This does not describe rare primary spinal tumors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pineal, ventricular, and other intracranial CNS germ cell tumors can obstruct cerebrospinal-fluid pathways. This location-dependent effect is distinct from tumor histology and from the still-unresolved initiating mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KIT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIT\"], \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}], \"association\": \"Recurrent germinoma-enriched somatic mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KRAS\"], \"gene_terms\": [{\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}], \"association\": \"Recurrent somatic KIT-RAS-pathway mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MTOR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MTOR\"], \"gene_terms\": [{\"label\": \"MTOR\", \"id\": \"hgnc:3942\"}], \"association\": \"Recurrent somatic PI3K-pathway point mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"association\": \"Recurrent somatic KIT-RAS-pathway mutation\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Neurohypophyseal Dysfunction in Suprasellar Germinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Suprasellar or neurohypophyseal germinoma can disrupt posterior-pituitary function, producing central diabetes insipidus that may precede tumor diagnosis for more than a year and often persists after tumor treatment.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Central Nervous System Germinoma\"], \"locations\": [\"neurohypophysis\"]}}, {\"id\": \"Recurrent AKT-mTOR Signaling Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of intracranial germ cell tumors carries AKT/mTOR-pathway lesions, including focal AKT1 copy-number gain with increased AKT1 expression and recurrent somatic MTOR point mutations. Tumor-derived mutant MTOR is pathway-activating and supports anchorage-independent growth in cell culture, so these lesions are not inert passengers; recurrence and in-vitro activation still do not establish when the alteration arose in a patient or whether it is sufficient for transformation of a germ-cell precursor.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"AKT1\", \"MTOR\"], \"gene_terms\": [{\"label\": \"AKT1\", \"id\": \"hgnc:391\"}, {\"label\": \"MTOR\", \"id\": \"hgnc:3942\"}]}}, {\"id\": \"Recurrent KIT-RAS Signaling Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic alterations in KIT and other KIT/RAS-pathway genes recur in human intracranial germ cell tumors. They are enriched in germinoma but are not present in every tumor. Cross-sectional sequencing establishes recurrence, not whether these lesions initiate disease or are required to maintain it.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KIT\", \"KRAS\", \"NRAS\"], \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}]}}, {\"id\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFP and HCG secretion varies by histologic component. Marker elevation can support clinical classification as NGGCT, but absence does not exclude malignant disease and AFP elevation is not specific to a yolk-sac component.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Neurohypophyseal Dysfunction in Suprasellar Germinoma\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior-pituitary dysfunction impairs vasopressin regulation and produces central diabetes insipidus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Disruption of posterior-pituitary vasopressin regulation.\"]}, {\"source\": \"Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction of cerebrospinal-fluid flow causes hydrocephalus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"target\": \"Elevated Circulating Alpha-Fetoprotein Concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"AFP elevation is a tumor-marker readout, not a unique histology label.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Tumor-Marker Secretion by CNS Germ Cell Tumor Components\", \"target\": \"Elevated Circulating Beta Chorionic Gonadotropin Concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"HCG elevation is a tumor-marker readout used in clinical classification.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"KIT\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRAS\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"Recurrent KIT-RAS Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AKT1\", \"target\": \"Recurrent AKT-mTOR Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MTOR\", \"target\": \"Recurrent AKT-mTOR Signaling Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8082,15 +8418,18 @@ This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000863</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000863</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Central diabetes insipidus (HP:0000863). HP:0000863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8178,15 +8517,18 @@ This clinical feature is Central diabetes insipidus (HP:0000863). HP:0000863 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000826</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8258,15 +8600,18 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8336,15 +8681,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0006254</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating alpha-fetoprotein concentration (HP:0006254). HP:0006254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8405,15 +8753,18 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000485</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:6000485</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating beta chorionic gonadotropin concentration (HP:6000485). HP:6000485 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8485,15 +8836,18 @@ This clinical feature is Elevated circulating beta chorionic gonadotropin concen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8576,7 +8930,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-kit" data-dismech-node="KIT" data-dismech-type="genetic">
@@ -8597,10 +8951,10 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                         Gene: KIT
 
 
-    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6342</a>
+    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6342</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8610,6 +8964,9 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8671,10 +9028,10 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
                         Gene: KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:6407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8684,6 +9041,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8745,10 +9105,10 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                         Gene: NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:7989</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8758,6 +9118,9 @@ This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8819,10 +9182,10 @@ This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the H
                         Gene: AKT1
 
 
-    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:391</a>
+    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:391</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8832,6 +9195,9 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8875,6 +9241,83 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-mtor" data-dismech-node="MTOR" data-dismech-type="genetic">
+                <div class="item-name">
+                    MTOR
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Recurrent somatic PI3K-pathway point mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MTOR
+
+
+    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:3942</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26956871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26956871" target="_blank">PMID:26956871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutated MTOR identified in CNS GCTs upregulated phosphorylation of the AKT pathway proteins including AKT and 4EBP1 in nutrient-deprived conditions and enhanced soft-agar colony formation; both events were suppressed in a dose-dependent manner by addition of the MTOR inhibitor pp242."</div>
+
+
+                <div class="evidence-explanation">Tumor-derived MTOR alleles were expressed and assayed, establishing both that MTOR is somatically mutated in CNS germ cell tumors and that the mutant is pathway-activating and inhibitor-reversible in cells. Neither necessity in patients nor clinical benefit from MTOR inhibition follows from this.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -8901,7 +9344,7 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8928,6 +9371,12 @@ This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8994,7 +9443,7 @@ This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9035,11 +9484,11 @@ This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical int
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:31355</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -9052,11 +9501,11 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:4911</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -9069,16 +9518,22 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:5864</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9168,7 +9623,7 @@ This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9196,6 +9651,12 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9287,7 +9748,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">surgical procedure on nervous system<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">surgical procedure on nervous system<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure on nervous system, annotated with Neurosurgical Procedure (NCIT:C15656). NCIT:C15656 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9328,6 +9789,12 @@ This treatment is surgical procedure on nervous system, annotated with Neurosurg
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Surgical resection can define and remove enlarging teratomatous tissue after chemotherapy, including growing teratoma syndrome. Case-level evidence does not establish one universal timing or extent of resection.</div>
 
 
@@ -9337,7 +9804,7 @@ This treatment is surgical procedure on nervous system, annotated with Neurosurg
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -9361,6 +9828,31 @@ This treatment is surgical procedure on nervous system, annotated with Neurosurg
 
 
                 <div class="evidence-explanation">This single case demonstrates resection in a post-chemotherapy pineal GTS context without establishing a general treatment rule.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37140211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37140211" target="_blank">PMID:37140211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multivariate analyses showed that the only significant risk factors for these events were incomplete GTS resection and different locations of GCT and GTS."</div>
+
+
+                <div class="evidence-explanation">Across 98 assembled pediatric GTS cases, completeness of resection was one of only two independent predictors of subsequent GTS recurrence, GTS progression, or malignant recurrence. This supports the extent of resection as the consequential surgical variable while leaving timing undetermined; the series is retrospective and partly literature-assembled, so residual confounding by resectability and tumor site is expected.</div>
 
 
 
@@ -10078,14 +10570,21 @@ pathophysiology:
 - name: Recurrent AKT-mTOR Signaling Alterations
   description: &gt;-
     A subset of intracranial germ cell tumors carries AKT/mTOR-pathway lesions,
-    including focal AKT1 copy-number gain with increased AKT1 expression.
-    Recurrence supports a tumor molecular state but does not establish when the
-    alteration arose or whether it is sufficient for transformation.
+    including focal AKT1 copy-number gain with increased AKT1 expression and
+    recurrent somatic MTOR point mutations. Tumor-derived mutant MTOR is
+    pathway-activating and supports anchorage-independent growth in cell
+    culture, so these lesions are not inert passengers; recurrence and in-vitro
+    activation still do not establish when the alteration arose in a patient or
+    whether it is sufficient for transformation of a germ-cell precursor.
   genes:
   - preferred_term: AKT1
     term:
       id: hgnc:391
       label: AKT1
+  - preferred_term: MTOR
+    term:
+      id: hgnc:3942
+      label: MTOR
   evidence:
   - reference: PMID:24896186
     reference_title: Novel somatic and germline mutations in intracranial germ cell tumours.
@@ -10099,6 +10598,35 @@ pathophysiology:
       Patient-tumor genomic and expression measurements establish a recurrent
       AKT1-associated state in a minority of cases, not a universal initiating
       mechanism.
+  - reference: PMID:26956871
+    reference_title: Recurrent neomorphic mutations of MTOR in central nervous system and testicular germ cell tumors may be targeted for therapy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our findings indicate that the dominant genetic drivers of GCTs regardless
+      of the site of origin are activation of the MAPK and/or PI3K pathways by
+      somatic point mutations.
+    explanation: &gt;-
+      Exome and targeted sequencing of 124 CNS germ cell tumors plus testicular
+      comparators is the largest cohort supporting recurrent MAPK and PI3K
+      lesions in this family. The authors&#39; &#34;driver&#34; wording is an inference from
+      recurrence and mutual exclusivity in a cross-sectional cohort; no temporal
+      ordering or necessity test was performed in patients.
+  - reference: PMID:26956871
+    reference_title: Recurrent neomorphic mutations of MTOR in central nervous system and testicular germ cell tumors may be targeted for therapy.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mutated MTOR identified in CNS GCTs upregulated phosphorylation of the AKT
+      pathway proteins including AKT and 4EBP1 in nutrient-deprived conditions
+      and enhanced soft-agar colony formation; both events were suppressed in a
+      dose-dependent manner by addition of the MTOR inhibitor pp242.
+    explanation: &gt;-
+      Cell-based assays on tumor-derived MTOR alleles show the mutation is
+      functionally activating and supports anchorage-independent growth that is
+      reversible by MTOR inhibition. This bears on whether the lesion can
+      cooperate in maintaining a transformed state; it is not evidence that the
+      mutation initiates disease in a human germ-cell precursor.
 - name: Germinoma Global DNA Hypomethylation
   subtypes:
   - Central Nervous System Germinoma
@@ -10253,6 +10781,67 @@ pathophysiology:
     explanation: &gt;-
       Background to the four-case intracranial biomarker series supports the
       explicit limitation of AFP/HCG-negative classification.
+- name: Immune Checkpoint-Expressing Tumor Immune Microenvironment
+  description: &gt;-
+    CNS germ cell tumors sit in a T-cell-infiltrated microenvironment in which
+    PD-1, PD-L1, and CTLA-4 are expressed in most tumors, regulatory T cells are
+    present, and the checkpoint profile differs between arms of the family:
+    CTLA-4 higher in germinoma, PD-L1 higher in NGGCT. These are cross-sectional
+    immunohistochemical observations on resected tumors. They do not show that
+    this microenvironment shelters residual disease from therapy, and they do
+    not support describing NGGCT as immune-cold, since PD-1 and PD-L1 were
+    positive in over 90% of tumors in both arms and infiltration was
+    heterogeneous case to case.
+  cell_types:
+  - preferred_term: FOXP3+ regulatory T cell
+    term:
+      id: CL:0000815
+      label: regulatory T cell
+  - preferred_term: PD-1-positive CD8+ tumor-infiltrating lymphocyte
+    term:
+      id: CL:0000625
+      label: CD8-positive, alpha-beta T cell
+  evidence:
+  - reference: PMID:39958339
+    reference_title: The clinical significance of T cell infiltration and immune checkpoint expression in central nervous system germ cell tumors.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      CTLA-4 expression was detected in 58.06% of cases, while PD-1 and PD-L1
+      were expressed in over 90%, with higher CTLA-4 levels in germinomas and
+      elevated PD-L1 levels in NGGCTs.
+    explanation: &gt;-
+      Immunohistochemistry on 93 specimens from 90 patients establishes that
+      checkpoint expression is near-universal across the family and that the
+      germinoma-versus-NGGCT difference is one of degree. The design is
+      cross-sectional and cannot link the profile to within-patient treatment
+      failure.
+  - reference: PMID:39958339
+    reference_title: The clinical significance of T cell infiltration and immune checkpoint expression in central nervous system germ cell tumors.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The study revealed that germinomas exhibited significantly higher
+      infiltration of CD4+ and Foxp3+ T cells compared to non-germinomatous GCTs
+      (NGGCTs).
+    explanation: &gt;-
+      The same cohort documents regulatory and helper T-cell infiltration and
+      its subtype distribution. Infiltration density is a descriptive tumor
+      state here; the study reports prognostic associations but does not
+      establish that any immune feature causes progression or relapse.
+  - reference: PMID:31773448
+    reference_title: Tumor immune microenvironment is associated with the growth of intracranial germinomas.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our data suggest that the tumor immune microenvironment, including
+      PD-1/PD-L1 signaling, is associated with the growth of intracranial
+      germinomas.
+    explanation: &gt;-
+      An eight-patient germinoma series relating checkpoint and lymphocyte
+      staining to symptom duration and tumor size. It is the smallest and most
+      selected observation here, it concerns tumor growth rather than treatment
+      failure, and the authors&#39; own wording is associative.
 mechanistic_hypotheses:
 - hypothesis_group_id: common_ancestry_developmental_state_divergence
   hypothesis_label: Common-Ancestry and Developmental-State Divergence Model
@@ -10367,6 +10956,21 @@ mechanistic_hypotheses:
       Sequencing of 62 human tumors establishes recurrent pathway alterations,
       but prevalence is incomplete, subtype distribution is unequal, and the
       cross-sectional design does not establish developmental timing.
+  - reference: PMID:26956871
+    reference_title: Recurrent neomorphic mutations of MTOR in central nervous system and testicular germ cell tumors may be targeted for therapy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Pure germinomas and non-germinomatous germ cell tumors (NGGCTs), as well
+      as CNS and testicular GCTs, showed similar mutational profiles, suggesting
+      that GCTs share a common molecular pathogenesis.
+    explanation: &gt;-
+      The largest CNS-versus-testicular sequencing comparison finds the same
+      recurrent MAPK and PI3K lesions across germinoma and NGGCT and across
+      anatomic sites. This is a cohort-level similarity of mutational profiles,
+      not observation of a shared ancestor within an individual mixed tumor, and
+      it does not order the pathway lesion relative to developmental-state
+      divergence.
   notes: &gt;-
     This is a within-tumor developmental model inferred mainly from
     cross-sectional human profiles. It does not posit an ancestor shared across
@@ -10504,6 +11108,54 @@ mechanistic_hypotheses:
       reported regimen or exposure details, gene-level resolution, a
       comparator, and functional validation, so it cannot identify a resistance
       driver.
+  - reference: PMID:37140211
+    reference_title: A case series and literature review on 98 pediatric patients of germ cell tumor developing growing teratoma syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Compared with patients with extracranial GCTs, those with intracranial
+      GCTs were younger, predominantly boys, had shorter intervals between MGCT
+      and GTS, and had GTS mostly occurring over the initial site
+    explanation: &gt;-
+      The largest assembled pediatric GTS series (98 patients, 52 intracranial)
+      shows intracranial GTS arises predominantly at the original tumor site and
+      soon after treatment, which fits teratomatous persistence or expansion
+      rather than distant malignant relapse; 96.9% of the pooled cohort were
+      alive. The series is retrospective and literature-assembled, so it cannot
+      distinguish treatment-associated maturation from expansion of a
+      pre-existing teratomatous component.
+  - reference: PMID:22420971
+    reference_title: A multimodal approach including craniospinal irradiation improves the treatment outcome of high-risk intracranial nongerminomatous germ cell tumors.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Three of the 5 patients who received focal RT or WBRT had local failure.
+      Four cerebrospinal fluid (CSF) failures occurred after CSI.
+    explanation: &gt;-
+      Failure location tracked the irradiated volume in this 32-patient
+      retrospective NGGCT series, which keeps radiation geography alive as a
+      competing branch-specific explanation for local relapse. Three events in a
+      five-patient subgroup cannot separate field geometry from the stage,
+      histology, response, and era differences that determined who received the
+      smaller field.
+  - reference: PMID:28695992
+    reference_title: &#34;Optimal radiotherapy target volumes in intracranial nongerminomatous germ cell tumors: Long-term institutional experience with chemotherapy, surgery, and dose- and field-adapted radiotherapy.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      All four patients who relapsed in the spine had received local
+      radiotherapy and had elevated serum and CSF-AFP at baseline.
+    explanation: &gt;-
+      Every spinal relapse in this 34-patient retrospective series followed
+      local-field irradiation, but the same four patients also had elevated
+      baseline AFP, so exposure geography and tumor biology are confounded in
+      exactly the way the geography branch has to disentangle. The same series
+      reported no statistically significant difference in overall survival,
+      disease-free survival, or patterns of failure between limited and larger
+      radiotherapy volumes, and the distant-CNS recurrence difference (32% vs
+      0% at ten years) was not significant.
   notes: &gt;-
     This model operationally separates GTS, viable malignant progression, and
     post-treatment relapse without claiming that each category has a distinct
@@ -10568,6 +11220,48 @@ mechanistic_hypotheses:
       the authors&#39; six-miRNA proposed core biomarker panel, although they
       suggested possible added predictive value. The study did not test
       BCL2L11 or perturb miR-214-3p.
+  - reference: PMID:24465927
+    reference_title: Knockdown of miR-214 promotes apoptosis and inhibits cell proliferation in nasopharyngeal carcinoma.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Luciferase reporter assay was performed to identify Bim as a direct target
+      of miR-214.
+    explanation: &gt;-
+      A 3&#39; UTR reporter assay in nasopharyngeal carcinoma cells shows miR-214 can
+      directly target BIM/BCL2L11, which makes the proposed regulatory edge
+      molecularly plausible. Nasopharyngeal carcinoma is not a germ cell tumor,
+      and no reporter, seed-mutant, AGO2-occupancy, or miRNA-insensitive BCL2L11
+      rescue experiment has been reported in CNS NGGCT, so direct binding in this
+      disease remains unconfirmed.
+  - reference: PMID:23302226
+    reference_title: Cisplatin hypersensitivity of testicular germ cell tumors is determined by high constitutive Noxa levels mediated by Oct-4.
+    supports: NO_EVIDENCE
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      We identified Noxa as the only Bcl-2 family protein to be highly correlated
+      with Oct-4 status and cisplatin sensitivity.
+    explanation: &gt;-
+      This names the better-supported competing explanation for platinum
+      response in germ cell tumors: an OCT4-dependent constitutive NOXA level
+      rather than a BIM-directed miRNA. It is a testicular embryonal-carcinoma
+      result and says nothing about miR-214-3p or BCL2L11, so it neither
+      supports nor refutes this chain; it is recorded so the candidate is
+      evaluated against, not instead of, the NOXA model.
+  - reference: PMID:22718761
+    reference_title: Transcription factors Sp1 and p73 control the expression of the proapoptotic protein NOXA in the response of testicular embryonal carcinoma cells to cisplatin.
+    supports: NO_EVIDENCE
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Blockade of Noxa reduced the apoptotic response of embryonal carcinoma (EC)
+      NTERA2 cells to cisplatin.
+    explanation: &gt;-
+      An independent functional test of the competing NOXA route in embryonal
+      carcinoma cells, again extracranial and without any miR-214-3p or BCL2L11
+      measurement. Recorded as a confounder to control for rather than as
+      evidence for or against the miR-214-3p chain, which the two mechanisms
+      could in principle both operate alongside.
   notes: &gt;-
     This is a cisplatin-response candidate, not a validated intrinsic-tolerance
     mechanism or clinical resistance biomarker. No independent functional
@@ -10911,6 +11605,35 @@ genetic:
     explanation: &gt;-
       Patient-tumor genomic and expression data establish a recurrent alteration
       in a minority of cases without defining its temporal role.
+- name: MTOR
+  gene_term:
+    preferred_term: MTOR
+    term:
+      id: hgnc:3942
+      label: MTOR
+  association: Recurrent somatic PI3K-pathway point mutation
+  variant_origin: SOMATIC
+  notes: &gt;-
+    MTOR mutations were identified in a minority of CNS germ cell tumors and in
+    testicular counterparts. Unlike the other pathway genes curated here, the
+    mutant alleles were functionally tested in cell culture and are activating,
+    but no patient-level evidence assigns them an initiating role.
+  evidence:
+  - reference: PMID:26956871
+    reference_title: Recurrent neomorphic mutations of MTOR in central nervous system and testicular germ cell tumors may be targeted for therapy.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mutated MTOR identified in CNS GCTs upregulated phosphorylation of the AKT
+      pathway proteins including AKT and 4EBP1 in nutrient-deprived conditions
+      and enhanced soft-agar colony formation; both events were suppressed in a
+      dose-dependent manner by addition of the MTOR inhibitor pp242.
+    explanation: &gt;-
+      Tumor-derived MTOR alleles were expressed and assayed, establishing both
+      that MTOR is somatically mutated in CNS germ cell tumors and that the
+      mutant is pathway-activating and inhibitor-reversible in cells. Neither
+      necessity in patients nor clinical benefit from MTOR inhibition follows
+      from this.
 diagnosis:
 - name: Serum and Cerebrospinal Fluid Tumor-Marker Assessment
   markers: AFP, HCG
@@ -11087,6 +11810,21 @@ treatments:
     explanation: &gt;-
       This single case demonstrates resection in a post-chemotherapy pineal GTS
       context without establishing a general treatment rule.
+  - reference: PMID:37140211
+    reference_title: A case series and literature review on 98 pediatric patients of germ cell tumor developing growing teratoma syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Multivariate analyses showed that the only significant risk factors for
+      these events were incomplete GTS resection and different locations of GCT
+      and GTS.
+    explanation: &gt;-
+      Across 98 assembled pediatric GTS cases, completeness of resection was one
+      of only two independent predictors of subsequent GTS recurrence, GTS
+      progression, or malignant recurrence. This supports the extent of
+      resection as the consequential surgical variable while leaving timing
+      undetermined; the series is retrospective and partly literature-assembled,
+      so residual confounding by resectability and tumor site is expected.
 discussions:
 - discussion_id: gap_cns_gct_developmental_origin_and_driver_timing
   prompt: &gt;-
@@ -11267,6 +12005,7 @@ discussions:
   - has_subtypes#Central Nervous System Nongerminomatous Germ Cell Tumor
   - mechanistic_hypotheses#nggct_failure_state_specific_persistence_and_evolution
   - mechanistic_hypotheses#mir214_bcl2l11_cisplatin_response_candidate
+  - pathophysiology#Immune Checkpoint-Expressing Tumor Immune Microenvironment
   rationale: &gt;-
     Clinical failure is heterogeneous. A pooled analysis separated 24
     progressions during treatment, 11 growing-teratoma-syndrome events, and 83
@@ -11285,8 +12024,11 @@ discussions:
     supplies a specific in-vitro cisplatin-tolerance candidate, but lacks a
     resistant-versus-sensitive clinical cohort, a patient-derived CNS model,
     and rescue evidence. Histologic mixture, sampling bias, radiation
-    geography, pharmacokinetics, and therapy-selected clonal evolution remain
-    competing explanations. A resistance node, predictive biomarker, or
+    geography, pharmacokinetics, an immunosuppressive checkpoint-expressing
+    microenvironment, and therapy-selected clonal evolution remain
+    competing explanations. The immune profile is cross-sectional in every
+    available CNS germ cell tumor series, so a microenvironmental sanctuary
+    is a competing hypothesis rather than a demonstrated failure route. A resistance node, predictive biomarker, or
     targeted therapy should not be added until longitudinal molecular change is
     linked to function and outcome.
   proposed_experiments:
@@ -11619,6 +12361,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12106,7 +12850,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Central Nervous System Germ Cell Tumor", "mondoId": "MONDO:0003000", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Nervous_System_Germ_Cell_Tumor", "yamlRevision": "8c1a943f890c"};
+        const OS_CONFIG = {"diseaseName": "Central Nervous System Germ Cell Tumor", "mondoId": "MONDO:0003000", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Nervous_System_Germ_Cell_Tumor", "yamlRevision": "31795b9d266c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 36</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 37</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=ZAP70%20Deficiency"
@@ -3983,7 +4036,7 @@ Clinically it spans a wide range: infantile SCID-like disease with opportunistic
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4002,7 +4055,7 @@ Clinically it spans a wide range: infantile SCID-like disease with opportunistic
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">36</div>
+                <div class="stat-value">37</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4634,6 +4687,7 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zap70-loss-of-kinase-function" data-dismech-node="ZAP70 Loss of Kinase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ZAP70 Loss of Kinase Function</div>
 
+
                 <div class="item-desc">Biallelic ZAP70 variants remove the kinase from the T-cell receptor cascade. Most reported alleles abolish protein expression or catalytic activity and cluster in the kinase domain, but there is a second, mechanistically distinct class in the C-terminal SH2 domain: R170C and R192W sit in the arginine pocket that docks the kinase onto the phosphorylated TCR zeta chain, so they abolish recruitment rather than catalysis. Preserved protein expression is documented for R170C specifically; R192W was confirmed pathogenic in two siblings without its expression level being reported in the same terms. Both classes reach the same place, a kinase that is not doing its job at the receptor, which is why a normal ZAP-70 protein level on flow cytometry does not exclude the diagnosis.</div>
 
 
@@ -4651,6 +4705,8 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4661,6 +4717,9 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4827,6 +4886,7 @@ This pathophysiological event involves decreased ZAP-70 tyrosine kinase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-tcr-proximal-signal-propagation" data-dismech-node="Failure of TCR-Proximal Signal Propagation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of TCR-Proximal Signal Propagation</div>
+
 
                 <div class="item-desc">Without ZAP-70 the phosphorylated CD3 and zeta ITAMs have nothing to recruit, so the adaptors LAT and SLP-76 are never phosphorylated and the signalosome that would carry the signal onward is never assembled. In patient T cells this reads out as markedly reduced tyrosine phosphorylation, no interleukin-2, and no proliferation to receptor stimulation — with the cells otherwise present and normal in number.</div>
 
@@ -5008,6 +5068,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-block-of-cd8-single-positive-thymocyte-selection" data-dismech-node="Block of CD8 Single-Positive Thymocyte Selection" data-dismech-type="pathophysiology">
                 <div class="item-name">Block of CD8 Single-Positive Thymocyte Selection</div>
+
 
                 <div class="item-desc">Double-positive thymocytes accumulate normally in the cortex, but only CD4 single-positive cells reach the medulla. The asymmetry has a two-part explanation, each part separately sourced: the CD4 and CD8 lineages are selected at different ZAP-70 signalling thresholds, CD4 being the lower of the two, and human thymocytes express enough of the paralogous kinase SYK to carry that lower threshold. The rescue is human-specific. Mouse thymocytes express far less SYK, which is why complete Zap70 loss arrests both lineages in the mouse and only the CD8 lineage in patients.</div>
 
@@ -5267,6 +5328,7 @@ This pathophysiological event occurs in thymic cortex, annotated with cortex of 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-cd8-t-cell-lymphopenia" data-dismech-node="Peripheral CD8 T Cell Lymphopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral CD8 T Cell Lymphopenia</div>
 
+
                 <div class="item-desc">The signature laboratory finding: profoundly reduced or absent circulating CD8 T cells against a normal or elevated total lymphocyte count, with normal B and NK numbers. It is present in essentially every patient, and it is the finding that should trigger ZAP70 sequencing. Rare exceptions with near-normal CD8 counts and impaired function are reported, so a normal count does not exclude the diagnosis when function is abnormal.</div>
 
 
@@ -5456,6 +5518,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-anergy-of-peripheral-cd4-t-cells" data-dismech-node="Functional Anergy of Peripheral CD4 T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Anergy of Peripheral CD4 T Cells</div>
+
 
                 <div class="item-desc">CD4 T cells are present in normal or elevated numbers and are functionally inert: they fail to flux calcium, make interleukin-2, or proliferate in response to receptor engagement or mitogen. This is the half of the disease a cell count misses, and it is why the mitogen proliferation assay is a first-line rather than a confirmatory test.</div>
 
@@ -5657,6 +5720,7 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-residual-tcr-signaling" data-dismech-node="Attenuated Residual TCR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Residual TCR Signaling</div>
 
+
                 <div class="item-desc">A distinct state from the complete propagation failure above, and the two should not be conflated: hypomorphic and docking-defective alleles leave the cascade running weakly rather than not at all. That distinction is what makes the tolerance branch possible, because a thymocyte receiving no signal is not selected whereas one receiving a weak signal can be selected wrongly. This node is therefore reached only from the subset of alleles that retain residual function, which is why allele class and clinical presentation are related even though the pooled cohort finds no formal correlation.</div>
 
 
@@ -5674,6 +5738,8 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5684,6 +5750,9 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5792,6 +5861,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-negative-selection-and-thymic-regulatory-t-cell-output" data-dismech-node="Impaired Negative Selection and Thymic Regulatory T Cell Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Negative Selection and Thymic Regulatory T Cell Output</div>
+
 
                 <div class="item-desc">Autoreactive thymocytes that a normal signal would delete survive selection, in a thymus simultaneously producing too few regulatory T cells to contain them afterwards. Both halves are thymic events, which is why this node is scoped to the thymus rather than to tolerance in general. The human evidence is an association between residual-function alleles and the dysregulation-predominant presentation; the mechanistic dissection is in mouse hypomorphs.</div>
 
@@ -6009,6 +6079,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cellular-immunity-against-opportunistic-pathogens" data-dismech-node="Impaired Cellular Immunity Against Opportunistic Pathogens" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cellular Immunity Against Opportunistic Pathogens</div>
 
+
                 <div class="item-desc">The combined loss of cytotoxic CD8 cells and functional CD4 help leaves patients open to the pathogens that cellular immunity normally handles: Pneumocystis jirovecii, Candida, CMV, varicella, and — where BCG is given before diagnosis — disseminated BCG disease.</div>
 
 
@@ -6138,6 +6209,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-t-dependent-antibody-responses" data-dismech-node="Defective T-Dependent Antibody Responses" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective T-Dependent Antibody Responses</div>
 
+
                 <div class="item-desc">B cells are present in normal numbers and serum IgM and IgA are usually normal, but specific antibody responses to protein and polysaccharide antigens fail in a majority of patients, and IgG is normal or reduced. The humoral defect is therefore functional rather than quantitative, which is why immunoglobulin replacement is offered even to patients whose total IgG looks acceptable.</div>
 
 
@@ -6217,6 +6289,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytotoxic-surveillance-of-virus-infected-cells" data-dismech-node="Impaired Cytotoxic Surveillance of Virus-Infected Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytotoxic Surveillance of Virus-Infected Cells</div>
+
 
                 <div class="item-desc">Without a cytotoxic CD8 compartment, EBV-infected B cells are not cleared, and a minority of patients develop EBV-driven lymphoproliferation or lymphoma. This is a downstream branch of the CD8 deficit rather than an independent tumour-suppressor lesion.</div>
 
@@ -6325,6 +6398,7 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmunity-and-immune-dysregulation" data-dismech-node="Autoimmunity and Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmunity and Immune Dysregulation</div>
+
 
                 <div class="item-desc">Roughly a fifth of reported patients have autoimmune or dysregulatory disease — cytopenias, colitis and enteropathy, nephritis, skin involvement — and this arm can dominate the presentation in patients whose alleles leave residual function. It coexists with, rather than replaces, the infectious susceptibility.</div>
 
@@ -6448,7 +6522,7 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only curative treatment, and effective in the reported series. Those series use matched sibling, matched unrelated, haploidentical and cord blood donors, with and without conditioning; myeloablative conditioning gives more durable reconstitution, while reduced-intensity or unconditioned transplant remains a life-saving option for a critically ill infant. Long-term survival in published cohorts is good and both the infectious and the autoimmune manifestations resolve.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Antimicrobial Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibacterial, antifungal, antiviral and Pneumocystis prophylaxis while awaiting transplantation, and for patients in whom transplantation is not an option. GeneReviews is explicit that conservative management on prophylaxis and immunoglobulin alone leaves patients at high risk, so it is a holding measure rather than a definitive one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Attenuated Residual TCR Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct state from the complete propagation failure above, and the two should not be conflated: hypomorphic and docking-defective alleles leave the cascade running weakly rather than not at all. That distinction is what makes the tolerance branch possible, because a thymocyte receiving no signal is not selected whereas one receiving a weak signal can be selected wrongly. This node is therefore reached only from the subset of alleles that retain residual function, which is why allele class and clinical presentation are related even though the pooled cohort finds no formal correlation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell receptor signaling pathway\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}}}, {\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune cytopenias, ulcerative colitis, nephritis and autoimmune skin disease, in about a fifth of reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002960\"}}, {\"id\": \"Autoimmunity and Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Roughly a fifth of reported patients have autoimmune or dysregulatory disease \\u2014 cytopenias, colitis and enteropathy, nephritis, skin involvement \\u2014 and this arm can dominate the presentation in patients whose alleles leave residual function. It coexists with, rather than replaces, the infectious susceptibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCG vaccination before diagnosis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Live attenuated Mycobacterium bovis BCG, given at birth in countries with universal BCG programmes, before the immunodeficiency is known. In a child with no functional cellular immunity the vaccine strain is not contained and disseminates. It is the commonest bacterial exposure in the pooled cohort and the concrete reason live vaccines are withheld until immune reconstitution is confirmed.\\nThis is an iatrogenic precipitant, not a cause of the disease, and the edge is drawn accordingly. It triggers the BCGosis phenotype; it does not cause the impaired cellular immunity that permits it, which would invert the direction of the mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"BCGosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated disease from the BCG vaccine strain in infants vaccinated before the immunodeficiency was recognised. This is an iatrogenic manifestation confined to BCG-endemic settings rather than a feature of the disease everywhere, and it is the concrete harm behind the live-vaccine avoidance in the treatment section.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0020087\"}}, {\"id\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Double-positive thymocytes accumulate normally in the cortex, but only CD4 single-positive cells reach the medulla. The asymmetry has a two-part explanation, each part separately sourced: the CD4 and CD8 lineages are selected at different ZAP-70 signalling thresholds, CD4 being the lower of the two, and human thymocytes express enough of the paralogous kinase SYK to carry that lower threshold. The rescue is human-specific. Mouse thymocytes express far less SYK, which is why complete Zap70 loss arrests both lineages in the mouse and only the CD8 lineage in patients.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"CD4-positive CD8-positive double-positive thymocyte\"], \"biological_processes\": [\"positive thymic T cell selection\"], \"locations\": [\"thymus\", \"thymic cortex\"], \"animal_models\": [{\"name\": \"Zap70-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 knockout (zap-70-/-)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the thymic selection block and its dependence on ZAP-70, but not its lineage selectivity.\"}]}}, {\"id\": \"Chronic diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhoea is reported in half of pooled patients and contributes to the growth failure that usually accompanies presentation. Enteropathy is counted separately and less often (18.4%), so the two figures are not interchangeable; the frequency here is the diarrhoea one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum IgG is normal or reduced; IgM and IgA are usually normal, so this is a partial rather than a global hypogammaglobulinaemia, which is why the binding is the IgG-specific term rather than the general immunoglobulin one.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004315\"}}, {\"id\": \"Decreased total CD8+ T cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining laboratory abnormality, present in essentially all patients and the single finding most likely to lead to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:5210426\"}}, {\"id\": \"Defective T-Dependent Antibody Responses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B cells are present in normal numbers and serum IgM and IgA are usually normal, but specific antibody responses to protein and polysaccharide antigens fail in a majority of patients, and IgG is normal or reduced. The humoral defect is therefore functional rather than quantitative, which is why immunoglobulin replacement is offered even to patients whose total IgG looks acceptable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous involvement covers a range \\u2014 eczematous rash, erythroderma, ichthyosis, pustular lesions \\u2014 and is the second commonest presenting feature. Skin infiltration by dysfunctional CD4 T cells has been described, often with raised IgE and eosinophilia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Failure of TCR-Proximal Signal Propagation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without ZAP-70 the phosphorylated CD3 and zeta ITAMs have nothing to recruit, so the adaptors LAT and SLP-76 are never phosphorylated and the signalosome that would carry the signal onward is never assembled. In patient T cells this reads out as markedly reduced tyrosine phosphorylation, no interleukin-2, and no proliferation to receptor stimulation \\u2014 with the cells otherwise present and normal in number.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alpha-beta T cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth failure in infancy, driven by the combination of recurrent infection and enteropathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Functional Anergy of Peripheral CD4 T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4 T cells are present in normal or elevated numbers and are functionally inert: they fail to flux calcium, make interleukin-2, or proliferate in response to receptor engagement or mitogen. This is the half of the disease a cell count misses, and it is why the mitogen proliferation assay is a first-line rather than a confirmatory test.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell activation\", \"T cell proliferation\"]}}, {\"id\": \"Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational only, with no clinical application in this disease. The preclinical work is unusual in targeting the thymus directly rather than the stem cell compartment: intrathymic AAV delivery of ZAP70 into Zap70-null mice restores thymic architecture and produces gene-corrected peripheral T cells that persist for months, and intrathymic injection of wild-type progenitors reconstitutes those mice faster and with fewer cells than intravenous delivery. Both remain mouse results.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the lymphoproliferative arm, usually alongside splenomegaly and lymphadenopathy rather than in isolation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given for the functional antibody defect, which is present even in patients whose total IgG is normal. Several patients in the long-term transplant series were able to stop it once specific antibody responses returned after engraftment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined loss of cytotoxic CD8 cells and functional CD4 help leaves patients open to the pathogens that cellular immunity normally handles: Pneumocystis jirovecii, Candida, CMV, varicella, and \\u2014 where BCG is given before diagnosis \\u2014 disseminated BCG disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a cytotoxic CD8 compartment, EBV-infected B cells are not cleared, and a minority of patients develop EBV-driven lymphoproliferation or lymphoma. This is a downstream branch of the CD8 deficit rather than an independent tumour-suppressor lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta cytotoxic T cell\"]}}, {\"id\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive thymocytes that a normal signal would delete survive selection, in a thymus simultaneously producing too few regulatory T cells to contain them afterwards. Both halves are thymic events, which is why this node is scoped to the thymus rather than to tolerance in general. The human evidence is an association between residual-function alleles and the dysregulation-predominant presentation; the mechanistic dissection is in mouse hypomorphs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"negative thymic T cell selection\"], \"locations\": [\"thymus\"], \"animal_models\": [{\"name\": \"Zap70 YYAA knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 Y315A/Y319A knock-in (YYAA)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the tolerance failure that attenuated ZAP-70 signalling produces, including the regulatory T-cell deficit.\"}]}}, {\"id\": \"Impaired T-cell proliferative response to mitogens\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lymphocyte proliferation to phytohaemagglutinin, reflecting the receptor-signalling block in the numerically normal CD4 compartment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031381\"}}, {\"id\": \"Impaired specific antibody response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor antibody responses to protein and polysaccharide vaccine antigens despite normal B-cell numbers.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012475\"}}, {\"id\": \"Increased circulating IgE concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised IgE accompanies the atopic and cutaneous end of the spectrum, which GeneReviews names as atopy among the later-onset dysregulated presentations. The pooled cohort reports a median IgE well above the paediatric reference range with a wide spread, so this is a feature of part of the cohort rather than of all of it; no frequency is recorded because the source gives a distribution rather than a proportion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003212\"}}, {\"id\": \"Infection-Risk Avoidance and Blood Product Precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The GeneReviews \\\"agents and circumstances to avoid\\\" list. These are consequential rather than merely precautionary in this disorder. Live viral vaccines are contraindicated for the infant and for household contacts; blood products must be irradiated, leukoreduced and CMV-safe to avoid transfusion-associated graft-versus-host disease; breastfeeding is withheld until maternal CMV status is known; and construction or soil-disturbance environments are avoided for fungal-exposure risk. Disseminated BCG disease in infants vaccinated before diagnosis is a recurring real-world harm in BCG-endemic settings.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphoproliferation, including lymphadenopathy and hepatosplenomegaly, in roughly a third of reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased malignancy risk, predominantly EBV-associated lymphoproliferative disease and lymphoma, in a minority of patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Peripheral CD8 T Cell Lymphopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The signature laboratory finding: profoundly reduced or absent circulating CD8 T cells against a normal or elevated total lymphocyte count, with normal B and NK numbers. It is present in essentially every patient, and it is the finding that should trigger ZAP70 sequencing. Rare exceptions with near-normal CD8 counts and impaired function are reported, so a normal count does not exclude the diagnosis when function is abnormal.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"animal_models\": [{\"name\": \"Zap70-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 knockout (zap-70-/-)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not reproduce the selective peripheral CD8 deficit, because it has no mature peripheral T cells of either lineage.\"}]}}, {\"id\": \"Pneumocystis jirovecii pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Opportunistic pneumonia reflecting the cellular immune defect. Reported, but less prominent here than in classical SCID. No frequency is recorded: the cited sources place it qualitatively rather than giving a rate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0020102\"}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The single most frequent individual infection in the pooled cohort, and the reason recurrent respiratory infection dominates the presenting picture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest presenting problem, and together with skin involvement the usual reason a child comes to attention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The other half of the organomegaly seen in the lymphoproliferative arm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"ZAP70 Loss of Kinase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ZAP70 variants remove the kinase from the T-cell receptor cascade. Most reported alleles abolish protein expression or catalytic activity and cluster in the kinase domain, but there is a second, mechanistically distinct class in the C-terminal SH2 domain: R170C and R192W sit in the arginine pocket that docks the kinase onto the phosphorylated TCR zeta chain, so they abolish recruitment rather than catalysis. Preserved protein expression is documented for R170C specifically; R192W was confirmed pathogenic in two siblings without its expression level being reported in the same terms. Both classes reach the same place, a kinase that is not doing its job at the receptor, which is why a normal ZAP-70 protein level on flow cytometry does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"ZAP-70 tyrosine kinase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Zap70 YYAA knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic knock-in in which the interdomain B tyrosines Y315 and Y319 are mutated to alanine, attenuating rather than abolishing signalling. Together with the spontaneous SKG strain it is the model for the tolerance arm of the disease: impaired positive and negative selection, markedly reduced thymic regulatory T cells, and autoantibody production.\"}, {\"id\": \"Zap70-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The standard null model. Thymocyte development arrests at the CD4+CD8+ double-positive stage, so neither lineage matures \\u2014 a more complete block than patients show, and the reason this model is better read as a model of TCR signal-dependent selection than of the human disease\u0027s immunophenotype.\"}], \"edges\": [{\"source\": \"ZAP70 Loss of Kinase Function\", \"target\": \"Attenuated Residual TCR Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypomorphic and docking-defective allele classes reduce rather than abolish the kinase\u0027s contribution, so this edge is the one those alleles take.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZAP70 Loss of Kinase Function\", \"target\": \"Failure of TCR-Proximal Signal Propagation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The kinase is the obligate link between the phosphorylated receptor and its adaptors, so its loss stops the cascade at that step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TCR-Proximal Signal Propagation\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Positive selection reads the strength of the TCR signal, so a cascade that cannot propagate cannot deliver the selecting signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TCR-Proximal Signal Propagation\", \"target\": \"Functional Anergy of Peripheral CD4 T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CD4 cells that escape the thymus carry the same broken cascade, so they are numerically normal and functionally inert.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"target\": \"Peripheral CD8 T Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The peripheral CD8 compartment is filled by thymic export, so a selection block empties it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Decreased total CD8+ T cell count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Defective T-Dependent Antibody Responses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B cells are numerically normal here, so the humoral defect is a failure of T-cell help rather than a B-cell-intrinsic one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Impaired T-cell proliferative response to mitogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Increased circulating IgE concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Attenuated Residual TCR Signaling\", \"target\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Negative selection and thymic regulatory T-cell development read the same signal strength that positive selection does, so a weakened cascade degrades both.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"target\": \"Autoimmunity and Immune Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive clones that survive selection, in a compartment with too few regulatory T cells to restrain them, is the standard route from tolerance failure to autoimmune disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Pneumocystis jirovecii pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"BCGosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Chronic diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Defective T-Dependent Antibody Responses\", \"target\": \"Impaired specific antibody response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Dependent Antibody Responses\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-infectious cutaneous disease in this disorder is part of the dysregulation arm rather than an infectious complication; skin infiltration by dysfunctional CD4 T cells is the described route.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"BCG vaccination before diagnosis\", \"target\": \"BCGosis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Administration of the live vaccine strain is the exposure that produces disseminated BCG disease in an infant who cannot contain it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"ZAP70 Loss of Kinase Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Defective T-Dependent Antibody Responses\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Infection-Risk Avoidance and Blood Product Precautions\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene Therapy\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zap70-null mouse\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the thymic selection block and its dependence on ZAP-70, but not its lineage selectivity.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The block extends to the CD4 lineage, which is spared in patients. Mouse thymocytes express much less SYK than human thymocytes, so the paralogue cannot carry the lower CD4 threshold; the model therefore reports a complete developmental arrest where the human disease produces a selective CD8 deficit with an intact, dysfunctional CD4 compartment.\"}, {\"source\": \"Zap70-null mouse\", \"target\": \"Peripheral CD8 T Cell Lymphopenia\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not reproduce the selective peripheral CD8 deficit, because it has no mature peripheral T cells of either lineage.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The species difference is the point rather than an incidental caveat: insufficient Syk expression in mouse thymocytes converts a lineage-selective human deficit into a complete arrest. A study reading peripheral T-cell subsets off this model would misdescribe the human immunophenotype.\"}, {\"source\": \"Zap70 YYAA knock-in mouse\", \"target\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the tolerance failure that attenuated ZAP-70 signalling produces, including the regulatory T-cell deficit.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Autoantibody reactivity does not progress to overt autoimmune disease in this strain, whereas the SKG strain on the same axis develops arthritis, so the model separates reactivity from disease rather than modelling the human autoimmune presentation end to end. The specific autoimmune manifestations differ from those reported in patients.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only curative treatment, and effective in the reported series. Those series use matched sibling, matched unrelated, haploidentical and cord blood donors, with and without conditioning; myeloablative conditioning gives more durable reconstitution, while reduced-intensity or unconditioned transplant remains a life-saving option for a critically ill infant. Long-term survival in published cohorts is good and both the infectious and the autoimmune manifestations resolve.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Antimicrobial Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibacterial, antifungal, antiviral and Pneumocystis prophylaxis while awaiting transplantation, and for patients in whom transplantation is not an option. GeneReviews is explicit that conservative management on prophylaxis and immunoglobulin alone leaves patients at high risk, so it is a holding measure rather than a definitive one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Attenuated Residual TCR Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct state from the complete propagation failure above, and the two should not be conflated: hypomorphic and docking-defective alleles leave the cascade running weakly rather than not at all. That distinction is what makes the tolerance branch possible, because a thymocyte receiving no signal is not selected whereas one receiving a weak signal can be selected wrongly. This node is therefore reached only from the subset of alleles that retain residual function, which is why allele class and clinical presentation are related even though the pooled cohort finds no formal correlation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell receptor signaling pathway\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}}}, {\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune cytopenias, ulcerative colitis, nephritis and autoimmune skin disease, in about a fifth of reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002960\"}}, {\"id\": \"Autoimmunity and Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Roughly a fifth of reported patients have autoimmune or dysregulatory disease \\u2014 cytopenias, colitis and enteropathy, nephritis, skin involvement \\u2014 and this arm can dominate the presentation in patients whose alleles leave residual function. It coexists with, rather than replaces, the infectious susceptibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCG vaccination before diagnosis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Live attenuated Mycobacterium bovis BCG, given at birth in countries with universal BCG programmes, before the immunodeficiency is known. In a child with no functional cellular immunity the vaccine strain is not contained and disseminates. It is the commonest bacterial exposure in the pooled cohort and the concrete reason live vaccines are withheld until immune reconstitution is confirmed.\\nThis is an iatrogenic precipitant, not a cause of the disease, and the edge is drawn accordingly. It triggers the BCGosis phenotype; it does not cause the impaired cellular immunity that permits it, which would invert the direction of the mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"BCGosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated disease from the BCG vaccine strain in infants vaccinated before the immunodeficiency was recognised. This is an iatrogenic manifestation confined to BCG-endemic settings rather than a feature of the disease everywhere, and it is the concrete harm behind the live-vaccine avoidance in the treatment section.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0020087\"}}, {\"id\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Double-positive thymocytes accumulate normally in the cortex, but only CD4 single-positive cells reach the medulla. The asymmetry has a two-part explanation, each part separately sourced: the CD4 and CD8 lineages are selected at different ZAP-70 signalling thresholds, CD4 being the lower of the two, and human thymocytes express enough of the paralogous kinase SYK to carry that lower threshold. The rescue is human-specific. Mouse thymocytes express far less SYK, which is why complete Zap70 loss arrests both lineages in the mouse and only the CD8 lineage in patients.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"CD4-positive CD8-positive double-positive thymocyte\"], \"biological_processes\": [\"positive thymic T cell selection\"], \"locations\": [\"thymus\", \"thymic cortex\"], \"animal_models\": [{\"name\": \"Zap70-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 knockout (zap-70-/-)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the thymic selection block and its dependence on ZAP-70, but not its lineage selectivity.\"}]}}, {\"id\": \"Chronic diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhoea is reported in half of pooled patients and contributes to the growth failure that usually accompanies presentation. Enteropathy is counted separately and less often (18.4%), so the two figures are not interchangeable; the frequency here is the diarrhoea one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum IgG is normal or reduced; IgM and IgA are usually normal, so this is a partial rather than a global hypogammaglobulinaemia, which is why the binding is the IgG-specific term rather than the general immunoglobulin one.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004315\"}}, {\"id\": \"Decreased total CD8+ T cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining laboratory abnormality, present in essentially all patients and the single finding most likely to lead to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:5210426\"}}, {\"id\": \"Defective T-Dependent Antibody Responses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B cells are present in normal numbers and serum IgM and IgA are usually normal, but specific antibody responses to protein and polysaccharide antigens fail in a majority of patients, and IgG is normal or reduced. The humoral defect is therefore functional rather than quantitative, which is why immunoglobulin replacement is offered even to patients whose total IgG looks acceptable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous involvement covers a range \\u2014 eczematous rash, erythroderma, ichthyosis, pustular lesions \\u2014 and is the second commonest presenting feature. Skin infiltration by dysfunctional CD4 T cells has been described, often with raised IgE and eosinophilia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Failure of TCR-Proximal Signal Propagation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without ZAP-70 the phosphorylated CD3 and zeta ITAMs have nothing to recruit, so the adaptors LAT and SLP-76 are never phosphorylated and the signalosome that would carry the signal onward is never assembled. In patient T cells this reads out as markedly reduced tyrosine phosphorylation, no interleukin-2, and no proliferation to receptor stimulation \\u2014 with the cells otherwise present and normal in number.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alpha-beta T cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth failure in infancy, driven by the combination of recurrent infection and enteropathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Functional Anergy of Peripheral CD4 T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4 T cells are present in normal or elevated numbers and are functionally inert: they fail to flux calcium, make interleukin-2, or proliferate in response to receptor engagement or mitogen. This is the half of the disease a cell count misses, and it is why the mitogen proliferation assay is a first-line rather than a confirmatory test.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell activation\", \"T cell proliferation\"]}}, {\"id\": \"Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational only, with no clinical application in this disease. The preclinical work is unusual in targeting the thymus directly rather than the stem cell compartment: intrathymic AAV delivery of ZAP70 into Zap70-null mice restores thymic architecture and produces gene-corrected peripheral T cells that persist for months, and intrathymic injection of wild-type progenitors reconstitutes those mice faster and with fewer cells than intravenous delivery. Both remain mouse results.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the lymphoproliferative arm, usually alongside splenomegaly and lymphadenopathy rather than in isolation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given for the functional antibody defect, which is present even in patients whose total IgG is normal. Several patients in the long-term transplant series were able to stop it once specific antibody responses returned after engraftment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined loss of cytotoxic CD8 cells and functional CD4 help leaves patients open to the pathogens that cellular immunity normally handles: Pneumocystis jirovecii, Candida, CMV, varicella, and \\u2014 where BCG is given before diagnosis \\u2014 disseminated BCG disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a cytotoxic CD8 compartment, EBV-infected B cells are not cleared, and a minority of patients develop EBV-driven lymphoproliferation or lymphoma. This is a downstream branch of the CD8 deficit rather than an independent tumour-suppressor lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta cytotoxic T cell\"]}}, {\"id\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive thymocytes that a normal signal would delete survive selection, in a thymus simultaneously producing too few regulatory T cells to contain them afterwards. Both halves are thymic events, which is why this node is scoped to the thymus rather than to tolerance in general. The human evidence is an association between residual-function alleles and the dysregulation-predominant presentation; the mechanistic dissection is in mouse hypomorphs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"negative thymic T cell selection\"], \"locations\": [\"thymus\"], \"animal_models\": [{\"name\": \"Zap70 YYAA knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 Y315A/Y319A knock-in (YYAA)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the tolerance failure that attenuated ZAP-70 signalling produces, including the regulatory T-cell deficit.\"}]}}, {\"id\": \"Impaired T-cell proliferative response to mitogens\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lymphocyte proliferation to phytohaemagglutinin, reflecting the receptor-signalling block in the numerically normal CD4 compartment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031381\"}}, {\"id\": \"Impaired specific antibody response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor antibody responses to protein and polysaccharide vaccine antigens despite normal B-cell numbers.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012475\"}}, {\"id\": \"Increased circulating IgE concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised IgE accompanies the atopic and cutaneous end of the spectrum, which GeneReviews names as atopy among the later-onset dysregulated presentations. The pooled cohort reports a median IgE well above the paediatric reference range with a wide spread, so this is a feature of part of the cohort rather than of all of it; no frequency is recorded because the source gives a distribution rather than a proportion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003212\"}}, {\"id\": \"Increased total lymphocyte count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total lymphocyte counts are typically normal or elevated, because the CD4 and B-cell compartments are preserved or expanded even as CD8 T cells are absent. This dissociation \\u2014 a normal-or-raised count masking a profound CD8 defect \\u2014 is the pattern that distinguishes ZAP70 deficiency from classical SCID and the reason TREC-based newborn screening can miss it.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Peripheral CD8 T Cell Lymphopenia\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The total count is preserved by the intact CD4 and B compartments, so a normal-or-raised value sits alongside \\u2014 and masks \\u2014 the CD8 deficit. This dissociation is why TREC-based newborn screening can miss the disease. Recorded as an observational readout rather than a causal edge: losing a lymphocyte subset cannot raise the total, and the cited sentence reports co-occurrence, not causation.\"}], \"term_id\": \"HP:0100827\"}}, {\"id\": \"Infection-Risk Avoidance and Blood Product Precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The GeneReviews \\\"agents and circumstances to avoid\\\" list. These are consequential rather than merely precautionary in this disorder. Live viral vaccines are contraindicated for the infant and for household contacts; blood products must be irradiated, leukoreduced and CMV-safe to avoid transfusion-associated graft-versus-host disease; breastfeeding is withheld until maternal CMV status is known; and construction or soil-disturbance environments are avoided for fungal-exposure risk. Disseminated BCG disease in infants vaccinated before diagnosis is a recurring real-world harm in BCG-endemic settings.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphoproliferation, including lymphadenopathy and hepatosplenomegaly, in roughly a third of reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased malignancy risk, predominantly EBV-associated lymphoproliferative disease and lymphoma, in a minority of patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Peripheral CD8 T Cell Lymphopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The signature laboratory finding: profoundly reduced or absent circulating CD8 T cells against a normal or elevated total lymphocyte count, with normal B and NK numbers. It is present in essentially every patient, and it is the finding that should trigger ZAP70 sequencing. Rare exceptions with near-normal CD8 counts and impaired function are reported, so a normal count does not exclude the diagnosis when function is abnormal.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"animal_models\": [{\"name\": \"Zap70-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Zap70 knockout (zap-70-/-)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not reproduce the selective peripheral CD8 deficit, because it has no mature peripheral T cells of either lineage.\"}]}}, {\"id\": \"Pneumocystis jirovecii pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Opportunistic pneumonia reflecting the cellular immune defect. Reported, but less prominent here than in classical SCID. No frequency is recorded: the cited sources place it qualitatively rather than giving a rate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0020102\"}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The single most frequent individual infection in the pooled cohort, and the reason recurrent respiratory infection dominates the presenting picture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest presenting problem, and together with skin involvement the usual reason a child comes to attention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The other half of the organomegaly seen in the lymphoproliferative arm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"ZAP70 Loss of Kinase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ZAP70 variants remove the kinase from the T-cell receptor cascade. Most reported alleles abolish protein expression or catalytic activity and cluster in the kinase domain, but there is a second, mechanistically distinct class in the C-terminal SH2 domain: R170C and R192W sit in the arginine pocket that docks the kinase onto the phosphorylated TCR zeta chain, so they abolish recruitment rather than catalysis. Preserved protein expression is documented for R170C specifically; R192W was confirmed pathogenic in two siblings without its expression level being reported in the same terms. Both classes reach the same place, a kinase that is not doing its job at the receptor, which is why a normal ZAP-70 protein level on flow cytometry does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"ZAP-70 tyrosine kinase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Zap70 YYAA knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic knock-in in which the interdomain B tyrosines Y315 and Y319 are mutated to alanine, attenuating rather than abolishing signalling. Together with the spontaneous SKG strain it is the model for the tolerance arm of the disease: impaired positive and negative selection, markedly reduced thymic regulatory T cells, and autoantibody production.\"}, {\"id\": \"Zap70-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The standard null model. Thymocyte development arrests at the CD4+CD8+ double-positive stage, so neither lineage matures \\u2014 a more complete block than patients show, and the reason this model is better read as a model of TCR signal-dependent selection than of the human disease\u0027s immunophenotype.\"}], \"edges\": [{\"source\": \"ZAP70 Loss of Kinase Function\", \"target\": \"Attenuated Residual TCR Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypomorphic and docking-defective allele classes reduce rather than abolish the kinase\u0027s contribution, so this edge is the one those alleles take.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZAP70 Loss of Kinase Function\", \"target\": \"Failure of TCR-Proximal Signal Propagation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The kinase is the obligate link between the phosphorylated receptor and its adaptors, so its loss stops the cascade at that step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TCR-Proximal Signal Propagation\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Positive selection reads the strength of the TCR signal, so a cascade that cannot propagate cannot deliver the selecting signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TCR-Proximal Signal Propagation\", \"target\": \"Functional Anergy of Peripheral CD4 T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CD4 cells that escape the thymus carry the same broken cascade, so they are numerically normal and functionally inert.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"target\": \"Peripheral CD8 T Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The peripheral CD8 compartment is filled by thymic export, so a selection block empties it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Decreased total CD8+ T cell count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Defective T-Dependent Antibody Responses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B cells are numerically normal here, so the humoral defect is a failure of T-cell help rather than a B-cell-intrinsic one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Impaired T-cell proliferative response to mitogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Anergy of Peripheral CD4 T Cells\", \"target\": \"Increased circulating IgE concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Attenuated Residual TCR Signaling\", \"target\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Negative selection and thymic regulatory T-cell development read the same signal strength that positive selection does, so a weakened cascade degrades both.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"target\": \"Autoimmunity and Immune Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive clones that survive selection, in a compartment with too few regulatory T cells to restrain them, is the standard route from tolerance failure to autoimmune disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Pneumocystis jirovecii pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"BCGosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"target\": \"Chronic diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Defective T-Dependent Antibody Responses\", \"target\": \"Impaired specific antibody response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Dependent Antibody Responses\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cytotoxic Surveillance of Virus-Infected Cells\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-infectious cutaneous disease in this disorder is part of the dysregulation arm rather than an infectious complication; skin infiltration by dysfunctional CD4 T cells is the described route.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmunity and Immune Dysregulation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"BCG vaccination before diagnosis\", \"target\": \"BCGosis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Administration of the live vaccine strain is the exposure that produces disseminated BCG disease in an infant who cannot contain it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"ZAP70 Loss of Kinase Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Defective T-Dependent Antibody Responses\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Infection-Risk Avoidance and Blood Product Precautions\", \"target\": \"Impaired Cellular Immunity Against Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene Therapy\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zap70-null mouse\", \"target\": \"Block of CD8 Single-Positive Thymocyte Selection\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the thymic selection block and its dependence on ZAP-70, but not its lineage selectivity.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The block extends to the CD4 lineage, which is spared in patients. Mouse thymocytes express much less SYK than human thymocytes, so the paralogue cannot carry the lower CD4 threshold; the model therefore reports a complete developmental arrest where the human disease produces a selective CD8 deficit with an intact, dysfunctional CD4 compartment.\"}, {\"source\": \"Zap70-null mouse\", \"target\": \"Peripheral CD8 T Cell Lymphopenia\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not reproduce the selective peripheral CD8 deficit, because it has no mature peripheral T cells of either lineage.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The species difference is the point rather than an incidental caveat: insufficient Syk expression in mouse thymocytes converts a lineage-selective human deficit into a complete arrest. A study reading peripheral T-cell subsets off this model would misdescribe the human immunophenotype.\"}, {\"source\": \"Zap70 YYAA knock-in mouse\", \"target\": \"Impaired Negative Selection and Thymic Regulatory T Cell Output\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the tolerance failure that attenuated ZAP-70 signalling produces, including the regulatory T-cell deficit.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Autoantibody reactivity does not progress to overt autoimmune disease in this strain, whereas the SKG strain on the same axis develops arthritis, so the model separates reactivity from disease rather than modelling the human autoimmune presentation end to end. The specific autoimmune manifestations differ from those reported in patients.\"}, {\"source\": \"Peripheral CD8 T Cell Lymphopenia\", \"target\": \"Increased total lymphocyte count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The total count is preserved by the intact CD4 and B compartments, so a normal-or-raised value sits alongside \\u2014 and masks \\u2014 the CD8 deficit. This dissociation is why TREC-based newborn screening can miss the disease. Recorded as an observational readout rather than a causal edge: losing a lymphocyte subset cannot raise the total, and the cited sentence reports co-occurrence, not causation.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6461,25 +6535,23 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">17</span>
+                <span class="card-count">18</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6489,8 +6561,156 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-cd8-t-cell-count" data-dismech-node="Decreased total CD8+ T cell count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased total CD8+ T cell count
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:5210426</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The predominant immunologic phenotype was low CD8+ T cell counts (97.9%)."</div>
+
+
+                <div class="evidence-explanation">Gives the frequency of the finding across 49 pooled patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-total-lymphocyte-count" data-dismech-node="Increased total lymphocyte count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased total lymphocyte count
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100827</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased total lymphocyte count (HP:0100827). HP:0100827 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with ZAP-70 deficiency often present with normal to elevated numbers of circulating lymphocytes, including B cells, CD3+, and CD4+ T cells, but an absence of CD8+ T cells in the peripheral blood."</div>
+
+
+                <div class="evidence-explanation">States that total lymphocyte counts run normal to elevated despite the absent CD8 compartment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-t-cell-proliferative-response-to-mitogens" data-dismech-node="Impaired T-cell proliferative response to mitogens" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6510,15 +6730,18 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0031381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031381). HP:0031381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6565,77 +6788,6 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response" data-dismech-node="Impaired specific antibody response" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired specific antibody response
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012475</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired specific antibody response (HP:0012475). HP:0012475 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Immunologic profiling showed defective antibody production (57%) and decreased lymphocyte responses to mitogenic stimuli such as phytohemagglutinin (PHA) (95%)."</div>
-
-
-                <div class="evidence-explanation">Reports defective antibody production in 57% of pooled patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-immunoglobulin-concentration" data-dismech-node="Decreased circulating immunoglobulin concentration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased circulating immunoglobulin concentration
@@ -6654,15 +6806,18 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IgG concentration (HP:0004315). HP:0004315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6748,15 +6903,18 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003212</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003212</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6855,15 +7013,18 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6926,15 +7087,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7006,15 +7170,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7077,15 +7244,18 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7138,8 +7308,82 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response" data-dismech-node="Impaired specific antibody response" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired specific antibody response
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012475</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired specific antibody response (HP:0012475). HP:0012475 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Immunologic profiling showed defective antibody production (57%) and decreased lymphocyte responses to mitogenic stimuli such as phytohemagglutinin (PHA) (95%)."</div>
+
+
+                <div class="evidence-explanation">Reports defective antibody production in 57% of pooled patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7157,15 +7401,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7253,15 +7500,18 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7324,15 +7574,18 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7393,15 +7646,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0020102</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0020102</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:0020102 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7489,15 +7745,18 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7560,15 +7819,18 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020087" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0020087</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020087" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0020087</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is BCGosis (HP:0020087). HP:0020087 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7640,15 +7902,18 @@ This clinical feature is BCGosis (HP:0020087). HP:0020087 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7720,15 +7985,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7802,86 +8070,6 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-cd8-t-cell-count" data-dismech-node="Decreased total CD8+ T cell count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased total CD8+ T cell count
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:5210426</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The predominant immunologic phenotype was low CD8+ T cell counts (97.9%)."</div>
-
-
-                <div class="evidence-explanation">Gives the frequency of the finding across 49 pooled patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -7935,10 +8123,10 @@ This clinical feature is Decreased total CD8+ T cell count (HP:5210426). HP:5210
                         Gene: ZAP70
 
 
-    <a href="https://bioregistry.io/hgnc:12858" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:12858</a>
+    <a href="https://bioregistry.io/hgnc:12858" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:12858</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ZAP70 (hgnc:12858). hgnc:12858 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7950,6 +8138,9 @@ This disease-associated gene is ZAP70 (hgnc:12858). hgnc:12858 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8061,10 +8252,10 @@ This disease-associated gene is ZAP70 (hgnc:12858). hgnc:12858 is a gene from th
                         Gene: SYK
 
 
-    <a href="https://bioregistry.io/hgnc:11491" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11491</a>
+    <a href="https://bioregistry.io/hgnc:11491" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11491</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SYK (hgnc:11491). hgnc:11491 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8076,6 +8267,9 @@ This disease-associated gene is SYK (hgnc:11491). hgnc:11491 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8170,7 +8364,7 @@ This disease-associated gene is SYK (hgnc:11491). hgnc:11491 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">allogeneic haematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">allogeneic haematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is allogeneic haematopoietic stem cell transplantation, annotated with Allogeneic Hematopoietic Stem Cell Transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8206,6 +8400,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8216,6 +8413,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
     </div>
+
+
+
 
 
 
@@ -8343,7 +8543,7 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunoglobulin replacement therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8379,6 +8579,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8389,6 +8592,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -8491,7 +8697,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">anti-infective prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">anti-infective prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anti-infective prophylaxis, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8527,6 +8733,9 @@ This treatment is anti-infective prophylaxis, annotated with Supportive Care (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8537,6 +8746,9 @@ This treatment is anti-infective prophylaxis, annotated with Supportive Care (NC
 
 
     </div>
+
+
+
 
 
 
@@ -8614,7 +8826,7 @@ This treatment is anti-infective prophylaxis, annotated with Supportive Care (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">infection-risk avoidance and blood product precautions<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">infection-risk avoidance and blood product precautions<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is infection-risk avoidance and blood product precautions, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8650,6 +8862,9 @@ This treatment is infection-risk avoidance and blood product precautions, annota
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8660,6 +8875,9 @@ This treatment is infection-risk avoidance and blood product precautions, annota
 
 
     </div>
+
+
+
 
 
 
@@ -8787,7 +9005,7 @@ This treatment is infection-risk avoidance and blood product precautions, annota
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8823,6 +9041,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8833,6 +9054,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8917,7 +9141,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8953,6 +9177,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8963,6 +9190,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -9065,7 +9295,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">post-transplant immune and organ surveillance<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">post-transplant immune and organ surveillance<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is post-transplant immune and organ surveillance, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9101,6 +9331,9 @@ This treatment is post-transplant immune and organ surveillance, annotated with 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9111,6 +9344,9 @@ This treatment is post-transplant immune and organ surveillance, annotated with 
 
 
     </div>
+
+
+
 
 
 
@@ -9170,7 +9406,7 @@ This treatment is post-transplant immune and organ surveillance, annotated with 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9206,6 +9442,9 @@ This treatment is corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9216,6 +9455,9 @@ This treatment is corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -9311,10 +9553,10 @@ This treatment is corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
-                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-44">
+                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-45">
                         exposure to BCG vaccination
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Relation: this environmental factor is this exposure
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Relation: this environmental factor is this exposure
 This environmental factor is exposure to BCG vaccination.</span>
                     </span>
 
@@ -11452,6 +11694,44 @@ phenotypes:
     explanation: &gt;-
       Gives the frequency of the finding across 49 pooled patients.
 - category: Laboratory
+  name: Increased total lymphocyte count
+  description: &gt;-
+    Total lymphocyte counts are typically normal or elevated, because the CD4
+    and B-cell compartments are preserved or expanded even as CD8 T cells are
+    absent. This dissociation — a normal-or-raised count masking a profound
+    CD8 defect — is the pattern that distinguishes ZAP70 deficiency from
+    classical SCID and the reason TREC-based newborn screening can miss it.
+  phenotype_term:
+    preferred_term: Increased total lymphocyte count
+    term:
+      id: HP:0100827
+      label: Increased total lymphocyte count
+  diagnostic: true
+  reports_on:
+  - target: Peripheral CD8 T Cell Lymphopenia
+    relationship: READOUT_OF
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The total count is preserved by the intact CD4 and B compartments, so a
+      normal-or-raised value sits alongside — and masks — the CD8 deficit. This
+      dissociation is why TREC-based newborn screening can miss the disease.
+      Recorded as an observational readout rather than a causal edge: losing a
+      lymphocyte subset cannot raise the total, and the cited sentence reports
+      co-occurrence, not causation.
+  evidence:
+  - reference: PMID:32431715
+    reference_title: &#34;Clinical, Immunological, and Genetic Features in 49 Patients With ZAP-70 Deficiency: A Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Patients with ZAP-70 deficiency often present with normal to elevated
+      numbers of circulating lymphocytes, including B cells, CD3+, and CD4+ T
+      cells, but an absence of CD8+ T cells in the peripheral blood.
+    explanation: &gt;-
+      States that total lymphocyte counts run normal to elevated despite the
+      absent CD8 compartment.
+- category: Laboratory
   name: Impaired T-cell proliferative response to mitogens
   description: &gt;-
     Reduced lymphocyte proliferation to phytohaemagglutinin, reflecting the
@@ -13016,6 +13296,78 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Frequencies here come almost entirely from one systematic review pooling 49 patients from 33 case reports and series, supplemented by a 13-patient single-centre cohort. They describe the published literature and not a population, and the ascertainment is skewed by the Mennonite founder allele and by consanguinity in the reporting centres. Treat every percentage as a literature statistic.
+The combined hypomorphic-and-activating ZAP70 syndrome (OMIM 617006) is kept in differential_diagnoses rather than has_subtypes on purpose. It is a distinct IUIS row with a distinct mechanism — a hyperactive kinase, not an absent one — and the pathophysiology chain in this entry would misdescribe it. The siblings reported in PMID:26783323 are cited only in that differential entry for the same reason.
+No `datasets:` block. This is a deliberate omission rather than an unfinished one. ZAP70 is famous in a second, unrelated context — it is a long-standing prognostic marker in chronic lymphocytic leukaemia — so a gene-keyed search of the expression repositories returns CLL cohorts, which resolve perfectly and are about a different disease. That is the Named Entity Confusion trap the dataset-curation guidance describes, reached through gene search. With 49 patients pooled worldwide there is no disease-specific omics series to find instead, so the block is left out rather than filled with accessions that verify and mislead.
+Corrections applied to the deep-research report for this entry (claude_code, after a recorded fallback from falcon), recorded because most of them are invisible to the tooling that would normally catch them.
+Two HP bindings the report&#39;s own term-validation section flagged as naming a different concept: HP:0005416, offered as &#34;T lymphocytopenia&#34;, is Decreased circulating complement factor B concentration; HP:0004791, offered as &#34;Increased CD4:CD8 ratio&#34;, is Esophageal ulceration. A third, HP:0002846 offered as &#34;Abnormal T cell physiology&#34;, is Abnormal B cell morphology; the validator placed that one in its softer &#34;worth a second look&#34; bucket rather than calling it a different concept, which understates it. None of the three was bound.
+The report gave &#34;HGNC:7535&#34; as the ZAP70 gene id. That is the NCBI Gene id, and HGNC has no record 7535 at all. Gene CURIEs are skipped by the report-side term validator and the KB-side check compares a CURIE only against its own label, so nothing in the pipeline would have caught this; hgnc:12858 was taken from HGNC directly.
+The report described the pooled review&#39;s 32% corticosteroid figure as treatment of autoimmune manifestations. The source sentence says those steroids were given as prophylaxis or to control adverse effects of transplantation. The Corticosteroid Therapy entry records the peri-transplant indication instead and makes no target_mechanisms link to the dysregulation node, because no cited source supports one. The autoimmune arm consequently has no disease-directed treatment in this entry; that is the state of the cited literature, not an omission.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Pre-PR self-review: ZAP70 Deficiency</strong> · 2026-09-09T02:27:10Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ZAP70_Deficiency/2026-09-09T022710Z-claude-code-cd422d.yaml">View source</a></p>
+                        <p class="research-review-text">Adversarial self-review of the entry created earlier in this session, run in a fresh-context subagent against .claude/skills/dismech-pr-review before opening any PR. One critical finding, twelve important, eleven minor; all acted on except one deferred, listed below.
+
+Critical. The differential-diagnosis entry named IL2RG, JAK3 and IL7R under a &#39;T-B+NK+ SCID&#39; label. IL2RG and JAK3 deficiency are T-B+NK-, because the common gamma chain is required for IL-15 signalling and therefore for NK development; only IL7R gives T-B+NK+. The error mattered here specifically because preserved NK cells are one of the discriminators the entry relies on elsewhere. Renamed to &#39;Classical SCID (IL2RG, JAK3, IL7R)&#39; and the description now states the NK phenotypes per gene.
+
+Frequency errors. Chronic diarrhea carried the enteropathy figure (18.4%, OCCASIONAL) rather than the diarrhoea figure the same paper reports separately (50%, FREQUENT). Failure to thrive carried no frequency and was evidenced by a generic sentence about SCID rather than about this disease; it now cites the 43.6% figure. Decreased circulating immunoglobulin now cites the 27.3% figure that supports its OCCASIONAL band.
+
+Ontology fitness, not correctness. Every binding was already the canonical label for its CURIE, but two were one step too broad. GO:0045061 (thymic T cell selection) is the parent of both positive and negative selection and formally subsumed GO:0045060 used on a sibling node; replaced with GO:0045059 (positive thymic T cell selection), which is what the node and its snippet actually claim. HP:0004313 (Decreased circulating immunoglobulin concentration) replaced with HP:0004315 (Decreased circulating IgG concentration), which matches the preferred_term already written and the entry&#39;s own statement that IgM and IgA are normal. NCIT:C201466 replaced with NCIT:C46089 (Allogeneic Hematopoietic Stem Cell Transplantation), an exact match. NCIT:C121331 (Intravenous Immunoglobulin Therapy) had already been replaced with the route-agnostic NCIT:C62710 during curation. GO:0004715 modifier changed from LOSS_OF_FUNCTION to DECREASED: the claim for a null allele is quantitative, GAIN/LOSS_OF_FUNCTION on modifier is unbound, and no KB entry currently co-occurs it with functional_impact_category.
+
+Pathograph. One node bundled two claims and was wired to a state that contradicted its own text: &#39;Loss of Central and Peripheral T Cell Tolerance&#39; asserted central and peripheral tolerance failure plus a Treg deficit, was scoped CELLULAR, bound only a thymic process, and hung DIRECT off complete signal-propagation failure while its description said the mechanism needs attenuated rather than absent signalling. Split: a new MOLECULAR node &#39;Attenuated Residual TCR Signaling&#39; with PARTIAL_LOSS_OF_FUNCTION genetic_context now sits between the lesion and a renamed, thymus-scoped &#39;Impaired Negative Selection and Thymic Regulatory T Cell Output&#39;. Eczematoid dermatitis was an orphan with no incoming edge despite being the second most frequent manifestation; it is now reached from the dysregulation node with its own cited edge.
+
+Phenotype coverage. Added five above or near the 10% threshold, all quotable from the already-cached systematic review: Pneumonia (71.4%), BCGosis (18.4%), Hepatomegaly (19.4%), Splenomegaly (13.9%), and Increased circulating IgE concentration (GeneReviews names atopy; no frequency recorded because the source gives a distribution rather than a proportion).
+
+Sourcing. The TREC blind spot rested on a two-patient incidental observation while the programme-level statement sat unused in a cited cache; both the &#39;&gt;10 year screening experience in the United States&#39; sentence and the mechanism sentence from PMID:37313400 are now cited, in the diagnosis section and in the discussion. The EBV attribution in the cytotoxic-surveillance node was uncited and now quotes the malignancy sentence naming EBV-associated DLBCL. The differential-threshold half of the SYK explanation was asserted three times without a source; PMID:20332428 (TetZap70 inducible mouse) was fetched and cited for it. Homozygosity split, founder allele, GeneReviews 25% recurrence risk and surveillance schedule, and the breastfeeding/CMV precaution are now quoted rather than paraphrased. The IUIS row for OMIM 617006 is quoted, which turns the lump/split decision into a sourced one.
+
+Grading. Six evidence items quoting review-style background sentences from PMID:41080547 (each carrying a trailing citation marker to that paper&#39;s own reference list, and one of them about murine data) were regraded HUMAN_CLINICAL to OTHER. check-snippet-grading would not have caught these, since the file was internally consistent.
+
+Overclaiming. The SYK explanation on the CD8 lymphopenia node said the paper explains why those cells survived; it measures residual signalling, not survival, and the explanation now says so. The R170C/R192W expression claim was generalized from R170C and is now scoped to it. The T-cell-help explanation now names where the normal-B-cell-count observation is cited rather than implying its own snippet carries it.
+
+New content. Post-Transplant Surveillance and Corticosteroid Therapy treatments, and an &#39;Outcome by transplant status&#39; progression phase carrying the mortality comparison and the age-at-transplant finding. The corticosteroid entry is scoped narrowly on purpose: the deep-research report described the pooled review&#39;s 32% figure as treatment of autoimmune manifestations, but the source sentence says those steroids were peri-transplant. The entry records the peri-transplant indication and makes no target_mechanisms link to the dysregulation node. The autoimmune arm therefore has no disease-directed treatment, which is the state of the cited literature.
+
+Register. Eight passages were rewritten from essayistic to knowledge-base register. One in particular asserted a diagnostic dictum (&#39;has ZAP70 deficiency until proven otherwise&#39;) that no cited source makes; it now states what the largest review actually recommends.
+
+Deferred, with reason. No mappings block. mappings.mondo_mappings would be redundant against a disease_term that is already the MONDO term, and the ICD-10-CM code the report supplies would add an ICD10CM binding that leaves cache/icd10cm/hierarchy.csv stale without a 1.2 GB local build to rebuild it. The other identifiers the report gives (OMIM, UMLS, GARD) have no slot in this schema. Left for a follow-up that can rebuild the hierarchy cache.
+
+Also noted: the reviewer flagged that describing HP:0002846 as &#39;flagged as naming a different concept&#39; overstated the report&#39;s own wording, since the validator put it in the softer bucket. The notes block now says so.
+
+Validation after the rework: just validate and just validate-disorders pass with 107/107 snippets verified (up from 82); entity-refs, causal-targets, duplicate-keys, qualifier-terms pass on the file; folded-hyphens, snippet-length, title-snippets, snippet-grading and enum-values pass whole-KB with no new baseline entries. Compliance 89.5% weighted, up from 88.2%.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: ZAP70 Deficiency</strong> · 2026-09-09T02:06:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ZAP70_Deficiency/2026-09-09T020611Z-claude-code-f0f5e7.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/ZAP70_Deficiency.yaml for MONDO:0010023 (combined immunodeficiency due to ZAP70 deficiency) and deleted the corresponding curation stub.
+
+Deep research: requested falcon; EDISON_API_KEY was not configured in this environment, so the run was made with --fallback and claude_code produced the report. The report is committed as research/ZAP70_Deficiency-deep-research-claude_code.md with fell_back/requested_provider/provider_attempts recorded in its frontmatter, plus its own reference- and term-validation sections.
+
+Report validation results acted on: reference validation resolved 18/18 identifiers (confabulation_rate 0.0) with one quote flagged as not found in PMID:8124727 - that quote was a paraphrase and was not reused; the verbatim sentence from the same abstract was used instead. Term validation flagged three HP bindings as naming different concepts (HP:0005416 offered as &#39;T lymphocytopenia&#39; but actually Decreased circulating complement factor B concentration; HP:0004791 offered as &#39;Increased CD4:CD8 ratio&#39; but actually Esophageal ulceration; HP:0002846 offered as &#39;Abnormal T cell physiology&#39; but actually Abnormal B cell morphology). None of the three was bound. The report also offered HGNC:7535 as the ZAP70 gene id, which is the NCBI Gene id rather than an HGNC id; gene CURIEs are skipped by the report-side term validator, so this was caught by resolving the symbol against the HGNC REST API, which returns hgnc:12858. That correction is recorded in the entry&#39;s genetic notes.
+
+GeneReviews baseline: PMID:20301777 exists for this disease, was fetched, tagged GeneReviews in the top-level references block, and used as the phenotype floor and as the source for the agents/circumstances-to-avoid content in the treatment entries.
+
+Named Entity Confusion preflight (just preflight-dr against MONDO:0010023) raised one WARN naming CD4 as a rival gene at 41% of ZAP70 mentions. Judged a false positive: CD4 appears throughout as a T-cell lineage marker, not as a second disease gene, and the OMIM id in the report matches MONDO&#39;s (269840).
+
+Content: 11-node pathophysiology chain from ZAP70 loss of kinase function through the TCR-proximal signalling failure to the lineage-selective CD8 thymic selection block, the peripheral CD8 lymphopenia, the anergic CD4 compartment, and the parallel tolerance-failure branch. 12 phenotypes with frequencies from the 49-patient systematic review (PMID:32431715). Two animal models with modeled_mechanisms links, including a FAILS_TO_RECAPITULATE link for the Zap70-null mouse against peripheral CD8 lymphopenia, and a HUMAN_MODEL_MISMATCH discussion for the SYK-expression species difference that causes it.
+
+Lump/split: curated as DISEASE. The ZAP70 combined hypomorphic-and-activating syndrome (OMIM 617006, PMID:26783323) is placed in differential_diagnoses rather than has_subtypes because it is a separate IUIS row with the opposite mechanism (hyperactive rather than absent kinase); PMID:26783323 is cited only there.
+
+No datasets block, deliberately: ZAP70 is a well-known prognostic marker in chronic lymphocytic leukaemia, so gene-keyed repository search returns CLL cohorts that resolve perfectly and are about a different disease, and there is no disease-specific omics series for a disorder with 49 pooled patients. Reason recorded in the entry notes.
+
+Validation: just validate passed (schema, terms, references) with 82/82 snippets verified against the cached references. check-entity-refs, check-causal-targets, check-duplicate-keys and check-qualifier-terms pass on the file; check-folded-hyphens, check-snippet-length and check-title-snippets pass whole-KB with no new baseline entries. Compliance 88.2% weighted; the residual gap is uncited pathophysiology edges where no source states the causal step, plus the deliberately absent datasets block.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13743,7 +14095,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ZAP70 Deficiency", "mondoId": "MONDO:0010023", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZAP70_Deficiency", "yamlRevision": "ebb7d743646d"};
+        const OS_CONFIG = {"diseaseName": "ZAP70 Deficiency", "mondoId": "MONDO:0010023", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZAP70_Deficiency", "yamlRevision": "293eecbe7df3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

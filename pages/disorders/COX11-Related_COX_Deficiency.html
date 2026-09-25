@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4023,6 +4076,105 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Nuclear-encoded complex IV subunit and assembly factor defects&#34; under category &#34;Disorders of nuclear-encoded oxidative phosphorylation&#34;. COX11 is a nuclear-encoded copper metallochaperone required for metallation of the COX CuB centre. Matches the SCO1 sibling classification.">complex iv subunits and assembly factors</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4055,6 +4207,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cox11-loss-and-defective-copper-delivery-to-the-cub-centre" data-dismech-node="COX11 Loss and Defective Copper Delivery to the CuB Centre" data-dismech-type="pathophysiology">
                 <div class="item-name">COX11 Loss and Defective Copper Delivery to the CuB Centre</div>
+
 
                 <div class="item-desc">Biallelic COX11 variants impair the copper metallochaperone that delivers copper to the CuB centre of the core catalytic subunit COX1, preventing assembly of a functional Complex IV holoenzyme. This lesion is complementary to the SCO1/SCO2 defects, which disrupt CuA metallation of COX2; together they account for the two copper centres of the enzyme.
 </div>
@@ -4184,6 +4337,44 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        COX11 copper metallochaperone activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016531" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016531</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased COX11 copper metallochaperone activity, annotated with copper chaperone activity (GO:0016531). GO:0016531 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4273,6 +4464,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-terminal-electron-transfer-and-atp-synthesis" data-dismech-node="Impaired Terminal Electron Transfer and ATP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Terminal Electron Transfer and ATP Synthesis</div>
 
+
                 <div class="item-desc">Deficient Complex IV blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis and preferentially injuring high-energy neural tissue. In patient fibroblasts the respiration-derived ATP deficit is demonstrable and is partially rescuable by coenzyme Q10 supplementation.
 </div>
 
@@ -4288,11 +4480,11 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4329,11 +4521,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006123</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased mitochondrial electron transport, cytochrome c to oxygen (GO:0006123). GO:0006123 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4363,11 +4555,11 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042775</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased ATP synthesis coupled electron transport, annotated with mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4503,7 +4695,7 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic COX11 variants impair the copper metallochaperone that delivers copper to the CuB centre of the core catalytic subunit COX1, preventing assembly of a functional Complex IV holoenzyme. This lesion is complementary to the SCO1/SCO2 defects, which disrupt CuA metallation of COX2; together they account for the two copper centres of the enzyme.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"copper ion transport\", \"mitochondrial respiratory chain complex IV assembly\"], \"genes\": [\"COX11\"], \"gene_terms\": [{\"label\": \"COX11\", \"id\": \"hgnc:2261\"}]}}, {\"id\": \"COX11 pathogenic variants causing MC4DN23\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COX11\"], \"gene_terms\": [{\"label\": \"COX11\", \"id\": \"hgnc:2261\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile-onset mitochondrial encephalopathy is the defining clinical presentation of COX11-related disease; a later-reported patient showed Leigh-like features.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient Complex IV blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis and preferentially injuring high-energy neural tissue. In patient fibroblasts the respiration-derived ATP deficit is demonstrable and is partially rescuable by coenzyme Q10 supplementation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}], \"edges\": [{\"source\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to metallate the CuB centre of COX1 yields a catalytically deficient Complex IV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in the developing brain produces an infantile-onset mitochondrial encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COX11 pathogenic variants causing MC4DN23\", \"target\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic COX11 variants impair the copper metallochaperone that delivers copper to the CuB centre of the core catalytic subunit COX1, preventing assembly of a functional Complex IV holoenzyme. This lesion is complementary to the SCO1/SCO2 defects, which disrupt CuA metallation of COX2; together they account for the two copper centres of the enzyme.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"copper ion transport\", \"mitochondrial respiratory chain complex IV assembly\"], \"molecular_functions\": [\"COX11 copper metallochaperone activity\"], \"genes\": [\"COX11\"], \"gene_terms\": [{\"label\": \"COX11\", \"id\": \"hgnc:2261\"}]}}, {\"id\": \"COX11 pathogenic variants causing MC4DN23\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COX11\"], \"gene_terms\": [{\"label\": \"COX11\", \"id\": \"hgnc:2261\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile-onset mitochondrial encephalopathy is the defining clinical presentation of COX11-related disease; a later-reported patient showed Leigh-like features.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient Complex IV blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis and preferentially injuring high-energy neural tissue. In patient fibroblasts the respiration-derived ATP deficit is demonstrable and is partially rescuable by coenzyme Q10 supplementation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}], \"edges\": [{\"source\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to metallate the CuB centre of COX1 yields a catalytically deficient Complex IV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in the developing brain produces an infantile-onset mitochondrial encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COX11 pathogenic variants causing MC4DN23\", \"target\": \"COX11 Loss and Defective Copper Delivery to the CuB Centre\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4533,15 +4725,18 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -4642,10 +4837,10 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
                         Gene: COX11
 
 
-    <a href="https://bioregistry.io/hgnc:2261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2261</a>
+    <a href="https://bioregistry.io/hgnc:2261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2261</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COX11 (hgnc:2261). hgnc:2261 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -4653,6 +4848,9 @@ This disease-associated gene is COX11 (hgnc:2261). hgnc:2261 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -4753,7 +4951,7 @@ This disease-associated gene is COX11 (hgnc:2261). hgnc:2261 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -4794,6 +4992,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No curative therapy exists; management is supportive, addressing the encephalopathy and associated neurological features, with physiotherapy and rehabilitation and treatment of any metabolic decompensation.
 </div>
 
@@ -4813,7 +5017,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -4854,16 +5058,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_46245" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-11">CHEBI:46245</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_46245" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:46245</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5047,9 +5257,19 @@ disease_term:
 parents:
 - Mitochondrial Disease
 - Inborn Error of Metabolism
+classifications:
+  icimd_category:
+  - classification_value: complex_iv_subunits_and_assembly_factors
+    notes: &gt;-
+      ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Nuclear-encoded complex IV
+      subunit and assembly factor defects&#34; under category &#34;Disorders of
+      nuclear-encoded oxidative phosphorylation&#34;. COX11 is a nuclear-encoded copper
+      metallochaperone required for metallation of the COX CuB centre. Matches the
+      SCO1 sibling classification.
 pathophysiology:
 - name: COX11 Loss and Defective Copper Delivery to the CuB Centre
   conforms_to: &#34;complex_iv_assembly_deficiency#Complex IV Biogenesis Failure&#34;
+  biological_scale: MOLECULAR
   description: &gt;
     Biallelic COX11 variants impair the copper metallochaperone that delivers
     copper to the CuB centre of the core catalytic subunit COX1, preventing
@@ -5061,6 +5281,12 @@ pathophysiology:
     term:
       id: hgnc:2261
       label: COX11
+  molecular_functions:
+  - preferred_term: COX11 copper metallochaperone activity
+    term:
+      id: GO:0016531
+      label: copper chaperone activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: copper ion transport
     term:
@@ -5091,6 +5317,7 @@ pathophysiology:
     description: Failure to metallate the CuB centre of COX1 yields a catalytically deficient Complex IV.
 - name: Impaired Terminal Electron Transfer and ATP Synthesis
   conforms_to: &#34;complex_iv_assembly_deficiency#Impaired Terminal Electron Transfer and ATP Synthesis&#34;
+  biological_scale: CELLULAR
   description: &gt;
     Deficient Complex IV blocks electron transfer from cytochrome c to oxygen
     and proton pumping, collapsing oxidative ATP synthesis and preferentially
@@ -5289,7 +5516,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COX11-Related COX Deficiency", "mondoId": "MONDO:0859520", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COX11-Related_COX_Deficiency", "yamlRevision": "61b006d9b18e"};
+        const OS_CONFIG = {"diseaseName": "COX11-Related COX Deficiency", "mondoId": "MONDO:0859520", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COX11-Related_COX_Deficiency", "yamlRevision": "2e568cd3c84f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

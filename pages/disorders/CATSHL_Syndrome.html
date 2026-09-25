@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4658,6 +4711,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr3-kinase-domain-loss-of-function" data-dismech-node="FGFR3 Kinase-Domain Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">FGFR3 Kinase-Domain Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A germline missense substitution in the FGFR3 tyrosine kinase domain reduces receptor kinase activity. The recurrent dominant allele replaces Arg621 in the catalytic loop, the residue that positions the transferred phosphate and is invariant across the tyrosine kinase superfamily; the recessive allele replaces Thr546 elsewhere in the same domain. The dominant alleles are unlikely to act by haploinsufficiency - the original authors give three reasons, of which the strongest is that heterozygous Fgfr3-null mice are normal - and a dominant-negative heterodimer with the wild-type receptor is the proposed alternative. That proposal has not been tested biochemically in a CATSHL allele, so the entry treats the direction of effect as established and the dominant-negative mechanism as the working model rather than a finding.</div>
 
 
@@ -4754,6 +4814,8 @@ This genetic context concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4769,6 +4831,9 @@ This genetic context concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Describes the two dominant Arg621 alleles, which is the common genotype. PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION because the founding report describes the substitution as causing partial loss of FGFR3 function, and DOMINANT_NEGATIVE is deliberately not used even though it is the proposed mechanism - it has never been demonstrated, which is what the catshl_dominant_negative_untested discussion is about. The p.Thr546Lys allele is homozygous and is not covered by this block; its zygosity is recorded on the variant and in the inheritance section.</div>
@@ -4943,6 +5008,13 @@ This pathophysiological event involves decreased fibroblast growth factor recept
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mapk-erk-output-in-growth-plate-chondrocytes" data-dismech-node="Reduced MAPK/ERK Output in Growth Plate Chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced MAPK/ERK Output in Growth Plate Chondrocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In the proliferative and prehypertrophic growth plate, ligand-activated FGFR3 signals through MAPK/ERK to inhibit chondrocyte proliferation and hypertrophic differentiation. This is the step that makes FGFR3 a negative regulator of bone growth, and it is what a loss-of-function allele removes. The direction is the point: every other FGFR3 skeletal disorder in this knowledge base sits at the opposite end of the same axis.</div>
 
@@ -5161,6 +5233,13 @@ This pathophysiological event involves decreased ERK1 and ERK2 cascade (GO:00703
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepressed-indian-hedgehog-signaling" data-dismech-node="Derepressed Indian Hedgehog Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepressed Indian Hedgehog Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of FGFR3 raises Indian hedgehog expression in growth-plate cartilage, and inhibiting hedgehog signaling reduces the resulting lesions. The confidence is PROVISIONAL rather than established because the whole of this arm rests on mouse and zebrafish work; no CATSHL patient tissue has been examined for hedgehog pathway activity, and the human disease has not been shown to run through this step.</div>
 
 
@@ -5334,6 +5413,13 @@ This pathophysiological event involves increased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disinhibited-chondrocyte-proliferation-and-hypertrophy" data-dismech-node="Disinhibited Chondrocyte Proliferation and Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Disinhibited Chondrocyte Proliferation and Hypertrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without the FGFR3 brake, the proliferative and hypertrophic zones of the growth plate expand and chondrocytes continue to divide and enlarge for longer than they should. This is the cellular event that converts a receptor defect into extra bone length.</div>
 
@@ -5512,6 +5598,13 @@ This pathophysiological event involves increased growth plate cartilage chondroc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endochondral-bone-and-vertebral-overgrowth" data-dismech-node="Endochondral Bone and Vertebral Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Endochondral Bone and Vertebral Overgrowth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Extra growth-plate output lengthens the long bones and the vertebral bodies. Only bones formed by endochondral ossification are affected, which is why the radiographic signature is tall vertebral bodies and long tubular shafts rather than a generalized bone abnormality. Overlong vertebral bodies are also the mechanical origin of the scoliosis, so the spinal deformity is a consequence of the overgrowth rather than an independent feature.</div>
 
@@ -5722,6 +5815,13 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chondroma-like-lesion-formation" data-dismech-node="Chondroma-like Lesion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chondroma-like Lesion Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Disordered growth plates lacking FGFR3 generate enchondroma- and osteochondroma-like cartilage lesions in mice. Several members of the Utah pedigree had a solitary osteochondroma of the femur, tibia or a phalanx, which is the human observation this node is anchored to. The link between the two is not established: the human lesions are solitary and were not examined for hedgehog activity, while the mouse lesions are multiple and mechanistically dissected, so the node records a plausible correspondence rather than a demonstrated one.</div>
 
 
@@ -5831,6 +5931,13 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cochlear-pillar-cell-differentiation" data-dismech-node="Failure of Cochlear Pillar Cell Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cochlear Pillar Cell Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">FGFR3 is expressed in the cochlear supporting cells that become pillar cells, and losing it prevents pillar cell differentiation and tunnel of Corti formation, producing sensorineural deafness with a structurally normal middle and inner ear on imaging. This explains an otherwise puzzling feature of the clinical picture: the hearing loss is sensorineural and profound while CT and MRI are normal, because the defect is at the level of cell identity within the organ of Corti rather than of gross morphogenesis.</div>
 
@@ -6057,7 +6164,7 @@ This pathophysiological event occurs in organ of Corti, annotated with spiral or
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional model that isolates the cartilage compartment and shows what the loss does after birth rather than during development.\"}, {\"id\": \"Chondroma-like Lesion Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered growth plates lacking FGFR3 generate enchondroma- and osteochondroma-like cartilage lesions in mice. Several members of the Utah pedigree had a solitary osteochondroma of the femur, tibia or a phalanx, which is the human observation this node is anchored to. The link between the two is not established: the human lesions are solitary and were not examined for hedgehog activity, while the mouse lesions are multiple and mechanistically dissected, so the node records a plausible correspondence rather than a demonstrated one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Postnatal chondrocyte-specific Fgfr3 conditional deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Multiple enchondroma- and osteochondroma-like lesions adjacent to disordered growth plates, with reduced ERK and raised IHH, and fewer lesions when hedgehog signaling is blocked.\"}]}}, {\"id\": \"Derepressed Indian Hedgehog Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FGFR3 raises Indian hedgehog expression in growth-plate cartilage, and inhibiting hedgehog signaling reduces the resulting lesions. The confidence is PROVISIONAL rather than established because the whole of this arm rests on mouse and zebrafish work; no CATSHL patient tissue has been examined for hedgehog pathway activity, and the human disease has not been shown to run through this step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"smoothened signaling pathway\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Postnatal chondrocyte-specific Fgfr3 conditional deletion\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is where the raised IHH and lowered ERK were actually measured.\"}, {\"name\": \"fgfr3 knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"CRISPR/Cas9 fgfr3 frameshift, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Confirms raised IHH in a second species and adds canonical Wnt/beta-catenin as a parallel derepressed pathway, with partial phenotypic rescue by a Wnt inhibitor.\"}]}}, {\"id\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without the FGFR3 brake, the proliferative and hypertrophic zones of the growth plate expand and chondrocytes continue to divide and enlarge for longer than they should. This is the cellular event that converts a receptor defect into extra bone length.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Proliferating growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"growth plate cartilage chondrocyte proliferation\"], \"role\": \"central_effector\"}}, {\"id\": \"Endochondral Bone and Vertebral Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extra growth-plate output lengthens the long bones and the vertebral bodies. Only bones formed by endochondral ossification are affected, which is why the radiographic signature is tall vertebral bodies and long tubular shafts rather than a generalized bone abnormality. Overlong vertebral bodies are also the mechanical origin of the scoliosis, so the spinal deformity is a consequence of the overgrowth rather than an independent feature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"endochondral bone growth\"], \"role\": \"consequence\", \"locations\": [\"growth plate cartilage\"], \"animal_models\": [{\"name\": \"Fgfr3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Fgfr3 homozygous targeted disruption\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Skeletal overgrowth of long bones and vertebrae with kyphosis and scoliosis, matching the human radiographic pattern.\"}, {\"name\": \"Spider lamb syndrome sheep\", \"species\": \"Sheep\", \"genotype\": \"Fgfr3 p.Val700Glu, naturally occurring\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous animals have modestly increased long-bone length; homozygotes have elongated limbs, spinal deformity and limb flexion contractures.\"}]}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"FGFR3 Kinase-Domain Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline missense substitution in the FGFR3 tyrosine kinase domain reduces receptor kinase activity. The recurrent dominant allele replaces Arg621 in the catalytic loop, the residue that positions the transferred phosphate and is invariant across the tyrosine kinase superfamily; the recessive allele replaces Thr546 elsewhere in the same domain. The dominant alleles are unlikely to act by haploinsufficiency - the original authors give three reasons, of which the strongest is that heterozygous Fgfr3-null mice are normal - and a dominant-negative heterodimer with the wild-type receptor is the proposed alternative. That proposal has not been tested biochemically in a CATSHL allele, so the entry treats the direction of effect as established and the dominant-negative mechanism as the working model rather than a finding.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"fibroblast growth factor receptor activity\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\", \"modifier\": \"LOSS_OF_FUNCTION\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Failure of Cochlear Pillar Cell Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 is expressed in the cochlear supporting cells that become pillar cells, and losing it prevents pillar cell differentiation and tunnel of Corti formation, producing sensorineural deafness with a structurally normal middle and inner ear on imaging. This explains an otherwise puzzling feature of the clinical picture: the hearing loss is sensorineural and profound while CT and MRI are normal, because the defect is at the level of cell identity within the organ of Corti rather than of gross morphogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear pillar cell\"], \"biological_processes\": [\"inner ear morphogenesis\"], \"role\": \"consequence\", \"locations\": [\"organ of Corti\"], \"animal_models\": [{\"name\": \"Fgfr3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Fgfr3 homozygous targeted disruption\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Pillar cells fail to differentiate and the tunnel of Corti does not form, producing profound deafness - the cellular lesion the human sensorineural hearing loss is attributed to.\"}]}}, {\"id\": \"Fgfr3-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that named the mechanism. Its phenotype was published a decade before the first human family, and the human gene was found precisely because the pedigree recapitulated the mouse.\"}, {\"id\": \"Hearing Amplification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids for the sensorineural loss. No CATSHL-specific audiological outcome data exist; this is standard care for progressive sensorineural hearing loss of any cause.\"}, {\"id\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the proliferative and prehypertrophic growth plate, ligand-activated FGFR3 signals through MAPK/ERK to inhibit chondrocyte proliferation and hypertrophic differentiation. This is the step that makes FGFR3 a negative regulator of bone growth, and it is what a loss-of-function allele removes. The direction is the point: every other FGFR3 skeletal disorder in this knowledge base sits at the opposite end of the same axis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\", \"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"Scoliosis Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction for severe thoracolumbar kyphoscoliosis, one member of the Utah pedigree having roughly 80 degrees of lumbar curvature.\"}, {\"id\": \"Spider lamb syndrome sheep\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Ovine hereditary chondrodysplasia, a naturally occurring sheep disease rather than an engineered model. It is the only spontaneous animal counterpart of CATSHL known, and it arose from a different FGFR3 kinase-domain substitution reached independently of the human alleles.\"}, {\"id\": \"c.1637C\u003eA (p.Thr546Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele in two brothers of consanguineous parents, producing a more severe phenotype than either heterozygous Arg621 allele.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1861C\u003eT (p.Arg621Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second substitution at the same residue, reported in an Italian father and daughter.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1862G\u003eA (p.Arg621His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, heterozygous in all 20 genotyped members of the Utah pedigree and absent from 500 ancestry-matched control chromosomes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"fgfr3 knockout zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built explicitly as a CATSHL model, and the only model that reproduces the craniofacial and microcephaly features the mouse does not.\"}], \"edges\": [{\"source\": \"FGFR3 Kinase-Domain Loss of Function\", \"target\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor kinase activity lowers the inhibitory signal FGFR3 normally sends into the growth plate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR3 Kinase-Domain Loss of Function\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same receptor is required in cochlear supporting cells, so the cochlear arm branches at the receptor rather than downstream of the skeletal pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"target\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MEK inhibition alone raises Ihh expression in Fgfr3-deficient chondrocytes, placing the hedgehog arm downstream of the drop in MAPK output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Derepressed Indian Hedgehog Signaling\", \"target\": \"Chondroma-like Lesion Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scoliosis Surgery\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fgfr3-null mouse\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Skeletal overgrowth of long bones and vertebrae with kyphosis and scoliosis, matching the human radiographic pattern.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse is a complete null while the common human genotype is a heterozygous missense allele on a wild-type background, so the mouse represents a more severe loss of receptor function than the dominant human disease.\"}, {\"source\": \"Fgfr3-null mouse\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Pillar cells fail to differentiate and the tunnel of Corti does not form, producing profound deafness - the cellular lesion the human sensorineural hearing loss is attributed to.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse deafness is static while the human hearing loss is progressive. The original authors read that difference as evidence that residual wild-type FGFR3 in heterozygotes delays rather than prevents the defect, and as a hint that pillar cells need FGFR3 for maintenance as well as formation - neither of which the null mouse can test.\"}, {\"source\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"target\": \"Chondroma-like Lesion Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Multiple enchondroma- and osteochondroma-like lesions adjacent to disordered growth plates, with reduced ERK and raised IHH, and fewer lesions when hedgehog signaling is blocked.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse lesions are multiple and the human lesions solitary, and no CATSHL patient lesion has been examined for ERK or hedgehog activity, so the shared mechanism is inferred from the shared genotype rather than measured in humans.\"}, {\"source\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model is where the raised IHH and lowered ERK were actually measured.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse cartilage only; the equivalent measurement has never been made in human CATSHL tissue.\"}, {\"source\": \"fgfr3 knockout zebrafish\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Confirms raised IHH in a second species and adds canonical Wnt/beta-catenin as a parallel derepressed pathway, with partial phenotypic rescue by a Wnt inhibitor.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Zebrafish skeletal architecture and auditory end organs differ substantially from human, and the rescue was partial. The Wnt arm has not been examined in any mammalian Fgfr3 model, so it is currently a single-species result.\"}, {\"source\": \"Spider lamb syndrome sheep\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous animals have modestly increased long-bone length; homozygotes have elongated limbs, spinal deformity and limb flexion contractures.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The evidence here is a secondary description in the human report rather than the primary sheep literature, and no cochlear phenotype is described, so the hearing arm of the syndrome is untested in this species.\"}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 Kinase-Domain Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1862G\u003eA (p.Arg621His)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1861C\u003eT (p.Arg621Cys)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1637C\u003eA (p.Thr546Lys)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional model that isolates the cartilage compartment and shows what the loss does after birth rather than during development.\"}, {\"id\": \"Chondroma-like Lesion Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered growth plates lacking FGFR3 generate enchondroma- and osteochondroma-like cartilage lesions in mice. Several members of the Utah pedigree had a solitary osteochondroma of the femur, tibia or a phalanx, which is the human observation this node is anchored to. The link between the two is not established: the human lesions are solitary and were not examined for hedgehog activity, while the mouse lesions are multiple and mechanistically dissected, so the node records a plausible correspondence rather than a demonstrated one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Postnatal chondrocyte-specific Fgfr3 conditional deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Multiple enchondroma- and osteochondroma-like lesions adjacent to disordered growth plates, with reduced ERK and raised IHH, and fewer lesions when hedgehog signaling is blocked.\"}]}}, {\"id\": \"Derepressed Indian Hedgehog Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FGFR3 raises Indian hedgehog expression in growth-plate cartilage, and inhibiting hedgehog signaling reduces the resulting lesions. The confidence is PROVISIONAL rather than established because the whole of this arm rests on mouse and zebrafish work; no CATSHL patient tissue has been examined for hedgehog pathway activity, and the human disease has not been shown to run through this step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"smoothened signaling pathway\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Postnatal chondrocyte-specific Fgfr3 conditional deletion\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is where the raised IHH and lowered ERK were actually measured.\"}, {\"name\": \"fgfr3 knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"CRISPR/Cas9 fgfr3 frameshift, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Confirms raised IHH in a second species and adds canonical Wnt/beta-catenin as a parallel derepressed pathway, with partial phenotypic rescue by a Wnt inhibitor.\"}]}}, {\"id\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without the FGFR3 brake, the proliferative and hypertrophic zones of the growth plate expand and chondrocytes continue to divide and enlarge for longer than they should. This is the cellular event that converts a receptor defect into extra bone length.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Proliferating growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"growth plate cartilage chondrocyte proliferation\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Endochondral Bone and Vertebral Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extra growth-plate output lengthens the long bones and the vertebral bodies. Only bones formed by endochondral ossification are affected, which is why the radiographic signature is tall vertebral bodies and long tubular shafts rather than a generalized bone abnormality. Overlong vertebral bodies are also the mechanical origin of the scoliosis, so the spinal deformity is a consequence of the overgrowth rather than an independent feature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"endochondral bone growth\"], \"role\": \"consequence\", \"locations\": [\"growth plate cartilage\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Fgfr3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Fgfr3 homozygous targeted disruption\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Skeletal overgrowth of long bones and vertebrae with kyphosis and scoliosis, matching the human radiographic pattern.\"}, {\"name\": \"Spider lamb syndrome sheep\", \"species\": \"Sheep\", \"genotype\": \"Fgfr3 p.Val700Glu, naturally occurring\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous animals have modestly increased long-bone length; homozygotes have elongated limbs, spinal deformity and limb flexion contractures.\"}]}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"FGFR3 Kinase-Domain Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline missense substitution in the FGFR3 tyrosine kinase domain reduces receptor kinase activity. The recurrent dominant allele replaces Arg621 in the catalytic loop, the residue that positions the transferred phosphate and is invariant across the tyrosine kinase superfamily; the recessive allele replaces Thr546 elsewhere in the same domain. The dominant alleles are unlikely to act by haploinsufficiency - the original authors give three reasons, of which the strongest is that heterozygous Fgfr3-null mice are normal - and a dominant-negative heterodimer with the wild-type receptor is the proposed alternative. That proposal has not been tested biochemically in a CATSHL allele, so the entry treats the direction of effect as established and the dominant-negative mechanism as the working model rather than a finding.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"fibroblast growth factor receptor activity\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\", \"modifier\": \"LOSS_OF_FUNCTION\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of Cochlear Pillar Cell Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 is expressed in the cochlear supporting cells that become pillar cells, and losing it prevents pillar cell differentiation and tunnel of Corti formation, producing sensorineural deafness with a structurally normal middle and inner ear on imaging. This explains an otherwise puzzling feature of the clinical picture: the hearing loss is sensorineural and profound while CT and MRI are normal, because the defect is at the level of cell identity within the organ of Corti rather than of gross morphogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear pillar cell\"], \"biological_processes\": [\"inner ear morphogenesis\"], \"role\": \"consequence\", \"locations\": [\"organ of Corti\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Fgfr3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Fgfr3 homozygous targeted disruption\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Pillar cells fail to differentiate and the tunnel of Corti does not form, producing profound deafness - the cellular lesion the human sensorineural hearing loss is attributed to.\"}]}}, {\"id\": \"Fgfr3-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that named the mechanism. Its phenotype was published a decade before the first human family, and the human gene was found precisely because the pedigree recapitulated the mouse.\"}, {\"id\": \"Hearing Amplification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids for the sensorineural loss. No CATSHL-specific audiological outcome data exist; this is standard care for progressive sensorineural hearing loss of any cause.\"}, {\"id\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the proliferative and prehypertrophic growth plate, ligand-activated FGFR3 signals through MAPK/ERK to inhibit chondrocyte proliferation and hypertrophic differentiation. This is the step that makes FGFR3 a negative regulator of bone growth, and it is what a loss-of-function allele removes. The direction is the point: every other FGFR3 skeletal disorder in this knowledge base sits at the opposite end of the same axis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\", \"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Scoliosis Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction for severe thoracolumbar kyphoscoliosis, one member of the Utah pedigree having roughly 80 degrees of lumbar curvature.\"}, {\"id\": \"Spider lamb syndrome sheep\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Ovine hereditary chondrodysplasia, a naturally occurring sheep disease rather than an engineered model. It is the only spontaneous animal counterpart of CATSHL known, and it arose from a different FGFR3 kinase-domain substitution reached independently of the human alleles.\"}, {\"id\": \"c.1637C\u003eA (p.Thr546Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele in two brothers of consanguineous parents, producing a more severe phenotype than either heterozygous Arg621 allele.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1861C\u003eT (p.Arg621Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second substitution at the same residue, reported in an Italian father and daughter.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1862G\u003eA (p.Arg621His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, heterozygous in all 20 genotyped members of the Utah pedigree and absent from 500 ancestry-matched control chromosomes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"fgfr3 knockout zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built explicitly as a CATSHL model, and the only model that reproduces the craniofacial and microcephaly features the mouse does not.\"}], \"edges\": [{\"source\": \"FGFR3 Kinase-Domain Loss of Function\", \"target\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor kinase activity lowers the inhibitory signal FGFR3 normally sends into the growth plate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR3 Kinase-Domain Loss of Function\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same receptor is required in cochlear supporting cells, so the cochlear arm branches at the receptor rather than downstream of the skeletal pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"target\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MAPK/ERK Output in Growth Plate Chondrocytes\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MEK inhibition alone raises Ihh expression in Fgfr3-deficient chondrocytes, placing the hedgehog arm downstream of the drop in MAPK output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Derepressed Indian Hedgehog Signaling\", \"target\": \"Chondroma-like Lesion Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disinhibited Chondrocyte Proliferation and Hypertrophy\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scoliosis Surgery\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fgfr3-null mouse\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Skeletal overgrowth of long bones and vertebrae with kyphosis and scoliosis, matching the human radiographic pattern.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse is a complete null while the common human genotype is a heterozygous missense allele on a wild-type background, so the mouse represents a more severe loss of receptor function than the dominant human disease.\"}, {\"source\": \"Fgfr3-null mouse\", \"target\": \"Failure of Cochlear Pillar Cell Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Pillar cells fail to differentiate and the tunnel of Corti does not form, producing profound deafness - the cellular lesion the human sensorineural hearing loss is attributed to.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse deafness is static while the human hearing loss is progressive. The original authors read that difference as evidence that residual wild-type FGFR3 in heterozygotes delays rather than prevents the defect, and as a hint that pillar cells need FGFR3 for maintenance as well as formation - neither of which the null mouse can test.\"}, {\"source\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"target\": \"Chondroma-like Lesion Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Multiple enchondroma- and osteochondroma-like lesions adjacent to disordered growth plates, with reduced ERK and raised IHH, and fewer lesions when hedgehog signaling is blocked.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse lesions are multiple and the human lesions solitary, and no CATSHL patient lesion has been examined for ERK or hedgehog activity, so the shared mechanism is inferred from the shared genotype rather than measured in humans.\"}, {\"source\": \"Chondrocyte-specific postnatal Fgfr3 knockout mouse\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model is where the raised IHH and lowered ERK were actually measured.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse cartilage only; the equivalent measurement has never been made in human CATSHL tissue.\"}, {\"source\": \"fgfr3 knockout zebrafish\", \"target\": \"Derepressed Indian Hedgehog Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Confirms raised IHH in a second species and adds canonical Wnt/beta-catenin as a parallel derepressed pathway, with partial phenotypic rescue by a Wnt inhibitor.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Zebrafish skeletal architecture and auditory end organs differ substantially from human, and the rescue was partial. The Wnt arm has not been examined in any mammalian Fgfr3 model, so it is currently a single-species result.\"}, {\"source\": \"Spider lamb syndrome sheep\", \"target\": \"Endochondral Bone and Vertebral Overgrowth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous animals have modestly increased long-bone length; homozygotes have elongated limbs, spinal deformity and limb flexion contractures.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The evidence here is a secondary description in the human report rather than the primary sheep literature, and no cochlear phenotype is described, so the hearing arm of the syndrome is untested in this species.\"}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 Kinase-Domain Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1862G\u003eA (p.Arg621His)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1861C\u003eT (p.Arg621Cys)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1637C\u003eA (p.Thr546Lys)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6144,6 +6251,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     </div>
+
+
+
 
 
 
@@ -6252,6 +6362,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6316,6 +6429,9 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6390,6 +6506,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6456,6 +6575,9 @@ This clinical feature is Conical incisor (HP:0011065). HP:0011065 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6539,6 +6661,9 @@ This clinical feature is Camptodactyly of toe (HP:0001836). HP:0001836 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6608,6 +6733,9 @@ This clinical feature is Wide femoral metaphysis (HP:0006417). HP:0006417 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6672,6 +6800,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6757,6 +6888,9 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6821,6 +6955,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6895,6 +7032,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6959,6 +7099,9 @@ This clinical feature is Osteochondroma (HP:0030431). HP:0030431 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7030,6 +7173,9 @@ This clinical feature is Increased vertebral height (HP:0004570). HP:0004570 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7115,6 +7261,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7181,6 +7330,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7261,6 +7413,9 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7379,6 +7534,9 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7426,6 +7584,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
         c.1862G&gt;A (p.Arg621His)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The founding allele, heterozygous in all 20 genotyped members of the Utah pedigree and absent from 500 ancestry-matched control chromosomes.</div>
@@ -7487,6 +7651,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A second substitution at the same residue, reported in an Italian father and daughter.</div>
 
 
@@ -7544,6 +7714,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
         c.1637C&gt;A (p.Thr546Lys)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous allele in two brothers of consanguineous parents, producing a more severe phenotype than either heterozygous Arg621 allele.</div>
@@ -7662,6 +7838,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7672,6 +7851,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -7750,6 +7932,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7760,6 +7945,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7838,6 +8026,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7848,6 +8039,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7900,6 +8094,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10591,6 +10791,24 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Two uncited files in references_cache come from the deep-research report&#39;s own citation-validation pass, not from this entry: DOI_10.1371_journal.pgen.1005214.md, which is the same paper as the cited PMID:26091072 and is kept because the report cites it in DOI form, and DOI_10.1002_dvdy.21026.md, a Dev Dyn paper on excess hair cell development in Fgfr3-null mice that the report cites without an abstract in the cache, so nothing in it was quotable. Every other cached reference in this PR is cited.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: CATSHL Syndrome</strong> · 2026-08-29T19:55:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CATSHL_Syndrome/2026-08-29T195546Z-claude-code-51cd48.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/CATSHL_Syndrome.yaml for camptodactyly-tall stature-scoliosis-hearing loss syndrome, MONDO:0012504. Deep research run with the claude_code provider; the report passed preflight-dr against MONDO:0012504 with FGFR3 mentioned 44 times and matching OMIM 610474. Reference validation of the report flagged one unresolved identifier, a markdown-mangled DOI for the PLOS Genetics chondroma paper; the underlying DOI 10.1371/journal.pgen.1005214 was resolved independently through the PMC ID converter to PMID:26091072 and that PMID was cited instead. Term validation of the report flagged four CURIEs the ontology names as something else entirely, CL:0002261, UBERON:0002391, UBERON:0004674 and UBERON:0002228; none was bound, and the correct terms were looked up directly through OLS. Six references cited, all cached; 58 of 58 snippets verified against the cache. Modelled as an FGFR3 loss-of-function chain with a skeletal arm and a separate cochlear arm branching at the receptor, four animal models including the naturally occurring ovine spider lamb syndrome, and three discussions covering the mouse craniofacial mismatch, the untested dominant-negative mechanism and the bidirectional cochlear failure. No conforms_to against the FGFR gain-of-function module, which is scoped to activating alleles; the reasoning is recorded in notes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

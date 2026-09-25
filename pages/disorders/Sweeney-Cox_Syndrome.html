@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4705,6 +4758,13 @@ If correct, the distinction between this entry and Saethre-Chotzen syndrome is q
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-twist1-glu117-basic-domain-substitution" data-dismech-node="TWIST1 Glu117 Basic-Domain Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">TWIST1 Glu117 Basic-Domain Substitution</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A de novo heterozygous missense substitution replaces the conserved glutamic acid at codon 117 of TWIST1. Glu117 lies in the basic region of the bHLH domain — the segment that contacts DNA — so the lesion is positioned to disable DNA recognition while leaving the helix-loop-helix dimerisation surface intact. Three substitutions are reported (p.Glu117Val, p.Glu117Gly, p.Glu117Asp), and this codon is untouched among roughly one hundred loss-of-function TWIST1 alleles catalogued in Saethre-Chotzen syndrome, which is the first indication that it is not simply another way of losing the gene.</div>
 
 
@@ -4808,6 +4868,8 @@ This genetic context concerns TWIST1 (hgnc:12428). hgnc:12428 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4823,6 +4885,9 @@ This genetic context concerns TWIST1 (hgnc:12428). hgnc:12428 is a gene from the
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous de novo missense substitutions at Glu117 in the basic DNA-binding domain, acting antimorphically on the wild-type allele.</div>
 
@@ -4952,6 +5017,13 @@ This pathophysiological event occurs in frontonasal prominence (UBERON:0004066).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antimorphic-interference-with-twist1-bhlh-complexes" data-dismech-node="Antimorphic Interference with TWIST1 bHLH Complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Antimorphic Interference with TWIST1 bHLH Complexes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">TWIST1 acts as homodimers and as heterodimers with the TCF3, TCF4 and TCF12 E-proteins, and it is the basic region of each partner that grips the E-box. Substituting Glu117 alters a DNA-contacting residue while leaving the helix-loop-helix dimerisation surface untouched, so the expected consequence is a subunit that still enters complexes but cannot read their targets. The genetic evidence supports that reading: engineering the five human alleles into the equivalent Glu29 residue of hlh-8, the single Twist homolog in Caenorhabditis elegans, produced a graded severity series rather than a simple null, and the analysis favours a predominantly dominant-negative mechanism.
 Two caveats belong on this node. The dimerisation-retained, DNA-binding-lost model is inferred from where the residue sits in the domain — no biochemistry on the human Glu117 protein has been reported, so it is not known directly whether these subunits still dimerise or still occupy chromatin. And &#34;predominantly&#34; is the source&#39;s own word: the C. elegans series does not exclude a partial loss-of-function component.
@@ -5204,6 +5276,13 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-twist1-dependent-frontonasal-ectomesenchyme-programme" data-dismech-node="Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">TWIST1 is expressed in migratory cranial neural crest and maintained in the crest-derived mesenchyme of the frontonasal prominence, where it switches on the ectomesenchyme programme. In mouse, neural-crest-specific inactivation of Twist1 disrupts frontonasal development and fails to activate Alx1, Alx3 and Alx4 in the frontonasal prominence; Twist1 occupies a conserved element in a distal Alx1 enhancer and drives Alx1 reporter expression specifically in periocular and frontonasal mesenchyme. Deleting that enhancer alone reproduces frontonasal and ocular defects.
 Curated as PROVISIONAL: the enhancer and target-gene work is mouse conditional-knockout and reporter biology, so it establishes what TWIST1 does in this tissue, not that a human Glu117 allele acts through this particular enhancer. The inference from an antimorphic allele to this specific regulatory step has not been made in patient tissue.</div>
@@ -5489,6 +5568,13 @@ This pathophysiological event occurs in frontonasal prominence (UBERON:0004066).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-frontonasal-skeletal-deficiency" data-dismech-node="Frontonasal Skeletal Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Frontonasal Skeletal Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Deficient skeletogenic differentiation of frontonasal ectomesenchyme yields the structural core of the syndrome: severe deficiency of the frontal bones, hypoplasia of the nose and facial bones, and the widened interorbital distance that presents clinically as marked hypertelorism.</div>
 
 
@@ -5604,6 +5690,13 @@ This pathophysiological event occurs in nasal bone (UBERON:0001681). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-periocular-mesenchyme-and-eyelid-morphogenesis-failure" data-dismech-node="Periocular Mesenchyme and Eyelid Morphogenesis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Periocular Mesenchyme and Eyelid Morphogenesis Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Eyelid development requires patterned periocular mesenchyme, and the eyelids are the second tissue in which the TWIST1-dependent frontonasal enhancer is active. Clinically this presents as ablepharon or underdevelopment of the eyelids, a feature Sweeney-Cox shares with the TWIST2 Glu75 disorders and which is not part of Saethre-Chotzen syndrome.
 PROVISIONAL because the enhancer evidence establishes TWIST1 activity in periocular mesenchyme but no study has traced a Glu117 allele through eyelid morphogenesis; the causal chain from transcriptional lesion to ablepharon is inferred from tissue overlap.</div>
@@ -5765,7 +5858,7 @@ This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ablepharon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence or severe underdevelopment of the eyelids, reported in the third patient (p.Glu117Asp) rather than in the two index subjects. It is the feature that aligns that patient with the TWIST2 Glu75 disorders, Barber-Say and ablepharon-macrostomia syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011224\"}}, {\"id\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TWIST1 acts as homodimers and as heterodimers with the TCF3, TCF4 and TCF12 E-proteins, and it is the basic region of each partner that grips the E-box. Substituting Glu117 alters a DNA-contacting residue while leaving the helix-loop-helix dimerisation surface untouched, so the expected consequence is a subunit that still enters complexes but cannot read their targets. The genetic evidence supports that reading: engineering the five human alleles into the equivalent Glu29 residue of hlh-8, the single Twist homolog in Caenorhabditis elegans, produced a graded severity series rather than a simple null, and the analysis favours a predominantly dominant-negative mechanism.\\nTwo caveats belong on this node. The dimerisation-retained, DNA-binding-lost model is inferred from where the residue sits in the domain \\u2014 no biochemistry on the human Glu117 protein has been reported, so it is not known directly whether these subunits still dimerise or still occupy chromatin. And \\\"predominantly\\\" is the source\u0027s own word: the C. elegans series does not exclude a partial loss-of-function component.\\nWhat is established is that this step is where Sweeney-Cox parts from Saethre-Chotzen. Reducing TWIST1 to one functional copy leaves the remaining protein competent; an antimorphic allele does not.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"E-box binding\", \"protein dimerization activity\", \"DNA-binding transcription factor activity\"], \"animal_models\": [{\"name\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"hlh-8 Glu29 substitutions equivalent to the five human TWIST1/TWIST2 disease alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the antimorphic behaviour of the substitutions in a single-Twist genetic background, where dominant-negative action can be separated from loss of dosage.\"}]}}, {\"id\": \"Asplenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001746\"}}, {\"id\": \"Corneal Protection for Eyelid Coloboma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ocular surface protection is the management step with the clearest preventable-harm argument in this syndrome, because the curated eyelid phenotypes leave the cornea exposed. Reported practice in large neonatal upper eyelid coloboma escalates from lubrication and a moisture chamber to a customised scleral contact lens, which can maintain ocular surface health long enough for eyelid tissue to grow before oculoplastic reconstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TWIST1 is expressed in migratory cranial neural crest and maintained in the crest-derived mesenchyme of the frontonasal prominence, where it switches on the ectomesenchyme programme. In mouse, neural-crest-specific inactivation of Twist1 disrupts frontonasal development and fails to activate Alx1, Alx3 and Alx4 in the frontonasal prominence; Twist1 occupies a conserved element in a distal Alx1 enhancer and drives Alx1 reporter expression specifically in periocular and frontonasal mesenchyme. Deleting that enhancer alone reproduces frontonasal and ocular defects.\\nCurated as PROVISIONAL: the enhancer and target-gene work is mouse conditional-knockout and reporter biology, so it establishes what TWIST1 does in this tissue, not that a human Glu117 allele acts through this particular enhancer. The inference from an antimorphic allele to this specific regulatory step has not been made in patient tissue.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\", \"embryonic cranial skeleton morphogenesis\"], \"locations\": [\"frontonasal prominence\"], \"animal_models\": [{\"name\": \"Neural-crest conditional Twist1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Twist1 conditional deletion in neural crest cells (Cre-mediated)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the frontonasal and skull vault consequences of losing TWIST1 function in cranial neural crest, including the failure to activate the ectomesenchyme programme in the frontonasal prominence.\"}]}}, {\"id\": \"Frontonasal Skeletal Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient skeletogenic differentiation of frontonasal ectomesenchyme yields the structural core of the syndrome: severe deficiency of the frontal bones, hypoplasia of the nose and facial bones, and the widened interorbital distance that presents clinically as marked hypertelorism.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"frontonasal prominence\", \"tetrapod frontal bone\", \"nasal bone\"]}}, {\"id\": \"Infection Prophylaxis for Asplenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Asplenia is an annotated feature of this syndrome and carries lifelong risk of fulminant infection with encapsulated organisms. Standard paediatric asplenia care is timely vaccination, antibacterial prophylaxis where indicated, and urgent evaluation of febrile episodes. This matters disproportionately here because asplenia in a child ascertained for a craniofacial phenotype can go unrecognised.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neural-crest conditional Twist1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cre-mediated deletion of Twist1 in neural crest cells and their derivatives, used to dissect the requirement for Twist1 in craniofacial skeletal morphogenesis.\"}, {\"id\": \"Periocular Mesenchyme and Eyelid Morphogenesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eyelid development requires patterned periocular mesenchyme, and the eyelids are the second tissue in which the TWIST1-dependent frontonasal enhancer is active. Clinically this presents as ablepharon or underdevelopment of the eyelids, a feature Sweeney-Cox shares with the TWIST2 Glu75 disorders and which is not part of Saethre-Chotzen syndrome.\\nPROVISIONAL because the enhancer evidence establishes TWIST1 activity in periocular mesenchyme but no study has traced a Glu117 allele through eyelid morphogenesis; the causal chain from transcriptional lesion to ablepharon is inferred from tissue overlap.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"eyelid development in camera-type eye\"], \"locations\": [\"periocular mesenchyme\", \"eyelid\"]}}, {\"id\": \"TWIST1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TWIST1\"], \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A de novo heterozygous missense substitution replaces the conserved glutamic acid at codon 117 of TWIST1. Glu117 lies in the basic region of the bHLH domain \\u2014 the segment that contacts DNA \\u2014 so the lesion is positioned to disable DNA recognition while leaving the helix-loop-helix dimerisation surface intact. Three substitutions are reported (p.Glu117Val, p.Glu117Gly, p.Glu117Asp), and this codon is untouched among roughly one hundred loss-of-function TWIST1 alleles catalogued in Saethre-Chotzen syndrome, which is the first indication that it is not simply another way of losing the gene.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"TWIST1\"], \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous de novo missense substitutions at Glu117 in the basic DNA-binding domain, acting antimorphically on the wild-type allele.\", \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}]}, \"locations\": [\"frontonasal prominence\"]}}, {\"id\": \"Upper Eyelid Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of upper eyelid closure. This is the eyelid abnormality carried by the HPO annotation for OMIM:617746, which derives from the two index subjects, and it is the term to prefer when describing the eyelid phenotype of this syndrome in general.\", \"meta\": {\"term_id\": \"HP:0000636\"}}, {\"id\": \"Vaccination Against Encapsulated Organisms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In asplenia, vaccination against encapsulated organisms is the cornerstone of prevention rather than an adjunct to antibiotics, and the cited recommendation names it first. It is curated separately from antibacterial prophylaxis because the two are different modalities with different schedules, and collapsing them into one treatment would lose that.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"All five human disease-associated substitutions \\u2014 the TWIST1 Glu117 and TWIST2 Glu75 alleles \\u2014 were engineered into the equivalent Glu29 residue of hlh-8, the single Twist homolog in C. elegans. The resulting allelic series graded in severity by gene expression and cellular phenotype, which is the evidence base for the dominant-negative model and for ranking the four human syndromes against each other.\"}], \"edges\": [{\"source\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"target\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted basic domain is the direct cause of the mutant protein\u0027s failure to transactivate while remaining incorporated into TWIST1 complexes.\", \"hypothesis_groups\": [\"glu117_interference_dosage_continuum\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"target\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complexes that cannot engage the E-box cannot activate the TWIST1 target genes of the frontonasal prominence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"target\": \"Frontonasal Skeletal Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ectomesenchyme programme in the frontonasal prominence leads to deficient differentiation of the frontal and nasal skeletal elements.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"target\": \"Periocular Mesenchyme and Eyelid Morphogenesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same TWIST1-dependent enhancer activity spans periocular mesenchyme, linking the transcriptional lesion to the eyelid phenotype; the intervening steps in eyelid morphogenesis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Protection for Eyelid Coloboma\", \"target\": \"Upper Eyelid Coloboma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corneal Protection for Eyelid Coloboma\", \"target\": \"Ablepharon\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Infection Prophylaxis for Asplenia\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vaccination Against Encapsulated Organisms\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"target\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the antimorphic behaviour of the substitutions in a single-Twist genetic background, where dominant-negative action can be separated from loss of dosage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"C. elegans has one Twist homolog and no craniofacial skeleton, so the model speaks to the molecular character of the allele and to relative severity, not to the tissue phenotype. The M-lineage cellular readout has no counterpart in cranial neural crest.\"}, {\"source\": \"Neural-crest conditional Twist1 knockout mouse\", \"target\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the frontonasal and skull vault consequences of losing TWIST1 function in cranial neural crest, including the failure to activate the ectomesenchyme programme in the frontonasal prominence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a conditional null, not a Glu117 knock-in, so it models loss of TWIST1 function rather than the antimorphic allele that causes the human disease \\u2014 precisely the distinction that separates Sweeney-Cox from Saethre-Chotzen. Homozygous deletion in the crest lineage is also a more severe lesion than the human heterozygous state.\"}, {\"source\": \"TWIST1\", \"target\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ablepharon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence or severe underdevelopment of the eyelids, reported in the third patient (p.Glu117Asp) rather than in the two index subjects. It is the feature that aligns that patient with the TWIST2 Glu75 disorders, Barber-Say and ablepharon-macrostomia syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011224\"}}, {\"id\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TWIST1 acts as homodimers and as heterodimers with the TCF3, TCF4 and TCF12 E-proteins, and it is the basic region of each partner that grips the E-box. Substituting Glu117 alters a DNA-contacting residue while leaving the helix-loop-helix dimerisation surface untouched, so the expected consequence is a subunit that still enters complexes but cannot read their targets. The genetic evidence supports that reading: engineering the five human alleles into the equivalent Glu29 residue of hlh-8, the single Twist homolog in Caenorhabditis elegans, produced a graded severity series rather than a simple null, and the analysis favours a predominantly dominant-negative mechanism.\\nTwo caveats belong on this node. The dimerisation-retained, DNA-binding-lost model is inferred from where the residue sits in the domain \\u2014 no biochemistry on the human Glu117 protein has been reported, so it is not known directly whether these subunits still dimerise or still occupy chromatin. And \\\"predominantly\\\" is the source\u0027s own word: the C. elegans series does not exclude a partial loss-of-function component.\\nWhat is established is that this step is where Sweeney-Cox parts from Saethre-Chotzen. Reducing TWIST1 to one functional copy leaves the remaining protein competent; an antimorphic allele does not.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"E-box binding\", \"protein dimerization activity\", \"DNA-binding transcription factor activity\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"hlh-8 Glu29 substitutions equivalent to the five human TWIST1/TWIST2 disease alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the antimorphic behaviour of the substitutions in a single-Twist genetic background, where dominant-negative action can be separated from loss of dosage.\"}]}}, {\"id\": \"Asplenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001746\"}}, {\"id\": \"Corneal Protection for Eyelid Coloboma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ocular surface protection is the management step with the clearest preventable-harm argument in this syndrome, because the curated eyelid phenotypes leave the cornea exposed. Reported practice in large neonatal upper eyelid coloboma escalates from lubrication and a moisture chamber to a customised scleral contact lens, which can maintain ocular surface health long enough for eyelid tissue to grow before oculoplastic reconstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TWIST1 is expressed in migratory cranial neural crest and maintained in the crest-derived mesenchyme of the frontonasal prominence, where it switches on the ectomesenchyme programme. In mouse, neural-crest-specific inactivation of Twist1 disrupts frontonasal development and fails to activate Alx1, Alx3 and Alx4 in the frontonasal prominence; Twist1 occupies a conserved element in a distal Alx1 enhancer and drives Alx1 reporter expression specifically in periocular and frontonasal mesenchyme. Deleting that enhancer alone reproduces frontonasal and ocular defects.\\nCurated as PROVISIONAL: the enhancer and target-gene work is mouse conditional-knockout and reporter biology, so it establishes what TWIST1 does in this tissue, not that a human Glu117 allele acts through this particular enhancer. The inference from an antimorphic allele to this specific regulatory step has not been made in patient tissue.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\", \"embryonic cranial skeleton morphogenesis\"], \"locations\": [\"frontonasal prominence\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Neural-crest conditional Twist1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Twist1 conditional deletion in neural crest cells (Cre-mediated)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the frontonasal and skull vault consequences of losing TWIST1 function in cranial neural crest, including the failure to activate the ectomesenchyme programme in the frontonasal prominence.\"}]}}, {\"id\": \"Frontonasal Skeletal Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient skeletogenic differentiation of frontonasal ectomesenchyme yields the structural core of the syndrome: severe deficiency of the frontal bones, hypoplasia of the nose and facial bones, and the widened interorbital distance that presents clinically as marked hypertelorism.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"frontonasal prominence\", \"tetrapod frontal bone\", \"nasal bone\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Infection Prophylaxis for Asplenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Asplenia is an annotated feature of this syndrome and carries lifelong risk of fulminant infection with encapsulated organisms. Standard paediatric asplenia care is timely vaccination, antibacterial prophylaxis where indicated, and urgent evaluation of febrile episodes. This matters disproportionately here because asplenia in a child ascertained for a craniofacial phenotype can go unrecognised.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neural-crest conditional Twist1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cre-mediated deletion of Twist1 in neural crest cells and their derivatives, used to dissect the requirement for Twist1 in craniofacial skeletal morphogenesis.\"}, {\"id\": \"Periocular Mesenchyme and Eyelid Morphogenesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eyelid development requires patterned periocular mesenchyme, and the eyelids are the second tissue in which the TWIST1-dependent frontonasal enhancer is active. Clinically this presents as ablepharon or underdevelopment of the eyelids, a feature Sweeney-Cox shares with the TWIST2 Glu75 disorders and which is not part of Saethre-Chotzen syndrome.\\nPROVISIONAL because the enhancer evidence establishes TWIST1 activity in periocular mesenchyme but no study has traced a Glu117 allele through eyelid morphogenesis; the causal chain from transcriptional lesion to ablepharon is inferred from tissue overlap.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"eyelid development in camera-type eye\"], \"locations\": [\"periocular mesenchyme\", \"eyelid\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"TWIST1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TWIST1\"], \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A de novo heterozygous missense substitution replaces the conserved glutamic acid at codon 117 of TWIST1. Glu117 lies in the basic region of the bHLH domain \\u2014 the segment that contacts DNA \\u2014 so the lesion is positioned to disable DNA recognition while leaving the helix-loop-helix dimerisation surface intact. Three substitutions are reported (p.Glu117Val, p.Glu117Gly, p.Glu117Asp), and this codon is untouched among roughly one hundred loss-of-function TWIST1 alleles catalogued in Saethre-Chotzen syndrome, which is the first indication that it is not simply another way of losing the gene.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"TWIST1\"], \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous de novo missense substitutions at Glu117 in the basic DNA-binding domain, acting antimorphically on the wild-type allele.\", \"gene_terms\": [{\"label\": \"TWIST1\", \"id\": \"hgnc:12428\"}]}, \"locations\": [\"frontonasal prominence\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Upper Eyelid Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of upper eyelid closure. This is the eyelid abnormality carried by the HPO annotation for OMIM:617746, which derives from the two index subjects, and it is the term to prefer when describing the eyelid phenotype of this syndrome in general.\", \"meta\": {\"term_id\": \"HP:0000636\"}}, {\"id\": \"Vaccination Against Encapsulated Organisms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In asplenia, vaccination against encapsulated organisms is the cornerstone of prevention rather than an adjunct to antibiotics, and the cited recommendation names it first. It is curated separately from antibacterial prophylaxis because the two are different modalities with different schedules, and collapsing them into one treatment would lose that.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"All five human disease-associated substitutions \\u2014 the TWIST1 Glu117 and TWIST2 Glu75 alleles \\u2014 were engineered into the equivalent Glu29 residue of hlh-8, the single Twist homolog in C. elegans. The resulting allelic series graded in severity by gene expression and cellular phenotype, which is the evidence base for the dominant-negative model and for ranking the four human syndromes against each other.\"}], \"edges\": [{\"source\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"target\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted basic domain is the direct cause of the mutant protein\u0027s failure to transactivate while remaining incorporated into TWIST1 complexes.\", \"hypothesis_groups\": [\"glu117_interference_dosage_continuum\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"target\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complexes that cannot engage the E-box cannot activate the TWIST1 target genes of the frontonasal prominence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"target\": \"Frontonasal Skeletal Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ectomesenchyme programme in the frontonasal prominence leads to deficient differentiation of the frontal and nasal skeletal elements.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"target\": \"Periocular Mesenchyme and Eyelid Morphogenesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same TWIST1-dependent enhancer activity spans periocular mesenchyme, linking the transcriptional lesion to the eyelid phenotype; the intervening steps in eyelid morphogenesis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Protection for Eyelid Coloboma\", \"target\": \"Upper Eyelid Coloboma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corneal Protection for Eyelid Coloboma\", \"target\": \"Ablepharon\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Infection Prophylaxis for Asplenia\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vaccination Against Encapsulated Organisms\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"hlh-8 Glu29 allelic series (C. elegans)\", \"target\": \"Antimorphic Interference with TWIST1 bHLH Complexes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the antimorphic behaviour of the substitutions in a single-Twist genetic background, where dominant-negative action can be separated from loss of dosage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"C. elegans has one Twist homolog and no craniofacial skeleton, so the model speaks to the molecular character of the allele and to relative severity, not to the tissue phenotype. The M-lineage cellular readout has no counterpart in cranial neural crest.\"}, {\"source\": \"Neural-crest conditional Twist1 knockout mouse\", \"target\": \"Failure of TWIST1-Dependent Frontonasal Ectomesenchyme Programme\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the frontonasal and skull vault consequences of losing TWIST1 function in cranial neural crest, including the failure to activate the ectomesenchyme programme in the frontonasal prominence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a conditional null, not a Glu117 knock-in, so it models loss of TWIST1 function rather than the antimorphic allele that causes the human disease \\u2014 precisely the distinction that separates Sweeney-Cox from Saethre-Chotzen. Homozygous deletion in the crest lineage is also a more severe lesion than the human heterozygous state.\"}, {\"source\": \"TWIST1\", \"target\": \"TWIST1 Glu117 Basic-Domain Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5844,6 +5937,9 @@ This clinical feature is Asplenia (HP:0001746). HP:0001746 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -5909,6 +6005,9 @@ This clinical feature is Patent foramen ovale (HP:0001655), qualified as congeni
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -5972,6 +6071,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643), qualified as con
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -6048,6 +6150,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020), qualified as cong
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6111,6 +6216,9 @@ This clinical feature is Anal atresia (HP:0002023), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -6187,6 +6295,9 @@ This clinical feature is Low-set ears (HP:0000369), qualified as congenital onse
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6250,6 +6361,9 @@ This clinical feature is Crumpled ear (HP:0009901), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -6317,6 +6431,9 @@ This clinical feature is Microtia (HP:0008551), qualified as congenital onset. H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6380,6 +6497,9 @@ This clinical feature is Overfolded helix (HP:0000396), qualified as congenital 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -6447,6 +6567,9 @@ This clinical feature is Cupped ear (HP:0000378), qualified as congenital onset.
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6510,6 +6633,9 @@ This clinical feature is Hearing impairment (HP:0000365), qualified as congenita
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -6577,6 +6703,9 @@ This clinical feature is Uplifted earlobe (HP:0009909), qualified as congenital 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6622,6 +6751,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency basis: this band comes from the source&#39;s qualitative characterisation of the feature, which is the mapping the curation guidance sanctions, and not from a patient count. The 46 HPOA-derived phenotypes in this entry carry no band for the complementary reason - their provenance is a count out of two patients and nothing else. Where a count would suggest a different band, the prose governs and the disagreement is stated. Here the source names hypertelorism among the facial features shared across the whole Glu117/Glu75 group, which reads as near-constant.</div>
@@ -6733,6 +6865,9 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689), qualified as con
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/1 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -6778,6 +6913,9 @@ This clinical feature is Upper eyelid coloboma (HP:0000636). HP:0000636 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which cites PMID:28369379 for every term. Kept distinct from the separate Ablepharon entry below, which is a more severe finding reported in only one patient.</div>
 
 
@@ -6814,6 +6952,9 @@ This clinical feature is Ablepharon (HP:0011224). HP:0011224 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately not the primary eyelid term for this entry. HP:0011224 is absent from the HPO annotation for OMIM:617746, which instead carries HP:0000636 Upper eyelid coloboma from the two index subjects; ablepharon is documented in the later Glu117Asp case report and is graded OCCASIONAL for that reason. Both are curated because they are different severities of the same developmental failure, and collapsing them would either overstate the index phenotype or drop a published finding.</div>
@@ -6891,6 +7032,9 @@ This clinical feature is Hypoplasia of the frontal bone (HP:0005466). HP:0005466
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency basis: this band comes from the source&#39;s qualitative characterisation of the feature, which is the mapping the curation guidance sanctions, and not from a patient count. The 46 HPOA-derived phenotypes in this entry carry no band for the complementary reason - their provenance is a count out of two patients and nothing else. Where a count would suggest a different band, the prose governs and the disagreement is stated. Here the source characterises the syndrome as being defined by severe frontal bone deficiency.</div>
 
 
@@ -6966,6 +7110,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency basis: this band comes from the source&#39;s qualitative characterisation of the feature, which is the mapping the curation guidance sanctions, and not from a patient count. The 46 HPOA-derived phenotypes in this entry carry no band for the complementary reason - their provenance is a count out of two patients and nothing else. Where a count would suggest a different band, the prose governs and the disagreement is stated. Here the source characterises the syndrome as being defined by hypoplasia of the nose and facial bones.</div>
 
 
@@ -7039,6 +7186,9 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency basis: this band comes from the source&#39;s qualitative characterisation of the feature, which is the mapping the curation guidance sanctions, and not from a patient count. The 46 HPOA-derived phenotypes in this entry carry no band for the complementary reason - their provenance is a count out of two patients and nothing else. Where a count would suggest a different band, the prose governs and the disagreement is stated. Here the source states explicitly that craniosynostosis is not a cardinal feature of this syndrome, which is what OCCASIONAL encodes. Note that the raw count runs the other way - one of the three reported patients had bicoronal synostosis, which as a fraction would fall in the FREQUENT band. The qualitative statement is preferred because a denominator of three cannot distinguish 33 percent from 5 percent, and because the source is making a claim about the syndrome rather than tallying its own series.</div>
@@ -7141,6 +7291,9 @@ This clinical feature is Wide anterior fontanel (HP:0000260), qualified as conge
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7204,6 +7357,9 @@ This clinical feature is Velopharyngeal insufficiency (HP:0000220), qualified as
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7271,6 +7427,9 @@ This clinical feature is Prominent metopic ridge (HP:0005487), qualified as cong
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 2/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7334,6 +7493,9 @@ This clinical feature is Micrognathia (HP:0000347), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7401,6 +7563,9 @@ This clinical feature is Median cleft palate (HP:0009099), qualified as congenit
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7464,6 +7629,9 @@ This clinical feature is Short philtrum (HP:0000322), qualified as congenital on
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7531,6 +7699,9 @@ This clinical feature is Choanal atresia (HP:0000453), qualified as congenital o
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7594,6 +7765,9 @@ This clinical feature is Widow&#39;s peak (HP:0000349), qualified as congenital 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7661,6 +7835,9 @@ This clinical feature is Low hanging columella (HP:0009765), qualified as congen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7724,6 +7901,9 @@ This clinical feature is High palate (HP:0000218), qualified as congenital onset
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7791,6 +7971,9 @@ This clinical feature is Short columella (HP:0002000), qualified as congenital o
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7854,6 +8037,9 @@ This clinical feature is Underdeveloped nasal alae (HP:0000430), qualified as co
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -7921,6 +8107,9 @@ This clinical feature is Low anterior hairline (HP:0000294), qualified as congen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -7984,6 +8173,9 @@ This clinical feature is Narrow mouth (HP:0000160), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8051,6 +8243,9 @@ This clinical feature is Broad nasal tip (HP:0000455), qualified as congenital o
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 2/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8114,6 +8309,9 @@ This clinical feature is Broad neck (HP:0000475), qualified as congenital onset.
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8181,6 +8379,9 @@ This clinical feature is Wide nasal bridge (HP:0000431), qualified as congenital
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8246,6 +8447,9 @@ This clinical feature is Flat occiput (HP:0005469), qualified as congenital onse
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8309,6 +8513,9 @@ This clinical feature is Brachycephaly (HP:0000248), qualified as congenital ons
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8385,6 +8592,9 @@ This clinical feature is Generalized hirsutism (HP:0002230), qualified as congen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8448,6 +8658,9 @@ This clinical feature is Small nail (HP:0001792), qualified as congenital onset.
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8524,6 +8737,9 @@ This clinical feature is Long fingers (HP:0100807), qualified as congenital onse
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8587,6 +8803,9 @@ This clinical feature is Short distal phalanx of finger (HP:0009882), qualified 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8654,6 +8873,9 @@ This clinical feature is Bilateral talipes equinovarus (HP:0001776), qualified a
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8717,6 +8939,9 @@ This clinical feature is 2-5 toe syndactyly (HP:0010715), qualified as congenita
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8784,6 +9009,9 @@ This clinical feature is 2-4 finger cutaneous syndactyly (HP:0010709), qualified
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8847,6 +9075,9 @@ This clinical feature is 2-5 finger cutaneous syndactyly (HP:0005650), qualified
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -8923,6 +9154,9 @@ This clinical feature is Short clavicles (HP:0000894), qualified as congenital o
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -8986,6 +9220,9 @@ This clinical feature is Narrow chest (HP:0000774), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -9062,6 +9299,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321), qualified as congen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -9098,6 +9338,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -9132,6 +9375,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 2/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
@@ -9208,6 +9454,9 @@ This clinical feature is Polyhydramnios (HP:0001561), qualified as congenital on
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO disease annotation for OMIM:617746, which records this feature in 1/2 reported individuals and cites PMID:28369379. No evidence item is attached: the cached abstract of that paper does not enumerate the individual malformations, so the annotation database is the provenance and is named here rather than quoted. No frequency band is asserted, because a count out of two patients does not support one.</div>
 
 
@@ -9234,6 +9483,9 @@ This clinical feature is Polyhydramnios (HP:0001561), qualified as congenital on
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left unbound. HPO has no term for this finding: HP:0000293 Full cheeks describes generalised cheek fullness, not localised pads at the oral commissures, and binding it would assert a different phenotype. Per the dismech-terms rule that no term beats a bad one, this is curated as free text in preferred_term with no term.</div>
@@ -9352,6 +9604,9 @@ This disease-associated gene is TWIST1 (hgnc:12428). hgnc:12428 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 
@@ -9508,6 +9763,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9518,6 +9776,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9653,6 +9914,9 @@ This treatment is Antibiotic Prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9663,6 +9927,9 @@ This treatment is Antibiotic Prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9781,6 +10048,9 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9791,6 +10061,9 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -12830,6 +13103,51 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response: expand phenotypes from HPOA, resolve eyelid term</strong> · 2026-08-29T03:12:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sweeney-Cox_Syndrome/2026-08-29T031211Z-claude-code-eff3a6.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #9996.
+
+Blocking item 1, phenotype coverage. The reviewer was right and the original reasoning was wrong. The first pass curated 5 phenotypes and recorded the omission of the rest as a source-availability constraint, on the grounds that the index paper is cached abstract-only and does not enumerate the malformations. But Phenotype.evidence is not schema-required, and recording HPO annotation provenance in notes is attribution rather than a fabricated quote. The full HPO disease annotation for OMIM:617746 was fetched directly from the ontology.jax.org API rather than taken from the deep-research report, and 47 additional phenotypes were curated from it across eleven organ systems, each carrying a notes line naming HPOA as the provenance and no evidence item. Frequencies were not assigned to these, because the API returns none and guessing them is what the frequency-mapping guidance forbids. The Inheritance and Clinical course categories were skipped as already modelled elsewhere in the entry.
+
+Blocking item 2, the ablepharon term. The reviewer&#39;s doubt was well founded and the authoritative check confirmed it: HP:0011224 Ablepharon is absent from the HPO annotation for OMIM:617746, which instead carries HP:0000636 Upper eyelid coloboma. The resolution is not a swap. Upper eyelid coloboma is now curated as the primary eyelid term from HPOA, describing the two index subjects, and Ablepharon is retained as a separate OCCASIONAL entry because it is explicitly documented in the later Glu117Asp case report. Both notes say why the entry carries two eyelid terms rather than one.
+
+Non-blocking items taken up. Two treatments were added, both explicitly phenotype-directed rather than disease-directed and graded PARTIAL, with notes saying so: corneal protection for the eyelid phenotypes, and infection prophylaxis for the curated asplenia annotation. The knowledge-gap discussion that previously said the treatments section was deliberately empty was rewritten to state the remaining gap accurately. The ClinVar nomenclature discrepancy is recorded in the genetic notes, with the published c.351C&gt;G left uncorrected inside the evidence snippet. UBERON:0004017 periocular mesenchyme was added to the fifth pathophysiology node. The craniosynostosis phenotype was renamed Coronal Craniosynostosis to match the breadth of HP:0004440, which broke a foreign key in a discussion attaches_to; that was caught by check-entity-refs and fixed. The cranial-neural-crest EMT thread was added as PARTIAL evidence from the cached PMID:35781329, and a mechanistic_hypotheses group, glu117_interference_dosage_continuum, was added with status EMERGING and wired to the first causal edge and to the Saethre-Chotzen boundary discussion.
+
+One suggestion was not taken. No modifier was set on GO:0046983 protein dimerization activity. The claim is that dimerisation is retained, and ModifierEnum has no value meaning unchanged; INCREASED, DECREASED, ABNORMAL and the rest would all assert something the sources do not support. The node description states the retention explicitly instead.
+
+Compliance falls from 86.7 percent to 73.5 percent because the 47 HPOA-derived phenotypes carry no evidence items. That is the intended trade, not a regression.
+
+Revalidated with just validate-disorders, just validate-terms, just count-verified-snippets (40/40), just check-entity-refs, just check-duplicate-keys, just check-snippet-grading, just check-snippet-length, and just check-title-snippets.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Sweeney-Cox_Syndrome</strong> · 2026-08-29T02:43:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sweeney-Cox_Syndrome/2026-08-29T024332Z-claude-code-9d008e.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Sweeney-Cox_Syndrome.yaml (MONDO:0060592, TWIST1 Glu117).
+
+Deep research was requested from falcon; falcon was not configured (no EDISON_API_KEY), so the run was executed with --fallback and the report was produced by claude_code. The substitution is recorded in the report frontmatter as fell_back / requested_provider / provider_attempts rather than described in prose here: research/Sweeney-Cox_Syndrome-deep-research-claude_code.md, 25 citations, 21/21 references verified. The report&#39;s reference_validation set needs_review for one unsupported quote attributed to PMID:40020686; that reference is not cited in this entry. Its term_validation flagged three mislabelled CURIEs, of which NCIT:C15329 and NCIT:C16186 were surgical-procedure terms the report had attached to phenotype labels; none were copied into the entry.
+
+GeneReviews was searched via PubMed for both the disease name and TWIST1. No article exists, so no GeneReviews baseline applies.
+
+Pathophysiology is a five-node chain: the Glu117 basic-domain substitution, antimorphic interference with TWIST1 bHLH complexes, failure of the frontonasal ectomesenchyme programme, and then frontonasal skeletal deficiency and periocular/eyelid morphogenesis failure. functional_impact_category is DOMINANT_NEGATIVE, which is what separates this disorder from Saethre-Chotzen haploinsufficiency; the two entries are deliberately modelled as different lesions in the same gene.
+
+Two animal models are linked into the pathograph: the C. elegans hlh-8 Glu29 allelic series (RECAPITULATES, MODERATE) and the neural-crest conditional Twist1 knockout mouse (PARTIALLY_RECAPITULATES, MODERATE, with a skeletal readout). One dataset, geo:GSE230316, was selected manually from the mechanism literature rather than from gene-name dataset search, because a TWIST1 accession search returns predominantly cancer EMT studies; verified with just verify-datasets.
+
+The ClinGen Craniofacial GCEP Limited gene-disease classification is recorded on the genetic block and graded PARTIAL, since it reflects case count rather than doubt about the mechanism.
+
+Three discussions record open questions: a HUMAN_MODEL_MISMATCH because no model carries both the right allele and the right tissue, a KNOWLEDGE_GAP on the Saethre-Chotzen boundary, and a KNOWLEDGE_GAP on allelic ascertainment bias. Detailed malformations from the index cases were deliberately omitted because they sit in full text not available in the reference cache; the entry says so in its notes rather than curating uncitable phenotypes.
+
+Validated with just validate, just validate-terms, just count-verified-snippets (35/35), just check-entity-refs, just check-duplicate-keys, just verify-datasets, and just validate-disorders.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

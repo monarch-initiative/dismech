@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">defective_skeletal_mineralization</span>
-                <span class="badge badge-count">15 disorders</span>
+                <span class="badge badge-count">16 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -2068,10 +2105,40 @@ Two arms deliberately kept separate. The calciopenic and phosphopenic arms diffe
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">15</span>
+                <span class="card-count">16</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html">Autosomal Recessive Hypophosphatemic Rickets 1</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Chronic Hypophosphatemia → Phosphopenic Substrate Deficiency
+                        
+                        
+                        , 
+                        
+                        Skeletal Mineralization Failure → Impaired Hydroxyapatite Deposition at the Mineralization Front
+                        
+                        
+                        , 
+                        
+                        Growth Plate Hypertrophic Zone Expansion
+                        
+                        
+                        , 
+                        
+                        Rickets and Osteomalacia
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a>
@@ -2266,7 +2333,7 @@ Two arms deliberately kept separate. The calciopenic and phosphopenic arms diffe
                         
                         
                         
-                        Calcitriol-Unresponsive Intestinal Calcium Malabsorption → Calciopenic Substrate Deficiency
+                        Reduced VDR-Dependent Enterocyte Calcium and Phosphate Transport → Calciopenic Substrate Deficiency
                         
                         
                         , 
@@ -2377,11 +2444,13 @@ Two arms deliberately kept separate. The calciopenic and phosphopenic arms diffe
             
             <div class="item-box anchor-target" id="module-pathophysiology-calciopenic-substrate-deficiency" data-dismech-node="Calciopenic Substrate Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Calciopenic Substrate Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Insufficient calcitriol signalling or insufficient dietary calcium reduces active intestinal calcium absorption. The resulting fall in serum calcium drives secondary hyperparathyroidism, and parathyroid hormone in turn increases renal phosphate excretion, so the calciopenic arm ends in a combined calcium and phosphate deficit at the mineralization front. This single node covers nutritional vitamin D deficiency, dietary calcium deficiency, and the hereditary vitamin D-dependent rickets series, which differ only in where the calcitriol axis is interrupted.</div>
                 
@@ -2518,7 +2587,7 @@ This pathophysiological event involves decreased Intestinal Calcium Absorption, 
                         <div class="crosslink-item">
                             <a href="../disorders/Vitamin_D-Dependent_Rickets_Type_2A.html">Vitamin D-Dependent Rickets Type 2A</a>
                             
-                            <span class="crosslink-desc">as Calcitriol-Unresponsive Intestinal Calcium Malabsorption</span>
+                            <span class="crosslink-desc">as Reduced VDR-Dependent Enterocyte Calcium and Phosphate Transport</span>
                             
                         </div>
                         
@@ -2559,11 +2628,13 @@ This pathophysiological event involves decreased Intestinal Calcium Absorption, 
             
             <div class="item-box anchor-target" id="module-pathophysiology-phosphopenic-substrate-deficiency" data-dismech-node="Phosphopenic Substrate Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Phosphopenic Substrate Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Renal phosphate wasting removes the phosphate substrate directly, without an antecedent fall in serum calcium. In the hereditary hypophosphatemic rickets the wasting is FGF23-driven (PHEX loss of function in X-linked hypophosphatemia, FGF23 gain of function in the autosomal dominant form, DMP1 and ENPP1 loss in the autosomal recessive forms) and is compounded by FGF23 suppression of calcitriol synthesis; in tubular disorders the loss is a direct transport defect. Parathyroid hormone is characteristically normal, which is what distinguishes this arm from the calciopenic one at the bedside.</div>
                 
@@ -2640,6 +2711,13 @@ This pathophysiological event involves decreased Phosphate Ion Homeostasis (GO:0
                 <div class="crosslink-block">
                     <div class="crosslink-title">Used by disorders</div>
                     <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html">Autosomal Recessive Hypophosphatemic Rickets 1</a>
+                            
+                            <span class="crosslink-desc">as Chronic Hypophosphatemia</span>
+                            
+                        </div>
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a>
@@ -2720,11 +2798,13 @@ This pathophysiological event involves decreased Phosphate Ion Homeostasis (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-mineralization-inhibitor-excess" data-dismech-node="Mineralization Inhibitor Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Mineralization Inhibitor Excess</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Mineralization can fail with an entirely adequate supply of calcium and phosphate if the local inhibitor is not cleared. Tissue-nonspecific alkaline phosphatase hydrolyses extracellular inorganic pyrophosphate, a potent inhibitor of hydroxyapatite crystal growth; when its activity is deficient, pyrophosphate accumulates and blocks mineral deposition. This arm is biochemically the mirror image of the other two, since minerals are excluded from the skeleton and serum calcium may be high rather than low.</div>
                 
@@ -2770,11 +2850,13 @@ This pathophysiological event involves decreased Phosphate Ion Homeostasis (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-hydroxyapatite-deposition-at-the-mineralization-front" data-dismech-node="Impaired Hydroxyapatite Deposition at the Mineralization Front" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hydroxyapatite Deposition at the Mineralization Front</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic step of the module and its key conformance target. Osteoid is laid down normally, or in excess, but hydroxyapatite is not deposited into it, either because the local calcium-phosphate product is too low or because the pyrophosphate inhibitor is not cleared. Every conforming disorder funnels through this node regardless of which trigger arm it enters by, and it is the step that unifies rickets in the growing skeleton with osteomalacia in the mature one.</div>
                 
@@ -2907,6 +2989,13 @@ This pathophysiological event involves decreased Biomineral Tissue Development (
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html">Autosomal Recessive Hypophosphatemic Rickets 1</a>
+                            
+                            <span class="crosslink-desc">as Skeletal Mineralization Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a>
                             
                             <span class="crosslink-desc">as Defective Bone Mineralization</span>
@@ -2992,11 +3081,13 @@ This pathophysiological event involves decreased Biomineral Tissue Development (
             
             <div class="item-box anchor-target" id="module-pathophysiology-growth-plate-hypertrophic-zone-expansion" data-dismech-node="Growth Plate Hypertrophic Zone Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Hypertrophic Zone Expansion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The growth-plate lesion that makes rickets a disease of growing bone. Terminal hypertrophic chondrocytes normally undergo apoptosis before vascular invasion and ossification of the cartilage template. Phosphate is required for that apoptotic step, so when it is deficient the late hypertrophic layer fails to involute and expands, giving the widened, irregular, cupped and frayed metaphysis that defines rickets radiographically. An adult with an identical mineralization defect and closed growth plates develops osteomalacia without this lesion.</div>
                 
@@ -3098,6 +3189,18 @@ This pathophysiological event involves abnormal Growth Plate Cartilage Developme
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html">Autosomal Recessive Hypophosphatemic Rickets 1</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -3118,11 +3221,13 @@ This pathophysiological event involves abnormal Growth Plate Cartilage Developme
             
             <div class="item-box anchor-target" id="module-pathophysiology-rickets-and-osteomalacia" data-dismech-node="Rickets and Osteomalacia" data-dismech-type="pathophysiology">
                 <div class="item-name">Rickets and Osteomalacia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared clinical output: soft, undermineralized bone presenting as rickets where growth plates are open and as osteomalacia where they are closed, with bone pain, deformity of the weight-bearing long bones, fracture and pseudofracture, growth failure and myopathy. Individual conforming disorders add their own disorder-specific features (alopecia in vitamin D-dependent rickets type 2A, premature deciduous tooth loss in hypophosphatasia, dental abscess in X-linked hypophosphatemia); this node carries only the mineralization phenotype the arms share.</div>
                 
@@ -3133,6 +3238,18 @@ This pathophysiological event involves abnormal Growth Plate Cartilage Developme
 
                 
 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html">Autosomal Recessive Hypophosphatemic Rickets 1</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 
                 
@@ -3200,6 +3317,9 @@ This treatment uses asfotase alfa (NCIT:C169788). NCIT:C169788 is a therapeutic 
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3210,6 +3330,9 @@ This treatment uses asfotase alfa (NCIT:C169788). NCIT:C169788 is a therapeutic 
         
         
     </div>
+    
+    
+    
     
     
     

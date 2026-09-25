@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4261,6 +4314,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production" data-dismech-node="Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody Production</div>
 
+
                 <div class="item-desc">The immune system produces thyroid-stimulating immunoglobulins (TSIs) that mimic the activity of thyroid-stimulating hormone (TSH), leading to an overactive thyroid.</div>
 
 
@@ -4493,6 +4547,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thyroid-overactivity" data-dismech-node="Thyroid Overactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Thyroid Overactivity</div>
 
+
                 <div class="item-desc">Excessive stimulation of the thyroid gland results in increased production of thyroid hormones (thyroxine, T4, and triiodothyronine, T3).</div>
 
 
@@ -4671,6 +4726,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-system-dysregulation" data-dismech-node="Immune System Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune System Dysregulation</div>
+
 
                 <div class="item-desc">Dysregulated immune response leads to autoimmune attacks on the thyroid gland.</div>
 
@@ -4973,6 +5029,7 @@ This pathophysiological event involves B cell activation (GO:0042113). GO:004211
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tshr-igf1r-receptor-crosstalk-in-orbital-fibroblasts" data-dismech-node="TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts" data-dismech-type="pathophysiology">
                 <div class="item-name">TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts</div>
 
+
                 <div class="item-desc">In thyroid eye disease, cooperative signaling between thyrotropin receptor (TSHR) and insulin-like growth factor 1 receptor (IGF-1R) on orbital fibroblasts drives hyaluronan production, adipogenesis, and tissue remodeling causing proptosis.</div>
 
 
@@ -5254,6 +5311,7 @@ This pathophysiological event occurs in extraocular muscle, annotated with extra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germinal-center-autoantibody-production" data-dismech-node="Germinal Center Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Germinal Center Autoantibody Production</div>
+
 
                 <div class="item-desc">CD40-CD40L interactions between T follicular helper cells and B cells drive germinal center formation and affinity maturation of TRAb-producing B cells with oligoclonal expansion and epitope spreading.</div>
 
@@ -5565,6 +5623,9 @@ This clinical feature is Sinus tachycardia (HP:0011703). HP:0011703 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Increased heart rate, commonly experienced as palpitations.</div>
 
 
@@ -5688,6 +5749,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs in approximately 10% of patients, more common in older adults.</div>
 
 
@@ -5784,6 +5848,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5894,6 +5961,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5994,6 +6064,9 @@ This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6103,6 +6176,9 @@ This clinical feature is Goiter (HP:0000853). HP:0000853 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Enlargement of the thyroid gland, often visible as a swelling in the neck.</div>
@@ -6239,6 +6315,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bulging of the eyes due to inflammation and tissue buildup behind the eyes.</div>
 
 
@@ -6364,6 +6443,9 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Double vision caused by extraocular muscle enlargement and fibrosis in thyroid eye disease.</div>
 
 
@@ -6449,6 +6531,9 @@ This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6524,6 +6609,9 @@ This clinical feature is Eyelid retraction (HP:0500043). HP:0500043 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Common ocular manifestation in thyroid eye disease, present in approximately 67% of patients with Graves orbitopathy.</div>
@@ -6631,6 +6719,9 @@ This clinical feature is Pretibial Myxedema (HP:0200028). HP:0200028 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Swelling and thickening of the skin, usually on the shins.</div>
@@ -6763,6 +6854,9 @@ This clinical feature is Sweating, annotated with Hyperhidrosis (HP:0000975). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6829,6 +6923,9 @@ This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6914,6 +7011,9 @@ This clinical feature is Heat Intolerance (HP:0002046). HP:0002046 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6982,6 +7082,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7092,6 +7195,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7167,6 +7273,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Fine shaking, particularly in the hands.</div>
@@ -7270,6 +7379,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7336,6 +7448,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7466,6 +7581,9 @@ This clinical feature is Increased Appetite, annotated with Polyphagia (HP:00025
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7557,6 +7675,9 @@ This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7658,6 +7779,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7754,6 +7878,9 @@ This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7820,6 +7947,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7921,6 +8051,9 @@ This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7996,6 +8129,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8081,6 +8217,9 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8139,6 +8278,9 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Rare manifestation characterized by digital clubbing and periosteal bone formation.</div>
@@ -8224,6 +8366,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8292,6 +8437,9 @@ This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8368,6 +8516,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8436,6 +8587,9 @@ This disease-associated gene is CD40 (hgnc:11919). hgnc:11919 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8514,6 +8668,9 @@ This disease-associated gene is FCRL3 (hgnc:18506). hgnc:18506 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tshr" data-dismech-node="TSHR" data-dismech-type="genetic">
@@ -8545,6 +8702,9 @@ This disease-associated gene is TSHR (hgnc:12373). hgnc:12373 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8642,6 +8802,12 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8799,6 +8965,12 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Radioactive iodine is taken orally to destroy overactive thyroid cells.</div>
 
 
@@ -8929,6 +9101,12 @@ This treatment is Thyroidectomy (NCIT:C51648). NCIT:C51648 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9108,6 +9286,12 @@ This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a ther
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used to manage cardiovascular symptoms like tachycardia and palpitations.</div>
 
 
@@ -9239,6 +9423,12 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9419,6 +9609,12 @@ This treatment uses teprotumumab (NCIT:C95797). NCIT:C95797 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">FDA-approved anti-IGF-1R monoclonal antibody for moderate-to-severe active thyroid eye disease. Blocks TSHR-IGF1R crosstalk in orbital fibroblasts to reduce proptosis, diplopia, and clinical activity. Validated by the OPTIC Phase III trial.</div>
 
 
@@ -9545,6 +9741,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9555,6 +9754,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -9687,6 +9889,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9697,6 +9902,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9829,6 +10037,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9839,6 +10050,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -9972,6 +10186,9 @@ This treatment uses selenium, annotated with selenium atom (CHEBI:27568). CHEBI:
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9982,6 +10199,9 @@ This treatment uses selenium, annotated with selenium atom (CHEBI:27568). CHEBI:
 
 
     </div>
+
+
+
 
 
 
@@ -12879,6 +13099,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

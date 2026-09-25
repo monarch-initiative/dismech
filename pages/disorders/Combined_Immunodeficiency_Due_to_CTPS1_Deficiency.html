@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4483,6 +4536,7 @@ It is not a pedantic distinction. If the allele is null, the human disease is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctps1-loss-of-function-from-a-founder-splice-variant" data-dismech-node="CTPS1 Loss of Function from a Founder Splice Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">CTPS1 Loss of Function from a Founder Splice Variant</div>
 
+
                 <div class="item-desc">Homozygous loss-of-function variation in CTPS1. The human disease is defined by a single founder frameshift splice variant, c.1692-1G&gt;C (p.T566Dfs26X), which removes exon 18 from the transcript. How much protein survives is disputed - see the controversy recorded on this entry - but both readings agree that the enzyme activity available to an activated lymphocyte is grossly insufficient.</div>
 
 
@@ -4535,6 +4589,8 @@ This genetic context concerns CTPS1 (hgnc:2519). hgnc:2519 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4547,6 +4603,9 @@ This genetic context concerns CTPS1 (hgnc:2519). hgnc:2519 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Recorded as PARTIAL_LOSS_OF_FUNCTION on the strength of the direct measurement in patient cells, which found 10-20% residual protein with normal per-molecule catalytic activity. The earlier transplant series describes the same allele as giving complete absence of protein. The partial reading is preferred here because it rests on a quantitative measurement made for that purpose, and because the mouse null is embryonic lethal while these patients survive to transplant.</div>
 
@@ -4671,6 +4730,7 @@ This genetic context concerns CTPS1 (hgnc:2519). hgnc:2519 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-expand-the-ctp-pool-on-lymphocyte-activation" data-dismech-node="Failure to Expand the CTP Pool on Lymphocyte Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Expand the CTP Pool on Lymphocyte Activation</div>
+
 
                 <div class="item-desc">Antigen-receptor engagement normally triggers a sharp rise in CTPS1 expression and a corresponding rise in intracellular CTP, supplying the nucleotide demand of the DNA, RNA and phospholipid synthesis that clonal expansion requires. In deficiency that rise does not happen. This is the node at which the disease becomes lymphocyte-specific: resting cells need little CTP and are unaffected, and other tissues meet their demand through the CTPS2 isoform and nucleoside salvage.</div>
 
@@ -4937,6 +4997,7 @@ This pathophysiological event involves decreased CTP synthase activity (GO:00038
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-antigen-driven-lymphocyte-clonal-expansion" data-dismech-node="Failure of Antigen-Driven Lymphocyte Clonal Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Antigen-Driven Lymphocyte Clonal Expansion</div>
 
+
                 <div class="item-desc">Activated T and B cells sense antigen and then cannot divide. The selectivity of this defect is the most informative thing about the disease: receptor-proximal and receptor-distal signalling are only weakly affected and non-proliferative effector functions are largely preserved, so the lesion is specifically in the capacity to expand, not in the capacity to respond.</div>
 
 
@@ -5184,6 +5245,7 @@ This pathophysiological event involves decreased lymphocyte proliferation (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-development-of-memory-and-innate-like-lymphocyte-subsets" data-dismech-node="Impaired Development of Memory and Innate-like Lymphocyte Subsets" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Development of Memory and Innate-like Lymphocyte Subsets</div>
 
+
                 <div class="item-desc">A reproducible and quite specific pattern of missing populations - mucosal-associated invariant T cells, invariant NKT cells, memory B cells and NK cells - against a background of otherwise normal subset counts. These are the compartments whose generation depends on proliferative expansion, so the pattern is a readout of the proliferation defect rather than a separate lesion.</div>
 
 
@@ -5354,6 +5416,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-independent-b-cell-response-to-polysaccharide-antigen" data-dismech-node="Impaired T-Independent B-Cell Response to Polysaccharide Antigen" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T-Independent B-Cell Response to Polysaccharide Antigen</div>
 
+
                 <div class="item-desc">The arm of the disease that explains its bacterial half, and the reason this is called a combined immunodeficiency rather than a viral-susceptibility syndrome. Antibody responses to polysaccharide antigens do not require T-cell help, so they cannot be explained by the failure of T-cell immunity - but they do require the B cell to divide, which is what this disease removes.
 It also resolves an otherwise confusing laboratory picture: total immunoglobulin is normal or even elevated in these patients while specific antipneumococcal titres are low. Bulk antibody is not the problem; making a new clonal response is.</div>
 
@@ -5491,6 +5554,7 @@ The quote now runs from the start of the source sentence, including its &#34;Thi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-control-herpesvirus-infected-b-cells" data-dismech-node="Failure to Control Herpesvirus-Infected B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Control Herpesvirus-Infected B Cells</div>
 
+
                 <div class="item-desc">The clinical centre of gravity of the disease. EBV is the pathogen that most stresses the capacity this disease removes, because containing it requires a large expansion of EBV-specific CD8 T cells against a B-cell population that EBV itself drives to proliferate; varicella zoster produces a comparable problem by a different route. There is a second, less-appreciated arm: EBV upregulates CTPS1 in the B cells it transforms, so the same enzyme is both the host defence bottleneck and a dependency of the transformed cell.</div>
 
 
@@ -5599,6 +5663,7 @@ The quote now runs from the start of the source sentence, including its &#34;Thi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-driven-b-cell-lymphoproliferation-and-lymphoma" data-dismech-node="EBV-driven B-cell lymphoproliferation and lymphoma" data-dismech-type="pathophysiology">
                 <div class="item-name">EBV-driven B-cell lymphoproliferation and lymphoma</div>
+
 
                 <div class="item-desc">The malignant end of the failure to control EBV, including central nervous system lymphoma. The B cells involved carry the EBV latency III programme, which is the programme in which EBV drives CTPS1 expression in the transformed cell.</div>
 
@@ -5732,7 +5797,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention that addresses the cause rather than the consequences, by replacing the lymphoid compartment with one that has a functioning enzyme. The defect is cell-intrinsic to haematopoietic cells and the enzyme is not secreted, so replacing the compartment is curative in principle and, in the published series, in practice.\\nIt is not a benign option, and this record keeps the cost next to the benefit. Overall survival in the largest series was 72%, below what the same centres achieve for other combined immunodeficiencies, and the deaths were from EBV reactivation and from unusually severe chronic graft-versus-host disease. Both failure modes are plausibly consequences of the underlying disease rather than of the transplant.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"CTPS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTPS1\"], \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous loss-of-function variation in CTPS1. The human disease is defined by a single founder frameshift splice variant, c.1692-1G\u003eC (p.T566Dfs26X), which removes exon 18 from the transcript. How much protein survives is disputed - see the controversy recorded on this entry - but both readings agree that the enzyme activity available to an activated lymphocyte is grossly insufficient.\", \"meta\": {\"evidence_count\": 4, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Recorded as PARTIAL_LOSS_OF_FUNCTION on the strength of the direct measurement in patient cells, which found 10-20% residual protein with normal per-molecule catalytic activity. The earlier transplant series describes the same allele as giving complete absence of protein. The partial reading is preferred here because it rests on a quantitative measurement made for that purpose, and because the mouse null is embryonic lethal while these patients survive to transplant.\", \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Conditional and inducible Ctps1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that supplies what the human disease cannot, because no human null exists. Complete germline Ctps1 deletion is embryonic lethal, which establishes that a human phenotype surviving to childhood must retain some enzyme. Conditional deletion then separates the contributions of the two isoforms, and shows that CTPS1 inactivation is immunosuppressive enough to rescue a fatal autoimmune model.\"}, {\"id\": \"Cytidine or CTP Supply Restoration\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplying the product the missing enzyme cannot make, or its nucleoside precursor, which the salvage pathway can convert. This restores proliferation of patient-derived cells in culture.\\nIt is curated as an experimental rationale rather than an established therapy, because the only evidence is in vitro rescue. Whether cytidine can be delivered to activated lymphocytes in vivo at the concentrations that work in culture is untested, and no patient has been reported treated this way.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cytidine\"]}}, {\"id\": \"EBV-associated lymphoproliferative disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-malignant and malignant EBV-driven B-cell lymphoproliferation, including central nervous system and pulmonary disease, and EBV-driven haemophagocytic lymphohistiocytosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005523\"}}, {\"id\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malignant end of the failure to control EBV, including central nervous system lymphoma. The B cells involved carry the EBV latency III programme, which is the programme in which EBV drives CTPS1 expression in the transformed cell.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"role\": \"outcome\"}}, {\"id\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T and B cells sense antigen and then cannot divide. The selectivity of this defect is the most informative thing about the disease: receptor-proximal and receptor-distal signalling are only weakly affected and non-proliferative effector functions are largely preserved, so the lesion is specifically in the capacity to expand, not in the capacity to respond.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"lymphocyte proliferation\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Conditional and inducible Ctps1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ctps1 conditional/inducible knockout, alone and combined with Ctps2\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Activated lymphocytes and other high-turnover lineages depend on CTPS1 for maintenance and growth, reproducing the human proliferative defect.\"}]}}, {\"id\": \"Failure to Control Herpesvirus-Infected B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical centre of gravity of the disease. EBV is the pathogen that most stresses the capacity this disease removes, because containing it requires a large expansion of EBV-specific CD8 T cells against a B-cell population that EBV itself drives to proliferate; varicella zoster produces a comparable problem by a different route. There is a second, less-appreciated arm: EBV upregulates CTPS1 in the B cells it transforms, so the same enzyme is both the host defence bottleneck and a dependency of the transformed cell.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antigen-receptor engagement normally triggers a sharp rise in CTPS1 expression and a corresponding rise in intracellular CTP, supplying the nucleotide demand of the DNA, RNA and phospholipid synthesis that clonal expansion requires. In deficiency that rise does not happen. This is the node at which the disease becomes lymphocyte-specific: resting cells need little CTP and are unaffected, and other tissues meet their demand through the CTPS2 isoform and nucleoside salvage.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"CTP biosynthetic process\"], \"molecular_functions\": [\"CTP synthase activity\"], \"genes\": [\"CTPS1\"], \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Conditional and inducible Ctps1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ctps1 conditional/inducible knockout, alone and combined with Ctps2\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"description\": \"Deletion of the enzyme is the perturbation. The model also shows CTPS2 is required alongside CTPS1 for proliferation after TCR stimulation, which bounds how much redundancy the isoform actually provides.\"}]}}, {\"id\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A reproducible and quite specific pattern of missing populations - mucosal-associated invariant T cells, invariant NKT cells, memory B cells and NK cells - against a background of otherwise normal subset counts. These are the compartments whose generation depends on proliferative expansion, so the pattern is a readout of the proliferation defect rather than a separate lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mucosal-associated invariant T cell\", \"memory B cell\", \"natural killer cell\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm of the disease that explains its bacterial half, and the reason this is called a combined immunodeficiency rather than a viral-susceptibility syndrome. Antibody responses to polysaccharide antigens do not require T-cell help, so they cannot be explained by the failure of T-cell immunity - but they do require the B cell to divide, which is what this disease removes.\\nIt also resolves an otherwise confusing laboratory picture: total immunoglobulin is normal or even elevated in these patients while specific antipneumococcal titres are low. Bulk antibody is not the problem; making a new clonal response is.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired lymphocyte proliferative response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The laboratory hallmark - markedly reduced proliferation of T cells on antigen-receptor stimulation, with preserved responses in other assays.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0031402\"}}, {\"id\": \"Recurrent encapsulated bacterial infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infection with encapsulated organisms, with low antipneumococcal titres against normal or elevated total immunoglobulin. It is the bacterial half of the combined deficiency, and it has its own mechanism - the failed T-independent B-cell response - rather than being a consequence of the T-cell defect.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Reduced NK cell number\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low natural killer cell counts, part of the selective pattern of missing innate-like and memory compartments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040218\"}}, {\"id\": \"Rituximab and EBV-Specific Cytotoxic T Lymphocytes for EBV Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directed treatment of the EBV-driven complications rather than of the underlying defect. B-cell depletion removes the compartment EBV proliferates in, and adoptive transfer of EBV-specific cytotoxic T lymphocytes supplies from outside exactly the expanded effector population the patient cannot generate. The second of these is mechanistically the most precisely targeted therapy in this entry, since it substitutes for the specific failed step.\\nCurated at the level the evidence supports: both were used in the transplant series, before and after transplant, and no comparative outcome is reported for either.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe recurrent herpesvirus infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, acute and chronic infection with Epstein-Barr virus and varicella zoster virus, presenting in the first decade of life. The bacterial half of the combined picture is curated as its own phenotype below, with its own mechanism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004429\"}}], \"edges\": [{\"source\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CTPS1 catalyses the committed step of de novo CTP synthesis, so reduced enzyme means reduced CTP when demand rises.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"target\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the nucleotide precursors, the activated cell cannot complete the DNA synthesis that division requires.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Failure to Control Herpesvirus-Infected B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Control of EBV and VZV depends on expanding a large virus-specific cytotoxic T-cell population, which is precisely the capacity this node removes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subsets that fail are the ones whose development requires proliferative expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A T-independent B-cell response is itself a proliferative burst, so it fails for the same reason - and it fails without needing the T-cell arm to be involved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired lymphocyte proliferative response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The laboratory readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"target\": \"Reduced NK cell number\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measurable readout of the failed innate-like compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"target\": \"Recurrent encapsulated bacterial infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the antipolysaccharide response leaves encapsulated organisms uncontrolled.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Control Herpesvirus-Infected B Cells\", \"target\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled proliferation of EBV-infected B cells in the absence of an adequate cytotoxic response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Control Herpesvirus-Infected B Cells\", \"target\": \"Severe recurrent herpesvirus infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation of failed viral control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"target\": \"EBV-associated lymphoproliferative disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical phenotype this pathophysiology node produces. The two are curated in separate sections rather than merged, because renaming either to match would collapse them into one node in the flat pathograph namespace.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"target\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cytidine or CTP Supply Restoration\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab and EBV-Specific Cytotoxic T Lymphocytes for EBV Complications\", \"target\": \"Failure to Control Herpesvirus-Infected B Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional and inducible Ctps1 knockout mouse\", \"target\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Activated lymphocytes and other high-turnover lineages depend on CTPS1 for maintenance and growth, reproducing the human proliferative defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse is a deletion and the human allele retains residual protein, so the mouse models a more complete loss than any patient has. The direction of the difference is knowable and matters - inferences about severity from mouse to human will overstate.\"}, {\"source\": \"Conditional and inducible Ctps1 knockout mouse\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Deletion of the enzyme is the perturbation. The model also shows CTPS2 is required alongside CTPS1 for proliferation after TCR stimulation, which bounds how much redundancy the isoform actually provides.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse and human differ in the relative expression of the two isoforms across tissues, so the degree of CTPS2 compensation observed in the mouse is not directly transferable.\"}, {\"source\": \"CTPS1\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention that addresses the cause rather than the consequences, by replacing the lymphoid compartment with one that has a functioning enzyme. The defect is cell-intrinsic to haematopoietic cells and the enzyme is not secreted, so replacing the compartment is curative in principle and, in the published series, in practice.\\nIt is not a benign option, and this record keeps the cost next to the benefit. Overall survival in the largest series was 72%, below what the same centres achieve for other combined immunodeficiencies, and the deaths were from EBV reactivation and from unusually severe chronic graft-versus-host disease. Both failure modes are plausibly consequences of the underlying disease rather than of the transplant.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"CTPS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTPS1\"], \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous loss-of-function variation in CTPS1. The human disease is defined by a single founder frameshift splice variant, c.1692-1G\u003eC (p.T566Dfs26X), which removes exon 18 from the transcript. How much protein survives is disputed - see the controversy recorded on this entry - but both readings agree that the enzyme activity available to an activated lymphocyte is grossly insufficient.\", \"meta\": {\"evidence_count\": 4, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Recorded as PARTIAL_LOSS_OF_FUNCTION on the strength of the direct measurement in patient cells, which found 10-20% residual protein with normal per-molecule catalytic activity. The earlier transplant series describes the same allele as giving complete absence of protein. The partial reading is preferred here because it rests on a quantitative measurement made for that purpose, and because the mouse null is embryonic lethal while these patients survive to transplant.\", \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Conditional and inducible Ctps1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that supplies what the human disease cannot, because no human null exists. Complete germline Ctps1 deletion is embryonic lethal, which establishes that a human phenotype surviving to childhood must retain some enzyme. Conditional deletion then separates the contributions of the two isoforms, and shows that CTPS1 inactivation is immunosuppressive enough to rescue a fatal autoimmune model.\"}, {\"id\": \"Cytidine or CTP Supply Restoration\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplying the product the missing enzyme cannot make, or its nucleoside precursor, which the salvage pathway can convert. This restores proliferation of patient-derived cells in culture.\\nIt is curated as an experimental rationale rather than an established therapy, because the only evidence is in vitro rescue. Whether cytidine can be delivered to activated lymphocytes in vivo at the concentrations that work in culture is untested, and no patient has been reported treated this way.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cytidine\"]}}, {\"id\": \"EBV-associated lymphoproliferative disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-malignant and malignant EBV-driven B-cell lymphoproliferation, including central nervous system and pulmonary disease, and EBV-driven haemophagocytic lymphohistiocytosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005523\"}}, {\"id\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malignant end of the failure to control EBV, including central nervous system lymphoma. The B cells involved carry the EBV latency III programme, which is the programme in which EBV drives CTPS1 expression in the transformed cell.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"role\": \"outcome\"}}, {\"id\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T and B cells sense antigen and then cannot divide. The selectivity of this defect is the most informative thing about the disease: receptor-proximal and receptor-distal signalling are only weakly affected and non-proliferative effector functions are largely preserved, so the lesion is specifically in the capacity to expand, not in the capacity to respond.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"lymphocyte proliferation\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Conditional and inducible Ctps1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ctps1 conditional/inducible knockout, alone and combined with Ctps2\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Activated lymphocytes and other high-turnover lineages depend on CTPS1 for maintenance and growth, reproducing the human proliferative defect.\"}]}}, {\"id\": \"Failure to Control Herpesvirus-Infected B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical centre of gravity of the disease. EBV is the pathogen that most stresses the capacity this disease removes, because containing it requires a large expansion of EBV-specific CD8 T cells against a B-cell population that EBV itself drives to proliferate; varicella zoster produces a comparable problem by a different route. There is a second, less-appreciated arm: EBV upregulates CTPS1 in the B cells it transforms, so the same enzyme is both the host defence bottleneck and a dependency of the transformed cell.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antigen-receptor engagement normally triggers a sharp rise in CTPS1 expression and a corresponding rise in intracellular CTP, supplying the nucleotide demand of the DNA, RNA and phospholipid synthesis that clonal expansion requires. In deficiency that rise does not happen. This is the node at which the disease becomes lymphocyte-specific: resting cells need little CTP and are unaffected, and other tissues meet their demand through the CTPS2 isoform and nucleoside salvage.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"CTP biosynthetic process\"], \"molecular_functions\": [\"CTP synthase activity\"], \"genes\": [\"CTPS1\"], \"gene_terms\": [{\"label\": \"CTPS1\", \"id\": \"hgnc:2519\"}], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Conditional and inducible Ctps1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ctps1 conditional/inducible knockout, alone and combined with Ctps2\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"description\": \"Deletion of the enzyme is the perturbation. The model also shows CTPS2 is required alongside CTPS1 for proliferation after TCR stimulation, which bounds how much redundancy the isoform actually provides.\"}]}}, {\"id\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A reproducible and quite specific pattern of missing populations - mucosal-associated invariant T cells, invariant NKT cells, memory B cells and NK cells - against a background of otherwise normal subset counts. These are the compartments whose generation depends on proliferative expansion, so the pattern is a readout of the proliferation defect rather than a separate lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mucosal-associated invariant T cell\", \"memory B cell\", \"natural killer cell\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm of the disease that explains its bacterial half, and the reason this is called a combined immunodeficiency rather than a viral-susceptibility syndrome. Antibody responses to polysaccharide antigens do not require T-cell help, so they cannot be explained by the failure of T-cell immunity - but they do require the B cell to divide, which is what this disease removes.\\nIt also resolves an otherwise confusing laboratory picture: total immunoglobulin is normal or even elevated in these patients while specific antipneumococcal titres are low. Bulk antibody is not the problem; making a new clonal response is.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired lymphocyte proliferative response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The laboratory hallmark - markedly reduced proliferation of T cells on antigen-receptor stimulation, with preserved responses in other assays.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0031402\"}}, {\"id\": \"Recurrent encapsulated bacterial infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infection with encapsulated organisms, with low antipneumococcal titres against normal or elevated total immunoglobulin. It is the bacterial half of the combined deficiency, and it has its own mechanism - the failed T-independent B-cell response - rather than being a consequence of the T-cell defect.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Reduced NK cell number\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low natural killer cell counts, part of the selective pattern of missing innate-like and memory compartments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040218\"}}, {\"id\": \"Rituximab and EBV-Specific Cytotoxic T Lymphocytes for EBV Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directed treatment of the EBV-driven complications rather than of the underlying defect. B-cell depletion removes the compartment EBV proliferates in, and adoptive transfer of EBV-specific cytotoxic T lymphocytes supplies from outside exactly the expanded effector population the patient cannot generate. The second of these is mechanistically the most precisely targeted therapy in this entry, since it substitutes for the specific failed step.\\nCurated at the level the evidence supports: both were used in the transplant series, before and after transplant, and no comparative outcome is reported for either.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe recurrent herpesvirus infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, acute and chronic infection with Epstein-Barr virus and varicella zoster virus, presenting in the first decade of life. The bacterial half of the combined picture is curated as its own phenotype below, with its own mechanism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004429\"}}], \"edges\": [{\"source\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CTPS1 catalyses the committed step of de novo CTP synthesis, so reduced enzyme means reduced CTP when demand rises.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"target\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the nucleotide precursors, the activated cell cannot complete the DNA synthesis that division requires.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Failure to Control Herpesvirus-Infected B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Control of EBV and VZV depends on expanding a large virus-specific cytotoxic T-cell population, which is precisely the capacity this node removes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subsets that fail are the ones whose development requires proliferative expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A T-independent B-cell response is itself a proliferative burst, so it fails for the same reason - and it fails without needing the T-cell arm to be involved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"target\": \"Impaired lymphocyte proliferative response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The laboratory readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Development of Memory and Innate-like Lymphocyte Subsets\", \"target\": \"Reduced NK cell number\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measurable readout of the failed innate-like compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired T-Independent B-Cell Response to Polysaccharide Antigen\", \"target\": \"Recurrent encapsulated bacterial infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the antipolysaccharide response leaves encapsulated organisms uncontrolled.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Control Herpesvirus-Infected B Cells\", \"target\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled proliferation of EBV-infected B cells in the absence of an adequate cytotoxic response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Control Herpesvirus-Infected B Cells\", \"target\": \"Severe recurrent herpesvirus infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation of failed viral control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven B-cell lymphoproliferation and lymphoma\", \"target\": \"EBV-associated lymphoproliferative disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical phenotype this pathophysiology node produces. The two are curated in separate sections rather than merged, because renaming either to match would collapse them into one node in the flat pathograph namespace.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"target\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cytidine or CTP Supply Restoration\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab and EBV-Specific Cytotoxic T Lymphocytes for EBV Complications\", \"target\": \"Failure to Control Herpesvirus-Infected B Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional and inducible Ctps1 knockout mouse\", \"target\": \"Failure of Antigen-Driven Lymphocyte Clonal Expansion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Activated lymphocytes and other high-turnover lineages depend on CTPS1 for maintenance and growth, reproducing the human proliferative defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse is a deletion and the human allele retains residual protein, so the mouse models a more complete loss than any patient has. The direction of the difference is knowable and matters - inferences about severity from mouse to human will overstate.\"}, {\"source\": \"Conditional and inducible Ctps1 knockout mouse\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Deletion of the enzyme is the perturbation. The model also shows CTPS2 is required alongside CTPS1 for proliferation after TCR stimulation, which bounds how much redundancy the isoform actually provides.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse and human differ in the relative expression of the two isoforms across tissues, so the degree of CTPS2 compensation observed in the mouse is not directly transferable.\"}, {\"source\": \"CTPS1\", \"target\": \"CTPS1 Loss of Function from a Founder Splice Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTPS1\", \"target\": \"Failure to Expand the CTP Pool on Lymphocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5795,6 +5860,9 @@ This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5873,6 +5941,9 @@ This clinical feature is Decreased antigen-specific T cell proliferation (HP:003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5941,6 +6012,9 @@ This clinical feature is Reduced total natural killer cell count (HP:0040218). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6026,6 +6100,9 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6103,6 +6180,9 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6206,6 +6286,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6299,6 +6382,9 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6415,6 +6501,9 @@ This disease-associated gene is CTPS1 (hgnc:2519). hgnc:2519 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6545,6 +6634,9 @@ This treatment is Hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6555,6 +6647,9 @@ This treatment is Hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6740,6 +6835,9 @@ This treatment uses cytidine (CHEBI:17562). CHEBI:17562 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6750,6 +6848,9 @@ This treatment uses cytidine (CHEBI:17562). CHEBI:17562 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6889,6 +6990,9 @@ This treatment is Therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6899,6 +7003,9 @@ This treatment is Therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -8447,6 +8554,19 @@ notes: &#39;Boundary with the EBV-susceptibility immunodeficiencies. Several ent
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Combined Immunodeficiency Due to CTPS1 Deficiency</strong> · 2026-09-06T08:52:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Immunodeficiency_Due_To_CTPS1_Deficiency/2026-09-06T085230Z-claude-code-cdd6de.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of CTPS1 deficiency, a combined immunodeficiency of nucleotide supply rather than of signalling. One openscientist deep-research run was performed (research/Combined_Immunodeficiency_Due_To_CTPS1_Deficiency-deep-research-openscientist.md; 18/18 references verified, confabulation_rate 0.0, 14 of 18 on topic, 39 of 42 terms verified). The report converged independently on the same key papers found by direct PubMed search, and supplied one lead the search had missed, PMID:29884857 (the HSCT series), which was verified before use. Two curation decisions are worth flagging for review. First, the entry records a CONTROVERSY: PMID:29884857 states the founder allele gives complete absence of protein and PMID:32161190 measured 10-20 percent residual protein with normal per-molecule catalytic activity. Both are curated, the second as SUPPORT and the first as REFUTE against the PARTIAL_LOSS_OF_FUNCTION assignment, so the disagreement stays visible rather than being silently resolved; the mouse embryonic lethality is the tiebreaker argument. Second, PMID:29884857 is an abstract-less Bone Marrow Transplantation letter whose cached body is an author accepted manuscript embedded in a RIS export, with manuscript line numbers bled inline into the text. Snippets were chosen to avoid the damaged spans and notes records this, because a snippet spanning one would pass exact-match validation while misquoting the published article. Three ontology bindings were caught wrong by the term validator before commit: HP:0011840 is Abnormal T cell physiology not Abnormal lymphocyte physiology, HP:0410385 is a memory CD8 term not an NK count term, and CL:0000940 needed its canonical label. Validated: schema, terms, 36/36 snippets, entity refs, causal targets, history.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

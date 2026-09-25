@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4534,6 +4587,13 @@ The question is not decorative. If the cataract is a lens-intrinsic mitochondria
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-opa3-missense-variant" data-dismech-node="Heterozygous OPA3 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous OPA3 Missense Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The dominant phenotype is overwhelmingly associated with heterozygous missense variants. c.313C&gt;G p.(Gln105Glu) is recurrent and had been reported in four dominant families before a further two were added in 2015; other reported alleles include an in-frame insertion in the mitochondrial presequence, c.10_11insCGCCCG p.(Val3_Gly4insAla_Pro), a de novo c.235C&gt;G p.(Leu79Val), and c.30G&gt;C p.(Lys10Asn).
 The allelic-class asymmetry is the substantive genetic content here. Missense variants are enriched in the dominant optic-atrophy phenotype while loss-of-function variants are enriched in the recessive 3-methylglutaconic-aciduria phenotype, which argues that the dominant disease is not simple haploinsufficiency.</div>
 
@@ -4594,6 +4654,8 @@ This pathophysiological event involves OPA3 (hgnc:8142). hgnc:8142 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4607,6 +4669,9 @@ This pathophysiological event involves OPA3 (hgnc:8142). hgnc:8142 is a gene fro
 
 
     </div>
+
+
+
 
 
 
@@ -4702,6 +4767,13 @@ This pathophysiological event involves OPA3 (hgnc:8142). hgnc:8142 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-opa3-steady-state-levels-and-mitochondrial-network-fragmentation" data-dismech-node="Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In fibroblasts from a patient carrying the presequence-insertion allele the mitochondrial network is fragmented and mitochondrial mass is reduced, and the mutant protein is present at lower steady-state levels than wild type. Ultrastructural work in a separate ADOAC+ family instead found enlarged mitochondria with slightly fragmented cristae, so the morphological abnormality is consistent in kind - disturbed mitochondrial morphology - without being consistent in direction across alleles.
 Where OPA3 sits is better established than what it does. It is an integral protein of the mitochondrial outer membrane, with a cytosol-facing C-terminus and an N-terminal targeting domain, and its abundance sets network morphology bidirectionally: overexpression fragments mitochondria and knockdown elongates them. That bidirectionality is what makes the presequence allele interpretable - a variant that lowers steady-state protein should elongate the network, yet the patient fibroblasts fragment it, so reduced abundance alone does not account for the phenotype.
@@ -4942,6 +5014,13 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-degeneration" data-dismech-node="Retinal Ganglion Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Dominant optic atrophy of any genetic cause is a disease of the retinal ganglion cell and its axon, and the pattern in OPA3 disease is the one typical of mitochondrial optic neuropathy: the papillomacular bundle is affected first, producing central acuity loss and colour vision defects, with optic disc pallor on fundoscopy. Where OPA3 has been placed against OPA1 mechanistically, the claim is that OPA1 variants disturb fusion, energy metabolism, apoptosis, calcium handling and mitochondrial genome maintenance, whereas OPA3 variants affect energy metabolism and the control of apoptosis only.</div>
 
@@ -5204,6 +5283,13 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lens-fibre-mitochondrial-dysfunction" data-dismech-node="Lens Fibre Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Lens Fibre Mitochondrial Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Cortical lens opacity is the feature that names the entity, and it is the part of the mechanism that is least worked out. OPA3 is expressed in the lens as well as the retina, and mouse work shows that the protein accumulates in the lens with age and that a mutant form retains mitochondrial localisation while disrupting mitochondrial morphology - so a lens-intrinsic mitochondrial defect is plausible. It is graded PROVISIONAL because the supporting functional data are from a mouse modelling the recessive disease, not the dominant one, and no human lens tissue has been examined.</div>
 
 
@@ -5384,7 +5470,7 @@ This pathophysiological event occurs in lens of the eye, annotated with lens of 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical, anterior and/or posterior. Onset is variable: reported from congenital and early childhood through to later life, and it is often the presenting problem, with the optic neuropathy recognised only when vision fails to improve after lens surgery.\\nGraded VERY_FREQUENT: cataract is in the name of the entity, seven of the eight individuals in the first family and sporadic case had early-onset cataracts - nine of twelve across the whole ADOAC+ series - and the 2025 family had congenital cataracts. It is not obligate - one carrier of the recurrent p.(Gln105Glu) allele had no lens opacities at age 38 - which is why the band is not written as universal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Colour Vision Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000551\"}}, {\"id\": \"Heterozygous OPA3 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant phenotype is overwhelmingly associated with heterozygous missense variants. c.313C\u003eG p.(Gln105Glu) is recurrent and had been reported in four dominant families before a further two were added in 2015; other reported alleles include an in-frame insertion in the mitochondrial presequence, c.10_11insCGCCCG p.(Val3_Gly4insAla_Pro), a de novo c.235C\u003eG p.(Leu79Val), and c.30G\u003eC p.(Lys10Asn).\\nThe allelic-class asymmetry is the substantive genetic content here. Missense variants are enriched in the dominant optic-atrophy phenotype while loss-of-function variants are enriched in the recessive 3-methylglutaconic-aciduria phenotype, which argues that the dominant disease is not simple haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPA3\"], \"gene_terms\": [{\"label\": \"OPA3\", \"id\": \"hgnc:8142\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\"}, \"role\": \"trigger\"}}, {\"id\": \"Lens Fibre Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical lens opacity is the feature that names the entity, and it is the part of the mechanism that is least worked out. OPA3 is expressed in the lens as well as the retina, and mouse work shows that the protein accumulates in the lens with age and that a mutant form retains mitochondrial localisation while disrupting mitochondrial morphology - so a lens-intrinsic mitochondrial defect is plausible. It is graded PROVISIONAL because the supporting functional data are from a mouse modelling the recessive disease, not the dominant one, and no human lens tissue has been examined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lens fiber cell\"], \"locations\": [\"lens of the eye\"]}}, {\"id\": \"OPA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPA3\"], \"gene_terms\": [{\"label\": \"OPA3\", \"id\": \"hgnc:8142\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Opa3 L122P ENU mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced missense mouse that is the main published in vivo model for the gene. It is included here for a negative reason as much as a positive one: the heterozygote, which is the genotype that corresponds to this dominant human disease, is unaffected, while the homozygote reproduces the recessive human disease.\"}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral and early, usually within the first decade, and the defining feature of the entity - though not an obligate one: a large family with a likely pathogenic OPA3 missense allele has been reported with congenital cataracts, hearing loss and neuropathy but no optic atrophy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Disc Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000543\"}}, {\"id\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In fibroblasts from a patient carrying the presequence-insertion allele the mitochondrial network is fragmented and mitochondrial mass is reduced, and the mutant protein is present at lower steady-state levels than wild type. Ultrastructural work in a separate ADOAC+ family instead found enlarged mitochondria with slightly fragmented cristae, so the morphological abnormality is consistent in kind - disturbed mitochondrial morphology - without being consistent in direction across alleles.\\nWhere OPA3 sits is better established than what it does. It is an integral protein of the mitochondrial outer membrane, with a cytosol-facing C-terminus and an N-terminal targeting domain, and its abundance sets network morphology bidirectionally: overexpression fragments mitochondria and knockdown elongates them. That bidirectionality is what makes the presequence allele interpretable - a variant that lowers steady-state protein should elongate the network, yet the patient fibroblasts fragment it, so reduced abundance alone does not account for the phenotype.\\nWhat is deliberately absent from this node is a normal molecular function. OPA3 has no known homolog and no assigned biochemical activity, so this node stops at morphology rather than naming the step that the variant breaks.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"dermal fibroblast (patient-derived)\"], \"biological_processes\": [\"mitochondrial fission\", \"mitochondrion organization\"]}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typically worse than 20/40, but the range is wide within a single genotype - one individual carrying the recurrent p.(Gln105Glu) allele retained normal acuity into the fifth decade.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal Ganglion Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant optic atrophy of any genetic cause is a disease of the retinal ganglion cell and its axon, and the pattern in OPA3 disease is the one typical of mitochondrial optic neuropathy: the papillomacular bundle is affected first, producing central acuity loss and colour vision defects, with optic disc pallor on fundoscopy. Where OPA3 has been placed against OPA1 mechanistically, the claim is that OPA1 variants disturb fusion, energy metabolism, apoptosis, calcium handling and mitochondrial genome maintenance, whereas OPA3 variants affect energy metabolism and the control of apoptosis only.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"optic nerve\"], \"animal_models\": [{\"name\": \"Opa3 L122P ENU mouse\", \"species\": \"Mouse\", \"genotype\": \"Opa3 c.365T\u003eC p.(L122P), heterozygous and homozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"In the heterozygous state - the state that matches the human dominant genotype - the mice appear uncompromised. Retinal ganglion cell loss and optic nerve degeneration appear only in homozygotes, which model the recessive human disease instead, together with cardiomyopathy, extrapyramidal dysfunction and death before four months.\"}]}}], \"edges\": [{\"source\": \"Heterozygous OPA3 Missense Variant\", \"target\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying the presequence insertion show both reduced mutant protein and a fragmented network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"target\": \"Retinal Ganglion Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"target\": \"Lens Fibre Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Optic Disc Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disc pallor is the fundoscopic appearance of the axonal loss, described in the source as related to the retinal ganglion cell death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Colour Vision Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colour vision loss follows from preferential involvement of the papillomacular bundle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lens Fibre Mitochondrial Dysfunction\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Opa3 L122P ENU mouse\", \"target\": \"Retinal Ganglion Cell Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"In the heterozygous state - the state that matches the human dominant genotype - the mice appear uncompromised. Retinal ganglion cell loss and optic nerve degeneration appear only in homozygotes, which model the recessive human disease instead, together with cardiomyopathy, extrapyramidal dysfunction and death before four months.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The genotype that models this entity produces no phenotype, so the model cannot be used to study dominant OPA3 optic neuropathy. Any retinal or optic nerve finding cited from this mouse is a homozygote finding and belongs to Costeff syndrome, not here. There is currently no published mouse carrying a human dominant OPA3 allele such as p.Q105E.\"}, {\"source\": \"OPA3\", \"target\": \"Heterozygous OPA3 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical, anterior and/or posterior. Onset is variable: reported from congenital and early childhood through to later life, and it is often the presenting problem, with the optic neuropathy recognised only when vision fails to improve after lens surgery.\\nGraded VERY_FREQUENT: cataract is in the name of the entity, seven of the eight individuals in the first family and sporadic case had early-onset cataracts - nine of twelve across the whole ADOAC+ series - and the 2025 family had congenital cataracts. It is not obligate - one carrier of the recurrent p.(Gln105Glu) allele had no lens opacities at age 38 - which is why the band is not written as universal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Colour Vision Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000551\"}}, {\"id\": \"Heterozygous OPA3 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant phenotype is overwhelmingly associated with heterozygous missense variants. c.313C\u003eG p.(Gln105Glu) is recurrent and had been reported in four dominant families before a further two were added in 2015; other reported alleles include an in-frame insertion in the mitochondrial presequence, c.10_11insCGCCCG p.(Val3_Gly4insAla_Pro), a de novo c.235C\u003eG p.(Leu79Val), and c.30G\u003eC p.(Lys10Asn).\\nThe allelic-class asymmetry is the substantive genetic content here. Missense variants are enriched in the dominant optic-atrophy phenotype while loss-of-function variants are enriched in the recessive 3-methylglutaconic-aciduria phenotype, which argues that the dominant disease is not simple haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPA3\"], \"gene_terms\": [{\"label\": \"OPA3\", \"id\": \"hgnc:8142\"}], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lens Fibre Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical lens opacity is the feature that names the entity, and it is the part of the mechanism that is least worked out. OPA3 is expressed in the lens as well as the retina, and mouse work shows that the protein accumulates in the lens with age and that a mutant form retains mitochondrial localisation while disrupting mitochondrial morphology - so a lens-intrinsic mitochondrial defect is plausible. It is graded PROVISIONAL because the supporting functional data are from a mouse modelling the recessive disease, not the dominant one, and no human lens tissue has been examined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lens fiber cell\"], \"locations\": [\"lens of the eye\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"OPA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPA3\"], \"gene_terms\": [{\"label\": \"OPA3\", \"id\": \"hgnc:8142\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Opa3 L122P ENU mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced missense mouse that is the main published in vivo model for the gene. It is included here for a negative reason as much as a positive one: the heterozygote, which is the genotype that corresponds to this dominant human disease, is unaffected, while the homozygote reproduces the recessive human disease.\"}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral and early, usually within the first decade, and the defining feature of the entity - though not an obligate one: a large family with a likely pathogenic OPA3 missense allele has been reported with congenital cataracts, hearing loss and neuropathy but no optic atrophy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Disc Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000543\"}}, {\"id\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In fibroblasts from a patient carrying the presequence-insertion allele the mitochondrial network is fragmented and mitochondrial mass is reduced, and the mutant protein is present at lower steady-state levels than wild type. Ultrastructural work in a separate ADOAC+ family instead found enlarged mitochondria with slightly fragmented cristae, so the morphological abnormality is consistent in kind - disturbed mitochondrial morphology - without being consistent in direction across alleles.\\nWhere OPA3 sits is better established than what it does. It is an integral protein of the mitochondrial outer membrane, with a cytosol-facing C-terminus and an N-terminal targeting domain, and its abundance sets network morphology bidirectionally: overexpression fragments mitochondria and knockdown elongates them. That bidirectionality is what makes the presequence allele interpretable - a variant that lowers steady-state protein should elongate the network, yet the patient fibroblasts fragment it, so reduced abundance alone does not account for the phenotype.\\nWhat is deliberately absent from this node is a normal molecular function. OPA3 has no known homolog and no assigned biochemical activity, so this node stops at morphology rather than naming the step that the variant breaks.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"dermal fibroblast (patient-derived)\"], \"biological_processes\": [\"mitochondrial fission\", \"mitochondrion organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typically worse than 20/40, but the range is wide within a single genotype - one individual carrying the recurrent p.(Gln105Glu) allele retained normal acuity into the fifth decade.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal Ganglion Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant optic atrophy of any genetic cause is a disease of the retinal ganglion cell and its axon, and the pattern in OPA3 disease is the one typical of mitochondrial optic neuropathy: the papillomacular bundle is affected first, producing central acuity loss and colour vision defects, with optic disc pallor on fundoscopy. Where OPA3 has been placed against OPA1 mechanistically, the claim is that OPA1 variants disturb fusion, energy metabolism, apoptosis, calcium handling and mitochondrial genome maintenance, whereas OPA3 variants affect energy metabolism and the control of apoptosis only.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"optic nerve\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Opa3 L122P ENU mouse\", \"species\": \"Mouse\", \"genotype\": \"Opa3 c.365T\u003eC p.(L122P), heterozygous and homozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"In the heterozygous state - the state that matches the human dominant genotype - the mice appear uncompromised. Retinal ganglion cell loss and optic nerve degeneration appear only in homozygotes, which model the recessive human disease instead, together with cardiomyopathy, extrapyramidal dysfunction and death before four months.\"}]}}], \"edges\": [{\"source\": \"Heterozygous OPA3 Missense Variant\", \"target\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying the presequence insertion show both reduced mutant protein and a fragmented network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"target\": \"Retinal Ganglion Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation\", \"target\": \"Lens Fibre Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Optic Disc Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disc pallor is the fundoscopic appearance of the axonal loss, described in the source as related to the retinal ganglion cell death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Degeneration\", \"target\": \"Colour Vision Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colour vision loss follows from preferential involvement of the papillomacular bundle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lens Fibre Mitochondrial Dysfunction\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Opa3 L122P ENU mouse\", \"target\": \"Retinal Ganglion Cell Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"In the heterozygous state - the state that matches the human dominant genotype - the mice appear uncompromised. Retinal ganglion cell loss and optic nerve degeneration appear only in homozygotes, which model the recessive human disease instead, together with cardiomyopathy, extrapyramidal dysfunction and death before four months.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The genotype that models this entity produces no phenotype, so the model cannot be used to study dominant OPA3 optic neuropathy. Any retinal or optic nerve finding cited from this mouse is a homozygote finding and belongs to Costeff syndrome, not here. There is currently no published mouse carrying a human dominant OPA3 allele such as p.Q105E.\"}, {\"source\": \"OPA3\", \"target\": \"Heterozygous OPA3 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5449,6 +5535,9 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5543,6 +5632,9 @@ This clinical feature is Pancreatitis (HP:0001733), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5618,6 +5710,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5748,6 +5843,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5839,6 +5937,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5940,6 +6041,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6004,6 +6108,9 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6077,6 +6184,9 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6164,6 +6274,9 @@ This clinical feature is Lipodystrophy (HP:0009125). HP:0009125 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6239,6 +6352,9 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6337,6 +6453,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6453,6 +6572,9 @@ This disease-associated gene is OPA3 (hgnc:8142). hgnc:8142 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6582,6 +6704,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6592,6 +6717,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6688,6 +6816,9 @@ This treatment is Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6698,6 +6829,9 @@ This treatment is Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6792,6 +6926,9 @@ This treatment is Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6802,6 +6939,9 @@ This treatment is Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -6925,6 +7065,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6935,6 +7078,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9091,6 +9237,58 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming. This entry is filed under the MONDO label &#34;optic atrophy 3&#34;, which is the OMIM-derived locus name. The clinical literature calls it autosomal dominant optic atrophy and cataract (ADOAC), and the extended form with neuropathy and dysmotility is written ADOAC+. Both are in the synonyms.
+Curation inputs and what was rejected. One Perplexity deep-research run, committed alongside this entry, plus independent PubMed searching. The report was used for orientation only: it covers both OPA3 diseases under one heading, contains no PMID or DOI citations at all - its reference validation section found four resolvable references out of eighteen citations, the rest being web pages - and its ontology suggestions include at least one confident mislabel, offering HP:0001103 as &#34;optic disc pallor&#34; when HPO calls that term Abnormal macular morphology (optic disc pallor is HP:0000543, used here). No CURIE and no claim was taken from it without independent confirmation.
+The report did earn its place in one concrete way worth recording, because it is not the way the report itself advertises. Resolving its citations pulled two papers into the reference cache that the independent PubMed searches had missed - PMID:20372962, which localises OPA3 to the mitochondrial outer membrane and shows the bidirectional dose-morphology effect, and PMID:21613372, which is the lens expression work. Both are now cited in the pathophysiology. So the useful yield here came from the citation *resolution* step rather than from the prose.
+Extrapyramidal signs: considered, not curated, and here is why. PMID:15924081 is titled &#34;An OPA3 gene mutation is responsible for the disease associating optic atrophy and cataract with extrapyramidal signs&#34; and carries the MeSH heading Basal Ganglia Diseases; one of this entry&#39;s own synonyms is &#34;Optic atrophy, cataract, and neurologic disorder&#34;; and a further dominant family has been reported with ataxia and areflexia (PMID:22797356). So the feature is real and this entry does not dispute it.
+It is not curated as a structured phenotype because no citable source available here contains a quotable sentence for it. The body of PMID:15924081 offers only &#34;neurological symptoms&#34;, which is too vague to bind to a movement term; its title carries the specific claim, and a title is not a finding (`check-title-snippets` bars quoting one). PMID:22797356 resolves but has no abstract or full text in the cache, so its title is likewise unquotable. The Orphanet record for this disorder, ORPHA:67036, is reported to list tremor and extrapyramidal rigidity and would be the right structured source - though that could not be confirmed here, because it is not among the 347 ORPHA records cached in this repository, and `just refresh-orphadata` currently fails on a checksum mismatch against the pinned manifest, so it could not be generated here.
+The honest position is therefore: extrapyramidal signs belong in this phenotype and are missing for want of a quotable source, not for want of evidence. Adding ORPHA:67036 to the cache is the concrete fix, and a curator who does that should add tremor and extrapyramidal rigidity here.
+A reference that could not be quoted. PMID:15342707, the 2004 paper that established OPA3 as an ADOAC locus, has no abstract or full text available through the reference cache. It is listed in the top-level references because it is the founding citation, but no evidence item quotes it, and the claims it would have supported are sourced from the 2005 Rev Neurol report and later series instead.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Optic Atrophy 3 (MONDO:0008133, OPA3, dominant ADOAC)</strong> · 2026-08-29T20:01:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Optic_Atrophy_3/2026-08-29T200105Z-claude-code-fe2240.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of optic atrophy 3, the autosomal dominant OPA3 optic-atrophy-and-cataract entity (ADOAC).
+
+Lump/split decision. Curated as its own kb/disorders entry. MONDO:0008133 is a leaf with no descendants, one causal gene, and neither the term nor the label appeared anywhere in kb/ or in an open PR at the time of the claim.
+
+The dominant question here was not granularity but entity identity. OPA3 causes two diseases: this dominant optic-atrophy-plus-cataract disorder from heterozygous, predominantly missense variants, and recessive Costeff syndrome (3-methylglutaconic aciduria type III) from biallelic, predominantly loss-of-function variants. They differ in onset, systemic features, and a urinary organic-acid marker. Every claim in this entry was traced back to a heterozygous pedigree; Costeff content appears only in the differential-diagnoses block, labelled as such.
+
+Curation inputs. One Perplexity deep-research run (research/Optic_Atrophy_3-deep-research-perplexity.md, committed alongside) plus independent PubMed E-utilities searching. The report was used for orientation only, for two reasons recorded here because they generalise.
+
+First, it is titled &#34;OPA3-Associated Optic Atrophy and Organic Aciduria&#34; and interleaves the two OPA3 diseases throughout - exactly the entity confusion this entry exists to keep out. Its statements about chorea, spastic paraparesis and organic aciduria are true of the recessive disease and false of this one.
+
+Second, its evidence metadata is thin in a way worth noting for the provider generally. Frontmatter reports citation_count 18, but reference validation checked only 4 references and reported 4 of 4 verified, zero confabulations, all on topic. The gap is that the report contains no PMID and no DOI anywhere in its body: it cites bracketed numbers resolving to web pages (MedlinePlus, Orphanet, GARD, NCBI Gene). A clean reference-validation panel here therefore means &#34;the four URL-embedded identifiers we could parse resolved&#34;, not &#34;the report is well sourced&#34;. Its term validation was more informative and flagged two obsolete terms; independent checking also found a confident mislabel it did not catch, HP:0001103 offered as &#34;optic disc pallor&#34; when HPO calls that term Abnormal macular morphology. This entry uses HP:0000543 for optic disc pallor.
+
+A reference that could not be quoted. PMID:15342707 (Reynier 2004), the paper that established OPA3 as an ADOAC locus, has no abstract or full text retrievable into references_cache; the cached record is metadata only. It is listed in the top-level references block as the founding citation, but no evidence item quotes it, and the claims it would have carried are sourced instead from PMID:15924081 (the 2005 Rev Neurol report on the same French family, followed for 40 years) and from later series. This is stated in the entry&#39;s genetic notes and trailing notes so a reader does not conclude the founding paper was overlooked.
+
+Structure. Four pathophysiology nodes: heterozygous OPA3 missense variant, reduced OPA3 steady-state levels with mitochondrial network fragmentation, retinal ganglion cell degeneration, and lens fibre mitochondrial dysfunction. The chain deliberately stops at network morphology rather than naming a biochemical step, because OPA3&#39;s normal function is not established well enough to support one.
+
+Two nodes carry qualifications rather than reinforcement. The fragmentation node cites a second family whose fibroblasts showed enlarged mitochondria with slightly fragmented cristae - morphologically abnormal in the same sense, but not in the same direction - and the explanation says so. The lens node is PROVISIONAL because its only functional support is a mouse modelling the recessive disease and no human lens tissue has been examined.
+
+Animal model recorded as a negative. The Opa3 L122P ENU mouse is entered with relationship FAILS_TO_RECAPITULATE against retinal ganglion cell degeneration, with its own limitations and evidence. The heterozygote - the genotype matching human dominant disease - is unaffected; every retinal and optic-nerve finding in that mouse is a homozygote finding and belongs to Costeff syndrome.
+
+Discussions. Three, all OPEN: the dominant-versus-recessive evidence-provenance problem (KNOWLEDGE_GAP); the absence of any in vivo model of the dominant disease (HUMAN_MODEL_MISMATCH, with a proposed p.Q105E knock-in experiment); and the unexplained lens mechanism (KNOWLEDGE_GAP).
+
+Evidence grading. Several items are SUPPORT with directness INDIRECT rather than DIRECT, because the source describes dominant optic atrophy as a class and not OPA3 carriers specifically - the Orphanet review is the main such source, used for prevalence, fundoscopic signs, colour vision and management advice. One evidence item is graded REFUTE: the 2025 family with a segregating OPA3 missense allele and no optic atrophy refutes optic atrophy as an obligate feature, which is why that phenotype is VERY_FREQUENT rather than obligate.
+
+What the report did contribute. Resolving its citations pulled two papers into references_cache that the independent PubMed searches had missed: PMID:20372962 (OPA3 localised to the mitochondrial outer membrane; overexpression fragments the network and knockdown elongates it; a familial mutant induces spontaneous apoptosis, proposed as gain of function) and PMID:21613372 (Opa3 ocular and lens expression in the L122P mouse). Both are now cited in the pathophysiology, and the first materially improved the mechanism node. The yield came from the citation-resolution step rather than the prose.
+
+A grading decision that follows from it. The gain-of-function proposal rests on transient overexpression of a single allele in a cell line, so the biological-process annotations on the fragmentation node stay quantitative (modifier INCREASED) rather than being written as GAIN_OF_FUNCTION, and the evidence item carries directness INDIRECT with the reason stated in place.
+
+Validation. Schema validation passes; 48 of 48 evidence snippets verified against cached primary references; term validation, duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet and snippet-grading checks all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

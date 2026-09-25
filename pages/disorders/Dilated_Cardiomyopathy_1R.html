@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5153,6 +5206,13 @@ A curator should also know the evidential footing. ClinGen&#39;s Dilated Cardiom
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-actc1-missense-variant-in-cardiac-alpha-actin" data-dismech-node="ACTC1 Missense Variant in Cardiac Alpha-Actin" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTC1 Missense Variant in Cardiac Alpha-Actin</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous missense substitution in cardiac alpha-actin, the monomer that polymerises into the thin filament. The DCM-associated alleles are single amino-acid changes at conserved residues; the two founding ones, R312H and E361G, lie in the parts of actin that engage the Z band and the intercalated disc rather than in the myosin-binding surface, which is why the original interpretation was a force-transmission defect. Notably, the intrinsic properties of the mutant protein are barely changed - polymerisation kinetics, melting temperature and DNase-I inhibition are close to wild type - so the lesion is in how the filament is regulated, not in whether it forms.</div>
 
 
@@ -5401,6 +5461,13 @@ This pathophysiological event involves abnormal actin filament binding within th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-thin-filament-regulation-of-actomyosin" data-dismech-node="Altered Thin Filament Regulation of Actomyosin" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Thin Filament Regulation of Actomyosin</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The regulated thin filament - actin plus tropomyosin plus troponin - no longer switches between its blocked, closed and open states normally. What exactly goes wrong is where the three hypothesis groups diverge, and the downstream edges are tagged accordingly rather than being collapsed into one claim. Measurements that are agreed across laboratories: maximal calcium-activated filament velocity is reduced, and myosin&#39;s ADP release is slowed so it detaches more slowly. Measurements that are not agreed: the direction of the shift in calcium sensitivity, and whether the filament is fully inhibited in the absence of calcium.</div>
 
@@ -5725,6 +5792,13 @@ This pathophysiological event occurs in myofibril (GO:0030016). GO:0030016 is an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-adrenergic-contractile-and-lusitropic-reserve" data-dismech-node="Loss of Adrenergic Contractile and Lusitropic Reserve" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Adrenergic Contractile and Lusitropic Reserve</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A ventricle that performs acceptably at rest but cannot increase its output or speed its relaxation when driven. In the E361G mouse, dobutamine raised cardiac output by 2,100 microlitres per minute in wild-type animals and only 900 in mutants, and the relaxation indices moved by a quarter to a third of the wild-type amount. Baseline cardiac dimensions and systolic function were essentially normal over four to eighteen months. The clinical reading is that CMD1R may be a disease of failed reserve, which would explain why human onset can be late and why an intercurrent stress can precipitate presentation.</div>
 
 
@@ -5992,6 +6066,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-dilation-and-systolic-dysfunction" data-dismech-node="Left Ventricular Dilation and Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Dilation and Systolic Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The organ-level phenotype that defines the disease: a dilated left ventricle with impaired systolic contraction, in the absence of loading conditions or coronary disease sufficient to explain it. Severity spans the range - from an adult diagnosed at 36 to a one-year-old with severe dilation and dysfunction who died suddenly.</div>
 
 
@@ -6255,7 +6336,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTC E361G transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal model of an ACTC1 dilated-cardiomyopathy allele. It expresses the human E361G actin at about half of total cardiac actin, which approximates the heterozygous human state better than most sarcomeric transgenics do. Its scientific value is that it is almost normal: baseline contractility, cardiac dimensions and myocyte function are unremarkable, and the phenotype only appears when the animal is challenged with dobutamine or with four weeks of angiotensin II.\"}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution in cardiac alpha-actin, the monomer that polymerises into the thin filament. The DCM-associated alleles are single amino-acid changes at conserved residues; the two founding ones, R312H and E361G, lie in the parts of actin that engage the Z band and the intercalated disc rather than in the myosin-binding surface, which is why the original interpretation was a force-transmission defect. Notably, the intrinsic properties of the mutant protein are barely changed - polymerisation kinetics, melting temperature and DNase-I inhibition are close to wild type - so the lesion is in how the filament is regulated, not in whether it forms.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"cardiac muscle cell\"], \"molecular_functions\": [\"actin filament binding within the cardiac thin filament\"], \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"role\": \"initiator\"}}, {\"id\": \"Acta1b p.T126I zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish knock-in carrying the fish orthologue of a human ACTC1 DCM allele, followed longitudinally and analysed separately by sex. Unlike the E361G mouse it develops spontaneous progressive dilated cardiomyopathy with ventricular dilation, pericardial effusion and reduced survival, without an imposed stress. Its most striking result is a sex effect: female mutants had earlier and sustained diastolic dysfunction, more remodelling and significantly worse survival.\"}, {\"id\": \"Altered Thin Filament Regulation of Actomyosin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The regulated thin filament - actin plus tropomyosin plus troponin - no longer switches between its blocked, closed and open states normally. What exactly goes wrong is where the three hypothesis groups diverge, and the downstream edges are tagged accordingly rather than being collapsed into one claim. Measurements that are agreed across laboratories: maximal calcium-activated filament velocity is reduced, and myosin\u0027s ADP release is slowed so it detaches more slowly. Measurements that are not agreed: the direction of the shift in calcium sensitivity, and whether the filament is fully inhibited in the absence of calcium.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"regulation of cardiac muscle contraction by the thin filament\", \"actin-myosin filament sliding\"], \"role\": \"central_effector\", \"locations\": [\"myofibril\"]}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The clinical syndrome the dilated, hypocontractile ventricle produces. In the founding report the whole point of testing ACTC was that actin dysfunction might be a mechanism of heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype. Left ventricular dilation with impaired systolic contraction, not attributable to loading conditions or coronary disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organ-level phenotype that defines the disease: a dilated left ventricle with impaired systolic contraction, in the absence of loading conditions or coronary disease sufficient to explain it. Severity spans the range - from an adult diagnosed at 36 to a one-year-old with severe dilation and dysfunction who died suddenly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"role\": \"central_effector\", \"locations\": [\"heart left ventricle\"], \"animal_models\": [{\"name\": \"ACTC E361G transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic expressing human ACTC E361G at approximately 50% of total cardiac actin\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reaches a dilated, dysfunctional ventricle, but only after four weeks of angiotensin II infusion, and it passes through a hypertrophic stage on the way.\"}, {\"name\": \"Acta1b p.T126I zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Acta1b p.T126I, orthologous to human ACTC1 p.T126I\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Progressive dilation and pump failure arising without experimental provocation, which is the part of the human phenotype the mouse model does not reproduce unaided.\"}]}}, {\"id\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A ventricle that performs acceptably at rest but cannot increase its output or speed its relaxation when driven. In the E361G mouse, dobutamine raised cardiac output by 2,100 microlitres per minute in wild-type animals and only 900 in mutants, and the relaxation indices moved by a quarter to a third of the wild-type amount. Baseline cardiac dimensions and systolic function were essentially normal over four to eighteen months. The clinical reading is that CMD1R may be a disease of failed reserve, which would explain why human onset can be late and why an intercurrent stress can precipitate presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"regulation of the force of heart contraction\"], \"role\": \"amplifier\", \"locations\": [\"myocardium\"], \"animal_models\": [{\"name\": \"ACTC E361G transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic expressing human ACTC E361G at approximately 50% of total cardiac actin\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This node is defined by the mouse rather than merely supported by it. Blunted inotropic and lusitropic responses to dobutamine, measured by papillary muscle mechanics, conductance catheter and echocardiography, are the primary observations.\"}]}}, {\"id\": \"Reduced Left Ventricular Ejection Fraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The functional measure that tracks the dilation. Reported in human CMD1R cases as severe left ventricular dysfunction, and measured directly in the E361G mouse after chronic angiotensin II stress.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012664\"}}, {\"id\": \"p.Ala222Thr (c.664G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A de novo allele in a one-year-old with severe DCM and sudden cardiac death. Absent from gnomAD and the other control databases, and reported in ClinVar by other submitters, including two likely-pathogenic de novo DCM classifications. The case also carried a paternally inherited TTN variant classified as uncertain, and the authors do not attribute the phenotype to ACTC1 alone.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"p.Arg312His (R312H)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The principal DCM allele and one of the two identified in 1998. Its interest is that the same codon carries an HCM allele: R312C is found in hypertrophic cardiomyopathy patients and R312H in dilated cardiomyopathy patients, which makes this pair the cleanest available demonstration that in ACTC1 the allele determines the phenotype. The biophysical characterisation of R312H is inconsistent across laboratories and is the basis for the three hypothesis groups in this entry. One source notes it has also been seen in HCM patients, so even this allele is not phenotypically exclusive.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Glu361Gly (E361G)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second 1998 allele, and the only ACTC1 DCM variant modelled in a transgenic animal. All of the in vivo mechanistic evidence in this entry comes from that mouse.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Thr126Ile (T126I)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A DCM-associated ACTC1 allele modelled in zebrafish through the orthologous Acta1b substitution. No human clinical report of this allele is cited here; it enters the entry through the animal model, which is why no clinical_significance is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\"}}], \"edges\": [{\"source\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"target\": \"Altered Thin Filament Regulation of Actomyosin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A substitution in the actin monomer changes the regulated filament it builds, which is the immediate molecular consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Thin Filament Regulation of Actomyosin\", \"target\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the uncoupling model, fixing calcium sensitivity so that troponin I phosphorylation no longer shifts it is precisely what removes the reserve.\", \"hypothesis_groups\": [\"actc1_tni_phosphorylation_uncoupling_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Thin Filament Regulation of Actomyosin\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The direct route from a mis-regulated filament to a dilated ventricle, which the desensitisation and residual-activity models both assert and neither has demonstrated in an intact ACTC1 heart. Marked INDIRECT_UNKNOWN_INTERMEDIATES for that reason: the steps between an in vitro motility measurement and chamber remodelling are not filled in.\", \"hypothesis_groups\": [\"actc1_calcium_desensitization_model\", \"actc1_residual_activity_relaxation_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the mouse this step required an experimental stress to appear: four weeks of angiotensin II infusion converted a normal-looking heart into a dilated, dysfunctional one, while wild-type animals were unaffected.\", \"hypothesis_groups\": [\"actc1_tni_phosphorylation_uncoupling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic haemodynamic or neurohormonal stress that a reserve-less ventricle cannot meet.\"]}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Reduced Left Ventricular Ejection Fraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive ventricular remodelling and neurohormonal activation following sustained systolic impairment.\"]}, {\"source\": \"ACTC E361G transgenic mouse\", \"target\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This node is defined by the mouse rather than merely supported by it. Blunted inotropic and lusitropic responses to dobutamine, measured by papillary muscle mechanics, conductance catheter and echocardiography, are the primary observations.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A transgenic overexpression model rather than a knock-in, so the mutant protein competes with endogenous mouse actin at a ratio set by the transgene rather than by allelic balance. Mouse and human cardiac beta-adrenergic signalling and heart rates differ substantially, and the corresponding measurement - contractile reserve on stress testing - has never been made in a human ACTC1 carrier.\"}, {\"source\": \"ACTC E361G transgenic mouse\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse reaches a dilated, dysfunctional ventricle, but only after four weeks of angiotensin II infusion, and it passes through a hypertrophic stage on the way.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"PARTIALLY_RECAPITULATES because the model does not develop spontaneous dilated cardiomyopathy: over 4 to 18 months unstressed it is indistinguishable from wild type, and the DCM phenotype requires an experimental pressor stress that has no counterpart in the human disease. The authors also note that the response to chronic angiotensin II is strongly mouse-strain dependent, and that C57BL/6 animals are particularly resistant, which limits how far the stress protocol generalises.\"}, {\"source\": \"Acta1b p.T126I zebrafish\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Progressive dilation and pump failure arising without experimental provocation, which is the part of the human phenotype the mouse model does not reproduce unaided.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for a specific and important reason: the mutation was made in acta1b, a *skeletal* actin paralogue standing in for cardiac actin, because zebrafish gene duplication does not map one-to-one onto human ACTC1. The two-chambered zebrafish heart has no left ventricle, so \\\"left ventricular dilation\\\" is an interpretation of ventricular dilation in a single ventricle. The sexual dimorphism, which is the paper\u0027s headline finding, has no established counterpart in human ACTC1 disease.\"}, {\"source\": \"ACTC1\", \"target\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg312His (R312H)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu361Gly (E361G)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Thr126Ile (T126I)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ala222Thr (c.664G\u003eA)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTC E361G transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal model of an ACTC1 dilated-cardiomyopathy allele. It expresses the human E361G actin at about half of total cardiac actin, which approximates the heterozygous human state better than most sarcomeric transgenics do. Its scientific value is that it is almost normal: baseline contractility, cardiac dimensions and myocyte function are unremarkable, and the phenotype only appears when the animal is challenged with dobutamine or with four weeks of angiotensin II.\"}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution in cardiac alpha-actin, the monomer that polymerises into the thin filament. The DCM-associated alleles are single amino-acid changes at conserved residues; the two founding ones, R312H and E361G, lie in the parts of actin that engage the Z band and the intercalated disc rather than in the myosin-binding surface, which is why the original interpretation was a force-transmission defect. Notably, the intrinsic properties of the mutant protein are barely changed - polymerisation kinetics, melting temperature and DNase-I inhibition are close to wild type - so the lesion is in how the filament is regulated, not in whether it forms.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"cardiac muscle cell\"], \"molecular_functions\": [\"actin filament binding within the cardiac thin filament\"], \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"role\": \"initiator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Acta1b p.T126I zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish knock-in carrying the fish orthologue of a human ACTC1 DCM allele, followed longitudinally and analysed separately by sex. Unlike the E361G mouse it develops spontaneous progressive dilated cardiomyopathy with ventricular dilation, pericardial effusion and reduced survival, without an imposed stress. Its most striking result is a sex effect: female mutants had earlier and sustained diastolic dysfunction, more remodelling and significantly worse survival.\"}, {\"id\": \"Altered Thin Filament Regulation of Actomyosin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The regulated thin filament - actin plus tropomyosin plus troponin - no longer switches between its blocked, closed and open states normally. What exactly goes wrong is where the three hypothesis groups diverge, and the downstream edges are tagged accordingly rather than being collapsed into one claim. Measurements that are agreed across laboratories: maximal calcium-activated filament velocity is reduced, and myosin\u0027s ADP release is slowed so it detaches more slowly. Measurements that are not agreed: the direction of the shift in calcium sensitivity, and whether the filament is fully inhibited in the absence of calcium.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"regulation of cardiac muscle contraction by the thin filament\", \"actin-myosin filament sliding\"], \"role\": \"central_effector\", \"locations\": [\"myofibril\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The clinical syndrome the dilated, hypocontractile ventricle produces. In the founding report the whole point of testing ACTC was that actin dysfunction might be a mechanism of heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype. Left ventricular dilation with impaired systolic contraction, not attributable to loading conditions or coronary disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organ-level phenotype that defines the disease: a dilated left ventricle with impaired systolic contraction, in the absence of loading conditions or coronary disease sufficient to explain it. Severity spans the range - from an adult diagnosed at 36 to a one-year-old with severe dilation and dysfunction who died suddenly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"role\": \"central_effector\", \"locations\": [\"heart left ventricle\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"ACTC E361G transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic expressing human ACTC E361G at approximately 50% of total cardiac actin\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reaches a dilated, dysfunctional ventricle, but only after four weeks of angiotensin II infusion, and it passes through a hypertrophic stage on the way.\"}, {\"name\": \"Acta1b p.T126I zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Acta1b p.T126I, orthologous to human ACTC1 p.T126I\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Progressive dilation and pump failure arising without experimental provocation, which is the part of the human phenotype the mouse model does not reproduce unaided.\"}]}}, {\"id\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A ventricle that performs acceptably at rest but cannot increase its output or speed its relaxation when driven. In the E361G mouse, dobutamine raised cardiac output by 2,100 microlitres per minute in wild-type animals and only 900 in mutants, and the relaxation indices moved by a quarter to a third of the wild-type amount. Baseline cardiac dimensions and systolic function were essentially normal over four to eighteen months. The clinical reading is that CMD1R may be a disease of failed reserve, which would explain why human onset can be late and why an intercurrent stress can precipitate presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"regulation of the force of heart contraction\"], \"role\": \"amplifier\", \"locations\": [\"myocardium\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"ACTC E361G transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic expressing human ACTC E361G at approximately 50% of total cardiac actin\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This node is defined by the mouse rather than merely supported by it. Blunted inotropic and lusitropic responses to dobutamine, measured by papillary muscle mechanics, conductance catheter and echocardiography, are the primary observations.\"}]}}, {\"id\": \"Reduced Left Ventricular Ejection Fraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The functional measure that tracks the dilation. Reported in human CMD1R cases as severe left ventricular dysfunction, and measured directly in the E361G mouse after chronic angiotensin II stress.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012664\"}}, {\"id\": \"p.Ala222Thr (c.664G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A de novo allele in a one-year-old with severe DCM and sudden cardiac death. Absent from gnomAD and the other control databases, and reported in ClinVar by other submitters, including two likely-pathogenic de novo DCM classifications. The case also carried a paternally inherited TTN variant classified as uncertain, and the authors do not attribute the phenotype to ACTC1 alone.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"p.Arg312His (R312H)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The principal DCM allele and one of the two identified in 1998. Its interest is that the same codon carries an HCM allele: R312C is found in hypertrophic cardiomyopathy patients and R312H in dilated cardiomyopathy patients, which makes this pair the cleanest available demonstration that in ACTC1 the allele determines the phenotype. The biophysical characterisation of R312H is inconsistent across laboratories and is the basis for the three hypothesis groups in this entry. One source notes it has also been seen in HCM patients, so even this allele is not phenotypically exclusive.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Glu361Gly (E361G)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second 1998 allele, and the only ACTC1 DCM variant modelled in a transgenic animal. All of the in vivo mechanistic evidence in this entry comes from that mouse.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Thr126Ile (T126I)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A DCM-associated ACTC1 allele modelled in zebrafish through the orthologous Acta1b substitution. No human clinical report of this allele is cited here; it enters the entry through the animal model, which is why no clinical_significance is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"variant_type\": \"missense_variant\"}}], \"edges\": [{\"source\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"target\": \"Altered Thin Filament Regulation of Actomyosin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A substitution in the actin monomer changes the regulated filament it builds, which is the immediate molecular consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Thin Filament Regulation of Actomyosin\", \"target\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the uncoupling model, fixing calcium sensitivity so that troponin I phosphorylation no longer shifts it is precisely what removes the reserve.\", \"hypothesis_groups\": [\"actc1_tni_phosphorylation_uncoupling_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Thin Filament Regulation of Actomyosin\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The direct route from a mis-regulated filament to a dilated ventricle, which the desensitisation and residual-activity models both assert and neither has demonstrated in an intact ACTC1 heart. Marked INDIRECT_UNKNOWN_INTERMEDIATES for that reason: the steps between an in vitro motility measurement and chamber remodelling are not filled in.\", \"hypothesis_groups\": [\"actc1_calcium_desensitization_model\", \"actc1_residual_activity_relaxation_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the mouse this step required an experimental stress to appear: four weeks of angiotensin II infusion converted a normal-looking heart into a dilated, dysfunctional one, while wild-type animals were unaffected.\", \"hypothesis_groups\": [\"actc1_tni_phosphorylation_uncoupling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic haemodynamic or neurohormonal stress that a reserve-less ventricle cannot meet.\"]}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Reduced Left Ventricular Ejection Fraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive ventricular remodelling and neurohormonal activation following sustained systolic impairment.\"]}, {\"source\": \"ACTC E361G transgenic mouse\", \"target\": \"Loss of Adrenergic Contractile and Lusitropic Reserve\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This node is defined by the mouse rather than merely supported by it. Blunted inotropic and lusitropic responses to dobutamine, measured by papillary muscle mechanics, conductance catheter and echocardiography, are the primary observations.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A transgenic overexpression model rather than a knock-in, so the mutant protein competes with endogenous mouse actin at a ratio set by the transgene rather than by allelic balance. Mouse and human cardiac beta-adrenergic signalling and heart rates differ substantially, and the corresponding measurement - contractile reserve on stress testing - has never been made in a human ACTC1 carrier.\"}, {\"source\": \"ACTC E361G transgenic mouse\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse reaches a dilated, dysfunctional ventricle, but only after four weeks of angiotensin II infusion, and it passes through a hypertrophic stage on the way.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"PARTIALLY_RECAPITULATES because the model does not develop spontaneous dilated cardiomyopathy: over 4 to 18 months unstressed it is indistinguishable from wild type, and the DCM phenotype requires an experimental pressor stress that has no counterpart in the human disease. The authors also note that the response to chronic angiotensin II is strongly mouse-strain dependent, and that C57BL/6 animals are particularly resistant, which limits how far the stress protocol generalises.\"}, {\"source\": \"Acta1b p.T126I zebrafish\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Progressive dilation and pump failure arising without experimental provocation, which is the part of the human phenotype the mouse model does not reproduce unaided.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for a specific and important reason: the mutation was made in acta1b, a *skeletal* actin paralogue standing in for cardiac actin, because zebrafish gene duplication does not map one-to-one onto human ACTC1. The two-chambered zebrafish heart has no left ventricle, so \\\"left ventricular dilation\\\" is an interpretation of ventricular dilation in a single ventricle. The sexual dimorphism, which is the paper\u0027s headline finding, has no established counterpart in human ACTC1 disease.\"}, {\"source\": \"ACTC1\", \"target\": \"ACTC1 Missense Variant in Cardiac Alpha-Actin\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg312His (R312H)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu361Gly (E361G)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Thr126Ile (T126I)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ala222Thr (c.664G\u003eA)\", \"target\": \"ACTC1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6314,6 +6395,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6414,6 +6498,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
                     </div>
 
 
+
+
+
                     <div class="item-desc">No `frequency` is asserted. Impaired systolic contraction is definitional for DCM so the phenotype is certainly present, but no CMD1R series reports ejection fractions across a cohort, and FrequencyEnum has no value for &#34;present but unquantified&#34;. A band here would have been a number invented from the disease definition rather than counted in ACTC1 carriers.</div>
 
 
@@ -6485,6 +6572,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency` is asserted. No CMD1R report gives a proportion of carriers reaching symptomatic heart failure, and a grade derived from the disease definition rather than from a counted series would be a fabricated denominator.</div>
@@ -6567,6 +6657,9 @@ This clinical feature is Sudden death (HP:0001699). HP:0001699 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency` is asserted, and this is the case where a band would have been most misleading. The evidence is a single infant who also carried a TTN variant. No arrhythmic risk estimate exists for CMD1R, and none should be inferred from this entry.</div>
@@ -6716,6 +6809,9 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6824,6 +6920,7 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6843,11 +6940,17 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The principal DCM allele and one of the two identified in 1998. Its interest is that the same codon carries an HCM allele: R312C is found in hypertrophic cardiomyopathy patients and R312H in dilated cardiomyopathy patients, which makes this pair the cleanest available demonstration that in ACTC1 the allele determines the phenotype. The biophysical characterisation of R312H is inconsistent across laboratories and is the basis for the three hypothesis groups in this entry. One source notes it has also been seen in HCM patients, so even this allele is not phenotypically exclusive.</div>
@@ -6966,6 +7069,7 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6985,11 +7089,17 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second 1998 allele, and the only ACTC1 DCM variant modelled in a transgenic animal. All of the in vivo mechanistic evidence in this entry comes from that mouse.</div>
@@ -7079,6 +7189,7 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7098,11 +7209,17 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A DCM-associated ACTC1 allele modelled in zebrafish through the orthologous Acta1b substitution. No human clinical report of this allele is cited here; it enters the entry through the animal model, which is why no clinical_significance is asserted for it.</div>
@@ -7167,6 +7284,7 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7186,11 +7304,17 @@ This variant is in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A de novo allele in a one-year-old with severe DCM and sudden cardiac death. Absent from gnomAD and the other control databases, and reported in ClinVar by other submitters, including two likely-pathogenic de novo DCM classifications. The case also carried a paternally inherited TTN variant classified as uncertain, and the authors do not attribute the phenotype to ACTC1 alone.</div>
@@ -7427,6 +7551,9 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7437,6 +7564,9 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -7497,6 +7627,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7507,6 +7640,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
     </div>
+
+
+
 
 
 
@@ -7567,6 +7703,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7577,6 +7716,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7637,6 +7779,9 @@ This treatment is genetic screening of at-risk relatives, annotated with Genetic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7647,6 +7792,9 @@ This treatment is genetic screening of at-risk relatives, annotated with Genetic
 
 
     </div>
+
+
+
 
 
 
@@ -10615,6 +10763,41 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated as a DISEASE. MONDO defines this term as familial isolated dilated cardiomyopathy caused by ACTC1 mutation, and per-subtype DCM entries are settled convention in this knowledge base. The entry has one conserved pathograph from an ACTC1 missense allele through altered thin-filament regulation to left ventricular dilation, so it is not a grouping, and it has a MONDO term and an OMIM entry of its own, so it is not a subtype line on the DCM umbrella. The stub is deleted.
+**How the ACTC1 HCM and congenital-heart literatures were kept out.** The gene-level preflight check passes trivially - ACTC1 is mentioned 89 times in the deep-research report - and tells you nothing, because every ACTC1 paper mentions ACTC1. The filter used instead was MONDO&#39;s own definition of this term, familial *isolated* dilated cardiomyopathy, applied per citation. Three candidate sources were excluded from the pathograph on that basis and moved to differential_diagnoses where they belong: the 2019 report of an ACTC1 p.Gly247Asp kindred with penetrant atrial septal defect plus late-onset dilated cardiomyopathy, whose myocardial ultrastructure and cardiomyocyte work is real DCM mechanism but comes from a non-isolated phenotype; the 2023 report of ACTC1 distal arthrogryposis with congenital heart defects, cited only for its one-sentence statement of the gene&#39;s allelic spectrum; and a 2026 case of ACTC1-associated left ventricular noncompaction in a patient who also carried a COL4A4 variant. Every pathophysiology citation in this entry is about a DCM-phenotype allele - R312H, E361G or A222Thr.
+**Dual MONDO parentage and grouping membership.** MONDO:0013261 has two superclasses - familial isolated dilated cardiomyopathy (MONDO:0700335) and left ventricular noncompaction (MONDO:0018901) - and &#34;left ventricular noncompaction 4&#34; is among its synonyms. That matters because `kb/groupings/Familial_Dilated_Cardiomyopathy.yaml` deliberately excludes the left ventricular noncompaction entries as a distinct morphological entity. This entry is therefore **not** added to that grouping in this pull request. The reason is not that CMD1R fails to belong, but that adding a dual-parented CMD/LVNC term is a change to the grouping&#39;s own inclusion rule and should be argued in a pull request against the grouping, where the same question can be settled for every other dual-parented term at once, rather than settled by side effect here. The `parents:` list carries `Dilated Cardiomyopathy`, which is the claim the evidence in this entry actually supports.
+**Cross-reference.** `Hypertrophic_Cardiomyopathy_11` is the ACTC1 hypertrophic entry (CMH11) and already records that ACTC1 is allelically pleiotropic. The two entries are the same gene at opposite ends of the R312 contrast and should be read together.
+ClinGen&#39;s arrhythmogenic right ventricular cardiomyopathy panel classifies ACTC1 for ARVC as No Known Disease Relationship, which is cited in the genetic section. It is the one boundary of this gene&#39;s phenotype spectrum that is settled by an expert panel rather than merely unexplored.
+What is deliberately not curated: no biochemical markers, no clinical trials, no datasets, no environmental factors and no histopathology. Cardiomyocyte apoptosis, sarcomeric disarray and extracellular-matrix expansion have been described for an ACTC1 allele, but only in the atrial-septal-defect kindred, so importing them would breach the scoping rule above. No prevalence rate is asserted: DCM cohort denominators are not ACTC1 denominators.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Dilated Cardiomyopathy 1R (CMD1R, ACTC1)</strong> · 2026-09-03T20:48:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dilated_Cardiomyopathy_1R/2026-09-03T204823Z-claude-code-3f1875.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for MONDO:0013261 (CMD1R, ACTC1). entry_type decision: DISEASE - one conserved pathograph from an ACTC1 missense allele through altered thin-filament regulation to left ventricular dilation, its own MONDO term and OMIM 613424, and per-subtype DCM entries are settled convention here. Stub deleted.
+
+Named Entity Confusion handling. ACTC1 also causes hypertrophic cardiomyopathy, left ventricular noncompaction, atrial septal defect and a distal arthrogryposis syndrome, and those literatures are larger than the DCM one. The gene-level preflight passes trivially (ACTC1 mentioned 89 times) and is uninformative. The filter used instead was MONDO&#39;s own definition of this term - familial ISOLATED dilated cardiomyopathy - applied per citation. Three sources were excluded from the pathograph and moved to differential_diagnoses: PMID:31430208 (ACTC1 p.Gly247Asp kindred with penetrant atrial septal defect plus late-onset DCM - its myocardial ultrastructure and cardiomyocyte apoptosis work is genuine DCM mechanism but comes from a non-isolated phenotype, so the histopathology it would have supplied is deliberately not curated); PMID:37457373 (distal arthrogryposis with congenital heart defects, cited only for its one-sentence statement of the gene&#39;s allelic spectrum); and PMID:41033995 (LVNC in a patient also carrying COL4A4). Every pathophysiology citation is about a DCM-phenotype allele - R312H, E361G or A222Thr.
+
+Mechanism curated as three competing hypothesis groups rather than one story, because the ACTC1 literature genuinely disagrees: canonical calcium-desensitization (CANONICAL, carrying two REFUTE evidence items against itself), troponin-I phosphorylation uncoupling with loss of cardiac reserve (ALTERNATIVE, the E361G mouse, best in vivo support), and residual myosin activity under relaxing conditions (EMERGING, the 2022/2024 R312 work). A KNOWLEDGE_GAP discussion records that three laboratories measured R312H and disagree on the direction of the calcium-sensitivity shift, with the therapeutic consequence spelled out. A HUMAN_MODEL_MISMATCH discussion records that no human ACTC1 carrier has had contractile reserve measured.
+
+Evidential footing recorded explicitly: ClinGen grades ACTC1-DCM as Moderate (2025, DCM GCEP) against Definitive for ACTC1-HCM (2021, HCM GCEP). Both CGGV assertions are cited, the HCM one flagged directness INDIRECT and included solely to fix the asymmetry.
+
+No prevalence rate asserted - DCM cohort denominators are not ACTC1 denominators. Fatal infant outcome placed in progression rather than as a phenotype. No treatment carries a TreatmentEffectEnum value or a target_mechanisms link, since no CMD1R outcome data exist.
+
+Deep research: falcon provider, preflight-dr PASS. The report surfaced PMID:39759977 (de novo A222Thr infant case) and PMID:37457373, both used; it also surfaced the p.Gly247Asp ASD material, which is the contamination the entry fences off.
+
+Validation: just validate, validate-terms, count-verified-snippets 61/61, validate-disorders, check-duplicate-keys, check-entity-refs, check-causal-targets, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-folded-hyphens, check-stubs - all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

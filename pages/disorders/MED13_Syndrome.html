@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4767,6 +4820,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ckm-hinge-anchoring-by-med13" data-dismech-node="CKM hinge anchoring by MED13" data-dismech-type="pathophysiology">
                 <div class="item-name">CKM hinge anchoring by MED13</div>
 
+
                 <div class="item-desc">MED13 is the hinge subunit that physically tethers the four-protein CDK8 kinase module (CKM: MED13, MED12, CDK8, cyclin C) to core Mediator. Structural work shows MED13 adopts an Argonaute-like bi-lobal fold, and that a large intrinsically disordered region within it forms a principal CKM-core interface which directly occludes the RNA polymerase II and MED26 binding sites — making CKM docking a kinase-independent repressor of Mediator-dependent transcription. Division of labour within the module is asymmetric: MED12 activates CDK8 kinase activity, whereas MED13 mediates the association of the module with Mediator. This node is what MED13 dosage and structural integrity actually control, and is the mechanistic layer the previous version of this entry summarised only as &#34;connective role&#34;.
 </div>
 
@@ -5101,6 +5155,7 @@ This pathophysiological event involves transcription coregulator activity (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ckm-occupancy-of-core-mediator-and-bidirectional-transcriptional-control" data-dismech-node="CKM occupancy of core Mediator and bidirectional transcriptional control" data-dismech-type="pathophysiology">
                 <div class="item-name">CKM occupancy of core Mediator and bidirectional transcriptional control</div>
 
+
                 <div class="item-desc">CKM docking on core Mediator sterically blocks RNA polymerase II recruitment, and this repression is independent of CDK8 catalytic activity — MED12 and MED13, not kinase activity, are the critical subunits for it. The module is nevertheless not a pure repressor: CDK8 also acts as a context-dependent co-activator across the p53, Wnt/beta-catenin, serum-response, SMAD and thyroid-hormone-receptor programs. Consequently a perturbation of MED13 dosage dysregulates transcription bidirectionally at CKM-gated promoters and enhancers rather than simply de-repressing them, which is why MED13-related disease is a transcriptional dysregulation disorder and not a straightforward loss of repression.
 </div>
 
@@ -5344,6 +5399,7 @@ This pathophysiological event involves dysregulated positive regulation of DNA-t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-mediator-complex-transcriptional-regulation" data-dismech-node="Disrupted Mediator complex transcriptional regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Mediator complex transcriptional regulation</div>
+
 
                 <div class="item-desc">MED13 is a subunit of the CDK8 kinase module of the Mediator complex, which regulates RNA polymerase II-dependent transcription. MED13 plays a connective role between the CDK8 kinase module and the Mediator core. Pathogenic variants disrupt Mediator-dependent transcriptional control and broader gene-expression programs. MED13 belongs to the group of CDK8-kinase module-associated disease genes, alongside MED12, MED13L, and CDK8.
 </div>
@@ -5607,6 +5663,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-med13-phosphodegron-disruption-and-impaired-protein-turnover" data-dismech-node="MED13 phosphodegron disruption and impaired protein turnover" data-dismech-type="pathophysiology">
                 <div class="item-name">MED13 phosphodegron disruption and impaired protein turnover</div>
 
+
                 <div class="item-desc">Several pathogenic missense variants cluster at a conserved phosphodegron (Thr326/Pro327) in MED13. This phosphodegron is normally recognized by the SCF-Fbw7 ubiquitin ligase complex, leading to MED13 ubiquitination and proteasomal degradation. Mutations at these residues may impair MED13 protein turnover, potentially resulting in gain-of-function or dominant-negative effects through accumulation of mutant protein.
 </div>
 
@@ -5772,6 +5829,7 @@ This pathophysiological event involves protein ubiquitination (GO:0016567). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-transcriptional-dysregulation" data-dismech-node="Neurodevelopmental transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental transcriptional dysregulation</div>
+
 
                 <div class="item-desc">Downstream of MED13/Mediator dysfunction, neuronal gene-expression programs are dysregulated during brain development, contributing to intellectual disability, global developmental delay, language impairment, and variable behavioral phenotypes. Mechanistic studies in mice indicate that MED13 is required cell-autonomously for cortical neuron development: knockdown of Med13 in cortical neurons impairs radial migration, contralateral axonal projection, and dendritic complexity, in part through PlxnA4, linking MED13 dysfunction to the neurodevelopmental disorder phenotype.
 </div>
@@ -6028,6 +6086,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-structural-development-and-network-excitability" data-dismech-node="Impaired brain structural development and network excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired brain structural development and network excitability</div>
 
+
                 <div class="item-desc">Dysregulation of MED13/Mediator-dependent neurodevelopmental transcription disturbs brain growth, midline and cortical morphogenesis, and the balance of neuronal network excitability. This contributes to structural brain anomalies (microcephaly, corpus callosum abnormalities, and in severe cases hydrocephalus and brainstem/optic-chiasm atrophy) and to a seizure-prone cortical network in a subset of patients.
 </div>
 
@@ -6243,6 +6302,7 @@ This pathophysiological event involves dysregulated cerebral cortex development 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-developmental-transcriptional-dysregulation" data-dismech-node="Cardiac developmental transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac developmental transcriptional dysregulation</div>
 
+
                 <div class="item-desc">In a subset of affected individuals, MED13/Mediator dysfunction perturbs cardiac gene-expression programs, contributing to mild and variable congenital heart anomalies. Mutations in the Mediator complex, including MED13 and its paralog MED13L, have been linked to both congenital heart defects and cardiovascular diseases. In the adult heart, MED13 (also known as THRAP1/TRAP240) participates in nuclear-receptor signaling that drives the transcription of genes regulating cardiac and systemic energy homeostasis — this adult-cardiac metabolic role is the best-evidenced mechanism in current literature, with the connection to congenital cardiac developmental programs established by clinical observation and corroborated by mouse genetics demonstrating functional redundancy between Med13 and Med13L in cardiac transcription.
 </div>
 
@@ -6441,6 +6501,7 @@ This pathophysiological event involves dysregulated cardiac muscle cell differen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-ocular-and-sensory-developmental-dysregulation" data-dismech-node="Craniofacial, ocular, and sensory developmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial, ocular, and sensory developmental dysregulation</div>
+
 
                 <div class="item-desc">Because the Mediator complex is required for transcription of essentially all RNA polymerase II genes, MED13 dysfunction perturbs developmental gene-expression programs in neural-crest- and cranial-placode-derived tissues. This contributes to facial dysmorphism, ocular motility anomalies (Duane anomaly) and optic-nerve abnormalities, sensorineural hearing loss, dental anomalies, and, rarely, enteric nervous system involvement (congenital aganglionic megacolon).
 </div>
@@ -6689,6 +6750,7 @@ This pathophysiological event involves dysregulated eye development (GO:0001654)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-growth-and-skeletal-developmental-dysregulation" data-dismech-node="Somatic growth and skeletal developmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic growth and skeletal developmental dysregulation</div>
 
+
                 <div class="item-desc">Broad transcriptional pleiotropy of MED13/Mediator dysfunction extends to somatic growth and skeletal/limb developmental programs, contributing to restricted growth and skeletal and limb abnormalities in a subset of patients.
 </div>
 
@@ -6853,6 +6915,7 @@ This pathophysiological event involves dysregulated skeletal system development 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-med13-med13l-paralog-redundancy" data-dismech-node="MED13/MED13L paralog redundancy" data-dismech-type="pathophysiology">
                 <div class="item-name">MED13/MED13L paralog redundancy</div>
+
 
                 <div class="item-desc">MED13 and MED13L are mutually exclusive occupants of the same position in the CKM and are partially redundant, so the intact paralog buffers loss of the other in a tissue-dependent way. Combined cardiomyocyte deletion of both is lethal within weeks where either single deletion is tolerated, and in the early mouse embryo Med13l compensates for Med13 loss during oocyte growth but cannot rescue post-implantation development. This buffering is the most plausible explanation for why MED13 haploinsufficiency produces a predominantly neurodevelopmental phenotype with only mild, variable cardiac involvement, and it is the shared axis linking this entry to MED13L syndrome.
 </div>
@@ -7096,6 +7159,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stress-induced-med13-degradation-and-cyclin-c-release" data-dismech-node="Stress-induced Med13 degradation and cyclin C release" data-dismech-type="pathophysiology">
                 <div class="item-name">Stress-induced Med13 degradation and cyclin C release</div>
+
 
                 <div class="item-desc">A conserved, non-transcriptional arm characterised in yeast: under oxidative or nutrient stress, Snf1/AMPK together with the cell-wall-integrity MAPK pathway drive degradation of Med13, and a Snx4/Ksp1-dependent selective-autophagy route provides a second, proteasome-independent clearance path. Destroying Med13 releases cyclin C from its Med13-dependent nuclear anchor to relocalise to mitochondria, where it promotes fission and sensitises cells to regulated cell death. If a mammalian counterpart exists in neurons, MED13-haploinsufficient cells would be predicted to sit closer to the cyclin-C release threshold. The same axis is directly demonstrated in human MED13L patient fibroblasts, which is the strongest argument that it is not purely a yeast phenomenon — but it has not been shown for MED13 in human cells.
 </div>
@@ -7456,6 +7520,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7547,6 +7614,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Single case. Recorded as VERY_RARE and kept distinct from the general congenital heart defect phenotype because the lesion type (hypertrophic cardiomyopathy with mitochondrial pathology) is mechanistically different from a structural malformation.</div>
@@ -7659,6 +7729,9 @@ This clinical feature is Congenital aganglionic megacolon, annotated with Agangl
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7723,6 +7796,9 @@ This clinical feature is Chronic constipation, annotated with Constipation (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Recorded without a snippet-validated evidence item: chronic obstipation is documented in the per-patient clinical tables of the foundational cohort (Snijders Blok et al. 2018, PMID:29740699) and surfaced by the Falcon deep-research cross-check (reported in ~4/13 of the original cohort), but it is not stated in the paper&#39;s abstract, so no exact quote is available. The cohort fraction is reported by that source and has not been independently re-verified here; `frequency` is therefore omitted rather than asserted.</div>
@@ -7807,6 +7883,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7919,6 +7998,9 @@ This clinical feature is Abnormal optic nerve morphology (HP:0000587). HP:000058
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8015,6 +8097,9 @@ This clinical feature is Retinal atrophy (HP:0001105). HP:0001105 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8081,6 +8166,9 @@ This clinical feature is Duane anomaly (HP:0009921). HP:0009921 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8154,6 +8242,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8291,6 +8382,9 @@ This clinical feature is Abnormality of the face (HP:0000271). HP:0000271 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8387,6 +8481,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8460,6 +8557,9 @@ This clinical feature is Supernumerary tooth (HP:0011069). HP:0011069 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8526,6 +8626,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8606,6 +8709,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8704,6 +8810,9 @@ This clinical feature is Skeletal and limb abnormalities, annotated with Abnorma
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8814,6 +8923,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8910,6 +9022,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9001,6 +9116,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9122,6 +9240,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">PMID:38854223 is hypothesis-generating only: the reported MED13 variant was of uncertain significance, so that case should not be treated as standalone proof of a pathogenic MED13-ASD association. PMID:38528425, by contrast, reports ASD in a patient with a pathogenic de novo frameshift (truncating) MED13 variant, providing firmer evidence for the association.</div>
@@ -9250,6 +9371,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9316,6 +9440,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9419,6 +9546,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9515,6 +9645,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9581,6 +9714,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Recorded without a snippet-validated evidence item: motor delay is documented in the per-patient clinical tables of the foundational cohort (Snijders Blok et al. 2018, PMID:29740699) and surfaced by the Falcon deep-research cross-check (reported in ~7/13 of the original cohort), but it is not stated in the paper&#39;s abstract, so no exact quote is available. The cohort fraction is reported by that source and has not been independently re-verified here; `frequency` is therefore omitted rather than asserted.</div>
 
 
@@ -9617,6 +9753,9 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9718,6 +9857,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9809,6 +9951,9 @@ This clinical feature is Language impairment (HP:0002463). HP:0002463 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">`frequency` omitted deliberately. The cohort establishes that MED13 is recoverable through DLD ascertainment but reports one MED13 proband among 53, which quantifies the gene&#39;s share of DLD cases rather than the frequency of language impairment among MED13 patients.</div>
@@ -9923,6 +10068,9 @@ This clinical feature is Restricted growth, annotated with Growth delay (HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10032,6 +10180,9 @@ This disease-associated gene is MED13 (hgnc:22474). hgnc:22474 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10155,6 +10306,7 @@ This disease-associated gene is MED13 (hgnc:22474). hgnc:22474 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10174,11 +10326,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent de novo missense variant at the Fbw7 phosphodegron. First reported in the founding cohort, then independently in a girl carrying a prior clinical diagnosis of Kabuki syndrome with negative KMT2D/KDM6A testing — the case that established MED13 as a Kabuki-syndrome mimic worth testing in sequencing-negative Kabuki-like presentations.</div>
@@ -10266,6 +10424,7 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10285,11 +10444,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent de novo central-region missense variant reported independently in two infants, both at the severe end of the MRD61 spectrum: one with multiple congenital anomalies, hydrocephalic changes and optic/brainstem atrophy, the other with infantile spasms, hypertrophic cardiomyopathy, hepatomegaly and autopsy-confirmed mitochondrial abnormalities.</div>
@@ -10377,6 +10542,7 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10396,11 +10562,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo central-region missense variant causing developmental and epileptic encephalopathy with infantile spasms — the first MED13 allele associated with a DEE phenotype, and immediately adjacent to the recurrent p.Pro835Ser position.</div>
@@ -10463,6 +10635,7 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10482,11 +10655,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo frameshift variant classified pathogenic by ACMG criteria, in a patient whose phenotype expanded the MRD61 spectrum with congenital unilateral sensorineural hearing loss and a supernumerary maxillary central incisor.</div>
@@ -10549,6 +10728,7 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10568,11 +10748,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Maternally inherited frameshift variant segregating in a Chinese family — the second documented vertical transmission of a truncating MED13 allele, and the first reported Chinese MRD61 family. The proband additionally had congenital megacolon.</div>
@@ -10660,6 +10846,7 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10679,11 +10866,17 @@ This variant is in MED13 (hgnc:22474). hgnc:22474 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo whole-gene deletion detected by array CGH in a child with moderate intellectual disability, short stature, mild dysmorphism and hearing loss. The authors attributed the cataract, hearing loss and semicircular canal dysplasia specifically to MED13 haploinsufficiency, making this the independent CNV support for a dosage mechanism. Caveat: the deletion spans six genes and the patient also carried a supernumerary marker chromosome 17, so attribution to MED13 alone is the authors&#39; inference rather than a demonstrated fact. Cataract and semicircular canal dysplasia are not curated as MED13 syndrome phenotypes on that basis.</div>
@@ -10920,6 +11113,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10930,6 +11126,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -10997,6 +11196,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is recommended for affected families. Most cases are de novo but parent-to-child transmission has been documented, necessitating parental testing and recurrence risk assessment.
 </div>
 
@@ -11043,6 +11248,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11132,6 +11343,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11142,6 +11356,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -15670,6 +15887,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

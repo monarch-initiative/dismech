@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4348,6 +4401,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tmem199-deficiency" data-dismech-node="TMEM199 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">TMEM199 Deficiency</div>
 
+
                 <div class="item-desc">Biallelic TMEM199 variants reduce the protein. Reduced protein was confirmed by Western blot in patient fibroblasts and by immunohistochemistry on liver.</div>
 
 
@@ -4491,6 +4545,7 @@ This pathophysiological event involves TMEM199 (hgnc:18085). hgnc:18085 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-v-atpase-assembly" data-dismech-node="Failed V-ATPase Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed V-ATPase Assembly</div>
+
 
                 <div class="item-desc">The vacuolar ATPase cannot be assembled normally, so the proton pumping that acidifies the Golgi and the lysosome is compromised. Splitting this out from the general &#34;disturbed Golgi homeostasis&#34; node matters because it is the shared step: it is what makes the lysosomal and autophagic phenotype a consequence of the same lesion rather than an unexplained extra finding, and it is what TMEM199-CDG and CCDC115-CDG have in common.</div>
 
@@ -4647,6 +4702,7 @@ This pathophysiological event involves decreased proton transmembrane transport 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-golgi-homeostasis" data-dismech-node="Disturbed Golgi Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Golgi Homeostasis</div>
+
 
                 <div class="item-desc">V-ATPase-dependent compartment acidification is impaired. TMEM199 localises with ERGIC and COPI markers, placing the lesion in the early secretory pathway.</div>
 
@@ -4859,6 +4915,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-n-and-o-glycosylation-defect" data-dismech-node="Combined N- and O-Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined N- and O-Glycosylation Defect</div>
 
+
                 <div class="item-desc">Abnormal N- and mucin-type O-glycosylation with reduced incorporation of galactose and sialic acid, the pattern shared across Golgi homeostasis defects. Lentiviral transduction with wild-type TMEM199 restores it, which is the rescue that ties the glycosylation defect to the gene.</div>
 
 
@@ -5037,6 +5094,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lysosomal-acidification-and-autophagy" data-dismech-node="Impaired Lysosomal Acidification and Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lysosomal Acidification and Autophagy</div>
+
 
                 <div class="item-desc">Lysosomal acidification and autophagic capacity are impaired, and abnormally large lipid droplets accumulate and colocalise with lysosomes.</div>
 
@@ -5258,6 +5316,7 @@ This pathophysiological event occurs in lysosome (GO:0005764). GO:0005764 is an 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-hepatic-lipoprotein-secretion" data-dismech-node="Dysregulated Hepatic Lipoprotein Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Hepatic Lipoprotein Secretion</div>
 
+
                 <div class="item-desc">Patients show hyperlipidaemia with raised VLDL-range lipoproteins, and TMEM199-silenced HepG2 cells and patient iPSC-derived hepatocyte-like cells secrete markedly more apolipoprotein B.</div>
 
 
@@ -5403,6 +5462,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-steatosis" data-dismech-node="Hepatic Steatosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Steatosis</div>
 
+
                 <div class="item-desc">Fatty liver, present from the discovery series onward and progressing to fibrosis or cirrhosis in a minority.</div>
 
 
@@ -5526,6 +5586,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury" data-dismech-node="Hepatocellular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury</div>
 
+
                 <div class="item-desc">Raised transaminases and alkaline phosphatase, the presenting laboratory abnormality in almost every reported patient.</div>
 
 
@@ -5608,6 +5669,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-copper-and-ceruloplasmin-handling" data-dismech-node="Abnormal Copper and Ceruloplasmin Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Copper and Ceruloplasmin Handling</div>
 
+
                 <div class="item-desc">Low serum ceruloplasmin and low serum copper with normal urinary copper excretion. This is the combination that makes the disorder a Wilson disease mimic, and the normal urinary copper is what separates the two at the bedside.</div>
 
 
@@ -5668,6 +5730,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-ii-transferrin-isoform-profile" data-dismech-node="Type II Transferrin Isoform Profile" data-dismech-type="pathophysiology">
                 <div class="item-name">Type II Transferrin Isoform Profile</div>
+
 
                 <div class="item-desc">The screening biochemical readout of a Golgi-stage glycosylation defect.</div>
 
@@ -5731,6 +5794,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypercholesterolaemia" data-dismech-node="Hypercholesterolaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypercholesterolaemia</div>
+
 
 
 
@@ -5885,6 +5949,9 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5990,6 +6057,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6061,6 +6131,9 @@ This clinical feature is Periportal fibrosis, annotated with Hepatic fibrosis (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6127,6 +6200,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6207,6 +6283,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6312,6 +6391,9 @@ This clinical feature is Chronically elevated serum transaminases, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6385,6 +6467,9 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6451,6 +6536,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6529,6 +6617,9 @@ This clinical feature is Decreased circulating ceruloplasmin concentration (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6595,6 +6686,9 @@ This clinical feature is Decreased circulating copper concentration (HP:0011967)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6680,6 +6774,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6852,9 @@ This clinical feature is Intellectual disability or mild language retardation, a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6871,6 +6971,9 @@ This disease-associated gene is TMEM199 (hgnc:18085). hgnc:18085 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7092,6 +7195,9 @@ This treatment uses zinc sulfate (CHEBI:35176). CHEBI:35176 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7102,6 +7208,9 @@ This treatment uses zinc sulfate (CHEBI:35176). CHEBI:35176 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7221,6 +7330,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7231,6 +7343,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9914,6 +10029,75 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: TMEM199-CDG</strong> · 2026-08-31T16:06:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/TMEM199-CDG/2026-08-31T160647Z-claude-code-9305a6.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/TMEM199-CDG.yaml (MONDO:0014790, TMEM199 / hgnc:18085).
+
+Deep research: Perplexity (sonar-deep-research) -&gt;
+research/TMEM199-CDG-deep-research-perplexity.md. Inline validation set
+`term_validation.needs_review: true` with 4 mislabelled CURIEs, including
+HP:0012159 offered as &#34;Abnormal transferrin glycosylation&#34; (HPO: &#34;Internal
+carotid artery dissection&#34;), GO:0030148 as &#34;regulation of organelle pH&#34; (GO:
+&#34;sphingolipid biosynthetic process&#34;), and CL:0002078 as &#34;hepatic stellate cell&#34;
+(CL: &#34;meso-epithelial cell&#34;). None was bound. Its citation list includes a
+zebrafish ZFIN gene page, a sea-urchin Echinobase page served from a `test.`
+host with a session id in the URL, and a 17th &#34;citation&#34; that is the sentence
+fragment &#34;ACMG/AMP guidelines is not explicitly detailed in the available
+sources&#34;. `reference_validation` reported 6/6 resolved and 6/6 on topic.
+
+All evidence was sourced independently from PubMed: PMID:26833330 (Jansen 2016
+AJHG discovery paper, with the lentiviral rescue), PMID:29321044 (three further
+patients and the two-decade stability), PMID:36706865 (the p.Arg31Pro
+Mediterranean founder allele), PMID:35401690 (the Chinese patient with
+cirrhosis), PMID:34626841 (lipid droplet-lysosome mechanism, HepG2 + patient
+iPSC hepatocytes + A7E knock-in mouse), PMID:28108845 (liver involvement in CDG
+systematic review), PMID:29759592 (CCDC115-CDG, cited for the differential).
+
+Two gene-symbol findings worth recording. HGNC&#39;s live API returns VMA12 as the
+approved symbol for hgnc:18085, but the HGNC build behind `just validate-terms`
+returns TMEM199, and validation fails on VMA12. The binding therefore uses
+TMEM199. Separately, `stubs/TMEM199-CDG.yaml` records the gene as VMA12, because
+`just enrich-stubs` read the newer release - so the repository currently
+disagrees with itself about this one symbol depending on which tool wrote the
+line. Recorded in the entry&#39;s notes.
+
+One error I made and caught: the treatment evidence snippet was initially a
+paraphrase of the source rather than an exact quote (&#34;...distinguishes
+TMEM199-CDG from other Golgi-related disorders&#34; where the paper says
+&#34;...distinguishes it from other Golgi homeostasis disorders, in having a much
+more favorable course&#34;). `just validate` rejected it and it was replaced with
+the exact text.
+
+Curation choices. The edge into &#34;Abnormal Copper and Ceruloplasmin Handling&#34; is
+INDIRECT_UNKNOWN_INTERMEDIATES and carries an open KNOWLEDGE_GAP, because no
+study separates hypoglycosylation of ceruloplasmin from failed copper loading in
+these patients. A second KNOWLEDGE_GAP records that the reassuring
+non-progressive course comes from European patients, four of seven families of
+whom carry the same founder allele, while the one patient with a different
+variant had cirrhosis - genotype and geography are confounded at n=9. The mouse
+model carries a FAILS_TO_RECAPITULATE link for the lipoprotein arm, since the
+A7E knock-in reproduced the glycan defect but showed no plasma lipid
+abnormality.
+
+This entry is a deliberate sibling of CCDC115-CDG, curated in parallel under
+monarch-initiative/dismech#10097. No cross-file entity references were used, so
+neither entry depends on the other merging.
+
+No GeneReviews chapter exists for TMEM199-CDG.
+
+Validation: `just validate` passes schema, term and reference checks with 45/45
+snippets verified. check-entity-refs, check-duplicate-keys, check-folded-hyphens,
+check-snippet-length, check-title-snippets and check-snippet-grading all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
