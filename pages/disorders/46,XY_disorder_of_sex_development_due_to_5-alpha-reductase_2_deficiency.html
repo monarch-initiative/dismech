@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4165,6 +4233,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4186,6 +4255,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4235,6 +4305,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-srd5a2-loss-of-function" data-dismech-node="SRD5A2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SRD5A2 Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic SRD5A2 pathogenic variants reduce or abolish steroid 5-alpha-reductase type 2 function.</div>
 
@@ -4369,6 +4440,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4390,6 +4462,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4415,6 +4488,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-5-alpha-reductase-type-2-activity" data-dismech-node="Reduced 5-Alpha-Reductase Type 2 Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced 5-Alpha-Reductase Type 2 Activity</div>
+
 
                 <div class="item-desc">Reduced 5-alpha-reductase type 2 activity impairs the NADPH-dependent conversion of testosterone to dihydrotestosterone.</div>
 
@@ -4506,6 +4580,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4528,6 +4603,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-testosterone-to-dihydrotestosterone-conversion" data-dismech-node="Impaired Testosterone to Dihydrotestosterone Conversion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Testosterone to Dihydrotestosterone Conversion</div>
+
 
                 <div class="item-desc">Impaired conversion produces relative dihydrotestosterone deficiency and an elevated testosterone-to-dihydrotestosterone ratio.</div>
 
@@ -4651,6 +4727,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4673,6 +4750,7 @@ This pathophysiological event involves decreased androgen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-dihydrotestosterone-deficiency" data-dismech-node="Fetal Dihydrotestosterone Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Dihydrotestosterone Deficiency</div>
+
 
                 <div class="item-desc">DHT deficiency during fetal development impairs masculinization of the external genitalia while internal Wolffian structures can be relatively preserved by testosterone action.</div>
 
@@ -4772,6 +4850,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4794,6 +4873,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-46xy-undervirilization-phenotype" data-dismech-node="46XY Undervirilization Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">46XY Undervirilization Phenotype</div>
+
 
                 <div class="item-desc">The clinical phenotype ranges from female-appearing external genitalia to ambiguous genitalia, perineoscrotal hypospadias, bifid or small scrotum, micropenis, cryptorchidism, urogenital sinus anatomy, and reduced fertility.</div>
 
@@ -4919,6 +4999,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4940,6 +5021,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4965,6 +5047,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pubertal-testosterone-exposure" data-dismech-node="Pubertal Testosterone Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Pubertal Testosterone Exposure</div>
+
 
                 <div class="item-desc">During and after puberty, increased 5-alpha-reductase type 1 activity can convert testosterone to DHT despite the persistent type 2 defect. This alternative route can increase peripheral androgen-receptor signaling and contribute to pubertal virilization.</div>
 
@@ -5056,6 +5139,7 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5078,6 +5162,7 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pubertal-virilization" data-dismech-node="Pubertal Virilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Pubertal Virilization</div>
+
 
                 <div class="item-desc">Pubertal androgen exposure may produce deepening of the voice, phallic enlargement, increased muscle mass, and other virilizing changes.</div>
 
@@ -5139,6 +5224,7 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5160,6 +5246,7 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5367,9 @@ This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5294,6 +5384,7 @@ This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5359,6 +5450,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5373,6 +5467,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5429,6 +5524,9 @@ This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5443,6 +5541,7 @@ This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5499,6 +5598,9 @@ This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5513,6 +5615,7 @@ This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5569,6 +5672,9 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5583,6 +5689,7 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5639,6 +5746,9 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5653,6 +5763,7 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5707,6 +5818,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5721,6 +5835,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5777,6 +5892,9 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5791,6 +5909,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5815,6 +5934,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5871,6 +5991,9 @@ This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5885,6 +6008,7 @@ This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5941,6 +6065,9 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5955,6 +6082,7 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6139,9 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6025,6 +6156,7 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6088,6 +6220,9 @@ This clinical feature is Abnormality of metabolism/homeostasis (HP:0001939). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6102,6 +6237,7 @@ This clinical feature is Abnormality of metabolism/homeostasis (HP:0001939). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6165,6 +6301,9 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6179,6 +6318,7 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6225,6 +6365,9 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6239,6 +6382,7 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6263,6 +6407,7 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6365,6 +6510,9 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6379,6 +6527,7 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6403,6 +6552,7 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6528,6 +6678,9 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6538,6 +6691,9 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6574,6 +6730,7 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6642,6 +6799,7 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6666,6 +6824,7 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6687,6 +6846,7 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6754,6 +6914,9 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6764,6 +6927,9 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
     </div>
+
+
+
 
 
 
@@ -6791,6 +6957,7 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6858,6 +7025,9 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6868,6 +7038,9 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -6917,6 +7090,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7008,6 +7182,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7047,6 +7222,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7123,6 +7299,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7165,6 +7342,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7186,6 +7364,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7290,6 +7469,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7311,6 +7491,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7403,6 +7584,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7492,6 +7674,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7513,6 +7696,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,6 +7771,7 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9001,6 +9186,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

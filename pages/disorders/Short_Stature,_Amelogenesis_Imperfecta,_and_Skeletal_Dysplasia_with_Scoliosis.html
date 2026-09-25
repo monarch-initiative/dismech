@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4240,6 +4308,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4261,6 +4330,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4413,6 +4483,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4534,6 +4605,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4605,6 +4677,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4729,6 +4802,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4763,6 +4837,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc10a7-loss-of-function" data-dismech-node="Biallelic SLC10A7 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC10A7 Loss of Function</div>
+
 
                 <div class="item-desc">SLC10A7 encodes a ten-transmembrane-domain protein of the SLC10 sodium/bile-acid cotransporter family which, unlike its relatives, transports none of the family&#39;s canonical substrates and remains an orphan carrier. It localizes to compartments of the secretory pathway, including the Golgi and the plasma membrane. Of the alleles actually assayed for protein level, a splice variant and the p.Leu74Pro missense reduce SLC10A7 protein expression; this is not a property of every missense allele, since p.Pro303Leu fibroblasts instead show SLC10A7 overexpression while the protein retains only partial calcium-regulatory activity. Hypomorphic rather than null function is the molecular basis of the milder end of the phenotypic spectrum. This is the disorder-specific lesion this entry substitutes for the generic Golgi trigger of the conserved CDG module.</div>
 
@@ -4880,6 +4955,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4901,6 +4977,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4928,6 +5005,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4950,6 +5028,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secretory-pathway-calcium-dyshomeostasis" data-dismech-node="Secretory Pathway Calcium Dyshomeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secretory Pathway Calcium Dyshomeostasis</div>
+
 
                 <div class="item-desc">SLC10A7 is a negative regulator of intracellular calcium signalling, and has been proposed to be renamed RCAS on that basis. Its expression is inversely correlated with store-operated calcium entry, and it co-localizes with STIM1, Orai1 and SERCA2. Loss of function therefore raises calcium influx: SLC10A7 knockout cells show increased influx after thapsigargin, ionomycin and ATP/carbachol, and patient fibroblasts show increased Ca2+ influx after an extracellular calcium challenge. Within the secretory pathway itself the consequence is an increased ER and Golgi calcium content. Because Golgi glycosyltransferase activity and Golgi organization are calcium-dependent, this node is the rate-limiting step linking an orphan transporter to a glycosylation disease.</div>
 
@@ -5136,6 +5215,7 @@ This pathophysiological event involves abnormal Golgi calcium ion homeostasis (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5157,6 +5237,7 @@ This pathophysiological event involves abnormal Golgi calcium ion homeostasis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5184,6 +5265,7 @@ This pathophysiological event involves abnormal Golgi calcium ion homeostasis (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5208,6 +5290,7 @@ This pathophysiological event involves abnormal Golgi calcium ion homeostasis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-golgi-glycosylation-and-glycosaminoglycan-biosynthesis-defect" data-dismech-node="Golgi Glycosylation and Glycosaminoglycan Biosynthesis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Golgi Glycosylation and Glycosaminoglycan Biosynthesis Defect</div>
+
 
                 <div class="item-desc">Three glycosylation outputs fail together, which is why SSASKS is classified as a congenital disorder of glycosylation affecting multiple pathways rather than a single-enzyme defect. Heparan sulfate on proteoglycans is reduced roughly two-fold in patient fibroblasts and about 2.5-fold in mutant mouse cartilage, while total glycosaminoglycan content is preserved; N-glycans on plasma glycoproteins are abnormal; and O-GalNAc glycosylation is disrupted, with altered abundance of the C1GALT1 chaperone COSMC and mislocalization of the calcium-binding Golgi cargo sorter Cab45. This is the organ-agnostic substitution this entry makes against the CDG module&#39;s Golgi trigger: the module&#39;s generic disruption of Golgi glycosylation machinery is here caused by a luminal ionic lesion rather than by loss of a glycosyltransferase or of a tethering complex.</div>
 
@@ -5542,6 +5625,7 @@ This pathophysiological event involves abnormal Golgi Vesicle Transport (GO:0048
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5563,6 +5647,7 @@ This pathophysiological event involves abnormal Golgi Vesicle Transport (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5590,6 +5675,7 @@ This pathophysiological event involves abnormal Golgi Vesicle Transport (GO:0048
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5612,6 +5698,7 @@ This pathophysiological event involves abnormal Golgi Vesicle Transport (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-glycoprotein-glycan-profile" data-dismech-node="Abnormal Glycoprotein Glycan Profile" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Glycoprotein Glycan Profile</div>
+
 
                 <div class="item-desc">The Golgi lesion is readable on circulating glycoproteins. Blood spots from affected individuals show an abnormal N-glycoprotein electrophoretic profile, and the glycomics study that independently identified SLC10A7 did so by clustering a shared hybrid-type N-glycan signature out of a cohort of individuals with abnormal Golgi glycosylation. This is the biochemical readout that places SSASKS in the CDG group and the substitution this entry makes against the module&#39;s hypoglycosylation node. The module&#39;s expected edge onward to multisystem glycoprotein dysfunction is carried below, but only at the level of the disease as a whole: no study has yet linked a specific hypoglycosylated client protein to a specific SSASKS phenotype, so that edge is graded PARTIAL rather than asserted.</div>
 
@@ -5703,6 +5790,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5724,6 +5812,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5749,6 +5838,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-post-golgi-glycoprotein-delivery-to-the-extracellular-matrix" data-dismech-node="Defective Post-Golgi Glycoprotein Delivery to the Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Post-Golgi Glycoprotein Delivery to the Extracellular Matrix</div>
+
 
                 <div class="item-desc">Beyond the composition of the glycans themselves, SLC10A7-deficient fibroblasts fail to move glycoproteins out of the secretory pathway: glycoproteins are mislocalized intracellularly and post-Golgi transport to the cell membrane is defective. Because the skeletal and dental matrices are built from secreted glycoproteins and proteoglycans, this delivery failure is the step that converts a biochemical glycosylation defect into a structural matrix defect.</div>
 
@@ -5933,6 +6023,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5954,6 +6045,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6071,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-disorganization-and-impaired-skeletal-mineralization" data-dismech-node="Growth Plate Disorganization and Impaired Skeletal Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Disorganization and Impaired Skeletal Mineralization</div>
+
 
                 <div class="item-desc">In the growth plate the consequence is architectural: mutant mice show shortened long bones with growth plate disorganization, and the human counterpart is disproportionate short stature with short long bones, small epiphyses and advanced carpal and tarsal ossification. Mineralization is reduced as well as growth: affected individuals have decreased bone mineral density compatible with osteoporosis, and knockdown zebrafish show a strong reduction in bone mineralization by alizarin red staining. This entry does not declare conformance to the defective_skeletal_mineralization module, because none of that module&#39;s three trigger arms (calciopenic, phosphopenic, mineralization-inhibitor excess) applies here — the lesion is failure to deliver the organic matrix, with normal calcium, phosphate and pyrophosphate handling as far as is reported.</div>
 
@@ -6201,6 +6294,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6222,6 +6316,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6249,6 +6344,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6271,6 +6367,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-and-ligament-proteoglycan-deficiency-with-joint-instability" data-dismech-node="Cartilage and Ligament Proteoglycan Deficiency with Joint Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage and Ligament Proteoglycan Deficiency with Joint Instability</div>
+
 
                 <div class="item-desc">SSASKS sits nosologically among the dysplasias with multiple joint dislocations, most of which are proteoglycan-biosynthesis disorders, and the reduced heparan sulfate content of cartilage supplies the shared mechanism: proteoglycan-dependent cartilage and periarticular structures are undersupplied, and large joints dislocate. The radiographic signature — advanced carpal ossification with a monkey wrench or Swedish key appearance of the proximal femora — is shared with Desbuquois dysplasia, whose genes CANT1 and XYLT1 also act on the proteoglycan pathway.</div>
 
@@ -6416,6 +6513,7 @@ This pathophysiological event involves decreased heparan sulfate proteoglycan bi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6442,6 +6540,7 @@ This pathophysiological event involves decreased heparan sulfate proteoglycan bi
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6464,6 +6563,7 @@ This pathophysiological event involves decreased heparan sulfate proteoglycan bi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ameloblast-enamel-matrix-failure" data-dismech-node="Ameloblast Enamel Matrix Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Ameloblast Enamel Matrix Failure</div>
+
 
                 <div class="item-desc">Enamel is a secreted, protein-templated mineralized matrix, and it is the tissue in which SLC10A7 loss is most consistently expressed clinically. Slc10a7 is transcribed in the inner dental epithelium and in ameloblasts and odontoblasts during tooth development, mutant mice have tooth enamel anomalies, and every reported affected individual has amelogenesis imperfecta, typed as hypomineralized in the founding cohort and as hypoplastic/hypomineralized in the mildest case. Notably the founding study argued that the enamel phenotype is probably not explained by the proteoglycan defect alone, since amelogenesis imperfecta is what separates SSASKS from the other chondrodysplasias with multiple dislocations; the glycoprotein-trafficking arm is the more likely route.</div>
 
@@ -6594,6 +6694,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6615,6 +6716,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6642,6 +6744,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6664,6 +6767,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-skeletal-dysplasia-with-spinal-deformity" data-dismech-node="Progressive Skeletal Dysplasia with Spinal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Skeletal Dysplasia with Spinal Deformity</div>
+
 
                 <div class="item-desc">The clinical endpoint is a progressive, lifelong skeletal disorder. Growth restriction is present before birth and worsens; vertebral bodies are irregular, and progressive scoliosis, hyperlordosis and kyphosis develop through childhood and drive most of the morbidity, to the point of requiring staged growth-friendly spinal instrumentation before definitive fusion at skeletal maturity.</div>
 
@@ -6699,6 +6803,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6821,6 +6926,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6835,6 +6943,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6889,6 +6998,9 @@ This clinical feature is Dilatation of the sinus of Valsalva (HP:0011645). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6903,6 +7015,7 @@ This clinical feature is Dilatation of the sinus of Valsalva (HP:0011645). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6957,6 +7070,9 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6971,6 +7087,7 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7034,6 +7151,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7048,6 +7168,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7072,6 +7193,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7135,6 +7257,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7149,6 +7274,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7329,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7217,6 +7346,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7271,6 +7401,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7285,6 +7418,7 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,6 +7484,9 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7364,6 +7501,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7388,6 +7526,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,6 +7581,9 @@ This clinical feature is Enamel hypomineralization (HP:0006285). HP:0006285 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7456,6 +7598,7 @@ This clinical feature is Enamel hypomineralization (HP:0006285). HP:0006285 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7510,6 +7653,9 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7524,6 +7670,7 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7548,6 +7695,7 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7602,6 +7750,9 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7616,6 +7767,7 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7792,7 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7694,6 +7847,9 @@ This clinical feature is Widely spaced teeth (HP:0000687). HP:0000687 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7708,6 +7864,7 @@ This clinical feature is Widely spaced teeth (HP:0000687). HP:0000687 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7762,6 +7919,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7776,6 +7936,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7830,6 +7991,9 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7844,6 +8008,7 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7900,6 +8065,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7914,6 +8082,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7968,6 +8137,9 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7982,6 +8154,7 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8006,6 +8179,7 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8069,6 +8243,9 @@ This clinical feature is Advanced ossification of carpal bones (HP:0004233). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8083,6 +8260,7 @@ This clinical feature is Advanced ossification of carpal bones (HP:0004233). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8137,6 +8315,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8151,6 +8332,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8205,6 +8387,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8219,6 +8404,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8273,6 +8459,9 @@ This clinical feature is Patellar dislocation (HP:0002999). HP:0002999 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8287,6 +8476,7 @@ This clinical feature is Patellar dislocation (HP:0002999). HP:0002999 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8350,6 +8540,9 @@ This clinical feature is Multiple joint dislocation (HP:0012095). HP:0012095 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8364,6 +8557,7 @@ This clinical feature is Multiple joint dislocation (HP:0012095). HP:0012095 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8388,6 +8582,7 @@ This clinical feature is Multiple joint dislocation (HP:0012095). HP:0012095 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8460,6 +8655,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8474,6 +8672,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8528,6 +8727,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8542,6 +8744,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8596,6 +8799,9 @@ This clinical feature is Small epiphyses (HP:0010585). HP:0010585 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8610,6 +8816,7 @@ This clinical feature is Small epiphyses (HP:0010585). HP:0010585 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8664,6 +8871,9 @@ This clinical feature is Abnormality of the vertebral column (HP:0000925). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8678,6 +8888,7 @@ This clinical feature is Abnormality of the vertebral column (HP:0000925). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8732,6 +8943,9 @@ This clinical feature is Butterfly vertebrae (HP:0003316). HP:0003316 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8746,6 +8960,7 @@ This clinical feature is Butterfly vertebrae (HP:0003316). HP:0003316 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8800,6 +9015,9 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8814,6 +9032,7 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8868,6 +9087,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8882,6 +9104,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9177,9 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8968,6 +9194,7 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8992,6 +9219,7 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9055,6 +9283,9 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9069,6 +9300,7 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9093,6 +9325,7 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9176,6 +9409,9 @@ This clinical feature is Disproportionate short stature (HP:0003498), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9190,6 +9426,7 @@ This clinical feature is Disproportionate short stature (HP:0003498), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9244,6 +9481,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9258,6 +9498,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9312,6 +9553,9 @@ This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9326,6 +9570,7 @@ This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9426,6 +9671,9 @@ This disease-associated gene is SLC10A7 (hgnc:23088). hgnc:23088 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -9440,6 +9688,7 @@ This disease-associated gene is SLC10A7 (hgnc:23088). hgnc:23088 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9467,6 +9716,7 @@ This disease-associated gene is SLC10A7 (hgnc:23088). hgnc:23088 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9488,6 +9738,7 @@ This disease-associated gene is SLC10A7 (hgnc:23088). hgnc:23088 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9576,6 +9827,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9586,6 +9840,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -9638,6 +9895,7 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9659,6 +9917,7 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9726,6 +9985,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9736,6 +9998,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9785,6 +10050,7 @@ This treatment targets Amelogenesis imperfecta (HP:0000705). HP:0000705 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9852,6 +10118,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9862,6 +10131,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9889,6 +10161,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9956,6 +10229,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9966,6 +10242,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10015,6 +10294,7 @@ This treatment targets Joint contracture (HP:0034392). HP:0034392 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10082,6 +10362,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10092,6 +10375,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10141,6 +10427,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10208,6 +10495,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10218,6 +10508,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10245,6 +10538,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10310,6 +10604,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10357,6 +10652,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10378,6 +10674,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10447,6 +10744,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10468,6 +10766,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10525,6 +10824,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10579,6 +10879,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10600,6 +10901,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10668,6 +10970,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10718,6 +11021,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10742,14 +11046,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The last surgery of final definite in situ fusion was performed at the age of 14.2"</div>
+                <div class="evidence-snippet">"Short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis is a rare, autosomal recessive, skeletal disorder first described in 2018. This syndrome starts with pre- and postnatal developmental delay, and gradually presents with variable facial dysmorphisms, a short stature,..."</div>
 
 
-                <div class="evidence-explanation">Anchors the end of the growth-friendly surgical phase at skeletal maturity.</div>
+                <div class="evidence-explanation">Connects the SLC10A7 skeletal dysplasia case to progressive scoliosis and staged operations from age 3.5 to final fusion at 14.2 years.</div>
 
 
 
@@ -10789,6 +11094,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10857,6 +11163,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10942,6 +11249,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10994,6 +11302,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11171,6 +11480,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11210,6 +11520,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11289,6 +11600,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11328,6 +11640,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11385,6 +11698,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11429,6 +11743,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11567,6 +11882,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11606,6 +11922,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11663,6 +11980,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11707,6 +12025,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11899,6 +12218,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11938,6 +12258,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11995,6 +12316,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12049,6 +12371,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12092,6 +12415,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12271,6 +12595,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12310,6 +12635,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12354,6 +12680,7 @@ This experimental model concerns SLC10A7 (hgnc:23088). hgnc:23088 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13971,10 +14298,26 @@ progression:
     reference_title: &#34;Identification of novel homozygous nonsense SLC10A7 variant causing short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis and surgical management of spine.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The last surgery of final definite in situ fusion was performed at the age of 14.2&#34;
+    snippet: &gt;-
+      Short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis is a rare,
+      autosomal recessive, skeletal disorder first described in 2018. This syndrome starts with pre-
+      and postnatal developmental delay, and gradually presents with variable facial dysmorphisms, a
+      short stature, amelogenesis imperfecta, and progressive skeletal dysplasia affecting the
+      limbs, joints, hands, feet, and spine. CASE PRESENTATION: We identified a homozygous novel
+      nonsense mutation in exon 1 of SLC10A7 (NM_001300842.2: c.100G &gt; T / p.Gly34*) segregating
+      with the typical disease phenotype in a Han Chinese family. We reviewed the 12-year surgical
+      treatment history with seven interventions on spine. ... The patient had her first surgery at
+      3.5 years old. ... She underwent lengthening twice at 4.5 and 5.5 years old respectively, and
+      each time she was lengthened by 0.5 cm. From then, she had an X-ray every year to monitor the
+      growth of her spine and progression of her scoliosis. ... At the age of 10.2, scoliosis
+      progressed severely where the proximal end of single-side rods located. ... She received
+      lengthening surgeries twice again at the ages of 11.2 and 12.2, lengthened by 0.8 cm and 0.6
+      cm respectively. Notably, the surgeons had difficulty during every lengthening session and the
+      effect was limited. The last surgery of final definite in situ fusion was performed at the age
+      of 14.2 (Fig. 1N).
     explanation: &gt;-
-      Anchors the end of the growth-friendly surgical phase at skeletal
-      maturity.
+      Connects the SLC10A7 skeletal dysplasia case to progressive scoliosis and staged operations
+      from age 3.5 to final fusion at 14.2 years.
 - phase: Long-term outcome
   notes: &gt;-
     No deaths have been reported among affected individuals surviving the
@@ -15032,6 +15375,142 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">No GeneReviews chapter exists for SLC10A7 or for SSASKS. A PubMed search for a GeneReviews article on this gene and disease returned no results on 2026-08-24, so the GeneReviews phenotype baseline step was not applicable to this entry and the phenotype list is built from the primary case literature instead.
+The decision not to conform to defective_skeletal_mineralization or osteoporosis_bone_resorption, despite the reduced bone mineral density, is recorded as the resolved `decision_module_conformance_boundaries` discussion, attached to the mineralization node it concerns.
+Delayed tooth eruption is deliberately not curated. It is a high-frequency feature of amelogenesis imperfecta generally, and a deep-research report offered a 91.6% figure for it, but that figure is not attributable to any SSASKS publication and none of the four primary case reports mentions eruption timing at all. An unsourced frequency band would be worse than the omission.
+Frequency bands are assigned sparingly, and exactly three phenotypes carry one. Amelogenesis imperfecta and abnormal facial shape are banded on a complete cohort denominator, each six of six in the founding cohort. Disproportionate short stature is banded on a clinical estimate instead: the 2023 review sentence characterizes SSASKS patients as having it, without giving a denominator. The band on abnormal facial shape belongs at that class level and deliberately does not descend to its components — flat face, micrognathia and ptosis are each unbanded, because the six-of-six count is for facial abnormality of any kind, not for any one facial feature. Everything else is left unbanded rather than converting counts of one or two out of six into percentages.
+No `datasets:` block is curated. `just discover-datasets` returned no GEO candidates for this disorder on 2026-08-24, which is the expected result at this cohort size: the published mechanistic work is targeted biochemistry (calcium imaging, glycosaminoglycan quantification, glycan mass spectrometry) in patient fibroblasts and animal models rather than deposited omics.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Short Stature, Amelogenesis Imperfecta, and Skeletal Dysplasia with Scoliosis (SLC10A7-CDG)</strong> · 2026-08-24T13:52:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Short_Stature_Amelogenesis_Imperfecta_And_Skeletal_Dysplasia_With_Scoliosis/2026-08-24T135245Z-claude-code-ab5265.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the SSASKS (SLC10A7-CDG) entry, MONDO:0032703, claimed via issue #9361.
+
+Deep research: `just research-disorder claude_code` (one provider run, 13 web
+searches, 22 turns). The report&#39;s own reference-validation block reported 8/8
+references resolved, 2/2 quoted claims valid, 8/8 on topic and did not set
+needs_review, so no citation was dropped on that basis.
+
+NEC preflight: `just preflight-dr` returned WARN, not PASS. SLC10A7 dominated
+(40 mentions) but LTBP3 appeared 10 times. Inspection showed the LTBP3 material
+was confined to the report&#39;s own differential-diagnosis and &#34;Important Curation
+Caveat&#34; sections, where the report itself flags the SSASKS/LTBP3-DASS confusion
+as a named-entity-confusion hazard. No LTBP3-derived content was curated as
+SSASKS biology; the confusion is recorded instead as a differential_diagnoses
+entry with an explicit curation-hazard note.
+
+The report&#39;s suggested ontology IDs were NOT trusted and were checked
+individually against OLS4. Several were wrong and were corrected before use:
+HP:0009805 (given as &#34;hypoplastic amelogenesis imperfecta&#34;) is actually
+Low-output congestive heart failure; CL:0000414 (given as ameloblast) is an
+obsolete class, the real ameloblast is CL:0000059; GO:0006486 (given as protein
+glycosylation) is obsolete, replaced with GO:0006487; HP:0006247 (given as
+advanced carpal ossification) is Enlarged interphalangeal joints, replaced with
+HP:0004233; UBERON:0001754 and UBERON:0002514 were both mislabelled and were not
+used. The report&#39;s &#34;delayed tooth eruption 91.6%&#34; and &#34;oligodontia 88%&#34;
+frequencies had no traceable SSASKS source and were not curated.
+
+Content: 9-node pathograph from biallelic SLC10A7 loss of function through
+secretory-pathway calcium dyshomeostasis, the Golgi glycosylation and
+glycosaminoglycan defect, and defective post-Golgi glycoprotein delivery, to the
+growth-plate, ameloblast and joint arms and a progressive-dysplasia endpoint.
+Two nodes declare conforms_to against congenital_disorder_of_glycosylation
+(#Golgi N-Glycan Processing and Trafficking Defect, #Protein Hypoglycosylation).
+21 phenotypes, 2 biochemical markers, genetic, prevalence, progression,
+diagnosis, differential diagnoses, 4 treatments, 2 animal models and 2
+experimental models with modeled_mechanisms and readouts, and 3 discussions
+(2 KNOWLEDGE_GAP, 1 HUMAN_MODEL_MISMATCH for the mouse&#39;s absent joint
+dislocation, which is curated as a FAILS_TO_RECAPITULATE link).
+
+Deliberate non-conformances, recorded in notes: defective_skeletal_mineralization
+(none of its three trigger arms applies — the lesion is failure to deliver a
+normally composed organic matrix) and osteoporosis_bone_resorption (no increased
+osteoclastic resorption reported). No ISDS classification assigned: the
+nosology group description for &#34;dysplasias with multiple joint dislocations&#34;
+does not list SLC10A7, and the slot instructs assigning only listed entries.
+
+Frequency discipline: with roughly a dozen reported individuals, bands were
+assigned only where a source gives a complete cohort denominator (amelogenesis
+imperfecta and facial abnormality, each 6/6 in the founding cohort). Everything
+else is unbanded.
+
+No GeneReviews chapter exists for SLC10A7 or SSASKS (PubMed search returned no
+results, 2026-08-24), so the GeneReviews baseline step did not apply. No
+datasets block: `just discover-datasets` found no GEO candidates, as expected at
+this cohort size.
+
+Validation run and read: `just validate` (schema OK, term validation OK,
+109/109 snippets verified against cached references); `just
+count-verified-snippets` 109/109; `just check-snippet-boundaries` clean; the six
+ungated CI gates all clean (check-folded-hyphens, check-snippet-length,
+check-title-snippets, check-environmental-evidence, check-duplicate-keys,
+check-source-defect-claims); `just check-not4curation` clean; `just
+validate-disorders` (the batched pre-PR sweep CI runs) run over the changed
+file; conforms_to foreign-key test passes. The full tests/test_data.py suite
+passes (36582 tests).
+
+A pre-PR self-review round was run with a fresh-context subagent following
+.claude/skills/dismech-pr-review and its findings were applied. The
+substantive ones: a VERY_FREQUENT band on `Flat face` rested on a
+six-of-six denominator that belonged to facial dysmorphism as a class, so
+the band moved to a new `Abnormal facial shape` (HP:0001999) phenotype and
+the component features are now unbanded; the joint-instability node was
+re-parented from the post-Golgi trafficking node to the glycosaminoglycan
+node, since routing it through trafficking collapsed the very distinction
+the enamel node exists to express; the trigger node&#39;s blanket claim that
+missense variants reduce SLC10A7 protein was narrowed, because
+PMID:31191616 reports the opposite for p.Pro303Leu; the conforming
+hypoglycosylation node gained the module&#39;s expected downstream edge, graded
+PARTIAL since no hypoglycosylated client protein has been tied to an SSASKS
+phenotype; and the `notes` frequency policy was rewritten to match the three
+bands actually assigned. Missing phenotypes found in the founding cohort&#39;s
+clinical table were added: tooth agenesis (3/6), joint contracture, patellar
+dislocation, atrial septal defect, butterfly vertebrae, coronal cleft
+vertebrae and ptosis. Two evidence items were downgraded SUPPORT to PARTIAL;
+a mangled multi-patient table-extraction snippet in `diagnosis` was replaced
+with a single clean row; cell types were made more specific (CL:0002620 skin
+fibroblast, CL:1000217 growth plate cartilage chondrocyte); and the module&#39;s
+expected GO processes (GO:0006491, GO:0006493, GO:0048193) were added to the
+conforming Golgi node.
+
+A second round applied the three optional SUGGESTION-level items from the
+automated reviewer on PR #9372, which approved with no CRITICAL or IMPORTANT
+findings. Physical therapy and audiologic support were broken out of
+`Multidisciplinary surveillance` into their own queryable treatment entries,
+each with PARTIAL evidence for the indication and an explicit statement that
+the intervention itself is convention rather than an SSASKS finding. The
+module-non-conformance reasoning moved out of `notes` into a structured
+`INTERPRETATION`/`RESOLVED` discussion attached to the mineralization node.
+The reviewer&#39;s suggested `delayed tooth eruption` was declined and the
+reasoning recorded in `notes`: the 91.6% figure came from the deep-research
+report, is not attributable to any SSASKS publication, and none of the four
+primary case reports mentions eruption timing — the reviewer had itself
+conditioned the suggestion on a quotable source existing. `Microdontia` was
+added instead as the sourced version of that dental gap. Final weighted
+compliance 97.4%, 127/127 snippets verified.
+
+A third round took the one new SUGGESTION from the re-review: the prose
+described hearing impairment as possibly &#34;conductive&#34;, a word that appears
+in none of the ten cached references. Verified independently before acting
+(grep over all ten returns no hits). What is actually reported is
+sensorineural loss in one individual, mixed loss in another, and an As-type
+tympanogram indicating ossicular fixation in a third; reading that
+tympanometry as a conductive lesion is clinically sound but is inference,
+not a curated category. Both the treatment and phenotype descriptions now
+anchor on the reported findings and label the conductive reading as
+inference.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15463,7 +15942,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Short Stature, Amelogenesis Imperfecta, and Skeletal Dysplasia with Scoliosis", "mondoId": "MONDO:0032703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Short_Stature,_Amelogenesis_Imperfecta,_and_Skeletal_Dysplasia_with_Scoliosis", "yamlRevision": "f0b53056d61b"};
+        const OS_CONFIG = {"diseaseName": "Short Stature, Amelogenesis Imperfecta, and Skeletal Dysplasia with Scoliosis", "mondoId": "MONDO:0032703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Short_Stature,_Amelogenesis_Imperfecta,_and_Skeletal_Dysplasia_with_Scoliosis", "yamlRevision": "fd5952ec5d7d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

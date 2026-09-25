@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4163,6 +4231,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-bmp-signaling-activation" data-dismech-node="Constitutive BMP Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive BMP Signaling Activation</div>
 
+
                 <div class="item-desc">The ACVR1 R206H mutation creates a pH-sensitive switch in the receptor&#39;s activation domain, leading to ligand-independent activation of BMP signaling and inappropriate osteogenic differentiation of connective tissue progenitors.</div>
 
 
@@ -4295,6 +4364,7 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Protein modeling predicts that substitution with histidine, and only histidine, creates a pH-sensitive switch within the activation domain of the receptor that leads to ligand-independent activation of ACVR1 in fibrodysplasia ossificans progressiva."</div>
@@ -4315,6 +4385,7 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fkbp1a-regulatory-binding" data-dismech-node="Impaired FKBP1A Regulatory Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired FKBP1A Regulatory Binding</div>
+
 
                 <div class="item-desc">The R206H mutation reduces binding affinity for FKBP1A/FKBP12, a safeguard protein that normally prevents inappropriate BMP signaling, resulting in leaky activation of the pathway.</div>
 
@@ -4402,6 +4473,7 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The R206H mutant showed a decreased binding affinity for FKBP1A/FKBP12, a known safeguard molecule against the leakage of transforming growth factor (TGF)-beta or BMP signaling"</div>
@@ -4422,6 +4494,7 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-activin-a-neomorphic-signaling" data-dismech-node="Activin A Neomorphic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Activin A Neomorphic Signaling</div>
+
 
                 <div class="item-desc">The R206H mutation renders ACVR1 responsive to Activin A ligands, which normally antagonize BMP signaling. This neomorphic gain-of-function allows Activin A to aberrantly activate osteogenic signaling, driving heterotopic ossification. Anti-Activin A antibodies can block HO. Activin A is an obligate factor for the initiation of HO in FOP.</div>
 
@@ -4517,6 +4590,7 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4539,6 +4613,7 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterotopic-ossification" data-dismech-node="Heterotopic Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterotopic Ossification</div>
+
 
                 <div class="item-desc">Progressive formation of qualitatively normal bone in extraskeletal tissues including muscles, tendons, ligaments, and fascia, typically following episodic inflammatory flare-ups. The process occurs through endochondral ossification with distinct histological stages: inflammatory/catabolic phase, fibroproliferative phase, chondrogenic phase, and osteogenic phase.</div>
 
@@ -4744,6 +4819,7 @@ This pathophysiological event involves Cartilage development (GO:0051216). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4766,6 +4842,7 @@ This pathophysiological event involves Cartilage development (GO:0051216). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-triggering-of-flare-ups" data-dismech-node="Inflammatory Triggering of Flare-ups" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Triggering of Flare-ups</div>
+
 
                 <div class="item-desc">Macrophages, mast cells, and lymphocytes infiltrate affected tissues during the catabolic phase, releasing inflammatory cytokines that create a permissive microenvironment for heterotopic ossification. Mast cell depletion reduces HO by approximately 50%, and combined mast cell/macrophage depletion reduces HO by approximately 75%.</div>
 
@@ -4917,6 +4994,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5045,6 +5123,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hearing loss in FOP is typically conductive rather than sensorineural.</div>
 
 
@@ -5064,6 +5145,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5124,6 +5206,9 @@ This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">Neck stiffness and reduced cervical range of motion are often early manifestations of cervical involvement in FOP.</div>
 
 
@@ -5143,6 +5228,7 @@ This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5196,6 +5282,9 @@ This clinical feature is Restricted mouth opening, annotated with Trismus (HP:00
                     </div>
 
 
+
+
+
                     <div class="item-desc">Maxillofacial heterotopic ossification can severely restrict jaw opening and complicate eating, oral care, and airway management.</div>
 
 
@@ -5215,6 +5304,7 @@ This clinical feature is Restricted mouth opening, annotated with Trismus (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5277,6 +5367,9 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Firm, tender subcutaneous nodules are often the first manifestation of a FOP flare-up before heterotopic ossification is visible radiographically.</div>
 
 
@@ -5296,6 +5389,7 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5358,6 +5452,9 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Classic hallux abnormalities include shortening of the great toe with hallux valgus and first-ray malformation. This is the most important early diagnostic clue in classic FOP.</div>
 
 
@@ -5377,6 +5474,7 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5432,6 +5530,7 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
             </div>
 
 
+
             <div class="context-notes">The great-toe malformation is a congenital skeletal anomaly.</div>
 
 
@@ -5450,6 +5549,7 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5503,6 +5603,9 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Thumb shortening is an additional skeletal clue that can help identify FOP, including patients whose great toes appear less obviously abnormal.</div>
 
 
@@ -5522,6 +5625,7 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5575,6 +5679,9 @@ This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Shortening and malformation of the first metatarsal bone accompanies the great toe malformation, contributing to the characteristic forefoot appearance in FOP.</div>
 
 
@@ -5594,6 +5701,7 @@ This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5618,6 +5726,7 @@ This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5671,6 +5780,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source discrepancy: Orphanet annotates hallux valgus as occasional, whereas a dedicated radiographic study (PMID:21116899) found it in 71% of affected feet. The 71% figure is a per-foot radiographic measure in a small series, so the occasional band follows the more conservative Orphanet clinical annotation; the higher radiographic rate is captured in the literature evidence below.</div>
 
 
@@ -5690,6 +5802,7 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5714,6 +5827,7 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5776,6 +5890,9 @@ This clinical feature is Soft tissue swelling during flare-ups, annotated with E
                     </div>
 
 
+
+
+
                     <div class="item-desc">Preosseous flare-ups often present as inflammatory soft-tissue swelling and may occur in the back, neck, jaw, or limbs.</div>
 
 
@@ -5795,6 +5912,7 @@ This clinical feature is Soft tissue swelling during flare-ups, annotated with E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5857,6 +5975,9 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive formation of ectopic bone in soft connective tissues including muscles, fascia, tendons, and ligaments. FOP lesions may accumulate even in the absence of a recognized flare-up.</div>
 
 
@@ -5876,6 +5997,7 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5931,6 +6053,7 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
             </div>
 
 
+
             <div class="context-notes">Classic FOP develops a heterotopic skeleton during childhood.</div>
 
 
@@ -5949,6 +6072,7 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6002,6 +6126,9 @@ This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013).
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive bridging heterotopic bone can ankylize major joints and cause persistent loss of mobility.</div>
 
 
@@ -6021,6 +6148,7 @@ This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6202,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Thoracolumbar or lumbar curves are common, may become rigid by early adulthood, and can impair sitting or standing balance.</div>
 
 
@@ -6093,6 +6224,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,6 +6280,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
             </div>
 
 
+
             <div class="context-notes">In the 40-patient series, scoliosis was already present in childhood.</div>
 
 
@@ -6166,6 +6299,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6221,6 +6355,9 @@ This clinical feature is Congenital cervical spine malformations, annotated with
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristic radiographic abnormalities include enlarged posterior elements, tall narrow vertebral bodies, and fusion of cervical facet joints.</div>
 
 
@@ -6240,6 +6377,7 @@ This clinical feature is Congenital cervical spine malformations, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,6 +6433,7 @@ This clinical feature is Congenital cervical spine malformations, annotated with
             </div>
 
 
+
             <div class="context-notes">These cervical spine abnormalities are congenital skeletal defects.</div>
 
 
@@ -6313,6 +6452,7 @@ This clinical feature is Congenital cervical spine malformations, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6368,6 +6508,9 @@ This clinical feature is Proximal tibial osteochondromas, annotated with Osteoch
                     </div>
 
 
+
+
+
                     <div class="item-desc">These lesions are usually asymptomatic, most commonly bilateral, and typically arise near the pes anserinus.</div>
 
 
@@ -6387,6 +6530,7 @@ This clinical feature is Proximal tibial osteochondromas, annotated with Osteoch
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6440,6 +6584,9 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive ossification of paravertebral muscles and fascia produces spinal rigidity. Heterotopic bone formation during the first decade of life limits normal thoracic kyphosis development and creates a rigid, deformed spine by early adulthood.</div>
 
 
@@ -6459,6 +6606,7 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6483,6 +6631,7 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6536,6 +6685,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive limitation of joint mobility is an overarching consequence of heterotopic ossification across all major joints. It encompasses the ankylosis and joint contractures seen in FOP.</div>
 
 
@@ -6555,6 +6707,7 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6579,6 +6732,7 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6632,6 +6786,9 @@ This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">Heterotopic bone formation within skeletal muscle is the primary pathological process of FOP, proceeding through endochondral ossification.</div>
 
 
@@ -6651,6 +6808,7 @@ This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,6 +6833,7 @@ This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6728,6 +6887,9 @@ This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Ligamentous structures are among the characteristic extraskeletal sites of heterotopic bone formation in FOP, alongside muscle and fascia.</div>
 
 
@@ -6747,6 +6909,7 @@ This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6807,6 +6970,9 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
                     </div>
 
 
+
+
+
                     <div class="item-desc">Thoracic heterotopic ossification causes restrictive respiratory mechanics and underlies much of the cardiorespiratory mortality in FOP.</div>
 
 
@@ -6826,6 +6992,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6850,6 +7017,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6910,6 +7078,9 @@ This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Acute pain is a common presenting feature of flare-ups and contributes substantially to physical disability.</div>
 
 
@@ -6929,6 +7100,7 @@ This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6982,6 +7154,9 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hip pain is a frequent symptom in FOP, reflecting periarticular flare-up involvement and progressive heterotopic ossification around the hip joint.</div>
 
 
@@ -7001,6 +7176,7 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7025,6 +7201,7 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7121,6 +7298,9 @@ This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -7146,6 +7326,7 @@ This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HU
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Substitution of adenine for guanine at nucleotide 617 replaces an evolutionarily conserved arginine with histidine at residue 206 of ACVR1 in all classically affected individuals, making this one of the most highly conserved disease-causing mutations in the human genome."</div>
@@ -7168,6 +7349,7 @@ This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HU
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Most patients with fibrodysplasia ossificans progressiva (FOP), a rare genetic disorder of heterotopic ossification, have the same causative mutation in ACVR1, R206H."</div>
@@ -7187,6 +7369,7 @@ This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7299,6 +7482,12 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Retinoic acid receptor gamma (RARgamma) agonist that inhibits endochondral ossification, the final mandatory step in heterotopic bone formation. FDA-approved in 2023 for patients 8 years and older (females) and 10 years and older (males).</div>
 
 
@@ -7323,6 +7512,7 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7344,6 +7534,7 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7416,6 +7607,12 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used during acute flare-ups to reduce inflammation, though efficacy in preventing ossification is limited. Must be administered early in flare-ups for potential benefit.</div>
 
 
@@ -7437,6 +7634,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,6 +7675,12 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Primary preventive strategy including avoidance of intramuscular injections, falls, and surgical procedures that may trigger flare-ups. Represents a key component of supportive care.</div>
 
 
@@ -7498,6 +7702,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7774,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Essential for affected individuals and families given the autosomal dominant inheritance pattern and severe disease burden.</div>
 
 
@@ -7590,6 +7801,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7681,6 +7893,12 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Anti-Activin A monoclonal antibody that blocks the neomorphic signaling caused by the ACVR1 R206H mutation. Phase 3 OPTIMA trial showed over 90% reduction in new heterotopic ossification lesions. Regulatory submission expected 2025-2026.</div>
 
 
@@ -7702,6 +7920,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7767,6 +7986,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7818,6 +8038,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7839,6 +8060,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7919,6 +8141,7 @@ This environmental factor is viral infection, annotated with exposure to virus (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7967,6 +8190,7 @@ This environmental factor is viral infection, annotated with exposure to virus (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8059,6 +8283,7 @@ This environmental factor is viral infection, annotated with exposure to virus (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8114,6 +8339,7 @@ This environmental factor is viral infection, annotated with exposure to virus (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9720,6 +9946,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

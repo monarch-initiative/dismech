@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4110,6 +4178,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4134,6 +4203,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4155,6 +4225,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4285,6 +4356,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4309,6 +4381,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4418,6 +4491,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4442,6 +4516,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4463,6 +4538,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4646,6 +4722,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4808,6 +4885,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-ductal-tissue-at-the-aortic-isthmus" data-dismech-node="Ectopic Ductal Tissue at the Aortic Isthmus" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Ductal Tissue at the Aortic Isthmus</div>
 
+
                 <div class="item-desc">On the ductal-tissue account, contractile smooth muscle of ductus arteriosus type extends ectopically into the wall of the aortic isthmus. When the ductus constricts and closes after birth, this ectopic tissue contracts with it, drawing the posterior aortic wall inward as a shelf. The account explains the characteristic juxtaductal location of the narrowing and the timing of neonatal decompensation, which follows ductal closure rather than birth.
 </div>
 
@@ -4955,6 +5033,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4976,6 +5055,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5003,6 +5083,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5025,6 +5106,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-antegrade-flow-through-the-fetal-aortic-isthmus" data-dismech-node="Reduced Antegrade Flow Through the Fetal Aortic Isthmus" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Antegrade Flow Through the Fetal Aortic Isthmus</div>
+
 
                 <div class="item-desc">On the flow account, any fetal lesion that diverts blood away from the ascending aorta and arch - a bicuspid or stenotic aortic valve, a ventricular septal defect shunting left to right, a small left ventricle - reduces antegrade flow through the isthmus, and the underperfused segment fails to grow. This predicts what is observed: coarctation clusters with other left-heart obstructive lesions rather than occurring in isolation, is combined with bicuspid aortic valve in more than half of cases, and coexists with arch or descending aortic hypoplasia in about half.
 </div>
@@ -5160,6 +5242,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5181,6 +5264,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5208,6 +5292,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5230,6 +5315,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-outflow-tract-developmental-program-disruption" data-dismech-node="Left Ventricular Outflow Tract Developmental Program Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Outflow Tract Developmental Program Disruption</div>
+
 
                 <div class="item-desc">Coarctation is highly heritable and sits within a genetically shared spectrum of left ventricular outflow tract malformations. NOTCH1 variants recur across bicuspid aortic valve, aortic aneurysm, hypoplastic left heart, and coarctation. A rare MYH6 missense variant carried by around a fifth of Icelandic coarctation cases associates with coarctation and with bicuspid valve. PRDM6, a smooth-muscle-specific transcription factor already implicated in patent ductus arteriosus, links the ductal and aortic lesions at the level of smooth muscle identity - the same cell type the ductal-tissue hypothesis invokes. Loss of one X chromosome short arm in Turner syndrome reproduces the bicuspid-valve/coarctation pair, localizing a dosage-sensitive contribution to Xp.
 </div>
@@ -5469,6 +5555,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5490,6 +5577,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5517,6 +5605,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5541,6 +5630,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fixed-aortic-obstruction-and-pressure-gradient" data-dismech-node="Fixed Aortic Obstruction and Pressure Gradient" data-dismech-type="pathophysiology">
                 <div class="item-name">Fixed Aortic Obstruction and Pressure Gradient</div>
+
 
                 <div class="item-desc">The narrowed isthmus imposes a fixed resistance between the proximal and distal aorta, producing systolic hypertension in the arms and head with reduced pulse and perfusion pressure below the lesion. The gradient is the proximate cause of the classic examination findings and the substrate for everything downstream, but it is also the only part of the disease that surgery reliably removes.
 </div>
@@ -5714,6 +5804,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5736,6 +5827,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renin-angiotensin-system-activation" data-dismech-node="Renin-Angiotensin System Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Renin-Angiotensin System Activation</div>
+
 
                 <div class="item-desc">The kidneys sit downstream of the coarctation and sense the reduced perfusion pressure as volume depletion, activating the renin-angiotensin system and raising systemic pressure further - a feedback loop that cannot correct the sensed deficit because the obstruction, not volume status, is what limits renal perfusion. Renin activation is present preoperatively and is not merely a response to the residual gradient: the preoperative renin concentration independently predicts hypertension two years after successful repair, which is why this node feeds the persistent-hypertension arm and not only the acute one.
 </div>
@@ -5903,6 +5995,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5924,6 +6017,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5949,6 +6043,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collateral-arterial-development" data-dismech-node="Collateral Arterial Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Collateral Arterial Development</div>
+
 
                 <div class="item-desc">Over months to years, flow bypasses the obstruction through enlarging intercostal, internal thoracic, and subscapular arteries. Collateralization is protective - it maintains distal perfusion and can render an anatomically severe coarctation clinically silent into adulthood - and is simultaneously the reason presentation is so often delayed until hypertension or a complication supervenes. The enlarged intercostal arteries erode the inferior rib margins, producing the classical radiographic notching.
 </div>
@@ -6058,6 +6153,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6079,6 +6175,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6106,6 +6203,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6128,6 +6226,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ductal-dependent-systemic-perfusion-in-critical-coarctation" data-dismech-node="Ductal-Dependent Systemic Perfusion in Critical Coarctation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ductal-Dependent Systemic Perfusion in Critical Coarctation</div>
+
 
                 <div class="item-desc">In the most severe form, the neonate is well while the ductus arteriosus is open because systemic flow below the coarctation is supplied right-to-left across it. Ductal closure in the first days of life abruptly removes that supply, producing shock, acidosis, and heart failure. The presentation is therefore timed by ductal physiology rather than by the anatomy, and it is reversible in the short term by reopening the ductus pharmacologically.
 </div>
@@ -6203,6 +6302,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6225,6 +6325,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-pressure-overload-and-hypertrophy" data-dismech-node="Left Ventricular Pressure Overload and Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Pressure Overload and Hypertrophy</div>
+
 
                 <div class="item-desc">The left ventricle hypertrophies against the elevated afterload. Ventricular mass in repaired coarctation tracks ambulatory rather than clinic blood pressure, and the relationship is steeper than in healthy controls - the same daytime pressure buys more hypertrophy in a coarctation patient. Left ventricular mass is itself a predictor of late morbidity and mortality, so this node is not merely a marker of load.
 </div>
@@ -6334,6 +6435,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6355,6 +6457,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6380,6 +6483,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diffuse-arteriopathy-of-the-pre-coarctation-vasculature" data-dismech-node="Diffuse Arteriopathy of the Pre-Coarctation Vasculature" data-dismech-type="pathophysiology">
                 <div class="item-name">Diffuse Arteriopathy of the Pre-Coarctation Vasculature</div>
+
 
                 <div class="item-desc">The arteries proximal to the coarctation are intrinsically abnormal, not merely exposed to high pressure. In repaired patients both endothelium-dependent flow-mediated dilation and the response to the endothelium-independent smooth muscle dilator glyceryl trinitrate are reduced, and pulse wave velocity is increased - the second of those is the decisive observation, because a purely endothelial defect would spare the nitrate response. Arterial stiffness and endothelial dysfunction persist decades after early repair. This node is the reason coarctation is a systemic disease rather than a segmental one.
 </div>
@@ -6555,6 +6659,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6576,6 +6681,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6707,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-sympathetic-outflow-and-baroreflex-impairment" data-dismech-node="Elevated Sympathetic Outflow and Baroreflex Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Sympathetic Outflow and Baroreflex Impairment</div>
+
 
                 <div class="item-desc">Directly measured muscle sympathetic nerve activity is elevated in repaired coarctation patients and the sympathetic baroreflex is dampened, while the cardiac baroreflex is preserved - a dissociation suggesting the abnormality lies in the arterial baroreceptor limb rather than in central autonomic control generally. Because the carotid and aortic baroreceptors sit in the abnormal proximal vasculature, this is plausibly the arteriopathy expressing itself through the autonomic nervous system rather than a separate lesion.
 </div>
@@ -6655,6 +6762,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6676,6 +6784,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6701,6 +6810,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-hypertension-after-anatomic-repair" data-dismech-node="Persistent Hypertension After Anatomic Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Hypertension After Anatomic Repair</div>
+
 
                 <div class="item-desc">Hypertension recurs or persists in a large fraction of patients despite a technically successful repair and no residual gradient - 58.5% at two years in a series repaired predominantly under one month of age. It is the convergence point of three upstream processes that repair does not touch: neurohormonal priming, the diffuse arteriopathy, and autonomic dysregulation. Patients with normal clinic pressures may still be hypertensive on ambulatory monitoring, so the phenotype is systematically under-detected by the measurement most clinics use.
 </div>
@@ -6809,6 +6919,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6830,6 +6941,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6857,6 +6969,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6879,6 +6992,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-atherosclerosis-and-late-cardiovascular-mortality" data-dismech-node="Accelerated Atherosclerosis and Late Cardiovascular Mortality" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Atherosclerosis and Late Cardiovascular Mortality</div>
+
 
                 <div class="item-desc">Repaired coarctation patients accumulate coronary artery disease, coronary and aortic calcium, stroke, and peripheral arterial disease earlier than expected, and late cardiovascular mortality remains high. This is the endpoint that makes the entry&#39;s framing necessary: it is not a complication of the operation, it is what the arteriopathy does over decades while the repaired anatomy looks normal. The burden is growing in absolute terms as the adult congenital heart disease population expands and ages.
 </div>
@@ -6918,6 +7032,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6942,6 +7057,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6963,6 +7079,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7057,6 +7174,9 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7071,6 +7191,7 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7127,6 +7248,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7141,6 +7265,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7322,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7211,6 +7339,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7265,6 +7394,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7279,6 +7411,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7328,6 +7461,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7392,6 +7528,9 @@ This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7406,6 +7545,7 @@ This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7455,6 +7595,9 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">No `frequency` band is asserted. The association is well described clinically, but no source cited in this entry quantifies it, and a frequency band is a separate quantitative claim from the association itself. Per the project&#39;s frequency-evidence guidance, the band is omitted rather than guessed.
@@ -7515,6 +7658,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7529,6 +7675,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7586,6 +7733,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7600,6 +7750,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7657,6 +7808,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7671,6 +7825,7 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7757,6 +7912,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7767,6 +7925,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7816,6 +7977,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7837,6 +7999,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7904,6 +8067,9 @@ This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7914,6 +8080,9 @@ This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -7960,6 +8129,7 @@ This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8048,6 +8218,9 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8058,6 +8231,9 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -8107,6 +8283,7 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8128,6 +8305,7 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8195,6 +8373,9 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8205,6 +8386,9 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
     </div>
+
+
+
 
 
 
@@ -8251,6 +8435,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8360,6 +8545,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8445,6 +8631,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8536,6 +8723,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8615,6 +8803,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8677,6 +8866,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8724,6 +8914,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8864,6 +9055,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8915,6 +9107,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8972,6 +9165,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9013,6 +9207,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10683,6 +10878,21 @@ epidemiology:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Two competing accounts of how the isthmus narrows are curated as explicit `mechanistic_hypotheses` rather than blended into one causal chain, because the literature has not settled between them and the difference has consequences for what a &#34;successful&#34; repair should be expected to achieve. The ductal-tissue hypothesis holds that ectopic contractile ductal tissue encircling the isthmus constricts as the ductus closes; the reduced-fetal-flow hypothesis holds that diminished antegrade flow through the isthmus in fetal life leaves it hypoplastic. They are not mutually exclusive: the 1982 angiographic study that anchors both trigger nodes proposes them together as a two-component account - ischemic hypoplasia of the isthmus from reduced prenatal flow, plus a localized stenosis from misplaced ductal tissue. They are nonetheless kept as separate hypothesis groups rather than merged, because a given patient may have one component without the other: in that series 88% had an isthmus narrower than age-matched controls, but 11% had no localized stenosis at all.
+No module conformance is declared. Accelerated atherosclerosis after repair looks like a candidate for `atherogenesis`, and mechanistically it probably is - but the cited source is a review that surveys prevalence of atherosclerotic sequelae in repaired coarctation, not a study demonstrating the module&#39;s required apoB-retention -&gt; foam cell -&gt; smooth-muscle-cell fibrofatty-plaque chain in this population. Declaring conformance would assert the mechanism on the strength of an epidemiological association. Recorded here so a future curator with primary evidence can add it deliberately rather than discovering the omission looked accidental.
+The 1976 family study (PMID:1018301) surfaced in deep research is not cited: its abstract could not be verified to support a specific curated claim, and the heritability point is carried instead by the Icelandic genome-wide association study, which quantifies it.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
