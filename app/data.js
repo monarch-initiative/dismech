@@ -7527,7 +7527,7 @@ window.searchData = [
   },
   {
     "name": "ANK2-Related Complex Neurodevelopmental Disorder",
-    "disease_id": "MONDO:0100038",
+    "disease_id": null,
     "category": "Genetic",
     "parents": [
       "Neurodevelopmental Disorder"
@@ -41626,7 +41626,7 @@ window.searchData = [
   },
   {
     "name": "BLOC1S1-related Complex Neurodevelopmental Disorder with Leukodystrophy",
-    "disease_id": "MONDO:0100038",
+    "disease_id": "MONDO:1060230",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -83745,10 +83745,17 @@ window.searchData = [
     ],
     "creation_date": "2026-05-10T18:40:02Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "CPHD3",
+      "CPHD4"
+    ],
     "description": "Combined pituitary hormone deficiencies, genetic form is congenital hypopituitarism in which germline defects affecting pituitary organogenesis, midline patterning, or anterior pituitary lineage specification cause deficiency of growth hormone plus at least one additional pituitary hormone. The phenotype is genetically heterogeneous and may include GH, TSH, ACTH, gonadotropin, prolactin, and posterior pituitary hormone involvement, with severity and progression varying by gene and structural pituitary findings.",
     "pathophysiology": [
       "Developmental Gene Disruption",
+      "Rathke Pouch Formation Failure",
+      "Anterior Pituitary Cell-Lineage Specification Failure",
+      "Extrapituitary LHX3 Developmental Defect",
+      "Sella Turcica and Hindbrain Malformation",
       "Anterior Pituitary Endocrine-Axis Failure",
       "Structural Pituitary Malformation"
     ],
@@ -83769,6 +83776,9 @@ window.searchData = [
     "biological_processes": [
       "pituitary gland development",
       "endocrine system development",
+      "adenohypophysis formation",
+      "cell fate commitment",
+      "adenohypophysis development",
       "endocrine process"
     ],
     "phenotypes": [
@@ -83785,7 +83795,12 @@ window.searchData = [
       "Micropenis",
       "Anterior Pituitary Hypoplasia",
       "Ectopic Posterior Pituitary",
-      "Interrupted Pituitary Stalk"
+      "Interrupted Pituitary Stalk",
+      "Limited Neck Range of Motion",
+      "Sensorineural Hearing Impairment",
+      "Scoliosis",
+      "Small Sella Turcica",
+      "Chiari Malformation"
     ],
     "phenotype_categories": [
       "Clinical",
@@ -83793,10 +83808,13 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Ear",
       "Endocrine",
       "Genitourinary",
       "Growth",
+      "Head and Neck",
       "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -83813,14 +83831,20 @@ window.searchData = [
       "HP:0000054",
       "HP:0010627",
       "HP:0011755",
-      "HP:0034978"
+      "HP:0034978",
+      "HP:0000466",
+      "HP:0000407",
+      "HP:0002650",
+      "HP:0010538",
+      "HP:0002308"
     ],
     "frequencies": [],
     "genes": [
       "Heterogeneous developmental gene variants",
       "PROP1 pathogenic variants",
       "POU1F1 pathogenic variants",
-      "LHX4 pathogenic variants"
+      "LHX4 pathogenic variants",
+      "LHX3 pathogenic variants"
     ],
     "treatments": [
       "Pituitary Hormone Replacement",
@@ -83833,12 +83857,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Combined_Pituitary_Hormone_Deficiencies_Genetic_Form.yaml",
     "page_url": "../pages/disorders/Combined_Pituitary_Hormone_Deficiencies,_Genetic_Form.html",
-    "num_phenotypes": 14,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
+    "num_phenotypes": 19,
+    "num_pathophysiology": 7,
+    "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Combined Saposin Deficiency",
@@ -297050,6 +297074,128 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spondylo-ocular Syndrome",
+    "disease_id": "MONDO:0011604",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Connective Tissue Disorder",
+      "Linkeropathy"
+    ],
+    "creation_date": "2026-09-24T20:42:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spondylo-ocular syndrome (SOS) is an ultra-rare autosomal recessive skeletal-ocular disorder caused by biallelic loss-of-function variants in XYLT2, which encodes xylosyltransferase II (XT-II), one of the two vertebrate isoenzymes that transfer xylose from UDP-xylose onto serine residues of proteoglycan core proteins. This xylosylation is the first step in assembly of the tetrasaccharide linker shared by heparan sulfate and chondroitin/dermatan sulfate chains, placing SOS among the \"linkeropathies\" alongside the XYLT1, B4GALT7, B3GALT6 and B3GAT3 disorders. Loss of XT-II reduces glycosaminoglycan assembly in patient fibroblasts and lowers circulating xylosyltransferase activity, for which XT-II is the predominant serum isoenzyme. Tissues in which the remaining XT-I activity does not compensate are affected: bone (childhood-onset generalized osteoporosis, multiple long-bone and vertebral compression fractures, platyspondyly, kyphosis, short stature), eye (dense cataracts, crystalline lens malformation, retinal detachment, and less commonly corneal opacity or keratoconus), inner ear (sensorineural hearing loss) and, in a minority, heart (structural cardiac defects). Facial dysmorphism and developmental delay or learning difficulties are variable. Expressivity varies within and between families; one reported child homozygous for a missense variant had fractures but neither cataract nor retinal detachment. Management is supportive: bisphosphonates for the osteoporosis, cataract and retinal surgery, and hearing rehabilitation.\n",
+    "pathophysiology": [
+      "Xylosyltransferase II Deficiency",
+      "Impaired Glycosaminoglycan Chain Initiation",
+      "Skeletal Proteoglycan Deficiency and Low Bone Mass",
+      "Ocular Lens and Retinal Proteoglycan Deficiency",
+      "Inner Ear Proteoglycan Deficiency",
+      "Cardiac Proteoglycan Deficiency"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "proteoglycan biosynthesis",
+      "heparan sulfate proteoglycan biosynthesis",
+      "chondroitin sulfate proteoglycan biosynthesis"
+    ],
+    "phenotypes": [
+      "Generalized osteoporosis",
+      "Recurrent fractures",
+      "Vertebral compression fracture",
+      "Platyspondyly",
+      "Kyphosis",
+      "Short stature",
+      "Decreased body weight",
+      "Scoliosis",
+      "Cataract",
+      "Abnormal lens morphology",
+      "Retinal detachment",
+      "Corneal opacity",
+      "Keratoconus",
+      "Visual impairment",
+      "Sensorineural hearing impairment",
+      "Abnormal heart morphology",
+      "Atrial septal defect",
+      "Global developmental delay",
+      "Facial dysmorphism"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Growth",
+      "Eye",
+      "Ear",
+      "Cardiovascular",
+      "Neurological",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040160",
+      "HP:0002757",
+      "HP:0002953",
+      "HP:0000926",
+      "HP:0002808",
+      "HP:0004322",
+      "HP:0004325",
+      "HP:0002650",
+      "HP:0000518",
+      "HP:0000517",
+      "HP:0000541",
+      "HP:0007957",
+      "HP:0000563",
+      "HP:0000505",
+      "HP:0000407",
+      "HP:0001627",
+      "HP:0001631",
+      "HP:0001263",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "19/22",
+      "15/22",
+      "13/22",
+      "9/22",
+      "14/22",
+      "7/22",
+      "10/22"
+    ],
+    "genes": [
+      "XYLT2"
+    ],
+    "treatments": [
+      "Bisphosphonate Therapy",
+      "Cataract Surgery",
+      "Surgical Fracture Fixation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum xylosyltransferase activity"
+    ],
+    "source_file": "Spondylo-ocular_Syndrome.yaml",
+    "page_url": "../pages/disorders/Spondylo-ocular_Syndrome.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Spondylocarpotarsal Synostosis Syndrome",
     "disease_id": "MONDO:0010094",
     "category": "Mendelian",
@@ -330134,17 +330280,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3132,
-  "total_subtypes": 3990,
-  "total_disorders_and_subtypes": 7122,
-  "total_unique_evidence_sources": 45396,
-  "total_unique_publications": 42652,
+  "total_disorder_pages": 3133,
+  "total_subtypes": 3992,
+  "total_disorders_and_subtypes": 7125,
+  "total_unique_evidence_sources": 45428,
+  "total_unique_publications": 42684,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3127,
-  "total_unique_pathological_events": 19663,
+  "total_pathographs": 3128,
+  "total_unique_pathological_events": 19673,
   "total_modules": 178,
-  "total_research_reports": 3240,
+  "total_research_reports": 3241,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
