@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Majeed Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Majeed Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Majeed Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012316" target="_blank" rel="noopener noreferrer">MONDO:0012316</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p>Majeed syndrome is a monogenic, multi-system autoinflammatory disorder of the innate immune system. As summarized in a comprehensive review, <em>"Majeed syndrome is a multi-system inflammatory disorder affecting humans that presents with chronic multifocal osteomyelitis, congenital dyserythropoietic anemia, with or without a neutrophilic dermatosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33670882/">PMID: 33670882</a>).</p>
+<p><strong>Key identifiers</strong>
+| Resource | Identifier |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0012316" target="_blank" rel="noopener noreferrer">MONDO:0012316</a> |
+| OMIM (disease) | #609628 |
+| OMIM (gene) | *605519 (LPIN2) |
+| Orphanet | <a href="https://bioregistry.io/ORPHA:77297" target="_blank" rel="noopener noreferrer">ORPHA:77297</a> |
+| MeSH | Majeed syndrome / autoinflammatory syndromes |
+| HGNC (gene) | <a href="https://bioregistry.io/HGNC:14100" target="_blank" rel="noopener noreferrer">HGNC:14100</a> (LPIN2) |</p>
+<p><strong>Synonyms / alternative names:</strong> Chronic recurrent multifocal osteomyelitis and congenital dyserythropoietic anemia (CRMO with CDA); CRMO–CDA syndrome; LPIN2-related autoinflammatory syndrome.</p>
+<p><strong>Data source type:</strong> The disease-level knowledge in this report is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, MONDO) supplemented by <strong>individual patient case reports and small case series</strong> in the primary literature. There is no large EHR-derived cohort; because only ~31–35 patients have ever been reported, all epidemiologic and phenotypic estimates rest on aggregated case reports.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors — genetic.</strong> Majeed syndrome is a <strong>monogenic</strong> disease caused by biallelic (homozygous or compound-heterozygous) loss-of-function mutations in <strong>LPIN2</strong>. Homozygosity mapping in six affected individuals from two unrelated consanguineous Arab families mapped the locus to a 5.5 cM (1.8 Mb) interval on chromosome 18p; <em>"Examination of genes in this interval led to the identification of homozygous mutations in LPIN2 in affected individuals from the two families"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15994876/">PMID: 15994876</a>). The gene <em>"was mapped to a 5.5 cM interval (1.8 Mb) on chromosome 18p."</em> Inheritance is autosomal recessive.</p>
+<p><strong>Genetic risk factors.</strong> The single causal locus is LPIN2. <strong>Consanguinity</strong> is the dominant risk factor because the disease is recessive: in a multicenter Arab pediatric autoinflammatory cohort, parental consanguinity was 74.6% (<a href="https://pubmed.ncbi.nlm.nih.gov/31741047/">PMID: 31741047</a>). No independent susceptibility loci or modifier genes have been established.</p>
+<p><strong>Environmental / lifestyle risk factors.</strong> No environmental exposure is required to cause the disease. However, a well-defined <strong>gene–environment interaction</strong> exists: in murine and human macrophages, <em>"Depletion of lipin-2 promotes the increased expression of the proinflammatory genes Il6, Ccl2, and Tnfα, which depends on the overstimulation of the JNK1/c-Jun pathway by saturated fatty acids"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>). Thus dietary <strong>saturated fatty acids</strong> amplify inflammation specifically in a lipin-2-deficient background. In the related <em>cmo</em> mouse model of CRMO, <em>"dietary manipulation can alter the microbiome and protect these mice from the development of sterile osteomyelitis in vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28361334/">PMID: 28361334</a>), suggesting diet/microbiome as environmental modifiers of disease expression.</p>
+<p><strong>Protective factors.</strong> No human genetic protective variants are documented. The murine data above indicate that a low-saturated-fat diet or microbiome modulation could be <strong>environmentally protective</strong>, but this has not been validated in patients.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Onset is typically in infancy, usually <strong>before age three</strong>: a review of 35 reported patients found <em>"most presented before age three with CRMO and recurrent fever, but the severity of CDA varied widely"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>) — documenting both the neonatal/early-childhood onset and the marked variable expressivity of the anemia.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Severity / course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronic recurrent multifocal osteomyelitis (sterile)</td>
+<td>Clinical sign / imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040211" target="_blank" rel="noopener noreferrer">HP:0040211</a> (Recurrent multifocal osteomyelitis)</td>
+<td>Infancy (&lt;3 y)</td>
+<td>Recurrent, relapsing; episodic flares</td>
+<td>Near-universal (defining)</td>
+</tr>
+<tr>
+<td>Bone pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" rel="noopener noreferrer">HP:0002653</a></td>
+<td>Infancy/childhood</td>
+<td>Episodic, painful</td>
+<td>Very frequent</td>
+</tr>
+<tr>
+<td>Congenital dyserythropoietic anemia (microcytic)</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001939" target="_blank" rel="noopener noreferrer">HP:0001939</a> / <a href="http://purl.obolibrary.org/obo/HP_0001935" target="_blank" rel="noopener noreferrer">HP:0001935</a></td>
+<td>Congenital/neonatal</td>
+<td>Variable — mild to transfusion-dependent</td>
+<td>Frequent; severity variable</td>
+</tr>
+<tr>
+<td>Neutrophilic dermatosis (Sweet-like)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025573" target="_blank" rel="noopener noreferrer">HP:0025573</a> (Neutrophilic dermatosis)</td>
+<td>Infancy/childhood</td>
+<td>Variable; "with or without"</td>
+<td>Subset of patients</td>
+</tr>
+<tr>
+<td>Recurrent fever</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a></td>
+<td>Infancy</td>
+<td>Episodic</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Growth failure / failure to thrive</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+<td>Infancy/childhood</td>
+<td>Progressive if untreated</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Joint swelling/contractures, arthralgia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" rel="noopener noreferrer">HP:0001386</a> / <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></td>
+<td>Childhood</td>
+<td>Episodic</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Neutropenia (in some)</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a></td>
+<td>Infancy</td>
+<td>Variable</td>
+<td>Occasional (<a href="https://pubmed.ncbi.nlm.nih.gov/31727123/" target="_blank" rel="noopener noreferrer">PMID 31727123</a>)</td>
+</tr>
+<tr>
+<td>Psychomotor/developmental delay (CNS involvement)</td>
+<td>Behavioral/neurological</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Childhood</td>
+<td>Variable</td>
+<td>Occasional (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/" target="_blank" rel="noopener noreferrer">PMID 34365623</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Additional features reported in individual cases include muscle involvement adjacent to osteomyelitis, delayed language/motor development, and (rarely) severe neutropenia (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31727123/">PMID: 31727123</a>).</p>
+<p><strong>Quality of life impact.</strong> No formal EQ-5D/SF-36/PROMIS studies exist for this ultra-rare disease. Qualitatively, untreated disease causes chronic bone pain, recurrent fevers, transfusion dependence in severe anemia, growth failure, and functional impairment from bone lesions and joint contractures — with substantial improvement reported after IL-1 blockade.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>LPIN2</strong> (<a href="https://bioregistry.io/HGNC:14100" target="_blank" rel="noopener noreferrer">HGNC:14100</a>; OMIM *605519; chromosome 18p11.31), encoding <strong>lipin-2</strong>, a member of the lipin/Pah family of Mg²⁺-dependent phosphatidic acid phosphatases (PAP1) that also act as transcriptional co-regulators of lipid metabolism.</p>
+<p><strong>Pathogenic variants.</strong> Both homozygous (in consanguineous families) and compound-heterozygous variants are reported, spanning missense, frameshift, nonsense, and splice-site classes:
+- Original homozygous mutations in Arab families (<a href="https://pubmed.ncbi.nlm.nih.gov/15994876/">PMID: 15994876</a>).
+- Compound heterozygous c.1966A&gt;G and c.2534delG in a Han Chinese boy (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>).
+- Splice-donor c.2327+1G&gt;C (paternal) with frameshift c.1691_1694delGAGA (p.Arg564Lysfs*3, maternal), associated with a mild phenotype plus severe neutropenia (<a href="https://pubmed.ncbi.nlm.nih.gov/31727123/">PMID: 31727123</a>).
+- Homozygous p.S734L reported in siblings from Qatar (<a href="https://pubmed.ncbi.nlm.nih.gov/27860302/">PMID: 27860302</a>).
+- Novel variants from Indian families (<a href="https://pubmed.ncbi.nlm.nih.gov/37865862/">PMID: 37865862</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33993107/">PMID: 33993107</a>).</p>
+<p><strong>Variant classification &amp; functional consequence.</strong> Reported disease variants are classified <strong>pathogenic/likely pathogenic</strong> (ACMG/AMP) and are <strong>loss-of-function</strong>. Structurally, disease mutations cluster within the conserved N-Lip and C-Lip regions: <em>"Disease-mutations cluster within the conserved N-Lip and C-Lip regions that are separated by 500-residues in humans"</em> and act by two routes — <em>"Disease-mutations disrupt catalysis or destabilize the protein fold"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32161260/">PMID: 32161260</a>).</p>
+<p><strong>Allele frequency / origin.</strong> Pathogenic LPIN2 alleles are extremely rare in population databases (gnomAD); several are private founder-like alleles in consanguineous families. Origin is <strong>germline</strong>; no somatic/mosaic contribution is described.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No validated modifier genes, disease-specific epigenetic marks, or chromosomal abnormalities are reported. Lipin-2 is itself IFN/STAT-1-regulated (<a href="https://pubmed.ncbi.nlm.nih.gov/37929625/">PMID: 37929625</a>), an expression-level regulatory context rather than a heritable modifier.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors / toxins:</strong> None required for disease causation. Dietary <strong>saturated fatty acids</strong> act as a proinflammatory amplifier in lipin-2 deficiency via JNK1/c-Jun (<a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>).</li>
+<li><strong>Lifestyle factors:</strong> Diet (saturated fat load) is the only mechanistically supported lifestyle modifier; microbiome composition modulates sterile osteomyelitis in the murine model (<a href="https://pubmed.ncbi.nlm.nih.gov/28361334/">PMID: 28361334</a>).</li>
+<li><strong>Infectious agents:</strong> None. The osteomyelitis is <strong>sterile/culture-negative</strong> — a defining feature distinguishing it from bacterial osteomyelitis. Lipin-2 also modulates antiviral/TLR3 responses (<a href="https://pubmed.ncbi.nlm.nih.gov/37929625/">PMID: 37929625</a>), but no pathogen triggers the disease.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic LOF mutation in LPIN2</strong> results in loss of functional lipin-2 protein (via disrupted HAD-like catalysis or destabilized protein fold) (<a href="https://pubmed.ncbi.nlm.nih.gov/15994876/">PMID: 15994876</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32161260/">PMID: 32161260</a>).</li>
+<li>Loss of lipin-2 <strong>de-represses the purinergic P2X7 receptor</strong>, enhancing its activation/sensitization and K⁺ efflux, and removes a brake on MAPK-driven pro-IL-1β synthesis during priming: <em>"Lipin-2 also inhibits the activation and sensitization of the purinergic receptor P2X7"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28031477/">PMID: 28031477</a>).</li>
+<li>This <strong>over-activates the NLRP3 inflammasome</strong> in macrophages/monocytes — <em>"lipin-2 controls excessive IL-1β formation in primary human and mouse macrophages by several mechanisms, including activation of the inflammasome NLRP3"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28031477/">PMID: 28031477</a>). An additional branch: lipin-2 loss increases ROS generation and mtDNA release (partly via TLR3 signaling) that further activate NLRP3 — <em>"lipin-2 also acts as a regulator of inflammation in a viral context by reducing the signaling through TLR3 and the generation of ROS and release of mtDNA that ultimately activate the NLRP3 inflammasome"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37929625/">PMID: 37929625</a>).</li>
+<li>NLRP3 activation → <strong>caspase-1 activation → excess mature IL-1β secretion</strong> (elevated caspase-1 activity and IL-1β in patient monocytes) (<a href="https://pubmed.ncbi.nlm.nih.gov/28031477/">PMID: 28031477</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">PMID: 33314777</a>).</li>
+<li><strong>Branch A — Bone:</strong> Excess IL-1β plus a lipin-2-deficient, pro-osteoclastogenic macrophage program and enhanced NF-κB signaling <strong>accelerate osteoclastogenesis</strong>, leading to <strong>sterile CRMO</strong>. Patient M2-like macrophages <em>"released higher levels of osteoclastogenic mediators (IL-8, IL-6, tumor necrosis factor, CCL2, macrophage inflammatory protein 1α/β, CXCL8, and CXCL1) compared to NOMID patients and healthy controls"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">PMID: 33314777</a>); independently, <em>"Deficiency of Lipin2 Results in Enhanced NF-κB Signaling and Osteoclast Formation in RAW-D Murine Macrophages"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33809261/">PMID: 33809261</a>).</li>
+<li><strong>Branch B — Skin:</strong> IL-1-driven neutrophil recruitment produces <strong>neutrophilic dermatosis</strong> (Sweet-like) (inferred from IL-1 biology; clinically responsive to IL-1 blockade).</li>
+<li><strong>Branch C — Systemic:</strong> IL-1β drives <strong>recurrent fever, acute-phase response, and growth failure</strong>.</li>
+<li><strong>Branch D — Marrow/erythroid (partly inferred):</strong> Inflammation contributes to <strong>congenital dyserythropoietic anemia</strong>; the precise molecular link from lipin-2 loss to dyserythropoiesis is unresolved, but anemia and marrow dyserythropoiesis reverse with IL-1 blockade, implicating inflammation (<a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>).</li>
+<li><strong>Environmental amplifier:</strong> Dietary saturated fatty acids augment steps 3–7 via JNK1/c-Jun overstimulation (<a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>).</li>
+</ol>
+<pre><code> LPIN2 LOF  ──►  loss of lipin-2  ──►  P2X7 sensitization + ↓MAPK restraint
+                      + ROS/mtDNA release (TLR3 branch)
+                            │
+                            ▼
+                   NLRP3 inflammasome ↑
+                            │
+                     caspase-1 → IL-1β ↑↑
+ ┌──────────────┬───────────┼──────────────┬───────────────┐
+ ▼              ▼            ▼              ▼               ▼
+pro-osteoclast    neutrophil     fever /       dyserythropoietic  (SFA diet
+macrophages +     recruitment    acute-phase    anemia            amplifies
+NF-κB → osteoclast   → skin       + growth       (inflammation-    via JNK1/
+↑ → STERILE CRMO   NEUTROPHILIC   failure        driven, partly    c-Jun)
+            DERMATOSIS                    inferred)
+</code></pre>
+<p><strong>Molecular pathways:</strong> P2X7–K⁺ efflux–NLRP3 inflammasome; MAPK/JNK1–c-Jun; NF-κB; IL-1β signaling; type-I IFN/STAT-1 (regulates lipin-2). <strong>Cellular processes:</strong> innate immune activation, sterile inflammation, osteoclast differentiation, dyserythropoiesis. <strong>Protein dysfunction:</strong> loss of PAP1 (phosphatidic-acid-phosphatase) catalysis / protein destabilization. <strong>Metabolic:</strong> lipin-2 converts phosphatidic acid → diacylglycerol; its loss alters glycerolipid/TAG homeostasis and reduces TAG buffering of saturated-fatty-acid overload — <em>"the absence of lipin-2 reduces the cellular content of triacylglycerol in saturated fatty acid-overloaded macrophages"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>). <strong>Immune involvement:</strong> chronic IL-1β-driven autoinflammation (not autoimmunity/immunodeficiency).</p>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response); <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" rel="noopener noreferrer">GO:0032611</a> (IL-1β production); <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a> (NLRP3 inflammasome complex assembly); <a href="http://purl.obolibrary.org/obo/GO_0002548" target="_blank" rel="noopener noreferrer">GO:0002548</a> (monocyte chemotaxis); <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" rel="noopener noreferrer">GO:0045453</a> (bone resorption); <a href="http://purl.obolibrary.org/obo/GO_0016311" target="_blank" rel="noopener noreferrer">GO:0016311</a> (dephosphorylation). <strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> (monocyte), <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> (osteoclast), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" rel="noopener noreferrer">CL:0000764</a> (erythroid lineage cell). <strong>Chemical entities (CHEBI):</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_16337" target="_blank" rel="noopener noreferrer">CHEBI:16337</a> (phosphatidic acid), <a href="http://purl.obolibrary.org/obo/CHEBI_18035" target="_blank" rel="noopener noreferrer">CHEBI:18035</a> (diacylglycerol), <a href="http://purl.obolibrary.org/obo/CHEBI_26607" target="_blank" rel="noopener noreferrer">CHEBI:26607</a> (saturated fatty acid), <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (Mg²⁺).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ / system — Skeleton (musculoskeletal system):</strong> metaphyses of long bones (tibia, femur, fibula), and other multifocal sites; sacroiliac joints; adjacent soft tissue/muscle (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27860302/">PMID: 27860302</a>). <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" rel="noopener noreferrer">UBERON:0002481</a> (bone tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> (bone element), <a href="http://purl.obolibrary.org/obo/UBERON_0002217" target="_blank" rel="noopener noreferrer">UBERON:0002217</a> (long bone), <a href="http://purl.obolibrary.org/obo/UBERON_0000979" target="_blank" rel="noopener noreferrer">UBERON:0000979</a> (tibia).</li>
+<li><strong>Bone marrow / hematopoietic system:</strong> dyserythropoiesis; <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> (bone marrow).</li>
+<li><strong>Skin (integumentary system):</strong> neutrophilic dermatosis; <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin of body).</li>
+<li><strong>Secondary/occasional — CNS:</strong> developmental/psychomotor delay in some patients (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>); <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a> (central nervous system).</li>
+<li><strong>Tissue types affected:</strong> bone/connective tissue, hematopoietic tissue, skin epithelium/dermis, skeletal muscle (peri-osteomyelitic).</li>
+<li><strong>Cell populations (CL):</strong> macrophages, monocytes, osteoclasts, neutrophils, erythroid precursors (see §6).</li>
+<li><strong>Subcellular compartments (GO CC):</strong> <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a> (NLRP3 inflammasome complex); <a href="http://purl.obolibrary.org/obo/GO_0005741" target="_blank" rel="noopener noreferrer">GO:0005741</a> (mitochondrial outer membrane — ROS/mtDNA source); <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane — P2X7); lipin-2 localizes to ER membrane/cytosol and nucleus.</li>
+<li><strong>Lateralization:</strong> Bone lesions are typically <strong>multifocal and often bilateral/symmetric</strong> (characteristic of CRMO), though individual lesions may be asymmetric.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital anemia present at/near birth; osteomyelitis and fevers usually manifest in <strong>infancy, before age three</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>). Onset pattern is <strong>chronic with recurrent acute flares</strong>.</li>
+<li><strong>Progression / course:</strong> <strong>Relapsing–remitting/episodic</strong> bone disease with painful flares; <strong>chronic lifelong</strong> without effective therapy. If untreated, cumulative complications include growth failure, bone deformity/contractures, and transfusion dependence.</li>
+<li><strong>Disease duration:</strong> Chronic, lifelong.</li>
+<li><strong>Remission patterns:</strong> Predominantly <strong>treatment-induced remission</strong> on IL-1 blockade, which can be dramatic and sustained (<a href="https://pubmed.ncbi.nlm.nih.gov/31598604/">PMID: 31598604</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>). Spontaneous durable remission is not characteristic.</li>
+<li><strong>Critical periods / window of opportunity:</strong> Early molecular diagnosis and initiation of IL-1 blockade in infancy/early childhood is the key intervention window to prevent cumulative bone damage and growth failure.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong> (biallelic LPIN2). Requires two pathogenic alleles.</li>
+<li><strong>Prevalence / incidence:</strong> No reliable population prevalence; the disease is <strong>ultra-rare</strong>. <em>"only 31 individuals from 18 families have been reported with this rare condition"</em> as of 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/37865862/">PMID: 37865862</a>); a 2025 review tallied ~35 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>).</li>
+<li><strong>Penetrance / expressivity:</strong> Penetrance of the biallelic genotype appears complete for the autoinflammatory phenotype, but <strong>expressivity is variable</strong>, especially for CDA severity (mild to transfusion-dependent) and presence/absence of the neutrophilic dermatosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>).</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Founder effects / consanguinity:</strong> Strong association with <strong>consanguinity</strong>; several private/founder-like alleles in Middle Eastern and Indian families. In an Arab pediatric SAID cohort, <em>"Consanguinity rate among parents was 74.6%"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31741047/">PMID: 31741047</a>).</li>
+<li><strong>Carrier frequency:</strong> Not established; expected very low, elevated within consanguineous kindreds.</li>
+<li><strong>Population demographics:</strong> Reported predominantly in populations with high consanguinity (Arab/Middle Eastern, South Asian/Indian), with additional cases across ancestries including East Asian (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>) and the first patient of central-European ancestry (<a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>). No strong sex bias is established given small numbers.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory tests / biomarkers.</strong> Elevated acute-phase reactants (ESR, CRP); microcytic anemia with bone marrow showing <strong>dyserythropoiesis</strong>; occasional neutropenia (<a href="https://pubmed.ncbi.nlm.nih.gov/31727123/">PMID: 31727123</a>). Elevated caspase-1 activity and IL-1β in patient monocytes are research biomarkers (<a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">PMID: 33314777</a>). Bone cultures are <strong>negative</strong> (sterile osteomyelitis).</p>
+<p><strong>Imaging.</strong> MRI is the favored modality: multifocal osteomyelitic lesions appear as high-signal (STIR/SPAIR) marrow lesions with surrounding soft-tissue/muscle edema; common sites include tibia, femur, fibula, talar bones and sacroiliac joints (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27860302/">PMID: 27860302</a>).</p>
+<p><strong>Biopsy/pathology.</strong> Bone lesions show sterile chronic inflammation without organisms; marrow aspirate shows dyserythropoietic changes.</p>
+<p><strong>Genetic testing (definitive).</strong> Molecular confirmation is by identifying biallelic pathogenic LPIN2 variants, most efficiently via an <strong>autoinflammatory NGS gene panel that includes LPIN2</strong>, or WES/WGS. Because patients present across specialties, <em>"Patients with MJS may present initially to different specialists, and thus it is important to create awareness in the medical community"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33993107/">PMID: 33993107</a>). Single-gene LPIN2 sequencing is appropriate when the phenotype is classic.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No formal consensus diagnostic criteria; diagnosis rests on the clinical triad plus biallelic LPIN2 variants. Key differentials:
+- <strong>Non-syndromic CRMO/CNO</strong> — no CDA, no biallelic LPIN2.
+- <strong>DIRA (IL1RN deficiency)</strong> — CRMO-like with pustulosis; different gene.
+- <strong>Juvenile idiopathic arthritis (JIA)</strong> — frequent misdiagnosis (see below).
+- <strong>RETREG1/FAM134B-related disease (HSAN2B)</strong> — can mimic Majeed with recurrent osteomyelitis and microcytic anemia, but LPIN2 sequencing is negative (<a href="https://pubmed.ncbi.nlm.nih.gov/35332675/">PMID: 35332675</a>).</p>
+<p><strong>Diagnostic delay.</strong> Majeed syndrome is frequently misdiagnosed: <em>"Its rarity and overlap with juvenile idiopathic arthritis (JIA) often lead to delayed or incorrect diagnoses"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>). In an Arab SAID cohort the initial diagnosis was inaccurate in 49.3% with a median time-to-diagnosis of 2.5 years (<a href="https://pubmed.ncbi.nlm.nih.gov/31741047/">PMID: 31741047</a>).</p>
+<p><strong>Screening.</strong> Cascade genetic testing and carrier testing within affected families; prenatal/preimplantation diagnosis is feasible once the family's biallelic variants are known.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / mortality:</strong> No formal survival statistics; the disease is generally not directly life-limiting when the inflammation is controlled, but untreated disease causes substantial morbidity. Severe transfusion-dependent anemia and complications contribute to burden.</li>
+<li><strong>Morbidity / disability:</strong> Chronic bone pain, recurrent fevers, growth failure, bone deformity/contractures, and, in severe CDA, transfusion dependence and iron overload. CNS involvement in some cases can cause developmental delay (<a href="https://pubmed.ncbi.nlm.nih.gov/34365623/">PMID: 34365623</a>).</li>
+<li><strong>Disease course / recovery:</strong> Chronic lifelong disease with <strong>excellent response to IL-1 blockade</strong>; anakinra produced <em>"resolution of MRI findings, microcytic anaemia and dyserythropoiesis at bone marrow aspirate"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>), indicating substantial recovery potential with targeted therapy. Response to TNF inhibitors and corticosteroids is only partial.</li>
+<li><strong>Prognostic factors:</strong> Time to correct molecular diagnosis and initiation of IL-1 blockade; CDA severity; extent of skeletal involvement. IL-1-pathway responsiveness is the key favorable prognostic determinant.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>First-line / most effective — IL-1 blockade.</strong> Across the reported experience, <em>"IL-1 blockade remains the most effective treatment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">PMID: 41113563</a>).
+- <strong>Anakinra</strong> (recombinant IL-1 receptor antagonist; NCIT:C1839): <em>"Treatment with anakinra was started with a prompt resolution of the clinical picture"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>); <em>"We observed a significant clinical response to biologic anti-interleukin-1 (IL-1) therapy in our patients"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31598604/">PMID: 31598604</a>).
+- <strong>Canakinumab</strong> (anti-IL-1β monoclonal antibody; NCIT:C71355): long-lasting remission reported (<a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">PMID: 33314777</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27860302/">PMID: 27860302</a>).</p>
+<p><strong>Partially effective / adjunctive.</strong>
+| Therapy | Class (NCIT) | Efficacy in Majeed |
+|---|---|---|
+| Anakinra / canakinumab | IL-1 blockers | <strong>Most effective</strong>; dramatic/sustained remission |
+| Corticosteroids | Glucocorticoid (NCIT:C381) | Partial |
+| NSAIDs | Anti-inflammatory | Partial/symptomatic |
+| Methotrexate | Antimetabolite (NCIT:C642) | Partial/ineffective |
+| TNF inhibitors (adalimumab, etanercept, infliximab) | TNF blockers | Partial, variable |
+| Bisphosphonates | Bone resorption inhibitor | Adjunctive for bone disease (<a href="https://pubmed.ncbi.nlm.nih.gov/31377798/">PMID: 31377798</a>) |
+| RBC transfusion / supportive | Supportive care | For severe CDA |</p>
+<p><strong>Pharmacogenomics / advanced therapeutics:</strong> None specific. No approved gene, cell, or RNA therapy exists; the strong mechanistic rationale (single-gene recessive LOF) makes LPIN2 an in-principle candidate for future gene-replacement, but no clinical program is reported. <strong>Personalized approach:</strong> genotype-driven — confirming biallelic LPIN2 LOF directs treatment toward IL-1 blockade.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable in a genetically affected individual. <strong>Genetic counseling</strong> for consanguineous couples and families with an affected child is the principal preventive tool; recurrence risk is 25% per pregnancy for carrier couples.</li>
+<li><strong>Secondary prevention:</strong> Early molecular diagnosis (autoinflammatory panels including LPIN2) to shorten the ~2.5-year diagnostic delay and enable prompt IL-1 blockade (<a href="https://pubmed.ncbi.nlm.nih.gov/31741047/">PMID: 31741047</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33993107/">PMID: 33993107</a>).</li>
+<li><strong>Tertiary prevention:</strong> Sustained IL-1 blockade to prevent cumulative bone damage, growth failure, and transfusion-related complications; bisphosphonates as bone-protective adjuncts.</li>
+<li><strong>Genetic screening:</strong> Cascade carrier testing, prenatal diagnosis, and preimplantation genetic testing once familial variants are identified.</li>
+<li><strong>Behavioral/environmental:</strong> Mechanistically, limiting dietary saturated-fat load could reduce inflammatory amplification (<a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>), but this is not clinically validated.</li>
+<li><strong>Immunization / public health / prophylaxis:</strong> No vaccine or infectious-prophylaxis relevance (disease is sterile/genetic).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Human disease (NCBI:txid9606). LPIN2 orthologs exist across mammals; the closely related PAP function is conserved from yeast (<em>Pah1</em>) to plants (<em>Arabidopsis PAH1/2</em>) and mammals (<a href="https://pubmed.ncbi.nlm.nih.gov/40680843/">PMID: 40680843</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41604448/">PMID: 41604448</a>).</li>
+<li><strong>Orthologous genes:</strong> Mouse <em>Lpin2</em> (NCBI Gene 64898). The lipin family (lipin-1/2/3) has partially redundant and distinct roles (<a href="https://pubmed.ncbi.nlm.nih.gov/27344312/">PMID: 27344312</a>).</li>
+<li><strong>Natural disease in animals:</strong> No well-characterized naturally occurring LPIN2 Majeed-equivalent in companion animals is documented here; the related sterile osteomyelitis phenotype occurs in the murine <em>Pstpip2</em> (<em>cmo</em>) model (a different gene), and canine sterile osteomyelitis has been noted in the broader CRMO literature (<a href="https://pubmed.ncbi.nlm.nih.gov/23917160/">PMID: 23917160</a>).</li>
+<li><strong>Evolutionary conservation:</strong> The HAD-like catalytic PAP mechanism is deeply conserved; disease-relevant active-site motifs (e.g., DxDxT) are shared from yeast Pah1 to human lipins (<a href="https://pubmed.ncbi.nlm.nih.gov/40680843/">PMID: 40680843</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32161260/">PMID: 32161260</a>).</li>
+<li><strong>Zoonotic potential:</strong> None (non-infectious genetic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse models:</strong> The <strong>cmo (chronic multifocal osteomyelitis)</strong> mouse — driven by <em>Pstpip2</em> mutation, not <em>Lpin2</em> — is the principal in-vivo model of sterile CRMO and demonstrated that dietary/microbiome manipulation protects against osteomyelitis (<a href="https://pubmed.ncbi.nlm.nih.gov/28361334/">PMID: 28361334</a>). It recapitulates the sterile bone-inflammation phenotype but not the LPIN2 lesion or the CDA.</li>
+<li><strong>Cellular models:</strong> <strong>RAW-D murine macrophages</strong> with Lipin2 deficiency show enhanced NF-κB signaling and osteoclast formation, modeling the bone-directed mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/33809261/">PMID: 33809261</a>). <strong>Primary human and mouse macrophages/monocytes</strong> (patient-derived and lipin-2-depleted) recapitulate NLRP3/P2X7-driven IL-1β overproduction and the pro-osteoclastogenic secretome (<a href="https://pubmed.ncbi.nlm.nih.gov/28031477/">PMID: 28031477</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">PMID: 33314777</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">PMID: 22334674</a>).</li>
+<li><strong>Structural / biochemical surrogates:</strong> <em>Tetrahymena</em> <strong>Pah2</strong> and yeast <strong>Pah1</strong> crystal structures and mutagenesis define the catalytic architecture and the impact of disease-type mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/32161260/">PMID: 32161260</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40680843/">PMID: 40680843</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41109341/">PMID: 41109341</a>).</li>
+<li><strong>Recapitulation / limitations:</strong> Cellular and <em>cmo</em> models capture the <strong>innate-immune/IL-1 and osteoclast</strong> arms well, but <strong>no model faithfully reproduces the congenital dyserythropoietic anemia</strong>, which remains the least-modeled feature. There is no widely used <em>Lpin2</em>-knockout mouse that reproduces the full human triad.</li>
+<li><strong>Resources:</strong> MGI (mouse <em>Lpin2</em>), and lipin structural/biochemical literature.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Majeed syndrome is best understood as a <strong>loss-of-brake autoinflammatory disease</strong>: lipin-2 is not itself inflammatory but is a negative regulator that normally keeps the P2X7→NLRP3→IL-1β axis in check while also buffering lipid stress. Removing that brake (biallelic LOF) yields chronic IL-1β excess that fans out into tissue-specific manifestations — bone (via a pro-osteoclastogenic macrophage program and NF-κB), skin (neutrophilic dermatosis), and systemic (fever, growth failure). The therapeutic logic follows directly: because IL-1β is the convergent downstream effector, <strong>IL-1 blockade collapses the entire phenotype</strong>, and its efficacy is itself strong in-vivo confirmation of the model. This is why the disease has been formally reclassified as an NLRP3 inflammasomopathy: <em>"LIPIN2 deficiency can activate the NLRP3 inflammasome through alterations in the function of P2X7 receptor providing evidence that Majeed syndrome is an NLRP3 inflammasomopathy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29912021/">PMID: 29912021</a>).</p>
+<p>Two features refine this picture. First, the <strong>environmental modifier axis</strong> (saturated fatty acids via JNK1/c-Jun; microbiome/diet in the murine model) shows the disease is a gene-by-environment product, not a purely fixed genotype effect — offering non-pharmacologic levers. Second, the <strong>anemia sits outside the well-mapped chain</strong>: it is described phenotypically as congenital, microcytic and dyserythropoietic, yet no pathway from lipin-2 loss to erythroid maturation failure has been demonstrated. Its reversibility with anakinra reframes it as at least partly an <strong>inflammation-driven (IL-1-mediated) anemia</strong> rather than a fixed cell-intrinsic erythroid defect — a hypothesis that would reconcile it with the rest of the mechanism.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15994876/">15994876</a></td>
+<td>Identifies LPIN2 as causal gene via homozygosity mapping (chr 18p)</td>
+<td>Human genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33670882/">33670882</a></td>
+<td>Defines clinical triad; clinical/genetic/immunologic review</td>
+<td>Human clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41113563/">41113563</a></td>
+<td>35-patient review: onset &lt;3 y, variable CDA, IL-1 blockade most effective, JIA misdiagnosis</td>
+<td>Human clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28031477/">28031477</a></td>
+<td>Lipin-2 restrains NLRP3 via P2X7/MAPK</td>
+<td>In vitro (human+mouse macrophages)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29912021/">29912021</a></td>
+<td>Classifies Majeed as an NLRP3 inflammasomopathy</td>
+<td>Review/synthesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33314777/">33314777</a></td>
+<td>Pro-osteoclastogenic M2 macrophages; canakinumab remission</td>
+<td>In vitro + human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33809261/">33809261</a></td>
+<td>Lipin2 loss → NF-κB and osteoclast formation</td>
+<td>In vitro (RAW-D)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22334674/">22334674</a></td>
+<td>SFA amplify inflammation via JNK1/c-Jun in lipin-2 deficiency</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37929625/">37929625</a></td>
+<td>Lipin-2 limits TLR3/ROS/mtDNA → NLRP3; IFN-regulated</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">39255247</a></td>
+<td>Anakinra resolves MRI, anemia and marrow dyserythropoiesis</td>
+<td>Human clinical case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31598604/">31598604</a></td>
+<td>Anti-IL-1 response in familial cases</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31741047/">31741047</a></td>
+<td>Consanguinity 74.6%; diagnostic delay</td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37865862/">37865862</a></td>
+<td>~31 individuals/18 families reported</td>
+<td>Human clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32161260/">32161260</a></td>
+<td>Structural basis: disease mutations disrupt catalysis or fold</td>
+<td>Structural biology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33993107/">33993107</a></td>
+<td>Multi-specialty presentation; awareness/panel testing</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28361334/">28361334</a></td>
+<td>Diet/microbiome modulates sterile osteomyelitis in cmo mouse</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31377798/">31377798</a></td>
+<td>Bisphosphonate + anakinra novel-mutation case</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35332675/">35332675</a></td>
+<td>RETREG1/HSAN2B mimic (LPIN2-negative) — differential dx</td>
+<td>Human genetics</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Unexplained anemia mechanism (primary gap).</strong> No primary study mechanistically links lipin-2 loss to dyserythropoiesis. The anemia is characterized only phenotypically (congenital, microcytic, dyserythropoietic, variable severity). Its reversibility with IL-1 blockade (<a href="https://pubmed.ncbi.nlm.nih.gov/39255247/">PMID: 39255247</a>) implicates inflammation, but a cell-intrinsic erythroid contribution has not been excluded.</li>
+<li><strong>Ultra-small sample size.</strong> All clinical conclusions rest on ~31–35 patients in case reports/series; no controlled trials, no reliable prevalence/incidence, penetrance, or sex-ratio estimates.</li>
+<li><strong>No faithful whole-animal LPIN2 model.</strong> In-vivo mechanistic work leans on the <em>Pstpip2</em> cmo mouse (different gene) and cellular systems; the human triad, especially CDA, is not fully recapitulated.</li>
+<li><strong>Modifier genes / genotype–phenotype correlation</strong> are not established despite clear variable expressivity of CDA and dermatosis.</li>
+<li><strong>Environmental modifiers</strong> (saturated fat, microbiome) are mechanistically supported but not clinically tested in patients.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Dissect the anemia:</strong> Generate lipin-2-deficient erythroid models (patient-derived iPSC → erythroid differentiation; conditional Lpin2 knockout in erythroid lineage) and test whether dyserythropoiesis is cell-intrinsic vs. IL-1/inflammation-driven, including IL-1β rescue experiments.</li>
+<li><strong>Build a faithful mouse model:</strong> Create and characterize a constitutive/conditional <em>Lpin2</em> LOF mouse to test recapitulation of CRMO + CDA + dermatosis and to serve as a preclinical therapeutic platform.</li>
+<li><strong>Genotype–phenotype registry:</strong> Establish an international Majeed registry to correlate specific LPIN2 variant classes (catalysis-disrupting vs. fold-destabilizing) with CDA severity and treatment response.</li>
+<li><strong>Prospective IL-1 blockade study:</strong> Standardized outcome capture (bone MRI, hemoglobin/transfusion needs, growth, PROMIS) for anakinra vs. canakinumab, including effect on marrow dyserythropoiesis.</li>
+<li><strong>Test dietary modifier clinically:</strong> Pilot evaluation of saturated-fat reduction as an adjunct, given the JNK1/c-Jun amplification data.</li>
+<li><strong>Diagnostic uplift:</strong> Ensure LPIN2 is on all autoinflammatory/CRMO NGS panels and disseminate awareness to rheumatology, hematology and neurology to shorten the ~2.5-year diagnostic delay.</li>
+</ol>
+<hr />
+<p><em>Evidence source legend:</em> Human genetics/clinical (case reports, series, reviews, cohorts); in vitro (primary human/mouse macrophages, RAW-D, patient monocytes); model organism (cmo mouse); structural biology (lipin/Pah crystallography). No large-scale omics dataset specific to Majeed syndrome was available for primary analysis; conclusions synthesize published primary literature.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Majeed_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Majeed_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Citations</h2>
+<ol>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15994876/" target="_blank" rel="noopener noreferrer">PMID:15994876</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33670882/" target="_blank" rel="noopener noreferrer">PMID:33670882</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28031477/" target="_blank" rel="noopener noreferrer">PMID:28031477</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29912021/" target="_blank" rel="noopener noreferrer">PMID:29912021</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33314777/" target="_blank" rel="noopener noreferrer">PMID:33314777</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33809261/" target="_blank" rel="noopener noreferrer">PMID:33809261</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41113563/" target="_blank" rel="noopener noreferrer">PMID:41113563</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39255247/" target="_blank" rel="noopener noreferrer">PMID:39255247</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37865862/" target="_blank" rel="noopener noreferrer">PMID:37865862</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31741047/" target="_blank" rel="noopener noreferrer">PMID:31741047</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22334674/" target="_blank" rel="noopener noreferrer">PMID:22334674</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28361334/" target="_blank" rel="noopener noreferrer">PMID:28361334</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34365623/" target="_blank" rel="noopener noreferrer">PMID:34365623</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31727123/" target="_blank" rel="noopener noreferrer">PMID:31727123</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27860302/" target="_blank" rel="noopener noreferrer">PMID:27860302</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33993107/" target="_blank" rel="noopener noreferrer">PMID:33993107</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32161260/" target="_blank" rel="noopener noreferrer">PMID:32161260</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37929625/" target="_blank" rel="noopener noreferrer">PMID:37929625</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31598604/" target="_blank" rel="noopener noreferrer">PMID:31598604</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35332675/" target="_blank" rel="noopener noreferrer">PMID:35332675</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31377798/" target="_blank" rel="noopener noreferrer">PMID:31377798</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40680843/" target="_blank" rel="noopener noreferrer">PMID:40680843</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41604448/" target="_blank" rel="noopener noreferrer">PMID:41604448</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27344312/" target="_blank" rel="noopener noreferrer">PMID:27344312</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23917160/" target="_blank" rel="noopener noreferrer">PMID:23917160</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41109341/" target="_blank" rel="noopener noreferrer">PMID:41109341</a></li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Maculopapular_Cutaneous_Mastocytosis-claude_code.html">← Maculopapular Cutaneous Mastocytosis (Claude Code)</a>
+                
+                
+                <a href="Major_Depressive_Disorder-cyberian-codex.html">Major Depressive Disorder (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Majeed_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Majeed_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

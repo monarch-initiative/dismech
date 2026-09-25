@@ -33,8 +33,12 @@ Verdicts
     no genes could be found at all, or the canonical gene is mentioned fewer
     than ``min_signal`` times, or a lookup the verdict depends on failed. This
     is the Temtamy pattern (PR #3835): a single report mixing C12orf57 and
-    CHSY1 content. Sections about the rival entity must be excluded before
-    curating.
+    CHSY1 content. A mention count cannot tell that apart from a report on
+    the right disease that names the disease's own receptor, ligand, fusion
+    partner or modifier gene: in KDM1A-related adrenal hyperplasia (#9826)
+    the effector gene GIP reaches 0.44 of KDM1A, above the 0.40 the Temtamy
+    rival reached, so no ratio separates the two. Read the sections naming
+    the second gene and exclude them only if they are about another disease.
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
@@ -108,6 +112,17 @@ OMIM_RE = re.compile(r"\b(?:OMIM|MIM)\s*[:#\s]\s*#?\s*(\d{6})\b", re.IGNORECASE)
 # phenotype-rich DR report otherwise ranks "HP" among its top genes and drowns out
 # the actual rival-gene signal.
 CURIE_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_]*\s*:\s*\d[\w.]*")
+
+# Ontology prefixes that are also HGNC symbols, or that the uppercase token
+# pattern picks up as one. CURIE_RE removes them when they carry a local ID,
+# but reports also name the ontology in prose ("HP calls it Optic atrophy",
+# "(HP terms)"), and 40 such bare mentions put haptoglobin among the top
+# "rival" genes of a correct ACO2 report (#9826). These are kept out of the
+# rival pool only: a disease whose own causal gene is HP still counts it.
+ONTOLOGY_PREFIX_TOKENS = frozenset({
+    "HP", "HPO", "GO", "CL", "MP", "SO", "MONDO", "PATO", "UBERON", "NCIT",
+    "CHEBI", "ECTO", "MAXO", "ORPHA", "OMIM", "HGNC",
+})
 
 # A gene needs at least this many mentions before it counts as "discussed
 # substantively". Below it, a symbol is usually an aside, a pathway member, or a
@@ -336,6 +351,42 @@ def _symbol_like(value: str) -> bool:
     return bool(match) and value.upper() not in NON_GENE_TOKENS
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+class MondoBuildUnavailable(RuntimeError):
+    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+
+    Raised instead of opening the adapter, because opening it does not fail on a
+    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
+    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
+    acceptable answer, since it reads as "MONDO records no causal gene" and
+    turns into a ``SKIP`` verdict.
+    """
+
+
+def open_mondo_adapter():
+    """Open the local MONDO build, refusing to download it.
+
+    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
+    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
+    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
+    which it reads from the local build.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if not local_build_present(MONDO_ADAPTER):
+        raise MondoBuildUnavailable(
+            f"the local MONDO build is not present at {local_build_path('mondo')}. "
+            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
+            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
+            "with `just fetch-ontology-dbs mondo`, then re-run."
+        )
+    from oaklib import get_adapter
+
+    return get_adapter(MONDO_ADAPTER)
+
+
 def fetch_mondo_record(
     mondo_id: str, adapter=None, hgnc_adapter=None, *, use_hgnc: bool = True
 ) -> MondoRecord:
@@ -356,11 +407,13 @@ def fetch_mondo_record(
     ``use_hgnc=False`` keeps the whole function offline: HGNC is never opened,
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
+
+    With no ``adapter`` given, the local MONDO build must already be on disk:
+    :class:`MondoBuildUnavailable` is raised rather than letting semsql
+    download it (see :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        from oaklib import get_adapter
-
-        adapter = get_adapter("sqlite:obo:mondo")
+        adapter = open_mondo_adapter()
 
     errors: list[str] = []
 
@@ -594,7 +647,9 @@ def assess(
     rivals = [
         (sym, n)
         for sym, n in gene_counts.most_common()
-        if sym not in claimed and n >= min_signal
+        if sym not in claimed
+        and sym not in ONTOLOGY_PREFIX_TOKENS
+        and n >= min_signal
     ]
 
     result = PreflightResult(
@@ -722,9 +777,13 @@ def assess(
         result.verdict = WARN
         rival_sym, rival_n = rivals[0]
         result.reasons.append(
-            f"Rival gene {rival_sym} is mentioned {rival_n} times "
+            f"Second gene {rival_sym} is mentioned {rival_n} times "
             f"({rival_n / expected_total:.0%} of {expected_str}). The report may "
-            "mix in a second disease entity — exclude those sections before curating."
+            f"mix in a second disease entity, or {rival_sym} may be this disease's "
+            "own receptor, ligand, fusion partner, or modifier gene; a mention "
+            "count cannot tell the two apart. Read the sections naming "
+            f"{rival_sym} and decide which it is; exclude them only if they are "
+            "about a different disease."
         )
 
     if unresolved:
@@ -885,6 +944,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
+    # Open MONDO first: without it there is no verdict to give, and failing
+    # here also stops the HGNC lexicon below from fetching its own build for a
+    # run that cannot finish.
+    try:
+        mondo_adapter = open_mondo_adapter()
+    except MondoBuildUnavailable as exc:
+        parser.exit(2, f"error: {exc}\n")
+
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
@@ -896,6 +963,7 @@ def main(argv: list[str] | None = None) -> int:
     result = preflight(
         args.report,
         mondo,
+        adapter=mondo_adapter,
         lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,

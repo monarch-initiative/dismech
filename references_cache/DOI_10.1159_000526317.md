@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1159/000526317
+extractor_version: 1
 title: "Gene Therapy for Inherited Retinal Disease: Long-Term Durability of Effect"
 authors:
 - Bart P. Leroy
@@ -16,7 +17,8 @@ journal: Ophthalmic Research
 year: '2023'
 doi: 10.1159/000526317
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Gene Therapy for Inherited Retinal Disease: Long-Term Durability of Effect
