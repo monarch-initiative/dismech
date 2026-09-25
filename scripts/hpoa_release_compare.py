@@ -52,7 +52,10 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-# The 12 columns of the HPOA format, in order.
+# The 12 columns of the HPOA format, in order. This deliberately duplicates the list in
+# `hpoa_export.py` (which appends `dismech_name`) rather than importing it: importing the
+# exporter's own list would make the conformance check below compare the export against
+# itself, silently turning it into a no-op. Do not "de-duplicate" these.
 HPOA_COLUMNS = [
     "database_id",
     "disease_name",
@@ -98,11 +101,19 @@ def read_hpoa(path: Path) -> tuple[list[str], list[str], list[dict[str, str]]]:
         comments.append(lines[idx])
         idx += 1
     columns = lines[idx].split("\t")
-    rows = [
-        dict(zip(columns, line.split("\t"), strict=False))
-        for line in lines[idx + 1 :]
-        if line
-    ]
+    rows = []
+    for lineno, line in enumerate(lines[idx + 1 :], start=idx + 2):
+        if not line:
+            continue
+        fields = line.split("\t")
+        if len(fields) != len(columns):
+            # The file is the thing under audit, so a ragged row is a finding, not
+            # something to pad over: zip(strict=False) would drop the tail keys and
+            # the comparison would report the missing values as empty.
+            raise ValueError(
+                f"{path}:{lineno}: expected {len(columns)} fields, found {len(fields)}"
+            )
+        rows.append(dict(zip(columns, fields, strict=True)))
     return comments, columns, rows
 
 
@@ -151,8 +162,16 @@ def load_hp_parents(path: Path) -> dict[str, set[str]]:
 
 
 def load_mondo_children(path: Path) -> dict[str, set[str]]:
-    """MONDO term -> direct is_a children, parsed from mondo.obo (non-obsolete only)."""
+    """MONDO term -> direct is_a children, parsed from mondo.obo (non-obsolete only).
+
+    The obsolete filter has to run at the end rather than inline: OBO writes ``is_a:``
+    before ``is_obsolete:``, so by the time the flag is seen the term's edges are
+    already recorded. (In practice ROBOT strips logical axioms from obsolete classes,
+    so this removes nothing from a current MONDO release -- but the docstring should
+    not promise a guarantee the code only appears to provide.)
+    """
     children: dict[str, set[str]] = defaultdict(set)
+    obsolete: set[str] = set()
     current: str | None = None
     in_term = False
     with path.open(encoding="utf-8") as fh:
@@ -168,7 +187,13 @@ def load_mondo_children(path: Path) -> dict[str, set[str]]:
                 if parent.startswith("MONDO:") and current.startswith("MONDO:"):
                     children[parent].add(current)
             elif in_term and current and line.startswith("is_obsolete: true"):
+                obsolete.add(current)
                 current = None
+    if obsolete:
+        for parent in list(children):
+            children[parent] -= obsolete
+        for term in obsolete:
+            children.pop(term, None)
     return children
 
 
@@ -249,6 +274,7 @@ def score_join(
     join: dict[str, set[str]],
     parents: dict[str, set[str]],
     memo: dict[str, set[str]],
+    dis_names: dict[str, str],
 ) -> tuple[Counter, list[dict[str, object]]]:
     """Score dismech HP terms against the release, for the diseases in ``join``.
 
@@ -286,7 +312,7 @@ def score_join(
         per_disease.append(
             {
                 "mondo_id": mondo,
-                "disease_name": dis_names_global.get(mondo, ""),
+                "disease_name": dis_names.get(mondo, ""),
                 "hpoa_ids": ";".join(sorted(matched)),
                 "n_dismech": len(d_terms),
                 "n_hpoa": len(h_terms),
@@ -302,9 +328,19 @@ def score_join(
 
 
 def merge_join_rows(
-    direct_rows: list[dict[str, object]], subtree_rows: list[dict[str, object]]
+    direct_rows: list[dict[str, object]],
+    subtree_rows: list[dict[str, object]],
+    dis_names: dict[str, str],
+    non_joining: dict[str, str],
+    dis_counts: dict[str, int],
 ) -> list[dict[str, object]]:
-    """One row per dismech disease, carrying both joins' scores side by side."""
+    """One row per dismech disease, carrying both joins' scores side by side.
+
+    ``non_joining`` maps the diseases that reach neither join to the reason
+    (``unmapped`` / ``mapped_but_unannotated``); they are emitted with empty score
+    columns so the worklist covers every annotated dismech disease, not only the
+    ones that happened to join.
+    """
     by_id: dict[str, dict[str, object]] = {}
     for rows, prefix in ((direct_rows, "direct"), (subtree_rows, "subtree")):
         for row in rows:
@@ -317,13 +353,29 @@ def merge_join_rows(
                     "n_dismech": row["n_dismech"],
                 },
             )
+            merged["join_status"] = (
+                "direct"
+                if prefix == "direct"
+                else (merged.get("join_status") or "subtree_only")
+            )
             for key, value in row.items():
                 if key in ("mondo_id", "disease_name", "n_dismech"):
                     continue
                 merged[f"{prefix}_{key}"] = value
+    for mondo, reason in non_joining.items():
+        by_id.setdefault(
+            mondo,
+            {
+                "mondo_id": mondo,
+                "disease_name": dis_names.get(mondo, ""),
+                "n_dismech": dis_counts.get(mondo, 0),
+                "join_status": reason,
+            },
+        )
     fields = [
         "mondo_id",
         "disease_name",
+        "join_status",
         "n_dismech",
         *[
             f"{p}_{k}"
@@ -407,11 +459,13 @@ def union_value_table(
     ]
     out = md_table(["value", "dismech rows", "%", "HPO rows", "%"], rows)
     if hidden:
-        out += f"\n\n…and {len(hidden)} further values used only by the release."
+        # The tail is release-only whenever dismech uses fewer values than `limit` in
+        # this column, which is true of every column today -- but say the weaker thing
+        # if the export ever starts populating one.
+        release_only = all(d_vals.get(k, 0) == 0 for k in hidden)
+        whose = " used only by the release" if release_only else ""
+        out += f"\n\n…and {len(hidden)} further values{whose}."
     return out
-
-
-dis_names_global: dict[str, str] = {}
 
 
 def main() -> None:
@@ -450,8 +504,9 @@ def main() -> None:
             hpo_by_disease[row["database_id"]].add(row["hpo_id"])
 
     dis_by_disease: dict[str, set[str]] = defaultdict(set)
+    dis_names: dict[str, str] = {}
     for row in d_rows:
-        dis_names_global.setdefault(row["database_id"], row.get("disease_name", ""))
+        dis_names.setdefault(row["database_id"], row.get("disease_name", ""))
         if not row.get("qualifier") and row["hpo_id"].startswith("HP:"):
             dis_by_disease[row["database_id"]].add(row["hpo_id"])
 
@@ -483,15 +538,28 @@ def main() -> None:
         n_subtree_gained = len(set(subtree_join) - set(direct_join))
 
     direct_totals, direct_rows = score_join(
-        dis_by_disease, hpo_by_disease, direct_join, parents, memo
+        dis_by_disease, hpo_by_disease, direct_join, parents, memo, dis_names
     )
     subtree_totals: Counter = Counter()
     subtree_rows: list[dict[str, object]] = []
     if subtree_join:
         subtree_totals, subtree_rows = score_join(
-            dis_by_disease, hpo_by_disease, subtree_join, parents, memo
+            dis_by_disease, hpo_by_disease, subtree_join, parents, memo, dis_names
         )
-    per_disease = merge_join_rows(direct_rows, subtree_rows)
+    # Follow-up 1 in the report is "report the diseases that cannot be mapped", so the
+    # worklist has to carry them too -- as rows with empty join columns, distinguished
+    # by `join_status`, rather than only as named examples in the prose.
+    non_joining = {
+        **dict.fromkeys(mapped_absent, "mapped_but_unannotated"),
+        **dict.fromkeys(unmapped, "unmapped"),
+    }
+    per_disease = merge_join_rows(
+        direct_rows,
+        subtree_rows,
+        dis_names,
+        non_joining,
+        {m: len(t) for m, t in dis_by_disease.items()},
+    )
 
     # --- strict-parser conformance ------------------------------------------
     bad_disease_prefix = sum(
@@ -682,8 +750,10 @@ def main() -> None:
         ("map to a release id that carries no annotations", mapped_absent),
         ("have no `exactMatch` into a release namespace", unmapped),
     ):
+        if not bucket:
+            continue
         examples = ", ".join(
-            f"{dis_names_global.get(m, m)}"
+            f"{dis_names.get(m, m)}"
             for m in sorted(bucket, key=lambda m: -len(dis_by_disease[m]))[:8]
         )
         add("")

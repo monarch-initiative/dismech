@@ -1,14 +1,14 @@
 # dismech HPOA export vs. the HPO project's phenotype.hpoa
 
 **Generated:** 2026-09-15 · **HPO release compared:** 2026-09-02
-**Worklist:** [`data/hpoa-export-vs-hpo-release-2026-09-15.tsv`](data/hpoa-export-vs-hpo-release-2026-09-15.tsv) — one row per dismech disease, both joins side by side.
+**Worklist:** [`data/hpoa-export-vs-hpo-release-2026-09-15.tsv`](data/hpoa-export-vs-hpo-release-2026-09-15.tsv) — one row per annotated dismech disease, both joins side by side. `join_status` separates the 2,463 that join (`direct` / `subtree_only`) from the 416 that do not (`unmapped` / `mapped_but_unannotated`), which are the input to follow-up 1 below.
 **Regenerate:** `just compare-hpoa-release` (fetches the four inputs, caches them under `output/hpoa-compare/`, writes the generated sections to stdout). Sections 1–4 are generated; sections 5–7 are read by hand and are not rewritten by a re-run, so regenerate into a scratch path and merge.
 
 This compares the two **files** — the artifact `just export-hpoa` writes against the release the HPO project publishes. It is the file-level counterpart of [`kg-phenotype-gap-audit-2026-07-31.md`](kg-phenotype-gap-audit-2026-07-31.md), which compares dismech *KB content* against HPOA as ingested by the Monarch KG.
 
 ## 0. In one paragraph
 
-The export is structurally an HPOA file — the twelve columns are present, correctly ordered, and carry a thirteenth (`dismech_name`) that a tab-split parser ignores. What stops it being consumable is the key: **every row is anchored on MONDO**, and no HPOA consumer accepts a MONDO `database_id`. Below that, five smaller value-space divergences make a further ~6% of rows unparseable or unciteable. On content, dismech agrees with the release far more than the raw counts suggest — **76.5% semantic overlap** once granularity and the release's gene-level splitting are accounted for, which independently reproduces the 75.2% that July's Monarch-API audit reached by a completely different route.
+The export is structurally an HPOA file — the twelve columns are present, correctly ordered, and carry a thirteenth (`dismech_name`) that a tab-split parser ignores. What stops it being consumable is the key: **every row is anchored on MONDO**, and no HPOA consumer accepts a MONDO `database_id`. Below that, five smaller value-space divergences bite: ~6% of rows carry a `reference` a consumer cannot resolve, and ~2% more carry an `hpo_id` or a `frequency` it cannot parse. On content, dismech agrees with the release far more than the raw counts suggest — **76.5% semantic overlap** once granularity and the release's gene-level splitting are accounted for, which independently reproduces the 75.2% that July's Monarch-API audit reached by a completely different route.
 
 ## 1. Scale
 
