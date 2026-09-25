@@ -369,6 +369,35 @@ jobs:
         if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema --offline
 
+      # Placed ahead of the whole-repo gates on purpose. This is the step
+      # that most often fails a merge-queue build (10 of 14 sampled failures,
+      # 2026-09-24: full-text snippets against caches main had demoted), and
+      # it takes ~77s -- but at the end of the gate list it started ~16 min
+      # into the job, so a doomed queue build held its runner, and every
+      # build stacked behind it, for ~30 min before reporting. Here it fails
+      # within a few minutes of checkout. It needs only the installed project
+      # and the OAK cache restored above.
+      #
+      # This step and the comorbidity one below stay filter-gated rather than
+      # merge_group-forced: they consume the paths-filter's *file lists*, so
+      # forcing the gate without a list would validate nothing. On merge_group
+      # the filter computes those lists from the queue's base..head diff (the
+      # queued PRs' changes), so these validations run against exactly the KB
+      # files entering `main` -- including term/reference re-validation in the
+      # merged context, where a co-queued PR may have changed cache/** or
+      # references_cache/**.
+      - name: Validate changed disorder KB files
+        if: steps.changes.outputs.kb_disorders == 'true'
+        run: |
+          echo "Validating changed disorder KB files..."
+          just validate-disorders ${{ steps.changes.outputs.kb_disorders_files }}
+
+      - name: Validate changed comorbidity KB files
+        if: steps.changes.outputs.kb_comorbidities == 'true'
+        run: |
+          echo "Validating changed comorbidity KB files..."
+          just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
+
       - name: Lint with ruff
         run: uvx ruff check .
 
@@ -703,26 +732,6 @@ jobs:
       # fire on it. ~20s, offline. See docs/curation-stubs.md.
       - name: Check the curation stub queue
         run: uv run dismech-stubs check
-
-      # This step and the comorbidity one below stay filter-gated rather than
-      # merge_group-forced: they consume the paths-filter's *file lists*, so
-      # forcing the gate without a list would validate nothing. On merge_group
-      # the filter computes those lists from the queue's base..head diff (the
-      # queued PRs' changes), so these validations run against exactly the KB
-      # files entering `main` -- including term/reference re-validation in the
-      # merged context, where a co-queued PR may have changed cache/** or
-      # references_cache/**.
-      - name: Validate changed disorder KB files
-        if: steps.changes.outputs.kb_disorders == 'true'
-        run: |
-          echo "Validating changed disorder KB files..."
-          just validate-disorders ${{ steps.changes.outputs.kb_disorders_files }}
-
-      - name: Validate changed comorbidity KB files
-        if: steps.changes.outputs.kb_comorbidities == 'true'
-        run: |
-          echo "Validating changed comorbidity KB files..."
-          just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
       - name: Validate hypothesis review artifacts
         if: github.event_name == 'merge_group' || steps.changes.outputs.kb_hypotheses == 'true'

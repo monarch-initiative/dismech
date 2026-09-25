@@ -42,10 +42,12 @@ def test_validate_comorbidities_batches_expensive_validators() -> None:
 
 
 def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "main.yaml").read_text()
-    changed_step = workflow.split("- name: Validate changed comorbidity KB files", 1)[
-        1
-    ].split("- name: Validate history records", 1)[0]
+    # Parsed, not sliced between two step names: the step no longer sits next
+    # to "Validate history records", and a text slice would silently widen to
+    # cover every step in between.
+    changed_step = _step_named("main.yaml", "Validate changed comorbidity KB files")[
+        "run"
+    ]
 
     assert "just validate-comorbidity-batch" in changed_step
     assert "for f in" not in changed_step
