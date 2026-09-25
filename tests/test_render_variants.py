@@ -12,6 +12,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+import pytest
 import yaml
 
 from dismech.graph import build_causal_graph, graph_to_json
@@ -235,3 +236,60 @@ def test_functional_effect_regulatory_fields_render(tmp_path: Path) -> None:
     assert "Developmental stage:" in html
     assert "fetal liver" in html
     assert "hepatocyte" in html
+
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize(
+    "legacy_type", [None, "DUPLICATION", "tandem enhancer duplication"]
+)
+def test_structured_variant_class_and_contexts_render(
+    tmp_path: Path, nested: bool, legacy_type: str | None
+) -> None:
+    """New classifications work alone and preserve distinct legacy detail."""
+    variant = {
+        "name": "Enhancer duplication",
+        "variant_type": "duplication",
+        "genomic_contexts": ["intron", "intergenic region"],
+    }
+    if legacy_type:
+        variant["type"] = legacy_type
+    disorder = {"name": "Example Disease"}
+    if nested:
+        disorder["genetic"] = [{"name": "SHH", "variants": [variant]}]
+    else:
+        disorder["variants"] = [variant]
+
+    html = _render(tmp_path, disorder)
+    assert ">duplication</span>" in html
+    assert ">intron</span>" in html
+    assert ">intergenic region</span>" in html
+    assert "Genomic context:</strong>" in html
+    if legacy_type == "tandem enhancer duplication":
+        assert (
+            "<strong>Variant detail:</strong> tandem enhancer duplication</div>" in html
+        )
+        assert ">tandem enhancer duplication</span>" not in html
+    else:
+        assert "<strong>Variant detail:</strong>" not in html
+        assert ">DUPLICATION</span>" not in html
+
+
+@pytest.mark.parametrize("mixed_roles", [False, True])
+def test_variant_regulatory_target_has_a_distinct_rendered_role(
+    tmp_path: Path, mixed_roles: bool
+) -> None:
+    symbol, term_id = ("LMNB1", "hgnc:6637") if mixed_roles else ("ID4", "hgnc:5363")
+    gene = {"preferred_term": symbol, "term": {"id": term_id, "label": symbol}}
+    variant = {"name": "Regulatory SV", "regulatory_target_gene": gene}
+    if mixed_roles:
+        variant["gene"] = gene
+    disorder = {
+        "name": "Example Disease",
+        "genetic": [{"name": symbol, "variants": [variant]}],
+    }
+
+    html = _render(tmp_path, disorder)
+
+    assert f"Regulatory target: {symbol}" in html
+    assert f">{term_id}</a>" in html
+    assert (f"Gene: {symbol}" in html) is mixed_roles

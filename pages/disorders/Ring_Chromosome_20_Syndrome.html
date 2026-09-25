@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4171,6 +4239,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4195,6 +4264,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4216,6 +4286,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4372,6 +4443,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4560,6 +4632,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4584,6 +4657,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4605,6 +4679,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4788,6 +4863,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4812,6 +4888,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4833,6 +4910,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5094,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5040,6 +5119,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5061,6 +5141,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5100,6 +5181,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-telomere-fusion-forming-ring-chromosome-20" data-dismech-node="Telomere-Telomere Fusion Forming Ring Chromosome 20" data-dismech-type="pathophysiology">
                 <div class="item-name">Telomere-Telomere Fusion Forming Ring Chromosome 20</div>
+
 
                 <div class="item-desc">The short and long arms of chromosome 20 join end to end, converting a normally rod-shaped chromosome into a closed circle. The defining and counterintuitive feature is that this can happen with no loss of coding sequence: patients are symptomatic even when nothing has been deleted. That single fact is what rules out a straightforward gene-dosage account and forces the rest of this graph to be modeled around an unresolved step.</div>
 
@@ -5195,6 +5277,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5216,6 +5299,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5241,6 +5325,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postzygotic-mosaic-ring-without-detectable-deletion" data-dismech-node="Postzygotic Mosaic Ring Without Detectable Deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Postzygotic Mosaic Ring Without Detectable Deletion</div>
+
 
                 <div class="item-desc">In the majority of patients the ring is present in only a proportion of cells, with two structurally normal chromosome 20s in the rest, and neither cell line shows any detectable deletion or duplication. This is the group that defines the mechanistic problem, and it is also the group that a chromosomal microarray will call normal, because there is no copy number change to find. The proportion of ring-bearing cells, the ring ratio, behaves like a dose: a higher ratio goes with earlier seizure onset and worse cognition.</div>
 
@@ -5336,6 +5421,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5357,6 +5443,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5384,6 +5471,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5406,6 +5494,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meiotic-non-mosaic-ring-with-terminal-deletion" data-dismech-node="Meiotic Non-Mosaic Ring With Terminal Deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Meiotic Non-Mosaic Ring With Terminal Deletion</div>
+
 
                 <div class="item-desc">A minority of patients carry the ring in every cell examined, and in these the ring is almost always accompanied by deletion of the terminal segments of one or both arms near the fusion point. This group behaves worse: seizure onset is several years earlier and comorbidities are more extensive. The contrast is informative rather than incidental, because it shows the syndrome is molecularly heterogeneous, and it means findings from one group should not be assumed to hold in the other.</div>
 
@@ -5457,6 +5546,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5478,6 +5568,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5505,6 +5596,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5527,6 +5619,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitotic-ring-instability-and-dynamic-mosaicism" data-dismech-node="Mitotic Ring Instability and Dynamic Mosaicism" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitotic Ring Instability and Dynamic Mosaicism</div>
+
 
                 <div class="item-desc">A circular chromosome is mechanically awkward at mitosis. Sister chromatid exchange within a ring produces interlocked or double-sized rings that segregate badly, so ring-bearing lineages continuously generate secondary aberrations and cells that have lost the ring entirely. This continuous reshuffling is called dynamic mosaicism, and it is the accepted explanation for the growth failure of the general ring syndrome. Whether it is also what drives the ring 20 epilepsy is proposed rather than established, which is why the arrow from here into the hub node is one of the open questions recorded in the discussions block.</div>
 
@@ -5616,6 +5709,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5637,6 +5731,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5662,6 +5757,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ring-ratio-dependent-cortical-network-dysfunction" data-dismech-node="Ring Ratio-Dependent Cortical Network Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ring Ratio-Dependent Cortical Network Dysfunction</div>
+
 
                 <div class="item-desc">The unresolved step. Something about carrying the ring makes cortex epileptogenic, in proportion to how many cells carry it, without any lesion visible on imaging and without a neurological deficit on examination before seizures start. Two concrete candidate mechanisms have been tested and disfavoured: deletion of candidate genes on chromosome 20, which cannot apply to the mosaic majority who delete nothing, and altered expression of genes near the fusion point, which a patient transcriptome study looked for and did not find. This node exists so that the graph does not paper over that gap; it is a placeholder for a real biological step whose content is unknown, not a claim.</div>
 
@@ -5734,6 +5830,7 @@ This pathophysiological event occurs in frontal lobe (UBERON:0016525). UBERON:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5755,6 +5852,7 @@ This pathophysiological event occurs in frontal lobe (UBERON:0016525). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5782,6 +5880,7 @@ This pathophysiological event occurs in frontal lobe (UBERON:0016525). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5804,6 +5903,7 @@ This pathophysiological event occurs in frontal lobe (UBERON:0016525). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-frontally-predominant-cortical-hyperexcitability" data-dismech-node="Frontally Predominant Cortical Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Frontally Predominant Cortical Hyperexcitability</div>
+
 
                 <div class="item-desc">Whatever the upstream cause, the network output is a hyperexcitable, hypersynchronous cortex with a frontal accent. The electroencephalographic signature is not the brief spike-wave of the generalized epilepsies but long-lasting bilateral high-voltage slow waves with only occasional spike components, often rhythmic theta with frontal predominance. The relative poverty of the spike component, alongside seizures that are clinically subtle relative to how dramatic the tracing looks, is a recurring observation and the seed of a genuine dispute about whether this pattern is ictal at all.</div>
 
@@ -5933,6 +6033,7 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5954,6 +6055,7 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6081,7 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-seizure-termination-failure" data-dismech-node="Nigrostriatal Seizure-Termination Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Seizure-Termination Failure</div>
+
 
                 <div class="item-desc">The most distinctive thing about r(20) seizures is not that they start but that they will not stop, and this node is the reason to think that is a separate defect rather than just severe ictogenesis. Basal ganglia circuits, and striatal dopaminergic transmission in particular, are thought to interrupt seizures rather than generate them. In r(20), fluorodopa uptake is significantly reduced in both putamen and caudate, and functional imaging during an actual seizure shows the substantia nigra and striatum lighting up alongside frontal cortex. Notably the dopaminergic reduction does not track the ring ratio, so it behaves like a property of the syndrome rather than a dose effect. A seizure-stopping system that works poorly is exactly what a syndrome defined by days-long nonconvulsive status looks like from the inside.</div>
 
@@ -6068,6 +6171,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6089,6 +6193,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6116,6 +6221,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6138,6 +6244,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-nonconvulsive-status-epilepticus" data-dismech-node="Prolonged Nonconvulsive Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Nonconvulsive Status Epilepticus</div>
+
 
                 <div class="item-desc">The most characteristic clinical event: a long confusional state, sometimes lasting days, during which awareness fluctuates and the patient may still respond to speech. It is easy to mistake for a behavioural change or a bad day, which is why the consensus advice is to have a low threshold for video-electroencephalography whenever behaviour or alertness shifts. It recurs, it is refractory to the drugs that do control the overt focal seizures, and it is the main driver of the encephalopathic decline.</div>
 
@@ -6189,6 +6296,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6210,6 +6318,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6237,6 +6346,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6259,6 +6369,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-drug-resistant-focal-epilepsy" data-dismech-node="Drug-Resistant Focal Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Drug-Resistant Focal Epilepsy</div>
+
 
                 <div class="item-desc">Alongside the status episodes, patients have recurrent focal seizures: dyscognitive seizures, focal motor seizures often arising from sleep, and characteristically terrifying hallucinations at onset in childhood. Later in the course focal seizures with motor and autonomic features and eyelid myoclonia appear. Drug resistance is close to the rule, and the current consensus is that families should be told at diagnosis that the seizures are likely to be lifelong.</div>
 
@@ -6310,6 +6421,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6331,6 +6443,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6358,6 +6471,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6380,6 +6494,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cognitive-decline-and-behavioural-disturbance" data-dismech-node="Cognitive Decline and Behavioural Disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cognitive Decline and Behavioural Disturbance</div>
+
 
                 <div class="item-desc">Children who were developing normally lose ground after seizures begin, accumulating intellectual disability and behavioural problems, and the severity tracks both the ring ratio and how early the seizures started. That pattern is what earns the syndrome its classification as a developmental and epileptic encephalopathy. The classification is not unchallenged: behavioural disturbance has been reported to begin before the first seizure in some patients, which would make part of the cognitive phenotype a parallel effect of the ring rather than a consequence of the epilepsy. That dispute is recorded in the discussions block.</div>
 
@@ -6418,6 +6533,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6439,6 +6555,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6553,6 +6670,9 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6567,6 +6687,7 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6594,6 +6715,7 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6615,6 +6737,7 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6691,6 +6814,9 @@ This clinical feature is Non-convulsive status epilepticus without coma (HP:0032
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6705,6 +6831,7 @@ This clinical feature is Non-convulsive status epilepticus without coma (HP:0032
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6732,6 +6859,7 @@ This clinical feature is Non-convulsive status epilepticus without coma (HP:0032
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6753,6 +6881,7 @@ This clinical feature is Non-convulsive status epilepticus without coma (HP:0032
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6807,6 +6936,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6821,6 +6953,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6845,6 +6978,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +7051,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6931,6 +7068,7 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6955,6 +7093,7 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7009,6 +7148,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7023,6 +7165,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7047,6 +7190,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7103,6 +7247,9 @@ This clinical feature is ictal fear, annotated with Focal emotional seizure with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7117,6 +7264,7 @@ This clinical feature is ictal fear, annotated with Focal emotional seizure with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7141,6 +7289,7 @@ This clinical feature is ictal fear, annotated with Focal emotional seizure with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7195,6 +7344,9 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7209,6 +7361,7 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7263,6 +7416,9 @@ This clinical feature is Focal motor seizure (HP:0011153). HP:0011153 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7277,6 +7433,7 @@ This clinical feature is Focal motor seizure (HP:0011153). HP:0011153 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7331,6 +7488,9 @@ This clinical feature is Eyelid myoclonia seizure (HP:0032678). HP:0032678 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7345,6 +7505,7 @@ This clinical feature is Eyelid myoclonia seizure (HP:0032678). HP:0032678 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7475,6 +7636,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7485,6 +7649,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7531,6 +7698,7 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7555,6 +7723,7 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7576,6 +7745,7 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,6 +7812,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7652,6 +7825,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7695,6 +7871,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7761,6 +7938,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7771,6 +7951,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7814,6 +7997,7 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,6 +8065,9 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7891,6 +8078,9 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
     </div>
+
+
+
 
 
 
@@ -7937,6 +8127,7 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7958,6 +8149,7 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8024,6 +8216,9 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8034,6 +8229,9 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -8077,6 +8275,7 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8143,6 +8342,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8153,6 +8355,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8183,6 +8388,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8204,6 +8410,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8270,6 +8477,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8280,6 +8490,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8307,6 +8520,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8417,6 +8631,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8438,6 +8653,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8530,6 +8746,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8551,6 +8768,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8621,6 +8839,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8642,6 +8861,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8697,6 +8917,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8718,6 +8939,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8773,6 +8995,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8794,6 +9017,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9089,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8889,6 +9114,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8910,6 +9136,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9016,6 +9243,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9094,6 +9322,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9115,6 +9344,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9194,6 +9424,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9215,6 +9446,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9294,6 +9526,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9367,6 +9600,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11640,6 +11874,35 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note on the mechanism graph. This entry deliberately carries a node whose content is an acknowledged unknown. In most patients no coding material is lost, so there is no causal gene to name, and the graph runs from the ring itself to a hub node representing cortical network dysfunction whose molecular basis has not been established. Two specific candidate explanations have been actively tested and disfavoured, deletion of candidate genes on chromosome 20 and altered peritelomeric gene expression, and both are recorded with REFUTE evidence in the discussions block rather than being quietly dropped. Modeling the gap explicitly is preferable to inventing a plausible molecular chain that the literature does not support.
+No genetic section. Because the syndrome has no established causal gene, and because typing a refuted candidate as SUSCEPTIBILITY or CAUSATIVE would misrepresent the evidence, this entry has no genetic block. The chromosomal lesion is modeled in pathophysiology, and the candidate-gene question lives in the discussions block where the refuting evidence can be typed as such.
+Sourcing note. The entry was drafted from the primary literature and the consensus management review, then cross-checked against a deep-research report generated with the claude_code provider, committed here as research/Ring_Chromosome_20_Syndrome-deep-research-claude_code.md. The cross-check added one genuinely new mechanism, the nigrostriatal seizure-termination arm, which is what distinguishes this syndrome from a generic drug-resistant focal epilepsy and which the first draft missed entirely. It also replaced several single-series frequency estimates with a 192-patient systematic review, and supplied the unexplained female excess now recorded as a knowledge gap. Two of its suggestions were declined: no OMIM identifier is cited because none exists, and the macrocephaly in the MONDO definition is not curated as a phenotype because the primary literature does not support it.
+Module conformance note. Two nodes conform to epilepsy_excitation_inhibition_imbalance, at the hyperexcitability and recurrent-seizure nodes. The entry does not claim conformance to the module&#39;s ion-channel trigger node, since the upstream lesion here is chromosomal and its route to altered excitability is exactly what is unknown. The module&#39;s Excitation-Inhibition Imbalance node is skipped for a related but distinct reason: conforming to it would assert that the network abnormality is an imbalance between excitation and inhibition, and nothing in the r(20) literature establishes which side of that balance is disturbed, or that the framing applies at all. What has actually been measured is a rhythmic slow-wave pattern with sparse spikes and a nigrostriatal seizure-termination deficit, and neither is an excitation-inhibition claim.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Ring Chromosome 20 Syndrome</strong> · 2026-08-05T15:58:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Ring_Chromosome_20_Syndrome/2026-08-05T155859Z-claude-code-9da73d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ring chromosome 20 syndrome (MONDO:0015436). Nine-node pathograph from telomere-telomere fusion through two structurally distinct downstream forms (postzygotic mosaic without deletion; meiotic non-mosaic with terminal deletion) and mitotic ring instability into a deliberately empty hub node, &#39;Ring Ratio-Dependent Cortical Network Dysfunction&#39;, then frontally predominant hyperexcitability, nonconvulsive status epilepticus and drug-resistant focal epilepsy, and cognitive/behavioural decline. Two nodes conform to epilepsy_excitation_inhibition_imbalance at the hyperexcitability and recurrent-seizure nodes only, deliberately not at the module&#39;s ion-channel trigger. No genetic section: the syndrome has no established causal gene and typing a refuted candidate would misrepresent the evidence; the candidate-gene question lives in the discussions block with REFUTE-typed evidence. Three CONTROVERSY discussions: what makes a deletion-free ring epileptogenic (candidate-gene deletion and peritelomeric transcription both refuted); whether the long-lasting rhythmic slow-wave pattern is genuinely ictal (pharmacological dissociation, preserved responsiveness, sparse spike content); and whether the intellectual disability is seizure-driven or a parallel ring effect (ring-ratio confounding, pre-seizure behavioural disturbance, spared adolescent-onset cognition). Validation of the initial draft: schema passed, term validation passed, 76/76 evidence snippets verified against cached references.
+
+Deep-research cross-check, same session. Generated research/Ring_Chromosome_20_Syndrome-deep-research-claude_code.md with the claude_code provider (1077 lines, 28 distinct PMIDs) and reconciled the entry against it. The most substantive addition was a mechanism the first draft missed entirely, a nigrostriatal seizure-termination arm. Fluorodopa uptake is reduced bilaterally in putamen and caudate in r(20) and does not track the ring ratio (PMID:15249613), and EEG-fMRI during an actual seizure shows substantia nigra, striatum, and frontal cortex engaged together (PMID:22738216). That is now its own pathophysiology node sitting between cortical hyperexcitability and prolonged nonconvulsive status, because it addresses the defining feature of this syndrome, which is that the seizures will not stop rather than that they start. A 192-patient systematic review (PMID:42468067) then replaced the single-series frequency estimates: nonconvulsive status upgraded from FREQUENT to VERY_FREQUENT on 126 of 143 patients (88 percent), focal impaired-awareness seizures banded at 50.3 percent, drug resistance quantified at 80 percent, and a new ictal fear phenotype added at 72 percent bound to HP:0025613 Focal emotional seizure. The same review supplied an unexplained female excess (40.4 percent male across 192 pooled patients), now curated as a fourth discussion, a KNOWLEDGE_GAP laying out ascertainment bias, differential male embryonic survival, and publication bias as competing explanations with a fixed-testing-rule study to separate them. Two deep-research suggestions were declined: no OMIM identifier is cited because none exists for this syndrome, and the macrocephaly in the MONDO definition is not curated as a phenotype because the primary literature does not support it.
+
+Validation after the deep-research pass: schema passed, term validation passed, 85/85 evidence snippets verified against cached references, snippet-length check clean, and a pathograph self-check showing ten nodes, a single root, and no dangling downstream edges.
+
+Review response, same session, PR #8029. The first automated review found that PMID:33363513 was cached as full text but cited only from its abstract, and it was right; five further evidence items were mined from that cache. Three of them change substantive claims. Familial recurrence: four families are on record in which a mosaic mother transmitted the ring mosaically, with a higher ring ratio in the children and correspondingly earlier onset, so the inheritance block no longer says familial recurrence is not a feature. A third refuted mechanism: a genome-wide methylation screen found no shared epigenetic signature and no methylation difference at CHRNA4 or KCNQ2, refuting the telomeric-silencing hypothesis, with the authors&#39; own subtelomeric-coverage caveat curated as PARTIAL alongside it. And a cleaner argument against gene dosage than the absence of deletions, namely that people carrying terminal deletions of a linear chromosome 20 do not develop this epilepsy at all. Two constraints on the surviving ring-instability hypothesis were also added: only 12 of 35 evaluated patients had secondary aberrations above five percent, and ring chromosome 2 and 4 patients have no epilepsy, so the mechanism has to be chromosome-20-specific. Treatments now name valproic acid and lamotrigine as therapeutic_agent entries and record that vagus nerve stimulation efficacy is described as controversial. Two differential-diagnosis records had been supported by a generic snippet that established only that differentials exist; both now quote sentences that name the specific alternative. Added a ring chromosome 14 differential, updated the published case count from more than 100 (2012) to about 200 (2020), and extended the module conformance note to explain why the module&#39;s Excitation-Inhibition Imbalance node is skipped: nothing in this literature establishes which side of that balance is disturbed.
+
+Validation after the review response: schema passed, term validation passed, 97/97 evidence snippets verified against cached references, snippet-length check clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

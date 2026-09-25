@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4117,6 +4185,7 @@ Inheritance is autosomal dominant in most reported families, and at least one ro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4138,6 +4207,7 @@ Inheritance is autosomal dominant in most reported families, and at least one ro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4555,6 +4625,7 @@ Inheritance is autosomal dominant in most reported families, and at least one ro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ptgs1-loss-of-function-variants" data-dismech-node="PTGS1 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">PTGS1 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Germline variants in PTGS1, on chromosome 9q33.2, encoding cyclooxygenase-1 (prostaglandin G/H synthase 1). Reported disease alleles are individually rare and mostly private to a family or a case, which is why no recurrent pathogenic variant is established for this trait. The best-characterised is a variant disrupting N-glycosylation of COX-1, shown to act dominant-negatively on platelet function - a mechanism that fits the enzyme&#39;s biology, since COX-1 is functionally active as a homodimer and a defective subunit can therefore compromise a dimer containing a normal one.
 </div>
 
@@ -4631,6 +4702,8 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4643,6 +4716,9 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline PTGS1 variants. This block describes the dominant allele class, which accounts for most reported families: heterozygous, with a dominant-negative effect demonstrated for an N-glycosylation-disrupting variant. It is a deliberately partial description. The schema takes one zygosity and one functional-impact value, and this disease has both modes - the recessive p.Trp322Ser allele cited in this node&#39;s own evidence abrogates COX-1 expression in a homozygote and is a straightforward loss of function, not a dominant-negative one. Read the values here as &#34;the modal allele class&#34;, not as a claim about every patient.</div>
 
@@ -4703,6 +4779,7 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4724,6 +4801,7 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4751,6 +4829,7 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4773,6 +4852,7 @@ This pathophysiological event involves decreased PTGS1 (hgnc:9604). hgnc:9604 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-platelet-cox-1-protein-or-catalytic-activity" data-dismech-node="Deficient Platelet COX-1 Protein or Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Platelet COX-1 Protein or Catalytic Activity</div>
+
 
                 <div class="item-desc">The protein-level lesion, and it comes in two forms that the founding biochemical study separated by western blot in three patients from one series. In two, the 70 kDa COX-1 band was undetectable - a type 1 defect, absent protein. In the third the protein was present in normal amount and the enzyme did not work - a type 2 defect, impaired catalytic activity. Thromboxane synthase was normal in all three, which is what excludes the next enzyme in the pathway.
 Both forms give the same functional result, which is why this entry treats them as two routes into one node rather than as two diseases.
@@ -4973,6 +5053,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4994,6 +5075,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5019,6 +5101,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-arachidonate-conversion-to-prostaglandin-endoperoxides" data-dismech-node="Failure of Arachidonate Conversion to Prostaglandin Endoperoxides" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Arachidonate Conversion to Prostaglandin Endoperoxides</div>
+
 
                 <div class="item-desc">The blocked step, and the one the disease is defined by. Arachidonic acid released from membrane phospholipids on platelet activation should be converted by COX-1 to prostaglandin G2 and then H2. In these patients it is not: arachidonate-induced aggregation and arachidonate-driven thromboxane production are both defective.
 The experiment that pins the lesion to this exact step is the bypass. Supplying prostaglandin H2 directly - the product COX-1 should have made - restores both aggregation and thromboxane production to normal. Everything downstream of COX-1 therefore works, and the defect is upstream of it in the pathway and nowhere else.
@@ -5168,6 +5251,7 @@ This pathophysiological event involves decreased prostaglandin biosynthetic proc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5189,6 +5273,7 @@ This pathophysiological event involves decreased prostaglandin biosynthetic proc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5216,6 +5301,7 @@ This pathophysiological event involves decreased prostaglandin biosynthetic proc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5238,6 +5324,7 @@ This pathophysiological event involves decreased prostaglandin biosynthetic proc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-platelet-thromboxane-a2-generation" data-dismech-node="Loss of Platelet Thromboxane A2 Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Platelet Thromboxane A2 Generation</div>
+
 
                 <div class="item-desc">Thromboxane synthase is intact but has nothing to work on, so thromboxane A2 output falls. The quantitative loss is large: in the founding series, arachidonate-stimulated thromboxane B2 was 4.4 to 11.7 ng per 3 x 10^8 platelets against a normal range of 49 to 81.
 Thromboxane A2 is the platelet&#39;s autocrine and paracrine amplifier rather than an initiator, which is the whole reason this disease is mild. Its loss is also exactly what low-dose aspirin achieves therapeutically, which is why the phenotype is called the aspirin-like defect and why concurrent aspirin or NSAID use compounds it.
@@ -5353,6 +5440,7 @@ This pathophysiological event involves decreased prostanoid biosynthetic process
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5374,6 +5462,7 @@ This pathophysiological event involves decreased prostanoid biosynthetic process
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5399,6 +5488,7 @@ This pathophysiological event involves decreased prostanoid biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-thromboxane-dependent-secondary-aggregation-and-granule-secretion" data-dismech-node="Loss of Thromboxane-Dependent Secondary Aggregation and Granule Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Thromboxane-Dependent Secondary Aggregation and Granule Secretion</div>
+
 
                 <div class="item-desc">The cellular endpoint, and the arm of primary haemostasis this disorder breaks. Thromboxane A2 released by an activated platelet acts back on that platelet and on its neighbours to sustain aggregation and to drive granule secretion. Without it, aggregation begins and then fails to consolidate: the aggregometry signature is subnormal responses to ADP, collagen and adrenaline characterised specifically by an abnormal second wave and a tendency to disaggregate, with the arachidonate response absent.
 What is preserved matters as much as what is lost, because it is what keeps this disorder off the other arms of the module. Adhesion machinery and integrin alphaIIbbeta3 are untouched, ristocetin agglutination is normal, and a strong agonist can still aggregate the platelet. The lesion is in amplification.
@@ -5602,6 +5692,7 @@ This pathophysiological event involves decreased platelet degranulation (GO:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5623,6 +5714,7 @@ This pathophysiological event involves decreased platelet degranulation (GO:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5648,6 +5740,7 @@ This pathophysiological event involves decreased platelet degranulation (GO:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-primary-hemostatic-plug-formation" data-dismech-node="Failure of Primary Hemostatic Plug Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Primary Hemostatic Plug Formation</div>
+
 
                 <div class="item-desc">The rate-limiting node shared with every other platelet-type bleeding disorder. A plug that is not consolidated by thromboxane-driven recruitment and secretion is mechanically weaker and more readily dislodged, which is why bleeding in this disorder is characteristically provoked and often delayed rather than immediate and spontaneous.
 </div>
@@ -5796,6 +5889,7 @@ This pathophysiological event involves decreased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5818,6 +5912,7 @@ This pathophysiological event involves decreased platelet activation (GO:0030168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucocutaneous-bleeding-diathesis" data-dismech-node="Mucocutaneous Bleeding Diathesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucocutaneous Bleeding Diathesis</div>
+
 
                 <div class="item-desc">The clinical output: mild, lifelong, and provoked rather than spontaneous. Easy bruising, epistaxis and menorrhagia are the background; the events that bring patients to attention are surgical and dental, and the bleeding after them is characteristically late rather than immediate.
 </div>
@@ -5970,6 +6065,7 @@ This pathophysiological event involves decreased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6061,6 +6157,9 @@ This clinical feature is Impaired platelet aggregation (HP:0003540). HP:0003540 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6075,6 +6174,7 @@ This clinical feature is Impaired platelet aggregation (HP:0003540). HP:0003540 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6099,6 +6199,7 @@ This clinical feature is Impaired platelet aggregation (HP:0003540). HP:0003540 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6153,6 +6254,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6170,6 +6274,7 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6223,6 +6328,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6240,6 +6348,7 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6293,6 +6402,9 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6422,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6363,6 +6476,9 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6377,6 +6493,7 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6518,7 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6475,6 +6593,9 @@ This disease-associated gene is PTGS1 (hgnc:9604). hgnc:9604 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6489,6 +6610,7 @@ This disease-associated gene is PTGS1 (hgnc:9604). hgnc:9604 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6513,6 +6635,7 @@ This disease-associated gene is PTGS1 (hgnc:9604). hgnc:9604 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6620,6 +6743,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6630,6 +6756,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6661,6 +6790,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6748,6 +6878,9 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6758,6 +6891,9 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6789,6 +6925,7 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6813,6 +6950,7 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6879,6 +7017,9 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6889,6 +7030,9 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -6920,6 +7064,7 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6985,6 +7130,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6995,6 +7143,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7026,6 +7177,7 @@ Its evidence base in inherited platelet disorders is Glanzmann thrombasthenia, a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7091,6 +7243,7 @@ Its evidence base in inherited platelet disorders is Glanzmann thrombasthenia, a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7139,6 +7292,7 @@ Its evidence base in inherited platelet disorders is Glanzmann thrombasthenia, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7232,6 +7386,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7288,6 +7443,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7365,6 +7521,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7389,6 +7546,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7448,6 +7606,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7500,6 +7659,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7577,6 +7737,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7598,6 +7759,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7763,6 +7925,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7802,6 +7965,7 @@ The paired measurement is what makes the assay diagnostic rather than merely abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9051,6 +9215,29 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Platelet-type Bleeding Disorder 12 (MONDO:0011588, PTGS1)</strong> · 2026-09-02T08:30:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Platelet-type_Bleeding_Disorder_12/2026-09-02T083035Z-claude-code-97c56b.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of BDPLT12 (MONDO:0011588), platelet cyclooxygenase-1 deficiency, the aspirin-like defect.
+
+Deep research: one openscientist run (research/Platelet-type_Bleeding_Disorder_12-deep-research-openscientist.md). The run itself exited non-zero: after the report was produced, term validation hit a 5-second read timeout resolving MeSH:C567786 against EBI OLS and aborted the recipe. The report survived and both validations were retrofitted in place (just validate-research-reference, then just validate-research-terms, which succeeded on retry). Reference validation: 10/10 resolved, 9 on topic. Term validation flagged one label mismatch, a column header rather than a binding. just preflight-dr returned SKIP because MONDO records no causal gene for MONDO:0011588; the manual fallback was applied and passes (OMIM 605735 matches, PTGS1 is the top gene at 31 mentions).
+
+Module conformance: this entry conforms to primary_hemostatic_plug_failure at the activation-and-secretion arm, which that module&#39;s own description assigns to cyclooxygenase-1 defects, plus the central plug-formation node and the mucocutaneous bleeding output. It deliberately does not attach at the aggregation arm despite abnormal aggregometry being the diagnostic hallmark, which is the mistake the module warns against.
+
+Mechanism: the chain is anchored on the 1996 enzymology rather than on genetics, because that is where the evidence is strongest. The bypass experiment (arachidonate-induced aggregation and thromboxane defective, exogenous PGH2-induced aggregation and thromboxane normal) localises the block to the COX-1 step and is curated as three evidence items on the node it establishes. The two enzyme defect types (absent protein, versus normal protein with impaired catalytic activity) are curated as two routes described within one node rather than as separate entries.
+
+Deliberate omissions: no phenotype frequency, because the one quantified figure (bleeding in 25/34) comes from an aggregometry-defined referral cohort with relatives added by family testing. The 0.6% figure is curated as a POINT_PREVALENCE with rate_per_100000 600.0 and its population stated as the paediatric referral group, not the general population. Three mucocutaneous phenotypes are graded directness: INDIRECT because the cohort study reports bleeding in aggregate without itemising it in the cached text.
+
+Validation: just validate-disorders, validate-terms, check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values all pass. 39/39 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

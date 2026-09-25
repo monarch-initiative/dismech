@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1592,7 +1629,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">thrombogenesis</span>
-                <span class="badge badge-count">11 disorders</span>
+                <span class="badge badge-count">13 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -1803,7 +1840,7 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">11</span>
+                <span class="card-count">13</span>
             </div>
             
             <div class="crosslink-list">
@@ -1816,7 +1853,7 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
                         
                         
                         
-                        Coagulation Activation and Fibrinogen Consumption → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        Coagulation Cascade Activation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
                         
                         
                     </span>
@@ -1984,6 +2021,31 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cytokine-Induced Tissue Factor Expression and Coagulation Cascade Activation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Platelet Activation and NET-Amplified Thrombus Propagation → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Microvascular Thrombosis and Maternal Organ Ischemia → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Protein_S_Deficiency.html">Protein S Deficiency</a>
                     
                     <span class="crosslink-desc">
@@ -2022,6 +2084,21 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
                         , 
                         
                         Embolization to the pulmonary arterial tree → Venous Thrombus Embolization to Pulmonary Arteries
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Sepsis.html">Sepsis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Thromboinflammation and Sepsis-Induced Coagulopathy → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
                         
                         
                     </span>
@@ -2092,11 +2169,13 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-virchow-triad-prothrombotic-context" data-dismech-node="Virchow-Triad Prothrombotic Context" data-dismech-type="pathophysiology">
                 <div class="item-name">Virchow-Triad Prothrombotic Context</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">An optional upstream context in which one or more of vessel-wall perturbation, altered or stagnant blood flow, and hypercoagulability predisposes to thrombosis. The dominant limb and its concrete cells and processes are disease-specific. This generic context node intentionally has no endothelial-cell or coagulation-process binding; those belong on a specialized disease trigger or the downstream coagulation node when directly evidenced.</div>
                 
@@ -2145,11 +2224,13 @@ This mechanism module involves increased fibrin clot formation (GO:0072378). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-platelet-adhesion-activation-and-aggregation" data-dismech-node="Platelet Adhesion, Activation, and Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet Adhesion, Activation, and Aggregation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Platelet adhesion, activation, secretion, and aggregation participate in thrombus formation alongside tissue-factor-initiated thrombin generation and fibrin formation. This amplifier node represents platelet participation and its interaction with coagulation without asserting a fixed sequence, abundance, composition, or dominance in arterial versus venous thrombi.</div>
                 
@@ -2283,6 +2364,13 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Platelet Activation and NET-Amplified Thrombus Propagation</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2304,11 +2392,13 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
             
             <div class="item-box anchor-target" id="module-pathophysiology-coagulation-cascade-activation-and-thrombin-driven-fibrin-formation" data-dismech-node="Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The central coagulation convergence step of thrombogenesis. Tissue factor exposed by injury forms the extrinsic tenase complex, driving assembly of the prothrombinase complex (FXa-FVa) that converts prothrombin to thrombin; intrinsic tenase amplifies thrombin generation on the activated platelet surface. Thrombin then cleaves fibrinogen into fibrin monomers that polymerize and crosslink into an insoluble fibrin network. This thrombin-driven fibrin formation solidifies the thrombus and is the module&#39;s principal anticoagulant target, without claiming that one universal rate-limiting step applies across every arterial and venous context.</div>
                 
@@ -2417,7 +2507,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
                         <div class="crosslink-item">
                             <a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
                             
-                            <span class="crosslink-desc">as Coagulation Activation and Fibrinogen Consumption</span>
+                            <span class="crosslink-desc">as Coagulation Cascade Activation</span>
                             
                         </div>
                         
@@ -2436,9 +2526,23 @@ This pathophysiological event involves increased fibrin clot formation, annotate
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Cytokine-Induced Tissue Factor Expression and Coagulation Cascade Activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Protein_S_Deficiency.html">Protein S Deficiency</a>
                             
                             <span class="crosslink-desc">as Unopposed Thrombin Generation and Fibrin Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sepsis.html">Sepsis</a>
+                            
+                            <span class="crosslink-desc">as Thromboinflammation and Sepsis-Induced Coagulopathy</span>
                             
                         </div>
                         
@@ -2468,11 +2572,13 @@ This pathophysiological event involves increased fibrin clot formation, annotate
             
             <div class="item-box anchor-target" id="module-pathophysiology-pathological-fibrin-platelet-thrombus-formation" data-dismech-node="Pathological Fibrin-Platelet Thrombus Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathological Fibrin-Platelet Thrombus Formation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The crosslinked fibrin network and aggregated platelets assemble into a pathological intravascular thrombus, the atomic structure-formation output of this Xogenesis module. Subsequent growth, propagation, narrowing, or complete vascular occlusion are conditional later states and are not part of the defining formation claim.</div>
                 
@@ -2646,11 +2752,13 @@ This pathophysiological event involves increased blood coagulation, fibrin clot 
             
             <div class="item-box anchor-target" id="module-pathophysiology-thrombotic-vascular-occlusion-and-ischemic-tissue-injury" data-dismech-node="Thrombotic Vascular Occlusion and Ischemic Tissue Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Thrombotic Vascular Occlusion and Ischemic Tissue Injury</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A conditional local consequence, distinct from the thrombus formed by the Xogenesis module. A formed thrombus may grow and obstruct local blood flow; when the affected vessel supplies perfusion-dependent tissue, the obstruction can cause ischemia or infarction. Nonocclusive thrombi may cause neither, so this consequence is not required for every conforming branch.</div>
                 
@@ -2701,6 +2809,13 @@ This pathophysiological event involves increased blood coagulation, fibrin clot 
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Microvascular Thrombosis and Maternal Organ Ischemia</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2710,11 +2825,13 @@ This pathophysiological event involves increased blood coagulation, fibrin clot 
             
             <div class="item-box anchor-target" id="module-pathophysiology-venous-thrombus-embolization-to-pulmonary-arteries" data-dismech-node="Venous Thrombus Embolization to Pulmonary Arteries" data-dismech-type="pathophysiology">
                 <div class="item-name">Venous Thrombus Embolization to Pulmonary Arteries</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A separate, conditional venous consequence in which a formed thrombus dislodges and travels to the pulmonary arteries, producing pulmonary embolism. This narrow node does not generalize the evidence to arterial embolization, every distant vascular bed, or every formed thrombus.</div>
                 
@@ -2807,6 +2924,12 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
                 </div>
                 
                 
+    
+    
+    
+    
+    
+    
     
     
     

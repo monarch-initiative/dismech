@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4219,6 +4287,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4326,6 +4395,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4363,6 +4433,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat3-dominant-negative-dysfunction" data-dismech-node="STAT3 dominant-negative dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT3 dominant-negative dysfunction</div>
+
 
                 <div class="item-desc">Heterozygous variants (predominantly missense and small in-frame deletions clustering in the DNA-binding and SH2 domains, but also out-of-frame variants acting through reinitiated neoproteins) produce a STAT3 protein that dimerizes with wild-type STAT3 and abolishes DNA binding and transactivation. STAT3 tyrosine phosphorylation is often preserved; the functional defect is downstream DNA binding/transcription across the entire STAT3 cytokine network (IL-6, IL-10, IL-11, IL-21, IL-22, IL-23).</div>
 
@@ -4585,6 +4656,7 @@ This pathophysiological event involves decreased JAK-STAT signaling, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4606,6 +4678,7 @@ This pathophysiological event involves decreased JAK-STAT signaling, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4633,6 +4706,7 @@ This pathophysiological event involves decreased JAK-STAT signaling, annotated w
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4655,6 +4729,7 @@ This pathophysiological event involves decreased JAK-STAT signaling, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-th17-differentiation-and-il-17-il-22-immunity" data-dismech-node="Impaired Th17 differentiation and IL-17/IL-22 immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Th17 differentiation and IL-17/IL-22 immunity</div>
+
 
                 <div class="item-desc">STAT3 is required downstream of IL-6 and IL-23 for RORgammat-driven Th17 development. Loss of IL-17A/F and IL-22 removes the signals that drive epithelial antimicrobial-peptide production and neutrophil recruitment to skin and lung, producing the characteristic susceptibility to Staphylococcus aureus and Candida albicans.</div>
 
@@ -4988,6 +5063,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5009,6 +5085,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5034,6 +5111,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blunted-il-6-acute-phase-signaling" data-dismech-node="Blunted IL-6 acute-phase signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Blunted IL-6 acute-phase signaling</div>
+
 
                 <div class="item-desc">Impaired IL-6-to-STAT3 signaling produces a reduced systemic inflammatory response despite deep infection, which is the basis for the characteristic &#34;cold,&#34; under-inflamed staphylococcal abscesses, and contributes to defective antibody responses.</div>
 
@@ -5144,6 +5222,7 @@ This pathophysiological event involves decreased acute-phase response (GO:000695
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5166,6 +5245,7 @@ This pathophysiological event involves decreased acute-phase response (GO:000695
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat3-dependent-connective-tissue-and-skeletal-program-failure" data-dismech-node="STAT3-dependent connective-tissue and skeletal program failure" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT3-dependent connective-tissue and skeletal program failure</div>
+
 
                 <div class="item-desc">Because STAT3 transduces IL-11, leptin, and growth-factor signals in bone, vasculature, and craniofacial tissue, dominant-negative STAT3 disrupts non-immune programs. STAT3 normally restrains osteoclastogenesis; its loss increases osteoclast activity, producing osteopenia and fractures. Impaired IL-11/STAT3 signaling links to craniosynostosis and delayed exfoliation of deciduous teeth, and vascular STAT3 deficiency contributes to arterial tortuosity, ectasia, and aneurysm.</div>
 
@@ -5337,6 +5417,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5458,6 +5539,9 @@ This clinical feature is Elevated serum IgE, annotated with Increased circulatin
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5472,6 +5556,7 @@ This clinical feature is Elevated serum IgE, annotated with Increased circulatin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5530,6 +5615,9 @@ This clinical feature is Eosinophilia, annotated with Increased total eosinophil
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5544,6 +5632,7 @@ This clinical feature is Eosinophilia, annotated with Increased total eosinophil
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5600,6 +5689,9 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5614,6 +5706,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5679,6 +5772,9 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5693,6 +5789,7 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5749,6 +5846,9 @@ This clinical feature is Coronary artery aneurysm (HP:0030882). HP:0030882 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5763,6 +5863,7 @@ This clinical feature is Coronary artery aneurysm (HP:0030882). HP:0030882 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5826,6 +5927,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5840,6 +5944,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5893,6 +5998,9 @@ This clinical feature is Esophageal dysmotility, annotated with Gastrointestinal
                     </div>
 
 
+
+
+
                     <div class="item-desc">Ontology term corrected from HP:0002015 &#34;Dysphagia&#34; to HP:0002579 &#34;Gastrointestinal dysmotility&#34;. Dysphagia is a symptom that dysmotility may cause, not the motility abnormality itself, and GeneReviews asserts the dysmotility. HPO has no esophagus-specific dysmotility class (the nearest, HP:0031857 &#34;Ineffective esophageal peristalsis&#34;, names a specific manometric pattern the source does not report), so the GI-level parent is used with a more specific preferred_term.</div>
 
 
@@ -5912,6 +6020,7 @@ This clinical feature is Esophageal dysmotility, annotated with Gastrointestinal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5977,6 +6086,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5991,6 +6103,7 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6047,6 +6160,9 @@ This clinical feature is Retained primary (deciduous) teeth, annotated with Pers
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6061,6 +6177,7 @@ This clinical feature is Retained primary (deciduous) teeth, annotated with Pers
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6117,6 +6234,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6131,6 +6251,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6155,6 +6276,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6222,6 +6344,9 @@ This clinical feature is Recurrent cutaneous abscess, annotated with Recurrent c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6236,6 +6361,7 @@ This clinical feature is Recurrent cutaneous abscess, annotated with Recurrent c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6292,6 +6418,9 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6306,6 +6435,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6492,9 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6376,6 +6509,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6432,6 +6566,9 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6446,6 +6583,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,6 +6649,9 @@ This clinical feature is Hyperextensible joints, annotated with Joint hypermobil
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6525,6 +6666,7 @@ This clinical feature is Hyperextensible joints, annotated with Joint hypermobil
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6581,6 +6723,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6595,6 +6740,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6651,6 +6797,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6665,6 +6814,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,6 +6871,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6735,6 +6888,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6800,6 +6954,9 @@ This clinical feature is Pneumatocele, annotated with Pulmonary pneumatocele (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6814,6 +6971,7 @@ This clinical feature is Pneumatocele, annotated with Pulmonary pneumatocele (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7028,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6884,6 +7045,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6982,6 +7144,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6996,6 +7161,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7020,6 +7186,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7150,6 +7317,12 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The mainstay of management is prevention of staphylococcal abscesses and pneumonias with prophylactic anti-staphylococcal antibiotics (trimethoprim-sulfamethoxazole is standard) plus early aggressive treatment of infections. Practical caution: trimethoprim-sulfamethoxazole hypersensitivity is a recognized adverse-reaction risk.</div>
 
 
@@ -7214,6 +7387,7 @@ This treatment targets Recurrent cutaneous abscess, annotated with Recurrent cut
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7235,6 +7409,7 @@ This treatment targets Recurrent cutaneous abscess, annotated with Recurrent cut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,6 +7521,12 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Antifungal agents (e.g., fluconazole for Candida; itraconazole for Aspergillus colonizing pneumatoceles and for chronic mucocutaneous candidiasis) are used for prophylaxis and treatment. Note azole-drug CYP3A4 interactions in practice.</div>
 
 
@@ -7407,6 +7588,7 @@ This treatment targets Chronic mucocutaneous candidiasis (HP:0002728). HP:000272
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7479,6 +7661,12 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Antiseptic skin therapies such as dilute bleach (sodium hypochlorite) baths and chlorhexidine, with histamine-1 antagonists to control pruritus, reduce staphylococcal skin disease and eczema burden.</div>
 
 
@@ -7522,6 +7710,7 @@ This treatment targets Eczematoid dermatitis (HP:0000964). HP:0000964 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7589,6 +7778,9 @@ This treatment is Hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7599,6 +7791,9 @@ This treatment is Hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -7644,6 +7839,7 @@ This treatment is Hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7912,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the autosomal dominant inheritance (50% transmission risk per offspring of an affected individual; most cases de novo) and reproductive options including prenatal and preimplantation genetic testing once the familial STAT3 variant is known.</div>
 
 
@@ -7740,6 +7942,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7761,6 +7964,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7830,6 +8034,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7881,6 +8086,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7929,6 +8135,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8033,6 +8240,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8054,6 +8262,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8146,6 +8355,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8235,6 +8445,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8309,6 +8520,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8394,6 +8606,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8446,6 +8659,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8608,6 +8822,18 @@ classifications:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The hyper-IgE syndrome (HIES) is a primary immunodeficiency characterized by infections of the lung and skin, elevated serum IgE, and involvement of the soft and bony tissues.&#34;
       explanation: The combination of immunodeficiency with soft-tissue and bony (syndromic) involvement places AD-HIES in the IUIS &#34;combined immunodeficiency with syndromic features&#34; category.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        AD-HIES STAT3 deficiency (Job syndrome) STAT3 AD LOF (dominant
+        negative) 147060
+      explanation: &gt;-
+        The IUIS 2022 Table 2 (combined immunodeficiencies with associated or
+        syndromic features), sub-section 5 Hyper IgE Syndromes, row assigning
+        AD-HIES STAT3 deficiency (Job syndrome; STAT3, AD dominant-negative
+        LOF) to this category.
 prevalence:
 - population: Worldwide
   measure_type: BIRTH_PREVALENCE
@@ -9613,6 +9839,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9996,7 +10224,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Hyper-IgE Syndrome", "mondoId": "MONDO:0007818", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Hyper-IgE_Syndrome", "yamlRevision": "0383138d6639"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Hyper-IgE Syndrome", "mondoId": "MONDO:0007818", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Hyper-IgE_Syndrome", "yamlRevision": "f351c8a55815"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

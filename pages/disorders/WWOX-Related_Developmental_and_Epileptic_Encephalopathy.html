@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4104,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4260,6 +4329,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4281,6 +4351,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4412,6 +4483,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4433,6 +4505,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4557,6 +4630,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4578,6 +4652,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4709,6 +4784,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4730,6 +4806,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4767,6 +4844,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-wwox-loss-of-function-lesion" data-dismech-node="Biallelic WWOX Loss-of-Function Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic WWOX Loss-of-Function Lesion</div>
+
 
                 <div class="item-desc">Two pathogenic WWOX alleles are present - homozygous or compound heterozygous - spanning nonsense, frameshift, splice-site, missense and copy-number variants. This node records the lesion only; the genotype class it falls into is modelled separately, because that is what the outcome data stratify on.</div>
 
@@ -4820,6 +4898,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4841,6 +4920,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4866,6 +4946,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-wwox-scaffold-function" data-dismech-node="Loss of WWOX Scaffold Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of WWOX Scaffold Function</div>
+
 
                 <div class="item-desc">WWOX is a 46 kDa adaptor carrying two N-terminal WW domains and a C-terminal short-chain dehydrogenase/reductase domain. The WW domains bind PPxY-motif partners, so the protein acts as a hub rather than through a single catalytic output - its own substrate is still unknown. Loss of the hub is what propagates into the separate signalling arms below.</div>
 
@@ -4997,6 +5078,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5019,6 +5101,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-gsk-3beta-signalling-dysregulation" data-dismech-node="Wnt/GSK-3beta Signalling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt/GSK-3beta Signalling Dysregulation</div>
+
 
                 <div class="item-desc">WWOX loss produces significantly increased activation of glycogen synthase kinase 3beta across cerebral cortex, hippocampus and cerebellum in Wwox-null mice. This arm is separated from the others because it carries its own pharmacological test: inhibiting GSK-3beta with lithium abolishes induced seizures in these animals.</div>
 
@@ -5130,6 +5213,7 @@ This pathophysiological event involves dysregulated Wnt signaling pathway (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5152,6 +5236,7 @@ This pathophysiological event involves dysregulated Wnt signaling pathway (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyal-2-wwox-smad4-complex-failure" data-dismech-node="Hyal-2/WWOX/Smad4 Complex Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyal-2/WWOX/Smad4 Complex Failure</div>
+
 
                 <div class="item-desc">In a non-canonical TGF-beta route, hyaluronan-bound membrane hyaluronidase Hyal-2 recruits WWOX and Smad4 into a complex that relocates to the nucleus. WWOX is the bridge that binds both partners, so in its absence Smad relocation fails. Curated as a distinct arm because it is a transcriptional-signalling defect, not a synaptic or myelin one.</div>
 
@@ -5228,6 +5313,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5250,6 +5336,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oligodendrocyte-maturation" data-dismech-node="Impaired Oligodendrocyte Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oligodendrocyte Maturation</div>
+
 
                 <div class="item-desc">Oligodendrocyte precursors fail to mature into myelinating oligodendrocytes, with a measured fall in myelination-gene transcripts. Kept separate from the hypomyelination it produces, because the cellular differentiation failure and the tissue-level myelin deficit are distinct measurements.</div>
 
@@ -5425,6 +5512,7 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5447,6 +5535,7 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Hypomyelination</div>
+
 
                 <div class="item-desc">Reduced myelinated axon content in the central nervous system. Whether this arm contributes causally to the seizures, as opposed to running in parallel with them, is an open question recorded in the discussions.</div>
 
@@ -5555,6 +5644,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5576,6 +5666,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5601,6 +5692,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axonal-conductivity" data-dismech-node="Impaired Axonal Conductivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axonal Conductivity</div>
+
 
                 <div class="item-desc">Axonal conduction is measurably impaired in neuronal Wwox-deletion mice. Recorded as its own node because it is the functional consequence of hypomyelination and the point at which the myelin arm could in principle act on network behaviour.</div>
 
@@ -5639,6 +5731,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5661,6 +5754,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cortical-neuronal-migration" data-dismech-node="Disrupted Cortical Neuronal Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cortical Neuronal Migration</div>
+
 
                 <div class="item-desc">A developmental arm separate from the synaptic and myelin arms: Wwox-null mice show neuronal disorganisation and heterotopia, incomplete separation of the cerebral hemispheres, and defective cerebellar midline fusion.</div>
 
@@ -5772,6 +5866,7 @@ This pathophysiological event involves abnormal hippocampus development (GO:0021
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5794,6 +5889,7 @@ This pathophysiological event involves abnormal hippocampus development (GO:0021
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-excitatory-synaptic-drive" data-dismech-node="Increased Excitatory Synaptic Drive" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Excitatory Synaptic Drive</div>
+
 
                 <div class="item-desc">Layer II/III pyramidal neurons show elevated excitatory postsynaptic current amplitude. Curated separately from the inhibitory change because the two were measured separately and move in opposite directions - collapsing them into one &#34;E/I imbalance&#34; node would discard which side actually changed.</div>
 
@@ -5901,6 +5997,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5923,6 +6020,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-inhibitory-synaptic-drive" data-dismech-node="Reduced Inhibitory Synaptic Drive" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Inhibitory Synaptic Drive</div>
+
 
                 <div class="item-desc">The same layer II/III recordings show reduced frequency and amplitude of inhibitory postsynaptic currents - a loss of inhibition running alongside, and independent of, the gain in excitation.</div>
 
@@ -6030,6 +6128,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6052,6 +6151,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-neuronal-hyperexcitability" data-dismech-node="Intrinsic Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Neuronal Hyperexcitability</div>
+
 
                 <div class="item-desc">Beyond synaptic drive, the neurons themselves are altered: depolarised resting membrane potential, increased action-potential frequency, increased sag current and post-inhibitory rebound. This is a membrane-property change, not a synaptic one, so it is a third independent contributor rather than part of the E/I node.</div>
 
@@ -6139,6 +6239,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6161,6 +6262,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">The net shift of neocortical circuits toward excitation, produced by the independent gain in excitatory drive and loss of inhibitory drive above.</div>
 
@@ -6214,6 +6316,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6236,6 +6339,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neocortical-network-hypersynchrony" data-dismech-node="Neocortical Network Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neocortical Network Hypersynchrony</div>
+
 
                 <div class="item-desc">Spontaneous bursting appears in neocortical but not hippocampal slices, is NMDA receptor- and gap-junction-dependent, and propagates from layer II/III to layer V - so the neocortex, and specifically its superficial layers, is the driver.</div>
 
@@ -6309,6 +6413,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6330,6 +6435,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6355,6 +6461,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-drug-resistant-seizures" data-dismech-node="Early-Onset Drug-Resistant Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Drug-Resistant Seizures</div>
+
 
                 <div class="item-desc">Multiple seizure types begin within the first weeks to months of life - most often focal seizures, epileptic spasms and tonic seizures - and respond poorly to antiseizure medication.</div>
 
@@ -6408,6 +6515,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6429,6 +6537,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6454,6 +6563,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-and-optic-atrophy" data-dismech-node="Progressive Cerebral and Optic Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral and Optic Atrophy</div>
+
 
                 <div class="item-desc">A degenerative arm distinct from the malformation arm: severe frontotemporal, hippocampal and optic atrophy with thin corpus callosum and white matter signal change on patient MRI, mirrored in mice by optic nerve atrophy, Purkinje cell loss and cerebellar granule cell apoptosis.</div>
 
@@ -6550,6 +6660,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6571,6 +6682,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6596,6 +6708,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-developmental-impairment" data-dismech-node="Profound Developmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Developmental Impairment</div>
+
 
                 <div class="item-desc">Affected children acquire neither language nor independent walking. Two upstream routes converge here - the developmental malformation arm and the seizure burden - and the published data do not separate their contributions.</div>
 
@@ -6634,6 +6747,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6656,6 +6770,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genotype-stratified-mortality-risk" data-dismech-node="Genotype-Stratified Mortality Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Genotype-Stratified Mortality Risk</div>
+
 
                 <div class="item-desc">Survival tracks genotype class rather than any single clinical feature: biallelic null genotypes have significantly lower survival probability than genotypes carrying at least one presumed hypomorphic missense allele. This is the entry&#39;s best-quantified genotype-phenotype claim and the reason the lesion node and the genotype class are modelled separately.</div>
 
@@ -6694,6 +6809,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6715,6 +6831,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6835,6 +6952,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6849,6 +6969,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6914,6 +7035,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6928,6 +7052,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6984,6 +7109,9 @@ This clinical feature is Abnormal optic nerve morphology (HP:0000587). HP:000058
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6998,6 +7126,7 @@ This clinical feature is Abnormal optic nerve morphology (HP:0000587). HP:000058
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7054,6 +7183,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7068,6 +7200,7 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7124,6 +7257,9 @@ This clinical feature is Abnormal fundus morphology (HP:0001098). HP:0001098 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7138,6 +7274,7 @@ This clinical feature is Abnormal fundus morphology (HP:0001098). HP:0001098 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7340,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7217,6 +7357,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7241,6 +7382,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7297,6 +7439,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7311,6 +7456,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7376,6 +7522,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7390,6 +7539,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7446,6 +7596,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7460,6 +7613,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7516,6 +7670,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7530,6 +7687,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7624,6 +7782,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7638,6 +7799,7 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7694,6 +7856,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7708,6 +7873,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7764,6 +7930,9 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7778,6 +7947,7 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7834,6 +8004,9 @@ This clinical feature is Tonic seizure (HP:0032792). HP:0032792 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7848,6 +8021,7 @@ This clinical feature is Tonic seizure (HP:0032792). HP:0032792 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7904,6 +8078,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7918,6 +8095,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7974,6 +8152,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7988,6 +8169,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8044,6 +8226,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8058,6 +8243,7 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,6 +8300,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8128,6 +8317,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8182,6 +8372,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8196,6 +8389,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,6 +8446,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8266,6 +8463,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8322,6 +8520,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8336,6 +8537,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8392,6 +8594,9 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8406,6 +8611,7 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8462,6 +8668,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8476,6 +8685,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8541,6 +8751,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8555,6 +8768,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8655,6 +8869,9 @@ This disease-associated gene is WWOX (hgnc:12799). hgnc:12799 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8669,6 +8886,7 @@ This disease-associated gene is WWOX (hgnc:12799). hgnc:12799 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8696,6 +8914,7 @@ This disease-associated gene is WWOX (hgnc:12799). hgnc:12799 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8717,6 +8936,7 @@ This disease-associated gene is WWOX (hgnc:12799). hgnc:12799 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8802,6 +9022,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8812,6 +9035,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8842,6 +9068,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8863,6 +9090,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8929,6 +9157,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8939,6 +9170,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -8975,6 +9209,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9018,6 +9253,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9084,6 +9320,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9094,6 +9333,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -9121,6 +9363,7 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9187,6 +9430,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9197,6 +9443,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9224,6 +9473,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9332,6 +9582,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9353,6 +9604,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9443,6 +9695,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9530,6 +9783,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9604,6 +9858,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9625,6 +9880,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9758,6 +10014,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9797,6 +10054,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9950,6 +10208,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9989,6 +10248,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10068,6 +10328,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10127,6 +10388,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10166,6 +10428,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10242,6 +10505,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10387,6 +10651,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10426,6 +10691,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10502,6 +10768,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10589,6 +10856,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10670,6 +10938,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10815,6 +11084,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10854,6 +11124,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12694,6 +12965,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: WWOX-Related Developmental and Epileptic Encephalopathy (WOREE/DEE28)</strong> · 2026-08-19T20:35:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/WWOX-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-19T203549Z-claude-code-a74407.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for WOREE syndrome / DEE28 (MONDO:0014533), curated from a claude_code deep-research report. NEC preflight returned WARN: WWOX dominated gene mentions 92 to 6 and the report is unambiguously about WOREE, but it cites OMIM 605131 (the WWOX gene record) and OMIM 614322 (SCAR12, the allelic disorder) against the MONDO xref of 616211. Inspection showed SCAR12 is discussed as a deliberate allelic contrast rather than as wrong-entity contamination, so the report was used with SCAR12 content scoped to contrast only. The report&#39;s own reference validation flagged needs_review: 32 of 32 references resolved with a confabulation rate of 0.0, but three of four checked quotes were unsupported and one reference was off topic. All four were respected. The quote that premature death has never been described with a missense-only genotype was flagged unsupported against both PMID:30356099 and PMID:33916893 and is deliberately not curated; the entry instead makes the weaker verifiable claim from PMID:36779245 that biallelic null genotypes have significantly lower survival probability, and the genetic notes record explicitly that the stronger claim was seen and excluded. PMID:8305172 was flagged off topic, resolving to a paper on ambulatory blood pressure in youth, and is not cited. Six ontology term labels suggested by the report were wrong and were corrected against OAK before use: HP:0011097 is Epileptic spasm not Epileptic encephalopathy, HP:0002465 is Poor speech not Absent speech, HP:0002120 is Cerebral cortical atrophy, HP:0002373 is Febrile seizure not Lennox-Gastaut syndrome, HP:0000539 is Abnormality of refraction not Abnormality of the optic nerve, and HP:0002105 is Hemoptysis not Abnormal breathing. No GeneReviews chapter exists for WWOX, confirmed by PubMed search using a query form validated against a gene known to have one. Pathophysiology is 17 atomic nodes across four parallel arms, with excitatory and inhibitory synaptic changes kept as separate nodes because they were measured separately and move in opposite directions, and with oligodendrocyte maturation, hypomyelination and axonal conductivity kept separate as three distinct measurements. Four discussions: a CONTROVERSY on whether the myelin arm or the synaptic arm generates the seizures, anchored on the source statement that hypomyelination alone does not necessarily cause epilepsy; a HUMAN_MODEL_MISMATCH on rodent models dying within two to four weeks against a human course running to 40 years; a KNOWLEDGE_GAP on GSK-3beta as a druggable node, noting the lithium rescue was measured against induced rather than spontaneous seizures; and a KNOWLEDGE_GAP on whether missense alleles are truly hypomorphic. A 2026 press report of a first compassionate-use gene therapy administration is recorded in treatment notes as consciously excluded rather than curated, since it has no peer-reviewed publication. Validation: just validate passed with 67 of 67 snippets verified against cached references, term validation passed, no duplicate keys, no new title-quoting or under-length snippets, and 8628 tests passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
