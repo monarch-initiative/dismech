@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT02340338
+extractor_version: 1
 title: Phase 1 Clinical Trial of the BioMed rTSST-1 Variant Vaccine in Healthy Adults
 content_type: summary
 full_text_attempted: true
