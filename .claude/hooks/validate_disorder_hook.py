@@ -40,10 +40,16 @@ VALIDATE_RECIPE = "validate-pre-edit"
 TERMS_NOT_CHECKED_MARKER = "TERMS NOT CHECKED"
 TERMS_NOT_CHECKED_CONTEXT = (
     "Pre-edit validation allowed this edit, but the ontology service did not "
-    "answer, so its ontology terms were NOT checked. Run `just validate-terms` "
+    "answer. The terms listed below were NOT checked; every other term was "
+    "rechecked offline against the local cache and had no errors. Run "
+    "`just validate-terms` "
     "on this file once the service is reachable, and do not change a term just "
     "because it could not be looked up."
 )
+# Lines the recipe prints for each term it could not check (dismech#12658).
+NOT_CHECKED_LINE_PREFIX = "not checked:"
+# Keeps the context short when a file adds many new terms at once.
+MAX_NOT_CHECKED_LINES = 20
 
 
 def terms_not_checked_notice(output: str) -> str | None:
@@ -56,11 +62,22 @@ def terms_not_checked_notice(output: str) -> str | None:
     """
     if TERMS_NOT_CHECKED_MARKER not in output:
         return None
+    unchecked = [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip().startswith(NOT_CHECKED_LINE_PREFIX)
+    ]
+    context = TERMS_NOT_CHECKED_CONTEXT
+    if unchecked:
+        shown = unchecked[:MAX_NOT_CHECKED_LINES]
+        if len(unchecked) > len(shown):
+            shown.append(f"... and {len(unchecked) - len(shown)} more")
+        context += "\n" + "\n".join(shown)
     return json.dumps(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "additionalContext": TERMS_NOT_CHECKED_CONTEXT,
+                "additionalContext": context,
             }
         }
     )
