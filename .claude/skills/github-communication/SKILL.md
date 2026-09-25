@@ -22,10 +22,45 @@ the schema, LinkML etc. If the issue/PR involves nuanced interpretation of cellu
 so on.
 
 **Scope.** PR bodies, issue comments, review bodies and replies, and the
-summaries scheduled workflows post. **Not** in scope: prose inside KB YAML
-(`description`, `explanation`, `notes`) or in `docs/`. Those are written for a
-curator who wants the mechanism, and their denser register is correct — do not
-apply this skill's plainness rules to them.
+summaries scheduled workflows post. **Not** in scope for this skill's
+plainness-and-jargon rules: prose inside KB YAML (`description`, `explanation`,
+`notes`) or in `docs/`. Those are written for a curator who wants the
+mechanism, and their denser register is correct — do not apply this skill's
+plainness rules to them.
+
+**The exemption is about density, not about audience.** Every one of those
+targets — `docs/`, and KB `notes:` — is still written for a human reader: a
+curator, a maintainer, someone reading the rendered page. None of it is
+license to write for a future AI session, or to narrate your own process as a
+note to yourself. A `docs/` PR titled "Custody of a Claim" whose content is
+mostly about the author's own push count and review rounds is not a denser
+register, it's a diary entry that happens to sit under `docs/`, and it fails
+this rule exactly as a bad PR body would — see #12535. The same drift shows up
+in `notes:`: a sentence like "Review round 1. The screening-yield rate is
+deleted, as above" presumes a reader who already has the review thread open,
+and describes the curation session rather than the disease. That content has a
+home — the `details` field of a `history/` record (see *History Records* in
+`CLAUDE.md`) — which already says review/audit provenance goes there, "not
+inside the KB YAML." If you are writing about your own review cycle, what you
+will remember for next time, or what a prior round of you did, that is a
+`history/` entry or a PR/issue comment (governed by the rules above), never a
+`docs/` page or a `notes:` field. See #8908 for the wider pattern this is one
+instance of.
+
+**That exemption is about vocabulary, not about audience.** Denser register is
+fine; a document that only the agent that wrote it would find useful is not.
+`docs/` (outside `docs/superpowers/`, which is explicitly an agent-facing
+investigation/plan/spec log) and `notes:` are for a human curator who wants
+domain content — a mechanism, a decision, a dataset, a finding. They are not
+the place for an agent to narrate its own compliance with its own process
+rules. If a passage is a first-person reflection on the writing agent's own
+workflow ("I pushed twice, which cost a review round, so next time I will...")
+rather than a fact about the disease, the schema, or the corpus, it belongs in
+the PR/issue thread that already carries that conversation — under this
+skill's plain-language rules — not in a `docs/` file or a `notes:` field.
+PR #12535 is the worked example: a "curation retrospective" whose real content
+was process narration addressed to no reader in particular, closed for
+exactly this reason. Related: #8908.
 
 ## Before you post
 

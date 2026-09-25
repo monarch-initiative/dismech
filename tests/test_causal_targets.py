@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 # Inline the path rather than assigning ROOT first: ruff's E402 allows an
 # import preceded by a `sys.path` preamble, but an intervening assignment
 # breaks that allowance, and the two ruff versions this repo sees disagree
@@ -194,6 +196,7 @@ def test_update_baseline_refuses_to_be_scoped_to_paths():
     assert BASELINE.read_bytes() == before, "the committed baseline must be untouched"
 
 
+@pytest.mark.ci_step_twin("scripts/check_causal_targets.py")
 def test_committed_kb_has_no_new_broken_targets():
     """The gate itself, over the real KB."""
     result = subprocess.run(
@@ -204,3 +207,84 @@ def test_committed_kb_has_no_new_broken_targets():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# --- path arguments (#11939) -------------------------------------------------
+#
+# A mistyped path used to be swallowed as an OSError in the read loop, so the
+# script printed "OK: no new broken pathograph targets" over zero files and
+# exited 0. The convention now matches `check_disconnected_phenotypes.py`: a
+# path that cannot be read, or a directory holding no *.yaml, exits 2 -- kept
+# distinct from the gate's own exit 1 -- and a directory argument is expanded.
+
+
+def _run_main(monkeypatch, *argv):
+    import check_causal_targets as mod
+
+    monkeypatch.setattr(sys, "argv", ["check_causal_targets.py", *argv])
+    return mod.main()
+
+
+def test_nonexistent_path_is_a_usage_error_not_a_pass(tmp_path, monkeypatch, capsys):
+    missing = tmp_path / "DefinitelyNotAFile.yaml"
+    exit_code = _run_main(monkeypatch, str(missing))
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "DefinitelyNotAFile.yaml" in captured.err
+    assert "No such file or directory" in captured.err
+    assert "OK:" not in captured.out, "nothing was checked, so nothing is OK"
+
+
+def test_nonexistent_path_fails_even_beside_a_readable_one(monkeypatch, capsys):
+    """One good argument must not mask one bad one."""
+    exit_code = _run_main(
+        monkeypatch, "kb/disorders/Asthma.yaml", "kb/disorders/NotAnEntry.yaml"
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "NotAnEntry.yaml" in captured.err
+
+
+def test_report_mode_also_refuses_a_nonexistent_path(tmp_path, monkeypatch, capsys):
+    """`--report` exits 0 by design, so it must not become the silent route."""
+    exit_code = _run_main(monkeypatch, "--report", str(tmp_path / "Nope.yaml"))
+    assert exit_code == 2
+    assert "Nope.yaml" in capsys.readouterr().err
+
+
+def test_directory_argument_is_expanded_into_its_entries(tmp_path, monkeypatch, capsys):
+    nested = tmp_path / "sub"
+    nested.mkdir()
+    (nested / "Probe.yaml").write_text(
+        "name: Probe\n"
+        "pathophysiology:\n"
+        "- name: Node A\n"
+        "  downstream:\n"
+        "  - target: phenotypes#Bleeding\n"
+        "phenotypes:\n"
+        "- name: Bleeding\n"
+    )
+    exit_code = _run_main(monkeypatch, str(tmp_path))
+
+    assert exit_code == 1, "the prefixed target inside the directory must be found"
+    assert "phenotypes#Bleeding" in capsys.readouterr().out
+
+
+def test_directory_with_no_yaml_is_a_usage_error(tmp_path, monkeypatch, capsys):
+    (tmp_path / "README.md").write_text("not an entry\n")
+    exit_code = _run_main(monkeypatch, str(tmp_path))
+
+    assert exit_code == 2
+    assert "directory contains no *.yaml files" in capsys.readouterr().err
+
+
+def test_malformed_yaml_is_still_left_to_the_parse_gates(tmp_path, monkeypatch, capsys):
+    """Only OSError changed. A parse failure is `check-duplicate-keys`' to report."""
+    broken = tmp_path / "Broken.yaml"
+    broken.write_text("name: [unterminated\n")
+    exit_code = _run_main(monkeypatch, str(broken))
+
+    assert exit_code == 0
+    assert "ERROR" not in capsys.readouterr().err

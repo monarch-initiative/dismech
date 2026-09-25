@@ -21,6 +21,20 @@ permissions:
   contents: read
   pull-requests: read
 
+# Cancel a pull request's superseded run when a new commit is pushed, so stale
+# runs stop holding runners the current head is queued behind (#11941).
+#
+# Only `pull_request` runs share a group. `push` on main and `merge_group` runs
+# are keyed on their own run_id, so each is alone in its group and nothing can
+# cancel it. That is stricter than `cancel-in-progress: false`: GitHub keeps at
+# most one *pending* run per group and cancels the older pending one even with
+# cancel-in-progress off, so a shared main-branch group would drop the middle of
+# three quick post-merge builds. Cancelling a merge_group run would eject the PR
+# from the merge queue (#10168, #2034).
+concurrency:
+  group: build-and-test-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
 
@@ -32,15 +46,12 @@ jobs:
 
     steps:
 
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: false   # keep python/uv/etc
-          docker-images: true
+      # No "Free disk space" step. It spent ~195s per run deleting 22 GB of
+      # Android/.NET/Haskell/Docker images, on a runner that already starts
+      # with ~86 GB free on / (measured on a merge_group run, 2026-09-24),
+      # against a ~4.3 GB checkout plus the venv and OAK cache. If a future
+      # runner image is smaller and a step runs out of disk, restore
+      # jlumbroso/free-disk-space rather than trimming the checkout.
 
       # https://github.com/actions/checkout
       - name: Check out repository
@@ -116,6 +127,11 @@ jobs:
               - 'scripts/verify_merge_integrity.py'
               # Guarded by tests/test_term_validator_wrapper.py (#11004).
               - 'scripts/run_term_validator.sh'
+              # The pre-edit hook and the offline-recheck classifier it relies on
+              # are guarded by tests/test_validate_pre_edit_outage.py and
+              # tests/test_classify_offline_term_results.py (#12658).
+              - 'scripts/classify_offline_term_results.py'
+              - '.claude/hooks/validate_disorder_hook.py'
               # The reference gate's negative controls must run when its policy
               # changes, not only when Python changes (issue #7514).
               - 'scripts/run_reference_validator.sh'
@@ -144,6 +160,9 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - 'justfile'
+              # How the smoke test is invoked is an input too: this filter is
+              # the only thing that runs it on a merge-queue build.
+              - '.github/workflows/main.yaml'
             schema_terms:
               - 'src/dismech/schema/**'
               - 'conf/oak_config.yaml'
@@ -353,341 +372,15 @@ jobs:
         if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema --offline
 
-      - name: Lint with ruff
-        run: uvx ruff check .
-
-      # Runs on every PR (not gated by path filters) so kb-only changes are
-      # still checked. The full pytest guard only runs when src/tests change,
-      # which would otherwise let folded-scalar hyphen splits into kb/ files.
-      - name: Check for folded-scalar hyphen splits
-        run: uv run python scripts/check_folded_hyphens.py
-
-      # Also ungated: the pytest snippet-length ratchet only runs when src/tests
-      # change, so kb-only curation PRs -- the ones that actually add short
-      # snippets -- would otherwise never be checked. Grandfathered live against
-      # the base branch (origin/<base>), so pre-existing backlog is not
-      # inherited and only snippets this PR adds fail. On push-to-<base> the ref
-      # equals HEAD, so it is a no-op there.
-      - name: Check for new short evidence snippets
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: uv run python scripts/check_snippet_length.py --against-ref "origin/$BASE_REF"
-
-      # Ungated for the same reason as the length ratchet above: the PRs that
-      # add title-quoting snippets are curation PRs touching only kb/, which no
-      # src/tests path filter would catch. Same live grandfathering against the
-      # base branch, so only what this PR adds can fail (issue #8374).
-      - name: Check for new title-quoting evidence snippets
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
-
-      # Ungated for the same reason as the ratchets above, and for a sharper one:
-      # a fabricated `reference_title` is written by exactly the curation PR that
-      # verified the snippet beside it, so it arrives in a kb/-only PR no
-      # src/tests path filter would catch. Offline -- the correct title is
-      # already in the reference's cache frontmatter (issue #9138).
-      - name: Check for new mismatched reference titles
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: uv run python scripts/check_reference_titles.py --against-ref "origin/$BASE_REF"
-
-      # Ungated for the same reason as the two ratchets above: an evidence-free
-      # `environmental:` exposure is added by curation PRs touching only kb/,
-      # which no src/tests path filter would catch. Unlike those two this is a
-      # hard gate, not a ratchet -- the #8296 backlog reached zero, so there is
-      # nothing to grandfather and no base-branch ref to derive it from.
-      - name: Check for evidence-free environmental exposures
-        run: uv run python scripts/check_environmental_evidence.py
-
-      # Also ungated: there is no `cache/**` path filter, so a curation PR that
-      # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
-      # shape that can introduce the #7682 concatenation corruption -- would
-      # otherwise never run this check (the pytest guard only fires on
-      # src/tests changes). Deterministic, offline, and sub-second.
-      - name: Check term cache structural integrity
-        run: uv run python -m dismech.term_cache_integrity cache
-
-      # Ungated: older curation PRs can restore the retired shared blob without
-      # touching Python. This inspects Git metadata, never the JSON contents.
-      - name: Reject retired dataset cache
-        run: uv run pytest -q tests/test_data.py::test_no_automation_touches_the_frozen_dataset_cache
-
-      # Ungated and whole-KB on purpose, for the same reason as the cache check
-      # above: this fires on kb/-only curation PRs, which no src/tests path
-      # filter would catch. An RGD `Not4Curation` term exists, matches its
-      # label, and is reachable from its enum roots, so `just validate-terms`
-      # passes it -- three reached the #8430 tranches that way (issue #8472).
-      # Checks only prefixes with a local sqlite adapter, whose databases the
-      # oak-cache step above already persists across runs; OLS-served prefixes
-      # are reported as skipped rather than silently dropped. On a cold cache
-      # this is where ecto/hgnc/icd10cm/icd11f (~220 MB) get pulled, ~23s
-      # end-to-end; the accumulating cache absorbs it from the second run on.
+      # Placed ahead of the whole-repo gates on purpose. This is the step
+      # that most often fails a merge-queue build (10 of 14 sampled failures,
+      # 2026-09-24: full-text snippets against caches main had demoted), and
+      # it takes ~77s -- but at the end of the gate list it started ~16 min
+      # into the job, so a doomed queue build held its runner, and every
+      # build stacked behind it, for ~30 min before reporting. Here it fails
+      # within a few minutes of checkout. It needs only the installed project
+      # and the OAK cache restored above.
       #
-      # Deliberately WITHOUT --require-adapters: a bbop-sqlite outage makes this
-      # step skip the affected prefix and pass, rather than turning every open
-      # curation PR red for a reason none of them can fix. The audit still says
-      # which prefixes it could not check, and the term validation this backstops
-      # would be failing on the same outage anyway. Run it with
-      # --require-adapters (exit 2 on any unbuildable adapter) when you need a
-      # verified-clean answer rather than a gate.
-      - name: Check for Not4Curation ontology bindings
-        run: uv run python scripts/not4curation_audit.py
-
-      # Ungated and whole-tree on purpose, for the same reason as the step
-      # below. A skill file with no SKILL.md, or with one miscased as skill.md,
-      # is silently not loaded -- Claude Code reports nothing and the skill just
-      # never triggers. `microbiome-curation` was in that state for close to a
-      # month (issue #11758). It arrived in #8651, a curation PR adding CMT
-      # disorder entries, so a changed-path filter would have skipped the very
-      # change that broke it. Offline, well under a second.
-      - name: Check Claude Code skill files
-        run: uv run python scripts/check_skill_files.py
-
-      # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
-      # MERGE, not by authoring: two concurrent curation PRs adding the same
-      # block at different points in one file merge without a git conflict, so
-      # each PR stays green against its own base and only the post-merge push
-      # build goes red. Checking only the changed files would therefore have
-      # missed Ulcerative_Colitis.yaml, which sat broken until this sweep found
-      # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
-      - name: Check for duplicate YAML keys
-        run: uv run python scripts/check_duplicate_yaml_keys.py
-
-      # Ungated and whole-repo on purpose. Two tracked paths that differ only in
-      # letter case coexist on this Linux runner, so nothing here fails, while on
-      # the macOS/Windows default filesystem only one of them can exist: one path
-      # shows as modified forever and `git rebase` refuses to run. Such pairs have
-      # been removed by hand four times (#598, #1305, #9540, #11204), most
-      # recently 17 DOI cache files fetched in two capitalizations. The PRs that
-      # add them touch only kb/ and references_cache/, so a path-filtered pytest
-      # lane would skip them. <1s, offline.
-      - name: Check for case-colliding paths
-        run: uv run python scripts/check_case_collisions.py
-
-      # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
-      # the duplicate-key step above -- this is its schema-narrowing twin.
-      # #10003 narrowed EvidenceItemSupportEnum from five values to three while
-      # ~15 curation PRs carrying the retired `PARTIAL` were already open. Every
-      # one was green: the narrowing PR did not contain their files, and they did
-      # not contain the narrowed enum. Only the merge result holds both, and 100
-      # invalid values reached main within a day (issue #10061).
-      #
-      # The existing whole-KB sweep (`just test-kb`) is gated on schema changes,
-      # reasoning that only a schema edit can flip a KB file's validity. That
-      # misses the half of the window where the schema edit has already landed
-      # and the offending file has not: those PRs touch no schema, so no filter
-      # fires. ~21s over 2,860 files, offline, no codegen -- one constraint
-      # rather than conformance, which is what makes it affordable here.
-      - name: Check enum values are permissible
-        run: uv run python scripts/check_enum_values.py
-
-      # Ungated and whole-KB for the same merge-shaped reason as its two
-      # neighbours. A treatment's carrier facts (delivery_platform, targeting
-      # ligand) have two legal homes while the nested
-      # `oligonucleotide_details` copy is being retired: one PR moving a
-      # treatment onto the Treatment-level `delivery_system` block and another
-      # editing the nested copy on that same treatment are each green against
-      # their own base, and only the merge result holds both values. The
-      # renderer resolves `delivery_system` first, so the disagreement is
-      # silent -- the nested value is hidden rather than surfaced.
-      #
-      # Gates on CONFLICT, EMPTY and LIGANDLESS_TARGET only. The nested-only
-      # records are the migration worklist and are reported, never gated:
-      # gating them would turn every oligonucleotide entry in the KB red for a
-      # change none of their curators made. Offline, seconds, one walk.
-      - name: Check delivery systems are consistent
-        run: uv run python scripts/check_delivery_system.py
-
-      # Ungated and whole-KB on purpose, and for a sharper reason than the
-      # checks around it: the entity-ref rules ARE covered by pytest
-      # (`check_entity_ref_foreign_keys`), but that test is selected by the
-      # `python`/`schema` path filters and so never runs on a curation PR --
-      # which touches only `kb/`, and is the only kind of PR that can break a
-      # reference. Two entries reached `main` that way (#9473), and the
-      # reference-only gate added in #9224 would have been unenforceable on
-      # exactly the PRs it was written for.
-      #
-      # Whole-KB rather than changed-files because a PR that renames or deletes
-      # a node need not touch the file holding the reference to it. ~13s over
-      # 2,532 files, offline. The pytest sweep stays as-is; this is a second
-      # lane, not a replacement.
-      - name: Check entity references resolve
-        run: uv run python scripts/check_entity_refs.py
-
-      # The bare-name counterpart of the step above, and a genuinely separate
-      # invariant. `downstream[].target`, `sequelae[].target`,
-      # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
-      # `<kind>#<name>` grammar -- `dismech.graph` matches them verbatim against
-      # another item's `name`. So a break here is invisible to the entity-ref
-      # sweep AND to everything else: the entry validates, terms and snippets
-      # verify, and the page renders. The edge is still appended, so edge counts
-      # never move; the unresolved target becomes an orphan the renderer draws as
-      # a phantom duplicate node, orphaning the real node out of the graph.
-      # #10112 found 175 such targets across 32 entries, one left at 0 of 7.
-      #
-      # Ungated and whole-KB for the same reason as its neighbours: renaming a
-      # node severs the edges pointing at it, which may live in a part of the
-      # file -- or an entry -- the PR never opened. The pre-existing dangling
-      # backlog is grandfathered in tests/causal_target_baseline.txt, so this
-      # gates new breakage only.
-      - name: Check pathograph targets resolve
-        run: uv run python scripts/check_causal_targets.py
-
-      # The step above asks whether a declared causal target RESOLVES. This one
-      # asks whether a phenotype is REACHED at all -- the failure it cannot see.
-      # An entry passes the resolve check perfectly with every phenotype
-      # floating, because a phenotype nobody ever wrote an edge to is not a
-      # broken target, just an absent one. Schizophrenia was the worked case: one
-      # dangling target, and six phenotypes simply never connected.
-      #
-      # Enforces the `min_compliance` floor on `phenotypes[].causal_inlink` from
-      # conf/qc_config.yaml (50.0 against a measured 53.9% when turned on). The
-      # floor is a ratchet against erosion applied to the KB-WIDE AGGREGATE, not
-      # a per-PR gate -- ~100 new entries with everything disconnected move it
-      # about 1.5 points -- so a failure here means sustained drift, not one bad
-      # entry, and the fix is a wiring pass over the worst files rather than a
-      # change to whatever PR happened to go red. Raise the floor as coverage
-      # improves; never lower it to get green.
-      #
-      # Ungated and whole-KB for the same reason as its neighbours: the
-      # aggregate moves when an entry is added anywhere, so a changed-path
-      # filter would miss the drift it exists to catch. ~21s.
-      - name: Check pathograph connectivity floor
-        run: just compliance-connectivity
-
-      # The pathograph node-class tree (kb/node_classes/) cites ~2,200 real
-      # `[Disease] Node name` pairs by bare name, the same reference form as
-      # the pathograph targets above and with the same failure mode: renaming
-      # a node in a curation PR silently strands every example that named it,
-      # and a tree whose leaves have drifted from the KB is worse than no tree
-      # because it still looks grounded. The pytest that checks this
-      # (test_committed_tree_examples_resolve_in_kb) sits in the `python`
-      # lane, which a kb/-only PR never enters, so until this step existed the
-      # only catch was the nightly sweep, a day late, on main.
-      #
-      # Ungated and whole-KB for the same reason as its neighbours.
-      - name: Check node-class tree examples resolve
-        run: uv run python -m dismech.node_classes --verify-kb
-
-      # The third target grammar, and the one nothing else sees. A
-      # `proposed_experiments[].{perturbations,readouts}[].target` uses the
-      # `<kind>#<name>` entity-reference form, but a bare name there is skipped
-      # by the entity-ref sweep above (`target` carries bare names in its
-      # pathograph homes, so a value without a `#` is not treated as a
-      # reference) and excluded outright by the pathograph sweep
-      # (`test_experiment_readout_targets_are_not_checked_here`). So the
-      # reference resolves to nothing, in silence: the entry validates, the
-      # terms check passes, and the page renders. 13 such targets across 6
-      # entries were found by the audit this step comes from.
-      #
-      # Ungated and whole-KB like its neighbours, and for the same reason: these
-      # targets are written by curation PRs, which match neither pytest path
-      # filter. Gates only the two states that are breakage rather than backlog;
-      # the rest of the census is advisory (`just knowledge-gap-audit`).
-      - name: Check knowledge-gap experiment targets resolve
-        run: uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet
-
-      # A phenotype bound to a coarse HPO term (HP:0000478 "Abnormality of the
-      # eye", HP:0000077 "Abnormality of the kidney") passes every other gate
-      # while saying almost nothing -- Schaaf-Yang names strabismus, esotropia
-      # and myopia in its description and then discards all three in the
-      # binding. Three legitimate reasons for a coarse binding exist and the KB
-      # already records all three as prose nothing can read, so this requires
-      # `coarse_binding_basis` instead, leaving the unexplained binding as the
-      # only failure.
-      #
-      # It is NOT a specificity metric. Depth and information content are
-      # properties of how HPO is built, not of the claim, and any gradient
-      # towards narrower terms would pressure curators into bindings their
-      # source does not support. The coarse set is a hand-reviewed list.
-      #
-      # Ungated and whole-KB for the same reason as its neighbours: the PRs
-      # that introduce these are curation PRs touching only kb/, which match
-      # neither the `python` nor the `schema` pytest filter. ~35s, offline.
-      # The committed backlog is grandfathered in
-      # tests/coarse_phenotype_baseline.txt; only new bindings fail.
-      - name: Check coarse phenotype bindings say why
-        run: uv run python scripts/check_coarse_phenotypes.py
-
-      # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
-      # stack. `linkml-term-validator` validates slots whose range is bound to an
-      # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain
-      # Descriptors with no such binding, so their `term:` blocks are never looked
-      # at. Confirmed by putting "Totally Bogus Fabricated Label" on one and
-      # watching `just validate-terms` report "Validation passed" (#10197).
-      #
-      # It had already admitted a real defect: NCIT:C288 was curated as
-      # "vancomycin" when that code is Azacitidine, an antineoplastic.
-      #
-      # Offline and cache-first, so this adds no network dependency: it compares
-      # each label against the committed cache/<prefix>/terms.csv. Terms absent
-      # from the caches are reported, not gated -- see the script docstring.
-      - name: Check qualifier ontology terms
-        run: uv run python scripts/check_qualifier_terms.py
-
-      # Ungated for the same reason as the entity-ref step above, and the
-      # argument is if anything sharper. The contract IS covered by pytest
-      # (`test_existing_repo_caches_match_frontmatter_contract`), but that lane
-      # is selected by the `python`/`schema` path filters -- and the PR that
-      # ADDS a cache file is a curation PR touching `kb/` and
-      # `references_cache/`, matching neither. So the sweep never ran on the
-      # only kind of PR that can introduce a malformed entry.
-      #
-      # It matters more now that `reference_title` carries
-      # `implements: dcterms:title` and is validated: lrv reads frontmatter
-      # with ruamel, so an entry ruamel cannot parse does not fail loudly --
-      # it silently drops every title on that reference out of the checked
-      # set. That is the failure mode PMID:27951541 demonstrated, and a
-      # coverage hole is exactly what a validation gate must not have.
-      #
-      # Slower than its neighbours: ~2 min over 43,947 cache files, offline.
-      # The pytest sweep stays as-is; this is a second lane, not a replacement.
-      #
-      # On scope, since the reasoning differs from the two steps above and is
-      # worth not re-deriving: those are whole-repo because a MERGE or a rename
-      # elsewhere can break a file the PR never touched. A malformed cache file
-      # arrives by authoring instead -- the PR that adds it necessarily contains
-      # it -- so changed-file scoping would be sound here and would cost seconds.
-      # Whole-directory is kept for now because it also catches drift from an
-      # unrelated refetch, and because the module's CLI takes a directory rather
-      # than a file list, so narrowing it means changing an entry point shared
-      # with `just qc` and the pytest sweep. If CI time becomes a complaint, the
-      # nightly KB sweep is the right home for the whole-directory pass and this
-      # step should narrow to changed files.
-      #
-      # Note it prints a standing ADVISORY for references_cache/PMID_1899320.md
-      # (a literal `---` inside a value, issue #7697). That never fails the
-      # build, but it does mean the step's steady state is not silent, so a
-      # second advisory would be easy to miss. Closing #7697 removes it.
-      - name: Check reference cache frontmatter
-        run: uv run python -m dismech.reference_cache_frontmatter references_cache
-
-      # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
-      # checks a snippet against the cache, so a false claim in *prose* that a
-      # cited source is defective ("the cached abstract is truncated mid-word",
-      # "that record has no abstract") validated cleanly indefinitely -- it
-      # survived two fix rounds across three sites on #9207, and four sites in
-      # Tetralogy_of_Fallot.yaml before that. Whole-KB because the PRs that add
-      # such claims are curation PRs touching only kb/, which no src/tests path
-      # filter would catch.
-      #
-      # This step never fails the build. Claims of this shape are usually TRUE
-      # and load-bearing (three evidence items in Acute_Annular_Outer_Retinopathy
-      # are downgraded because PMID:18195232 really has no abstract), so the
-      # check adjudicates each claim against the cache and stays silent on the
-      # ones the cache confirms. Only a claim the cache demonstrably contradicts
-      # is printed, for a human to read. ~19s over kb/, offline (issue #9226).
-      - name: Report prose claims contradicted by the reference cache
-        run: uv run python scripts/check_source_defect_claims.py
-
-      # Ungated and whole-directory on purpose. The check that matters here is
-      # "a curated disease must not still have a stub", and the PR that breaks
-      # it is a curation PR touching only kb/ -- no stubs/ path filter would
-      # fire on it. ~20s, offline. See docs/curation-stubs.md.
-      - name: Check the curation stub queue
-        run: uv run dismech-stubs check
-
       # This step and the comorbidity one below stay filter-gated rather than
       # merge_group-forced: they consume the paths-filter's *file lists*, so
       # forcing the gate without a list would validate nothing. On merge_group
@@ -707,6 +400,340 @@ jobs:
         run: |
           echo "Validating changed comorbidity KB files..."
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
+
+      - name: Lint with ruff
+        run: uvx ruff check .
+
+      # Ungated: older curation PRs can restore the retired shared blob without
+      # touching Python. This inspects Git metadata, never the JSON contents.
+      - name: Reject retired dataset cache
+        run: uv run pytest -q tests/test_data.py::test_no_automation_touches_the_frozen_dataset_cache
+
+      # The whole-repo gates. Every one below is ungated, offline and
+      # independent of the others, so scripts/run_ci_gates.sh runs them four
+      # at a time: one after another they took ~10 min of a merge-queue build,
+      # four at a time about half that (12.2 -> 5.7 min locally, 2026-09-24).
+      # Each gate's output is printed afterwards in list order, in its own
+      # collapsed PASS/FAIL group, and a failed gate gets an ::error
+      # annotation with its name, so the log reads as if each were still its
+      # own step. Every gate runs even when another fails.
+      #
+      # Format: `Gate name :: command`, one per line. The comments above each
+      # gate are its rationale, carried over unchanged from when it was its
+      # own step, so "step" in them means that gate. Add a gate here only if
+      # it is offline and whole-repo; a path-gated or network-bound check
+      # belongs in its own step.
+      #
+      # The timeout is ~4x the measured run (5.8 min locally with all 22). The
+      # output is buffered, so without one a hung gate (an OAK download, say)
+      # would show nothing until the job's 6-hour default and hold its queue
+      # slot all that time. The runner prints `finished: <gate>` as each gate
+      # ends, so a timed-out log still says which gates never finished.
+      - name: Run whole-repo gates
+        timeout-minutes: 20
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          scripts/run_ci_gates.sh -j 4 <<'GATES'
+          # Runs on every PR (not gated by path filters) so kb-only changes are
+          # still checked. The full pytest guard only runs when src/tests change,
+          # which would otherwise let folded-scalar hyphen splits into kb/ files.
+          Check for folded-scalar hyphen splits :: uv run python scripts/check_folded_hyphens.py
+
+          # Also ungated: the pytest snippet-length ratchet only runs when src/tests
+          # change, so kb-only curation PRs -- the ones that actually add short
+          # snippets -- would otherwise never be checked. Grandfathered live against
+          # the base branch (origin/<base>), so pre-existing backlog is not
+          # inherited and only snippets this PR adds fail. On push-to-<base> the ref
+          # equals HEAD, so it is a no-op there.
+          Check for new short evidence snippets :: uv run python scripts/check_snippet_length.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason as the length ratchet above: the PRs that
+          # add title-quoting snippets are curation PRs touching only kb/, which no
+          # src/tests path filter would catch. Same live grandfathering against the
+          # base branch, so only what this PR adds can fail (issue #8374).
+          Check for new title-quoting evidence snippets :: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason as the ratchets above, and for a sharper one:
+          # a fabricated `reference_title` is written by exactly the curation PR that
+          # verified the snippet beside it, so it arrives in a kb/-only PR no
+          # src/tests path filter would catch. Offline -- the correct title is
+          # already in the reference's cache frontmatter (issue #9138).
+          Check for new mismatched reference titles :: uv run python scripts/check_reference_titles.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason as the two ratchets above: an evidence-free
+          # `environmental:` exposure is added by curation PRs touching only kb/,
+          # which no src/tests path filter would catch. Unlike those two this is a
+          # hard gate, not a ratchet -- the #8296 backlog reached zero, so there is
+          # nothing to grandfather and no base-branch ref to derive it from.
+          Check for evidence-free environmental exposures :: uv run python scripts/check_environmental_evidence.py
+
+          # Also ungated: there is no `cache/**` path filter, so a curation PR that
+          # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
+          # shape that can introduce the #7682 concatenation corruption -- would
+          # otherwise never run this check (the pytest guard only fires on
+          # src/tests changes). Deterministic, offline, and sub-second.
+          Check term cache structural integrity :: uv run python -m dismech.term_cache_integrity cache
+
+          # Ungated and whole-KB on purpose, for the same reason as the cache check
+          # above: this fires on kb/-only curation PRs, which no src/tests path
+          # filter would catch. An RGD `Not4Curation` term exists, matches its
+          # label, and is reachable from its enum roots, so `just validate-terms`
+          # passes it -- three reached the #8430 tranches that way (issue #8472).
+          # Checks only prefixes with a local sqlite adapter, whose databases the
+          # oak-cache step above already persists across runs; OLS-served prefixes
+          # are reported as skipped rather than silently dropped. On a cold cache
+          # this is where ecto/hgnc/icd10cm/icd11f (~220 MB) get pulled, ~23s
+          # end-to-end; the accumulating cache absorbs it from the second run on.
+          #
+          # Deliberately WITHOUT --require-adapters: a bbop-sqlite outage makes this
+          # step skip the affected prefix and pass, rather than turning every open
+          # curation PR red for a reason none of them can fix. The audit still says
+          # which prefixes it could not check, and the term validation this backstops
+          # would be failing on the same outage anyway. Run it with
+          # --require-adapters (exit 2 on any unbuildable adapter) when you need a
+          # verified-clean answer rather than a gate.
+          Check for Not4Curation ontology bindings :: uv run python scripts/not4curation_audit.py
+
+          # Ungated and whole-tree on purpose, for the same reason as the step
+          # below. A skill file with no SKILL.md, or with one miscased as skill.md,
+          # is silently not loaded -- Claude Code reports nothing and the skill just
+          # never triggers. `microbiome-curation` was in that state for close to a
+          # month (issue #11758). It arrived in #8651, a curation PR adding CMT
+          # disorder entries, so a changed-path filter would have skipped the very
+          # change that broke it. Offline, well under a second.
+          Check Claude Code skill files :: uv run python scripts/check_skill_files.py
+
+          # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
+          # MERGE, not by authoring: two concurrent curation PRs adding the same
+          # block at different points in one file merge without a git conflict, so
+          # each PR stays green against its own base and only the post-merge push
+          # build goes red. Checking only the changed files would therefore have
+          # missed Ulcerative_Colitis.yaml, which sat broken until this sweep found
+          # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
+          Check for duplicate YAML keys :: uv run python scripts/check_duplicate_yaml_keys.py
+
+          # Ungated and whole-repo on purpose. Two tracked paths that differ only in
+          # letter case coexist on this Linux runner, so nothing here fails, while on
+          # the macOS/Windows default filesystem only one of them can exist: one path
+          # shows as modified forever and `git rebase` refuses to run. Such pairs have
+          # been removed by hand four times (#598, #1305, #9540, #11204), most
+          # recently 17 DOI cache files fetched in two capitalizations. The PRs that
+          # add them touch only kb/ and references_cache/, so a path-filtered pytest
+          # lane would skip them. <1s, offline.
+          Check for case-colliding paths :: uv run python scripts/check_case_collisions.py
+
+          # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
+          # the duplicate-key step above -- this is its schema-narrowing twin.
+          # #10003 narrowed EvidenceItemSupportEnum from five values to three while
+          # ~15 curation PRs carrying the retired `PARTIAL` were already open. Every
+          # one was green: the narrowing PR did not contain their files, and they did
+          # not contain the narrowed enum. Only the merge result holds both, and 100
+          # invalid values reached main within a day (issue #10061).
+          #
+          # The existing whole-KB sweep (`just test-kb`) is gated on schema changes,
+          # reasoning that only a schema edit can flip a KB file's validity. That
+          # misses the half of the window where the schema edit has already landed
+          # and the offending file has not: those PRs touch no schema, so no filter
+          # fires. ~21s over 2,860 files, offline, no codegen -- one constraint
+          # rather than conformance, which is what makes it affordable here.
+          Check enum values are permissible :: uv run python scripts/check_enum_values.py
+
+          # Ungated and whole-KB for the same merge-shaped reason as its two
+          # neighbours. A treatment's carrier facts (delivery_platform, targeting
+          # ligand) have two legal homes while the nested
+          # `oligonucleotide_details` copy is being retired: one PR moving a
+          # treatment onto the Treatment-level `delivery_system` block and another
+          # editing the nested copy on that same treatment are each green against
+          # their own base, and only the merge result holds both values. The
+          # renderer resolves `delivery_system` first, so the disagreement is
+          # silent -- the nested value is hidden rather than surfaced.
+          #
+          # Gates on CONFLICT, EMPTY and LIGANDLESS_TARGET only. The nested-only
+          # records are the migration worklist and are reported, never gated:
+          # gating them would turn every oligonucleotide entry in the KB red for a
+          # change none of their curators made. Offline, seconds, one walk.
+          Check delivery systems are consistent :: uv run python scripts/check_delivery_system.py
+
+          # Ungated and whole-KB on purpose, and for a sharper reason than the
+          # checks around it: the entity-ref rules ARE covered by pytest
+          # (`check_entity_ref_foreign_keys`), but that test is selected by the
+          # `python`/`schema` path filters and so never runs on a curation PR --
+          # which touches only `kb/`, and is the only kind of PR that can break a
+          # reference. Two entries reached `main` that way (#9473), and the
+          # reference-only gate added in #9224 would have been unenforceable on
+          # exactly the PRs it was written for.
+          #
+          # Whole-KB rather than changed-files because a PR that renames or deletes
+          # a node need not touch the file holding the reference to it. ~13s over
+          # 2,532 files, offline. The pytest sweep stays as-is; this is a second
+          # lane, not a replacement.
+          Check entity references resolve :: uv run python scripts/check_entity_refs.py
+
+          # The bare-name counterpart of the step above, and a genuinely separate
+          # invariant. `downstream[].target`, `sequelae[].target`,
+          # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
+          # `<kind>#<name>` grammar -- `dismech.graph` matches them verbatim against
+          # another item's `name`. So a break here is invisible to the entity-ref
+          # sweep AND to everything else: the entry validates, terms and snippets
+          # verify, and the page renders. The edge is still appended, so edge counts
+          # never move; the unresolved target becomes an orphan the renderer draws as
+          # a phantom duplicate node, orphaning the real node out of the graph.
+          # #10112 found 175 such targets across 32 entries, one left at 0 of 7.
+          #
+          # Ungated and whole-KB for the same reason as its neighbours: renaming a
+          # node severs the edges pointing at it, which may live in a part of the
+          # file -- or an entry -- the PR never opened. The pre-existing dangling
+          # backlog is grandfathered in tests/causal_target_baseline.txt, so this
+          # gates new breakage only.
+          Check pathograph targets resolve :: uv run python scripts/check_causal_targets.py
+
+          # The step above asks whether a declared causal target RESOLVES. This one
+          # asks whether a phenotype is REACHED at all -- the failure it cannot see.
+          # An entry passes the resolve check perfectly with every phenotype
+          # floating, because a phenotype nobody ever wrote an edge to is not a
+          # broken target, just an absent one. Schizophrenia was the worked case: one
+          # dangling target, and six phenotypes simply never connected.
+          #
+          # Enforces the `min_compliance` floor on `phenotypes[].causal_inlink` from
+          # conf/qc_config.yaml (50.0 against a measured 53.9% when turned on). The
+          # floor is a ratchet against erosion applied to the KB-WIDE AGGREGATE, not
+          # a per-PR gate -- ~100 new entries with everything disconnected move it
+          # about 1.5 points -- so a failure here means sustained drift, not one bad
+          # entry, and the fix is a wiring pass over the worst files rather than a
+          # change to whatever PR happened to go red. Raise the floor as coverage
+          # improves; never lower it to get green.
+          #
+          # Ungated and whole-KB for the same reason as its neighbours: the
+          # aggregate moves when an entry is added anywhere, so a changed-path
+          # filter would miss the drift it exists to catch. ~21s.
+          Check pathograph connectivity floor :: just compliance-connectivity
+
+          # The pathograph node-class tree (kb/node_classes/) cites ~2,200 real
+          # `[Disease] Node name` pairs by bare name, the same reference form as
+          # the pathograph targets above and with the same failure mode: renaming
+          # a node in a curation PR silently strands every example that named it,
+          # and a tree whose leaves have drifted from the KB is worse than no tree
+          # because it still looks grounded. The pytest that checks this
+          # (test_committed_tree_examples_resolve_in_kb) sits in the `python`
+          # lane, which a kb/-only PR never enters, so until this step existed the
+          # only catch was the nightly sweep, a day late, on main.
+          #
+          # Ungated and whole-KB for the same reason as its neighbours.
+          Check node-class tree examples resolve :: uv run python -m dismech.node_classes --verify-kb
+
+          # The third target grammar, and the one nothing else sees. A
+          # `proposed_experiments[].{perturbations,readouts}[].target` uses the
+          # `<kind>#<name>` entity-reference form, but a bare name there is skipped
+          # by the entity-ref sweep above (`target` carries bare names in its
+          # pathograph homes, so a value without a `#` is not treated as a
+          # reference) and excluded outright by the pathograph sweep
+          # (`test_experiment_readout_targets_are_not_checked_here`). So the
+          # reference resolves to nothing, in silence: the entry validates, the
+          # terms check passes, and the page renders. 13 such targets across 6
+          # entries were found by the audit this step comes from.
+          #
+          # Ungated and whole-KB like its neighbours, and for the same reason: these
+          # targets are written by curation PRs, which match neither pytest path
+          # filter. Gates only the two states that are breakage rather than backlog;
+          # the rest of the census is advisory (`just knowledge-gap-audit`).
+          Check knowledge-gap experiment targets resolve :: uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet
+
+          # A phenotype bound to a coarse HPO term (HP:0000478 "Abnormality of the
+          # eye", HP:0000077 "Abnormality of the kidney") passes every other gate
+          # while saying almost nothing -- Schaaf-Yang names strabismus, esotropia
+          # and myopia in its description and then discards all three in the
+          # binding. Three legitimate reasons for a coarse binding exist and the KB
+          # already records all three as prose nothing can read, so this requires
+          # `coarse_binding_basis` instead, leaving the unexplained binding as the
+          # only failure.
+          #
+          # It is NOT a specificity metric. Depth and information content are
+          # properties of how HPO is built, not of the claim, and any gradient
+          # towards narrower terms would pressure curators into bindings their
+          # source does not support. The coarse set is a hand-reviewed list.
+          #
+          # Ungated and whole-KB for the same reason as its neighbours: the PRs
+          # that introduce these are curation PRs touching only kb/, which match
+          # neither the `python` nor the `schema` pytest filter. ~35s, offline.
+          # The committed backlog is grandfathered in
+          # tests/coarse_phenotype_baseline.txt; only new bindings fail.
+          Check coarse phenotype bindings say why :: uv run python scripts/check_coarse_phenotypes.py
+
+          # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
+          # stack. `linkml-term-validator` validates slots whose range is bound to an
+          # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain
+          # Descriptors with no such binding, so their `term:` blocks are never looked
+          # at. Confirmed by putting "Totally Bogus Fabricated Label" on one and
+          # watching `just validate-terms` report "Validation passed" (#10197).
+          #
+          # It had already admitted a real defect: NCIT:C288 was curated as
+          # "vancomycin" when that code is Azacitidine, an antineoplastic.
+          #
+          # Offline and cache-first, so this adds no network dependency: it compares
+          # each label against the committed cache/<prefix>/terms.csv. Terms absent
+          # from the caches are reported, not gated -- see the script docstring.
+          Check qualifier ontology terms :: uv run python scripts/check_qualifier_terms.py
+
+          # Ungated for the same reason as the entity-ref step above, and the
+          # argument is if anything sharper. The contract IS covered by pytest
+          # (`test_existing_repo_caches_match_frontmatter_contract`), but that lane
+          # is selected by the `python`/`schema` path filters -- and the PR that
+          # ADDS a cache file is a curation PR touching `kb/` and
+          # `references_cache/`, matching neither. So the sweep never ran on the
+          # only kind of PR that can introduce a malformed entry.
+          #
+          # It matters more now that `reference_title` carries
+          # `implements: dcterms:title` and is validated: lrv reads frontmatter
+          # with ruamel, so an entry ruamel cannot parse does not fail loudly --
+          # it silently drops every title on that reference out of the checked
+          # set. That is the failure mode PMID:27951541 demonstrated, and a
+          # coverage hole is exactly what a validation gate must not have.
+          #
+          # Slower than its neighbours: ~2 min over 43,947 cache files, offline.
+          # The pytest sweep stays as-is; this is a second lane, not a replacement.
+          #
+          # On scope, since the reasoning differs from the two steps above and is
+          # worth not re-deriving: those are whole-repo because a MERGE or a rename
+          # elsewhere can break a file the PR never touched. A malformed cache file
+          # arrives by authoring instead -- the PR that adds it necessarily contains
+          # it -- so changed-file scoping would be sound here and would cost seconds.
+          # Whole-directory is kept for now because it also catches drift from an
+          # unrelated refetch, and because the module's CLI takes a directory rather
+          # than a file list, so narrowing it means changing an entry point shared
+          # with `just qc` and the pytest sweep. If CI time becomes a complaint, the
+          # nightly KB sweep is the right home for the whole-directory pass and this
+          # step should narrow to changed files.
+          #
+          # Note it prints a standing ADVISORY for references_cache/PMID_1899320.md
+          # (a literal `---` inside a value, issue #7697). That never fails the
+          # build, but it does mean the step's steady state is not silent, so a
+          # second advisory would be easy to miss. Closing #7697 removes it.
+          Check reference cache frontmatter :: uv run python -m dismech.reference_cache_frontmatter references_cache
+
+          # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
+          # checks a snippet against the cache, so a false claim in *prose* that a
+          # cited source is defective ("the cached abstract is truncated mid-word",
+          # "that record has no abstract") validated cleanly indefinitely -- it
+          # survived two fix rounds across three sites on #9207, and four sites in
+          # Tetralogy_of_Fallot.yaml before that. Whole-KB because the PRs that add
+          # such claims are curation PRs touching only kb/, which no src/tests path
+          # filter would catch.
+          #
+          # This step never fails the build. Claims of this shape are usually TRUE
+          # and load-bearing (three evidence items in Acute_Annular_Outer_Retinopathy
+          # are downgraded because PMID:18195232 really has no abstract), so the
+          # check adjudicates each claim against the cache and stays silent on the
+          # ones the cache confirms. Only a claim the cache demonstrably contradicts
+          # is printed, for a human to read. ~19s over kb/, offline (issue #9226).
+          Report prose claims contradicted by the reference cache :: uv run python scripts/check_source_defect_claims.py
+
+          # Ungated and whole-directory on purpose. The check that matters here is
+          # "a curated disease must not still have a stub", and the PR that breaks
+          # it is a curation PR touching only kb/ -- no stubs/ path filter would
+          # fire on it. ~20s, offline. See docs/curation-stubs.md.
+          Check the curation stub queue :: uv run dismech-stubs check
+          GATES
 
       - name: Validate hypothesis review artifacts
         if: github.event_name == 'merge_group' || steps.changes.outputs.kb_hypotheses == 'true'
@@ -736,8 +763,19 @@ jobs:
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
+      #
+      # NOT forced on merge_group, unlike its neighbours, and deliberately
+      # (tests/test_merge_group_ci.py, PATH_DETERMINED_STEPS). `gen-project`
+      # reads nothing but the files in the `schema_generation` filter: the
+      # schema, the generator config, and the locked toolchain. On merge_group
+      # that filter diffs the group's base (the current tip of main) against
+      # its head, so when it is false the group changes none of those inputs
+      # and generation would reproduce, byte for byte, a result main already
+      # holds. The #9538 argument for forcing everything is about checks that
+      # read the KB, whose inputs a path filter cannot bound; this one can.
+      # ~281s of every queue build.
       - name: Run schema generation smoke test
-        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_generation == 'true'
+        if: steps.changes.outputs.schema_generation == 'true'
         run: just test-schema
 
       - name: Run Python code/logic tests
@@ -757,7 +795,26 @@ jobs:
           # since that snapshot reads as newly introduced and the gate is red
           # for every PR.
           SNIPPET_GRADING_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
-        run: just test-python-code
+          # The title-snippet and reference-title ratchets, wired the same way.
+          # Their gates already pass --against-ref origin/<base>; without these
+          # the pytest side read the committed baseline file instead, although
+          # test_committed_baseline_covers_the_committed_kb and
+          # test_no_new_mismatched_reference_titles both say this workflow
+          # sets REFERENCE_TITLE_BASELINE_REF. It never did until now.
+          TITLE_SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          REFERENCE_TITLE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          # Skip the tests marked `ci_step_twin`: each runs the same check as
+          # an ungated step earlier in this job, which has already passed by
+          # the time this step starts (~900s of the serial lane). They still
+          # run locally and in the nightly sweep; tests/test_ci_step_twins.py
+          # fails if a twin's step is removed or gated. See tests/conftest.py.
+          DISMECH_SKIP_CI_STEP_TWINS: "1"
+        # Four xdist workers, one per vCPU on ubuntu-latest. Serially this
+        # lane took ~1180s of a ~54 min queue build; locally the same suite
+        # ran 3.0x faster under `-n 4` (43.9 -> 14.6 min, all 7,718 passing)
+        # with an 8.2 GB memory peak, inside the runner's 16 GB. Explicit
+        # rather than `-n auto` so a larger runner cannot multiply that peak.
+        run: just test-python-code -n 4
 
       - name: Run LinkML example tests
         if: github.event_name == 'merge_group' || steps.changes.outputs.examples == 'true'
