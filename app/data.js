@@ -32368,7 +32368,22 @@ window.searchData = [
     "subtypes": [
       "Coding repeat-expansion ADCA-I",
       "Noncoding repeat-expansion ADCA-I",
-      "Conventional-variant ADCA-I"
+      "Conventional-variant ADCA-I",
+      "SCA4",
+      "SCA12",
+      "SCA13",
+      "SCA14",
+      "SCA19-22",
+      "SCA21",
+      "SCA25",
+      "SCA27",
+      "SCA28",
+      "SCA29",
+      "SCA34",
+      "SCA35",
+      "SCA37",
+      "SCA40",
+      "CANPMR"
     ],
     "description": "Autosomal dominant cerebellar ataxia type I (ADCA-I) is Harding's historical phenotype class for dominantly inherited progressive cerebellar ataxia with additional neurologic manifestations. Depending on the molecular subtype, these can include oculomotor, pyramidal, extrapyramidal, bulbar, spinal, peripheral-nerve, cognitive, psychiatric, or seizure features. ADCA-I is an umbrella rather than a single molecular disease: it includes coding polyglutamine expansions such as SCA1, SCA2, SCA3, and SCA17; other coding or noncoding repeat disorders; and disorders caused by conventional sequence variants or deletions. Consequently, repeat instability, anticipation, protein aggregation, and RNA toxicity apply to particular branches but are not universal properties of the class. Molecular testing is required to resolve the specific genotype. No disease-modifying therapy is established for ADCA-I as a class; management remains subtype-aware, symptomatic, and rehabilitative.",
     "pathophysiology": [
@@ -32379,7 +32394,12 @@ window.searchData = [
       "Misfolded Protein Aggregation and Proteostatic Stress",
       "Transcriptional Dysregulation",
       "Purkinje Cell Degeneration and Cerebellar Cortical Atrophy",
-      "Extracerebellar Neurodegeneration"
+      "Extracerebellar Neurodegeneration",
+      "Purkinje-Cell Ion Channel and Excitability Dysfunction",
+      "Purkinje-Cell Calcium Signaling Dysfunction",
+      "Mitochondrial m-AAA Protease Failure",
+      "Mitochondrial RNA Metabolism Failure",
+      "Very-Long-Chain Fatty Acid Synthesis Deficiency"
     ],
     "cell_types": [
       "cerebellar Purkinje cell",
@@ -32391,11 +32411,18 @@ window.searchData = [
     ],
     "biological_processes": [
       "response to misfolded protein",
-      "calcium ion homeostasis",
       "inclusion body assembly",
       "protein folding",
       "regulation of transcription by RNA polymerase II",
-      "neuron apoptotic process"
+      "neuron apoptotic process",
+      "potassium ion transmembrane transport",
+      "regulation of sodium ion transmembrane transport",
+      "calcium-mediated signaling",
+      "release of sequestered calcium ion into cytosol",
+      "calcium ion homeostasis",
+      "protein quality control for misfolded or incompletely synthesized proteins",
+      "mitochondrial mRNA catabolic process",
+      "very-long-chain fatty acid biosynthetic process"
     ],
     "phenotypes": [
       "Progressive Cerebellar Ataxia",
@@ -32430,7 +32457,20 @@ window.searchData = [
       "TBP",
       "ZFHX3",
       "NOP56",
-      "PRKCG"
+      "PRKCG",
+      "PPP2R2B",
+      "KCNC3",
+      "KCND3",
+      "TMEM240",
+      "PNPT1",
+      "FGF14",
+      "AFG3L2",
+      "ITPR1",
+      "ELOVL4",
+      "TGM6",
+      "DAB1",
+      "CCDC88C",
+      "CAMTA1"
     ],
     "treatments": [
       "Multidisciplinary supportive care",
@@ -32442,10 +32482,10 @@ window.searchData = [
     "source_file": "Autosomal_Dominant_Cerebellar_Ataxia_Type_I.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_I.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 8,
-    "num_genes": 7,
+    "num_pathophysiology": 13,
+    "num_genes": 20,
     "num_treatments": 3,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "58",
     "causal_graph_longest_path": "4"
   },
   {
@@ -36892,7 +36932,7 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal recessive hypercholesterolemia (ARH; hypercholesterolemia, familial, 4) is the recessively inherited form of monogenic hypercholesterolemia, caused by biallelic loss-of-function variants in LDLRAP1. LDLRAP1 encodes the LDL receptor adaptor protein (ARH), a cytosolic adaptor whose phosphotyrosine binding (PTB) domain recognizes the FDNPVY / NPxY motif in the cytoplasmic tail of the LDL receptor and whose clathrin- and AP-2-binding regions bridge the bound receptor to the clathrin endocytic machinery. Its role is tissue specific: it is required for LDL receptor internalization in hepatocytes but not in fibroblasts, where a redundant adaptor (Dab2) suffices. The consequence is mechanistically distinct from the dominant FH genes: the LDL receptor itself is normal and reaches the hepatocyte surface, but without ARH it cannot cluster into clathrin-coated pits and internalize LDL, so hepatic LDL clearance fails, plasma LDL cholesterol is markedly and lifelong elevated, and patients develop tendon xanthomas, premature atherosclerotic cardiovascular disease, and aortic valve stenosis. Clinically ARH behaves as a phenocopy of homozygous familial hypercholesterolemia, though it is often somewhat less severe and more treatment-responsive than receptor-negative homozygous FH because surface LDL receptor is present. It is ultra-rare worldwide, with a founder concentration on Sardinia (the ARH1 and ARH2 alleles).\nThis entry is scoped to the LDLRAP1 / ARH recessive mechanism and is kept separate from the autosomal dominant FH forms already curated (Familial_Hypercholesterolemia, LDLR-Related_Familial_Hypercholesterolemia, Familial_Defective_Apolipoprotein_B-100, Autosomal_Dominant_Hypercholesterolemia_3). The shared distal LDL-to-plaque cascade is not re-derived here; what is disease-specific is the recessive, adaptor-side, liver-restricted internalization defect acting on a structurally normal receptor.\n",
+    "description": "Autosomal recessive hypercholesterolemia (ARH) is caused by biallelic pathogenic LDLRAP1 variants. The encoded ARH adaptor couples the LDL receptor to clathrin-dependent internalization. Impaired hepatic LDL uptake produces marked LDL-cholesterol elevation, childhood xanthomas and risk of premature coronary disease and aortic valve stenosis. The defect is cell-type and ligand dependent: fibroblast LDL uptake can remain normal, whereas lymphocyte uptake is impaired; LDLR-dependent VLDL-remnant clearance is largely preserved in knockout mice and was increased in a human kinetic study. Receptors present at the cell surface are not equivalent to normal clearance, but the defect does not imply uniform absence of receptor activity or treatment response. Statins and combination therapies can substantially reduce LDL-C, with variable target attainment. LDLR-independent agents and apheresis provide additional options. Sardinian founder alleles are prominent in reported cohorts, which do not represent worldwide population frequencies.",
     "pathophysiology": [
       "Biallelic LDLRAP1 Loss-of-Function",
       "Loss of ARH Adaptor Bridging of the LDL Receptor to Clathrin",
@@ -36900,7 +36940,8 @@ window.searchData = [
       "Impaired Hepatic Clearance of Plasma LDL",
       "Lifelong Elevation of Plasma LDL Cholesterol",
       "Premature Atherosclerotic Cardiovascular Disease",
-      "Extravascular Cholesterol Deposition"
+      "Extravascular Cholesterol Deposition",
+      "Preserved Hepatic VLDL Remnant Uptake"
     ],
     "cell_types": [
       "hepatocyte"
@@ -36916,6 +36957,7 @@ window.searchData = [
     "phenotypes": [
       "Hypercholesterolemia",
       "Increased LDL Cholesterol",
+      "Xanthoma",
       "Tendon Xanthoma",
       "Premature Coronary Artery Atherosclerosis",
       "Myocardial Infarction",
@@ -36939,6 +36981,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0003124",
       "HP:0003141",
+      "HP:0000991",
       "HP:0010874",
       "HP:0001677",
       "HP:0001658",
@@ -36947,8 +36990,7 @@ window.searchData = [
       "HP:0001084"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "LDLRAP1"
@@ -36957,8 +36999,12 @@ window.searchData = [
       "Statin plus Ezetimibe (Background Lipid-Lowering Therapy)",
       "Lomitapide",
       "Lipoprotein Apheresis",
-      "Cardiovascular Imaging Surveillance",
-      "PCSK9 Inhibitor"
+      "PCSK9 Inhibitor",
+      "Evinacumab",
+      "Bempedoic Acid in Combination Therapy",
+      "Genetic Counseling",
+      "Lifestyle and Cardiovascular Risk Management",
+      "Pregnancy Planning and Lipid Management"
     ],
     "environmental": [],
     "biochemical": [
@@ -36966,11 +37012,11 @@ window.searchData = [
     ],
     "source_file": "Autosomal_Recessive_Hypercholesterolemia.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Hypercholesterolemia.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "15",
+    "num_treatments": 9,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "7"
   },
   {
@@ -37887,6 +37933,84 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 15",
+    "disease_id": "MONDO:0011160",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss",
+      "Hereditary Hearing Loss"
+    ],
+    "creation_date": "2026-09-23T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bilateral sensorineural hearing loss of early, usually prelingual, onset caused by biallelic pathogenic variants in GIPC3, which encodes a small PDZ-domain adaptor protein of cochlear hair cells and spiral ganglion neurons. Three locus symbols name this one gene: DFNB15 (an Indian family mapped to 19p13), DFNB72 (Pakistani families mapped to 19p13.3) and DFNB95 (a Dutch family). Severity varies between families, from mild-to-severe to profound, and it is usually stable, although slow progression has been documented in at least one patient. The hearing loss is not accompanied by vestibular or retinal involvement in the families assessed.\nNearly everything known about the mechanism comes from mouse. A PDZ-domain missense allele of Gipc3 underlies the ahl5 hearing-loss and jams1 audiogenic-seizure loci in Black Swiss mice, and disorganises the stereocilia bundle, reduces mechanotransduction currents and is followed by late degeneration of hair cells and spiral ganglion neurons. A Gipc3 knockout is profoundly deaf, with malformed cuticular plates and disrupted apical junctions, and GIPC3 binds myosin VI and myosin 18A. How these observations add up to deafness in patients is not settled.",
+    "pathophysiology": [
+      "Biallelic GIPC3 Pathogenic Variants",
+      "Loss of GIPC3 Adaptor Function in Cochlear Hair Cells",
+      "Stereocilia Bundle Disorganisation",
+      "Reduced Hair Cell Mechanotransduction",
+      "Failure of Inner Hair Cell Potassium Current Maturation",
+      "Cuticular Plate and Apical Junction Malformation",
+      "Hair Cell and Spiral Ganglion Neuron Degeneration"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell",
+      "spiral ganglion neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601",
+      "CL:0011113"
+    ],
+    "biological_processes": [
+      "auditory receptor cell stereocilium organization",
+      "detection of mechanical stimulus involved in sensory perception of sound",
+      "potassium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Sensorineural Hearing Loss",
+      "Prelingual Onset",
+      "Severe to Profound Hearing Loss",
+      "Moderate to Severe Hearing Loss",
+      "Progressive Hearing Loss"
+    ],
+    "phenotype_categories": [
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0000399",
+      "HP:0011476",
+      "HP:0012713",
+      "HP:0000408"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "GIPC3"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Hearing Aids and Auditory Habilitation",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_15.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_15.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 22",
@@ -58202,6 +58326,94 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "41",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "CNGB1-Related Retinopathy",
+    "disease_id": "MONDO:0800403",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-08-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CNGB1-related retinopathy is an autosomal recessive rod-cone dystrophy (historically retinitis pigmentosa type 45, RP45) caused by biallelic loss-of-function variants in CNGB1, which encodes the beta subunit of the rod photoreceptor cyclic nucleotide-gated (CNG) channel. The native rod channel is a heterotetramer of three CNGA1 (alpha) subunits and one CNGB1 (beta) subunit; CNGB1a is dispensable for channel formation in isolation but is required for trafficking the complex to the outer segment membrane and setting its normal gating properties. Loss of CNGB1 causes secondary degradation and mistrafficking of the partner CNGA1 subunit, so rods are left with essentially no functional CNG channel at the outer segment, abolishing rod-mediated phototransduction from early childhood. Photoreceptor apoptosis and retinal degeneration follow, but unlike many other phototransduction-cascade RP genes, the loss of rod function and the loss of rod photoreceptor structure are markedly dissociated in time: patients are night-blind from childhood yet typically retain good visual acuity and macular structure into the fourth decade or later, giving an unusually wide therapeutic window that has made this one of the more advanced translational gene-augmentation programs among inherited retinal degenerations. CNGB1 mutations account for approximately 4% of autosomal recessive RP. Because CNGB1 also has a splice isoform (CNGB1b) expressed in olfactory sensory neuron CNG channels, patients frequently also have olfactory dysfunction, distinguishing this entry clinically from most other single-gene rod-cone dystrophies.",
+    "pathophysiology": [
+      "CNGB1 Loss-of-Function Variant",
+      "CNGA1 Subunit Degradation and CNG Channel Assembly Failure",
+      "Loss of Rod CNG Channel Function and cGMP Dysregulation",
+      "Rod Photoreceptor Apoptosis and Progressive Degeneration",
+      "Secondary Cone Dysfunction and Degeneration",
+      "Progressive Visual Field Loss and Blindness"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "Phototransduction",
+      "Neuron apoptotic process",
+      "Visual perception"
+    ],
+    "phenotypes": [
+      "Nyctalopia",
+      "Rod-cone dystrophy",
+      "Undetectable dark-adapted electroretinogram",
+      "Attenuation of retinal blood vessels",
+      "Pigmentary retinopathy",
+      "Constriction of peripheral visual field",
+      "Cystoid macular edema",
+      "Cataract",
+      "Hyposmia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0000510",
+      "HP:0030474",
+      "HP:0007843",
+      "HP:0000580",
+      "HP:0001133",
+      "HP:0011505",
+      "HP:0000518",
+      "HP:0004409"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CNGB1"
+    ],
+    "treatments": [
+      "AAV-Mediated CNGB1 Gene Augmentation Therapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNGB1-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CNGB1-Related_Retinopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "CNS Vasculitis",
@@ -101524,6 +101736,171 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Developmental and Epileptic Encephalopathy 82",
+    "disease_id": "MONDO:0032880",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-23T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental and epileptic encephalopathy 82 (DEE82, GOT2 deficiency) is an ultra-rare autosomal recessive neurometabolic epilepsy caused by biallelic variants in GOT2, which encodes mitochondrial glutamate-oxaloacetate transaminase (mitochondrial aspartate aminotransferase). GOT2 converts mitochondrial oxaloacetate and glutamate into aspartate and 2-oxoglutarate and is one of the six components of the malate-aspartate shuttle, the redox shuttle that carries cytosolic reducing equivalents into mitochondria and so keeps the cytosolic NAD+/NADH ratio high. Loss of GOT2 activity has two separable consequences. The redox arm disturbs cytosolic NAD+-dependent pathways, most notably de novo serine synthesis, whose first step is NAD+-dependent, and shifts pyruvate toward lactate. The aspartate arm reduces mitochondrial aspartate supply, which limits the urea cycle and produces hyperammonaemia and hypercitrullinaemia. Affected children present in the first months of life with feeding difficulties and developmental impairment, then infantile-onset epilepsy, progressive microcephaly, hypotonia evolving into spasticity, severe to profound intellectual disability, cerebral volume loss, and a thin corpus callosum. Combined L-serine and pyridoxine supplementation brought seizure freedom in the two treated children of the founding report, but their intellectual disability remained profound.",
+    "pathophysiology": [
+      "Biallelic GOT2 Loss-of-Function Variants",
+      "Mitochondrial Aspartate Aminotransferase Deficiency",
+      "Malate-Aspartate Shuttle Failure",
+      "Cytosolic NAD+/NADH Redox Imbalance",
+      "Impaired De Novo Serine Biosynthesis",
+      "Increased Pyruvate-to-Lactate Conversion",
+      "Reduced Mitochondrial Aspartate Production",
+      "Secondary Urea Cycle Dysfunction",
+      "Impaired Neuronal Energy Metabolism",
+      "Neuronal Hyperexcitability and Hypersynchrony",
+      "Progressive Cerebral Volume Loss"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "malate-aspartate shuttle",
+      "cell redox homeostasis",
+      "L-serine biosynthetic process",
+      "L-aspartate biosynthetic process",
+      "urea cycle",
+      "cellular respiration"
+    ],
+    "phenotypes": [
+      "Infantile-Onset Seizures",
+      "Global Developmental Delay",
+      "Severe to Profound Intellectual Disability",
+      "Progressive Microcephaly",
+      "Axial Hypotonia",
+      "Spasticity",
+      "Cerebral Atrophy",
+      "Thin Corpus Callosum",
+      "Cerebellar Vermis Hypoplasia",
+      "Cerebral White Matter Abnormality",
+      "Dystonia",
+      "Ataxia",
+      "Developmental Regression",
+      "Absent Speech",
+      "Inability to Walk",
+      "Muscle Weakness",
+      "Skeletal Muscle Atrophy",
+      "Ventriculomegaly",
+      "Autistic Behavior",
+      "Irritability",
+      "Sleep Disturbance",
+      "Bowel Incontinence",
+      "Urinary Incontinence",
+      "Feeding Difficulties",
+      "Failure to Thrive",
+      "Short Stature",
+      "Recurrent Infections",
+      "Increased Circulating Lactate",
+      "Hyperammonemia",
+      "Hyposerinemia",
+      "Elevated Plasma Citrulline",
+      "Decreased Circulating Aspartate",
+      "Hyperhomocysteinemia",
+      "Narrow Forehead",
+      "Broad Nasal Tip",
+      "Thin Upper Lip Vermilion",
+      "Pointed Chin"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Musculoskeletal",
+      "Behavioral",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Growth",
+      "Immunological",
+      "Metabolic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000253",
+      "HP:0008936",
+      "HP:0001257",
+      "HP:0002059",
+      "HP:0033725",
+      "HP:0001320",
+      "HP:0002500",
+      "HP:0001332",
+      "HP:0001251",
+      "HP:0002376",
+      "HP:0001344",
+      "HP:0002540",
+      "HP:0001324",
+      "HP:0003202",
+      "HP:0002119",
+      "HP:0000729",
+      "HP:0000737",
+      "HP:0002360",
+      "HP:0002607",
+      "HP:0000020",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0002719",
+      "HP:0002151",
+      "HP:0001987",
+      "HP:0012279",
+      "HP:0011966",
+      "HP:0034441",
+      "HP:0002160",
+      "HP:0000341",
+      "HP:0000455",
+      "HP:0000219",
+      "HP:0000307"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GOT2"
+    ],
+    "treatments": [
+      "L-Serine and Pyridoxine Supplementation",
+      "Anti-Seizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_And_Epileptic_Encephalopathy_82.yaml",
+    "page_url": "../pages/disorders/Developmental_and_Epileptic_Encephalopathy_82.html",
+    "num_phenotypes": 37,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Developmental and Epileptic Encephalopathy 89",
     "disease_id": "MONDO:0030856",
     "category": "Mendelian",
@@ -103295,6 +103672,159 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "Diets-Jongmans Syndrome",
+    "disease_id": "MONDO:0030012",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Chromatinopathy",
+      "Epigenetic machinery disorder"
+    ],
+    "creation_date": "2026-09-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Diets-Jongmans syndrome (DIJOS) is an autosomal dominant neurodevelopmental syndrome caused by heterozygous germline variants in KDM3B (5q31.2), which encodes a JmjC-domain histone demethylase that removes mono- and di-methylation from histone H3 lysine 9 (H3K9me1/2) and, in mouse hematopoietic cells, symmetric dimethylation from histone H4 arginine 3. The syndrome was delineated in 2019 from 17 individuals (14 probands and 3 similarly affected parents) and is defined by developmental delay or mild to moderate intellectual disability affecting motor and language function, short stature, neonatal feeding difficulties, and a facial gestalt (long ears, broad nasal tip, low-hanging columella, wide mouth, thin upper lip vermilion, pointed chin) that computational facial analysis separates from other intellectual-disability syndromes. Behavioral features (ADHD, autism spectrum disorder), childhood hypotonia, epilepsy, joint hypermobility, hearing loss and isolated congenital anomalies (hernias, cryptorchidism) are variably present. Most variants arise de novo; transmission from similarly or more mildly affected parents is documented, and later reports describe individuals whose presentation is predominantly growth restriction with normal or mildly impaired cognition, so expressivity is markedly variable. Two of the 17 founding individuals developed a childhood hematologic malignancy (acute myeloid leukemia, Hodgkin lymphoma), but both were ascertained through a childhood cancer predisposition study, and whether germline KDM3B variants raise cancer risk is unresolved.",
+    "pathophysiology": [
+      "KDM3B Heterozygous Loss of Function",
+      "Increased H3K9 Methylation at KDM3B Target Loci",
+      "Altered Expression of Plasticity-Related Genes",
+      "Impaired Memory Consolidation",
+      "Reduced Circulating IGF-1",
+      "Impaired Hematopoietic Stem and Progenitor Cell Differentiation"
+    ],
+    "cell_types": [
+      "cerebellar granule cell",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0001031",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "epigenetic regulation of gene expression",
+      "motor learning",
+      "memory",
+      "insulin-like growth factor receptor signaling pathway",
+      "hematopoietic progenitor cell differentiation"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Specific learning disability",
+      "Attention deficit hyperactivity disorder",
+      "Autistic behavior",
+      "Seizure",
+      "Hypotonia",
+      "Short stature",
+      "Decreased body weight",
+      "Growth hormone deficiency",
+      "Microcephaly",
+      "Feeding difficulties in infancy",
+      "Joint hypermobility",
+      "Hearing impairment",
+      "Broad nasal tip",
+      "Wide mouth",
+      "Thin upper lip vermilion",
+      "Pointed chin",
+      "Long ear",
+      "Low hanging columella",
+      "Umbilical hernia",
+      "Inguinal hernia",
+      "Congenital diaphragmatic hernia",
+      "Cryptorchidism",
+      "Cardiomyopathy",
+      "Transient neutropenia",
+      "Acute myeloid leukemia",
+      "Hodgkin lymphoma"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Behavioral",
+      "Neurologic",
+      "Growth",
+      "Endocrine",
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Otologic",
+      "Craniofacial",
+      "Congenital anomaly",
+      "Genitourinary",
+      "Cardiovascular",
+      "Hematologic",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0001328",
+      "HP:0007018",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0004325",
+      "HP:0000824",
+      "HP:0000252",
+      "HP:0008872",
+      "HP:0001382",
+      "HP:0000365",
+      "HP:0000455",
+      "HP:0000154",
+      "HP:0000219",
+      "HP:0000307",
+      "HP:0400004",
+      "HP:0009765",
+      "HP:0001537",
+      "HP:0000023",
+      "HP:0000776",
+      "HP:0000028",
+      "HP:0001638",
+      "HP:0410255",
+      "HP:0004808",
+      "HP:0012189"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KDM3B"
+    ],
+    "treatments": [
+      "Recombinant human growth hormone",
+      "Early developmental rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Diets-Jongmans_Syndrome.yaml",
+    "page_url": "../pages/disorders/Diets-Jongmans_Syndrome.html",
+    "num_phenotypes": 30,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dieulafoy Lesion",
@@ -143367,6 +143897,145 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Hatipoglu Immunodeficiency Syndrome",
+    "disease_id": "MONDO:0957229",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of immunity",
+      "inflammasomopathy",
+      "bone marrow failure syndrome"
+    ],
+    "creation_date": "2026-09-23T19:41:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hatipoglu immunodeficiency syndrome is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function or hypomorphic variants in DPP9 (OMIM 620331). DPP9 is a cytosolic dipeptidyl peptidase whose job in innate immunity is restraint: it holds the two FIIND-domain inflammasome sensors, NLRP1 and CARD8, in a repressed ternary complex. When DPP9 is lost, that restraint is lifted and the sensors fire without any danger signal, so the disease is a derepression disorder rather than a sensor gain-of-function one.\nThe clinical picture in the four children of the founding cohort was a triad of failure to thrive, skin manifestations and pancytopenia, together with susceptibility to bacterial and herpesviral infection. Three of the four needed haematopoietic stem cell transplantation for the marrow phenotype. Presentation is paediatric throughout - growth restriction from infancy, recurrent fever and transfusion-dependent anaemia - and the reported cohort is still small enough that patient counts, not frequencies, are the honest unit.\nTwo things make the mechanism worth reading carefully. First, it splits by tissue and by species: NLRP1 drives the skin arm, demonstrated in patient keratinocytes, while the haematopoietic arm runs through CARD8, a gene that does not exist in the mouse - which is why Dpp9-mutant mice have normal haematopoiesis while the human disease is defined by marrow failure. Second, that split has a therapeutic consequence: IL-1 blockade addresses the NLRP1/IL-1 arm the animal models rescue, but the CARD8-driven pyroptosis of human stem cells was rescued by deleting CARD8 or CASP1 and not by deleting NLRP1.",
+    "pathophysiology": [
+      "Biallelic DPP9 Loss-of-Function Variants",
+      "Loss of DPP9 Restraint on FIIND Inflammasome Sensors",
+      "NLRP1 Inflammasome Activation in Keratinocytes",
+      "CARD8 Inflammasome Activation in Hematopoietic Progenitors",
+      "Caspase-1-Dependent Pyroptosis of Hematopoietic Stem and Progenitor Cells",
+      "Bone Marrow Stem and Progenitor Depletion",
+      "IL-1-Driven Cutaneous and Systemic Inflammation"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "DPP9 restraint of FIIND sensor inflammasome signalling",
+      "interleukin-1 beta production",
+      "CARD8 inflammasome assembly",
+      "pyroptotic inflammatory response"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Anemia",
+      "Petechiae",
+      "Recurrent infections",
+      "Recurrent herpes simplex infection",
+      "Periodic fever",
+      "Selective immunodeficiency",
+      "Severe allergies",
+      "Failure to thrive",
+      "Proportionate short stature",
+      "Intrauterine growth restriction",
+      "Poor feeding",
+      "Hypopigmented and hyperpigmented macules",
+      "Atopic dermatitis",
+      "Fair hair",
+      "Recurrent bronchitis",
+      "Asthma",
+      "Recurrent otitis media",
+      "Specific learning disability",
+      "Delayed speech and language development",
+      "Slurred speech",
+      "Autism spectrum disorder",
+      "Downslanted palpebral fissures",
+      "Inguinal hernia",
+      "Hemivertebrae"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Immunological",
+      "Growth",
+      "Dermatological",
+      "Respiratory",
+      "ENT",
+      "Neurodevelopmental",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0001903",
+      "HP:0000967",
+      "HP:0002719",
+      "HP:0005353",
+      "HP:0032323",
+      "HP:0002721",
+      "HP:0012393",
+      "HP:0001508",
+      "HP:0003508",
+      "HP:0001511",
+      "HP:0011968",
+      "HP:0007441",
+      "HP:0001047",
+      "HP:0002286",
+      "HP:0012387",
+      "HP:0002099",
+      "HP:0000403",
+      "HP:0001328",
+      "HP:0000750",
+      "HP:0001350",
+      "HP:0000729",
+      "HP:0000494",
+      "HP:0000023",
+      "HP:0002937"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DPP9"
+    ],
+    "treatments": [
+      "Allogeneic haematopoietic stem cell transplantation",
+      "Red cell transfusion support",
+      "IL-1 pathway blockade (proposed)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hatipoglu_Immunodeficiency_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hatipoglu_Immunodeficiency_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hearing Loss Autosomal Dominant 34 With or Without Inflammation",
     "disease_id": "MONDO:0033261",
     "category": "Mendelian",
@@ -158786,6 +159455,97 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 1,
     "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Hypomyelinating Leukodystrophy 23",
+    "disease_id": "MONDO:0030514",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 23 (HLD23) is an autosomal recessive multisystem leukodystrophy caused by biallelic missense variants in RNF220, which encodes a RING-finger E3 ubiquitin ligase. It was delineated in 2021 from seven consanguineous families carrying one of two recurrent homozygous substitutions at adjacent, highly conserved arginines \u2014 p.R363Q and p.R365Q. The name of the entity is the point of it: the disease is not a CNS-restricted hypomyelination but a leukodystrophy with ataxia and progressive sensorineural deafness that also carries fibrotic cardiomyopathy and hepatopathy. Affected individuals are reported to become severely ataxic in the early teenage years and to die in the second decade; no published source names the proximate cause of death or reports survival separately for the two alleles.\nTwo mechanistic routes out of the same RNF220 lesion are documented, and they are not the same claim. The first is nuclear: mass spectrometry identified lamin B1 as an RNF220 binding partner, both mutants bind it less well, and patient fibroblasts show the nuclear blebs, herniations and invaginations characteristic of a laminopathy \u2014 which is why the original report classified HLD23 among the laminopathies rather than among the classical myelin-protein leukodystrophies. The second is oligodendroglial: RNF220 stabilises the transcription factors Olig1 and Olig2 by K63-linked polyubiquitination, and a knock-in mouse carrying the patient R365Q allele loses that stabilisation, fails oligodendrocyte progenitor proliferation and differentiation, and is severely hypomyelinated. What has not been shown is how either route produces the deafness, the hepatopathy or the cardiomyopathy; those three limbs of the disease name are clinically established and mechanistically unexplained, and the knock-in mouse does not reproduce them.",
+    "pathophysiology": [
+      "RNF220 Missense Substitution at Conserved Arginine R363/R365",
+      "Reduced RNF220 Binding to Lamin B1",
+      "Nuclear Lamina Disorganization and Abnormal Nuclear Morphology",
+      "Failure of K63-Linked Polyubiquitination and Stabilization of Olig1/Olig2",
+      "Oligodendrocyte Progenitor Proliferation and Differentiation Failure",
+      "Deficient CNS Myelin Deposition",
+      "Progressive Neurodegeneration and White Matter Dysfunction",
+      "Cardiac and Hepatic Involvement",
+      "Auditory Pathway Involvement"
+    ],
+    "cell_types": [
+      "oligodendrocyte precursor cell",
+      "oligodendrocyte",
+      "cardiac muscle cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002453",
+      "CL:0000128",
+      "CL:0000746",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "nuclear envelope organization",
+      "protein K63-linked ubiquitination",
+      "oligodendrocyte differentiation",
+      "glial cell proliferation",
+      "central nervous system myelination",
+      "neuron projection maintenance"
+    ],
+    "phenotypes": [
+      "Leukodystrophy",
+      "Ataxia",
+      "Sensorineural Hearing Loss",
+      "Dilated Cardiomyopathy",
+      "Hepatic Dysfunction",
+      "Intellectual Disability",
+      "Agenesis of the Corpus Callosum"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Auditory",
+      "Cardiovascular",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002415",
+      "HP:0001251",
+      "HP:0000407",
+      "HP:0001644",
+      "HP:0001410",
+      "HP:0001249",
+      "HP:0001274"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RNF220"
+    ],
+    "treatments": [
+      "Supportive and Multidisciplinary Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_23.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_23.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
   },
   {
@@ -198715,6 +199475,116 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Majeed Syndrome",
+    "disease_id": "MONDO:0012316",
+    "category": "",
+    "parents": [
+      "autoinflammatory syndrome"
+    ],
+    "creation_date": "2026-09-09T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive autoinflammatory disorder caused by biallelic LPIN2 mutations, presenting as the triad of chronic sterile multifocal osteomyelitis, congenital dyserythropoietic anaemia and, in a minority of patients, a neutrophilic dermatosis. Lipin-2 is a phosphatidic acid phosphatase that normally restrains the NLRP3 inflammasome; losing it lets IL-1 beta production run unchecked. The cleanest evidence for that mechanism is therapeutic rather than biochemical. These children have raised TNF-alpha in serum, yet TNF blockade did nothing, while IL-1 blockade produced dramatic improvement. The inflammasome account does not by itself explain the bone lesions, and a second arm through macrophage polarisation and accelerated osteoclastogenesis has been proposed to fill that gap.",
+    "pathophysiology": [
+      "Biallelic LPIN2 Loss of Function",
+      "Loss of Lipin-2 Restraint on the NLRP3 Inflammasome",
+      "Excess IL-1 beta Production",
+      "Inflammatory Macrophage Polarisation and Accelerated Osteoclastogenesis",
+      "Sterile Multifocal Bone Inflammation",
+      "Dyserythropoiesis"
+    ],
+    "cell_types": [
+      "macrophage",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "interleukin-1 beta production",
+      "osteoclast differentiation",
+      "macrophage differentiation"
+    ],
+    "phenotypes": [
+      "Osteomyelitis",
+      "Microcytic Anemia",
+      "Bone Pain",
+      "Recurrent Fever",
+      "Failure to Thrive",
+      "Joint Swelling",
+      "Neutrophilic Dermatosis",
+      "Flexion Contracture",
+      "Hepatosplenomegaly"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Hematologic",
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002754",
+      "HP:0001935",
+      "HP:0002653",
+      "HP:0001954",
+      "HP:0001508",
+      "HP:0001386",
+      "HP:0031234",
+      "HP:0001371",
+      "HP:0001433"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LPIN2"
+    ],
+    "treatments": [
+      "Interleukin-1 Blockade",
+      "Tumour Necrosis Factor Blockade",
+      "Blood Transfusion",
+      "Corticosteroids",
+      "Nonsteroidal Anti-inflammatory Drugs",
+      "Methotrexate",
+      "Bisphosphonates",
+      "Physical and Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "C-reactive protein",
+      "Erythrocyte sedimentation rate",
+      "Interleukin-6",
+      "Tumor necrosis factor alpha",
+      "Interleukin-17A"
+    ],
+    "source_file": "Majeed_Syndrome.yaml",
+    "page_url": "../pages/disorders/Majeed_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Major Depressive Disorder",
     "disease_id": "MONDO:0002009",
     "category": "Complex",
@@ -229351,7 +230221,21 @@ window.searchData = [
       "MRX9",
       "MRX63",
       "FRAXE",
-      "ARX-related"
+      "ARX-related",
+      "MRX1",
+      "MRX19",
+      "MRX50",
+      "MRX72",
+      "MRX90",
+      "MRX96",
+      "MRX97",
+      "MRX101",
+      "MRX103",
+      "MRX104",
+      "MRX105",
+      "MRX108",
+      "IDX110",
+      "IDX112"
     ],
     "description": "Non-syndromic X-linked intellectual disability (NS-XLID; historically MRX, and designated IDX in the contemporary family series) is the class of X-linked intellectual disability in which impaired intellectual functioning and adaptive behaviour are the only consistent shared feature. Critically, \"non-syndromic\" does not mean that every affected individual has isolated intellectual disability - variable speech delay, hypotonia, seizures, autistic traits, or minor dysmorphism may coexist - it means that no additional feature is reproducible across the families or disorders carrying the label. It is the third member of the non-syndromic intellectual-disability trio alongside the autosomal dominant and autosomal recessive classes, and is distinguished from both by its inheritance architecture: hemizygous males express a single mutant X allele in every cell, while heterozygous females express it only in the cells where the mutant X remains active, and are typically unaffected or mildly affected. That asymmetry, together with the reproducible male excess among people with intellectual disability (approximately 1.3-1.4 to 1), made X-linked defects the classical explanation for the sex-ratio imbalance and concentrated three decades of gene discovery on a single chromosome - one that carries about 5% of the human genome but about 15% of known intellectual-disability genes.\nTwo structural facts define the class. First, it is extremely genetically heterogeneous while being clinically homogeneous: families were numbered by linkage interval (MRX1, MRX2, ...) rather than by phenotype, because there was no phenotype to distinguish them, and each individual gene accounts for only a small percentage of cases. Of 105 non-syndromal families assigned IDX numbers, 67 have a cloned gene, 33 are mapped without an identified gene, and 5 remain unpublished. Second, the boundary with the syndromic (MRXS) class is unstable and, on the authoritative view, blurred and sometimes arbitrary: 28 of the IDX genes are also associated with XLID syndromes, genes first reported as causing pure MRX acquire recognisable features once larger series are phenotyped, and allelic series place non-syndromic and severely syndromic phenotypes at opposite ends of one gene's mutation spectrum. ARX is the canonical example, spanning nonsyndromal XLID at one end and lissencephaly with abnormal genitalia at the other.\nMechanistically the causal genes do not converge on a single pathway, but they fall repeatedly into a limited set of themes: Rho GTPase signalling to the actin cytoskeleton (PAK3), Rab-dependent synaptic vesicle recycling (GDI1), proposed roles in excitatory synapse formation and neurite outgrowth (IL1RAPL1, TSPAN7), tRNA anticodon-loop modification and translational fidelity (FTSJ1), lipid metabolism (ACSL4), Golgi pH regulation and glycosylation (SLC9A7), and telencephalic transcriptional control (ARX). The unifying pathology is a functional lesion of synaptic plasticity in an anatomically normal brain - a mis-tuned rather than a mis-built or damaged circuit - which is why neuroimaging is characteristically unremarkable. The class is conventionally described as static rather than progressive, though no source cited in this entry quantifies its temporal course.\nA critical caveat governs curation of this class. Because genes were nominated from small families before large population control sets existed, a systematic reassessment against 10,563 control X chromosomes challenged 25 of the 106 genes then accepted; as of the 2017 update, 17 of those 25 remain unresolved. Gene lists for this class published before roughly 2013 should not be treated as settled.",
     "pathophysiology": [
@@ -229376,6 +230260,11 @@ window.searchData = [
       "Golgi and post-Golgi pH regulation",
       "glycosylation of exported cargo",
       "FMR2/AFF2-dependent transcriptional activation",
+      "postsynaptic density organization",
+      "synaptic vesicle endocytosis and cargo retrieval",
+      "ubiquitin-proteasome substrate handling",
+      "chromatin and transcriptional coregulation",
+      "microtubule stabilisation in developing neurons",
       "regulation of synaptic plasticity",
       "dendritic spine morphogenesis"
     ],
@@ -229416,7 +230305,20 @@ window.searchData = [
       "ACSL4",
       "ARX",
       "AFF2",
-      "SLC9A7"
+      "SLC9A7",
+      "IQSEC2",
+      "RPS6KA3",
+      "SYN1",
+      "RAB39B",
+      "DLG3",
+      "SYP",
+      "ZNF711",
+      "MID2",
+      "KLHL15",
+      "FRMPD4",
+      "USP27X",
+      "FGF13",
+      "ZMYM3"
     ],
     "treatments": [
       "Genetic Counseling",
@@ -229430,10 +230332,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Non-Syndromic_X-Linked_Intellectual_Disability.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 5,
-    "num_genes": 9,
+    "num_genes": 22,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Non-functional Pancreatic Neuroendocrine Tumor",
@@ -254837,14 +255739,40 @@ window.searchData = [
       "PCH2",
       "PCH4",
       "PCH6",
-      "PCH10"
+      "PCH10",
+      "PCH1C",
+      "PCH1D",
+      "PCH1E",
+      "PCH2A",
+      "PCH2B",
+      "PCH2C",
+      "PCH2F",
+      "PCH3",
+      "PCH5",
+      "PCH7",
+      "PCH8",
+      "PCH9",
+      "PCH11",
+      "PCH12",
+      "PCH14",
+      "PCH16",
+      "PCH17"
     ],
-    "description": "Pontocerebellar hypoplasia (PCH) is a clinically and genetically heterogeneous group of autosomal recessive neurodegenerative disorders characterized by prenatal-onset hypoplasia and progressive atrophy of the cerebellum and ventral pons, severe intellectual disability, limited motor development, and variable extra-neural features. The common molecular basis involves defects in RNA-processing machinery \u2014 particularly the tRNA splicing endonuclease (TSEN) complex and mitochondrial aminoacyl-tRNA synthetases \u2014 that impair protein synthesis in high-demand developing neurons of the cerebellum and pons. At least 16 subtypes are defined, with PCH2 (TSEN54) being the most common. No disease-modifying therapy exists and management remains supportive.\n",
+    "description": "Pontocerebellar hypoplasia (PCH) is a clinically and genetically heterogeneous group of autosomal recessive neurodegenerative disorders characterized by prenatal-onset hypoplasia and progressive atrophy of the cerebellum and ventral pons, severe intellectual disability, limited motor development, and variable extra-neural features. PCH is divided into numbered subtypes, each defined by its causal gene; most of the genes function in RNA processing or translation, the tRNA splicing endonuclease (TSEN) complex and the RNA exosome being the largest groups among the subtypes curated here, and PCH2 (TSEN54) is the most common form. Several subtypes fall outside that theme entirely: PCH3 is a presynaptic active zone defect (PCLO), PCH8 an ESCRT-III defect in which cerebellar progenitors fail to proliferate (CHMP1A), PCH11 a Golgi retrograde-trafficking defect (TBC1D23), PCH9, PCH12 and PCH16 metabolic enzyme deficiencies (AMPD2, COASY, MINPP1), PCH1E a mitochondrial dynamics defect (SLC25A46), and PCH17 a failure of cerebellar GABAergic neuron specification (PRDM13). No disease-modifying therapy exists and management remains supportive.\n",
     "pathophysiology": [
       "TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing",
-      "RNA Exosome Dysfunction (PCH1B/EXOSC3)",
+      "RNA Exosome Dysfunction (PCH1B/1C/1D)",
       "Mitochondrial tRNA Synthetase Deficiency (PCH6/RARS2)",
       "Anterior Horn Cell Degeneration (PCH1A/VRK1)",
+      "Spliceosome and snRNA Maturation Failure",
+      "ESCRT-III Dysfunction and Impaired Progenitor Proliferation",
+      "Golgi Trafficking Failure",
+      "Mitochondrial Membrane Dynamics Disruption",
+      "Coenzyme A Biosynthesis Deficiency",
+      "Purine Nucleotide Metabolism Failure",
+      "Inositol Polyphosphate Metabolism Failure",
+      "Cerebellar GABAergic Neuron Specification Failure",
+      "Presynaptic Active Zone Assembly Failure",
       "Impaired Cerebellar Development and Progressive Degeneration"
     ],
     "cell_types": [
@@ -254866,7 +255794,20 @@ window.searchData = [
       "RNA catabolic process",
       "mitochondrial translation",
       "tRNA aminoacylation for mitochondrial protein translation",
-      "nuclear envelope organization"
+      "nuclear envelope organization",
+      "snRNA processing",
+      "mRNA splicing, via spliceosome",
+      "multivesicular body assembly",
+      "neural precursor cell proliferation",
+      "retrograde transport, endosome to Golgi",
+      "mitochondrial fusion",
+      "coenzyme A biosynthetic process",
+      "AMP catabolic process",
+      "inositol phosphate catabolic process",
+      "GABAergic neuron differentiation",
+      "cerebellar Purkinje cell differentiation",
+      "presynaptic active zone organization",
+      "neurotransmitter secretion"
     ],
     "phenotypes": [
       "Cerebellar Hypoplasia",
@@ -254916,7 +255857,22 @@ window.searchData = [
       "VRK1 mutations (PCH1A)",
       "RARS2 mutations (PCH6)",
       "EXOSC3 mutations (PCH1B)",
-      "CLP1 mutations (PCH10)"
+      "CLP1 mutations (PCH10)",
+      "EXOSC8 mutations (PCH1C)",
+      "EXOSC9 mutations (PCH1D)",
+      "SLC25A46 mutations (PCH1E)",
+      "TSEN2 mutations (PCH2B)",
+      "TSEN34 mutations (PCH2C)",
+      "TSEN15 mutations (PCH2F)",
+      "PCLO mutations (PCH3)",
+      "TOE1 mutations (PCH7)",
+      "CHMP1A mutations (PCH8)",
+      "AMPD2 mutations (PCH9)",
+      "TBC1D23 mutations (PCH11)",
+      "COASY mutations (PCH12)",
+      "PPIL1 mutations (PCH14)",
+      "MINPP1 mutations (PCH16)",
+      "PRDM13 mutations (PCH17)"
     ],
     "treatments": [
       "Symptomatic and Supportive Care",
@@ -254931,11 +255887,11 @@ window.searchData = [
     "source_file": "Pontocerebellar_Hypoplasia.yaml",
     "page_url": "../pages/disorders/Pontocerebellar_Hypoplasia.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 5,
-    "num_genes": 5,
+    "num_pathophysiology": 14,
+    "num_genes": 20,
     "num_treatments": 6,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Porokeratosis",
@@ -315626,27 +316582,131 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
-    "name": "Usher Syndrome",
-    "disease_id": "MONDO:0019501",
+    "name": "Usher Syndrome Type 1",
+    "disease_id": "MONDO:0010168",
     "category": "Mendelian",
     "parents": [
       "Inherited retinal dystrophy",
-      "Sensorineural hearing loss",
-      "Ciliopathy"
+      "Sensorineural hearing loss"
     ],
-    "creation_date": "2026-06-22T00:00:00Z",
+    "creation_date": "2026-09-24T00:00:00Z",
     "updated_date": null,
     "subtypes": [
-      "USH1",
-      "USH2",
-      "USH3"
+      "USH1B",
+      "USH1C",
+      "USH1D",
+      "USH1F",
+      "USH1G"
     ],
-    "description": "Usher syndrome is the most common inherited cause of combined deaf-blindness, an autosomal recessive disorder characterized by sensorineural hearing loss, progressive retinitis pigmentosa, and, in some forms, vestibular dysfunction. The disease results from mutations in genes encoding components of the Usher protein interactome, a network of proteins that organize the cohesion of the stereocilia hair bundle in cochlear and vestibular hair cells and that participate in trafficking at the photoreceptor periciliary/connecting-cilium region. Three classical clinical types are recognized: USH1 (severe-to-profound congenital deafness, absent vestibular function, adolescent-onset retinitis pigmentosa), USH2 (moderate-to-severe congenital hearing loss, generally normal vestibular function, later-onset retinitis pigmentosa), and USH3 (progressive postlingual hearing loss, variable vestibular involvement, variable retinitis pigmentosa onset).\n",
+    "description": "Usher syndrome type 1 is the mechanism entity in which biallelic loss of a component of the stereocilia upper tip-link density (UTLD) complex - myosin VIIa (MYO7A), harmonin (USH1C), SANS (USH1G), cadherin-23 (CDH23) and protocadherin-15 (PCDH15) - produces congenital profound sensorineural hearing loss, absent vestibular function, and adolescent-onset retinitis pigmentosa. The defining lesion is a tension-bearing complex of the MATURE hair bundle, in which a myosin motor cluster anchored by harmonin and SANS holds the cadherin-23/protocadherin-15 tip link under resting tension so that bundle deflection gates the mechanotransduction channel. This is a different assembly, in a different developmental window, from the transient ankle-link complex of Usher syndrome type 2, and clarin-1 (type 3) belongs to neither.\nIn the retina the same five proteins form a conserved network at the calyceal processes - microvillus-like projections collaring the base of the photoreceptor outer segment in human, macaque and frog. This is NOT the periciliary membrane compartment that carries the type-2 retinal mechanism, and it is the reason the classical mouse models are deaf without retinal degeneration: mice have no calyceal processes at all.\nThe numbered clinical type is retained as the entry label because it is the identity ClinGen and MONDO both curate at, but the entity is defined by the complex rather than by the clinical typing, which is an imperfect proxy - a CLRN1 (type 3) family has been reported as clinically diagnosable as type 1.\n",
     "pathophysiology": [
-      "Usher Protein Complex Loss of Function",
-      "Usher Interactome Disruption in the Hair Bundle",
+      "Upper Tip-Link Density Complex Disruption",
+      "Hair Bundle Cohesion and Tip-Link Tension Failure",
       "Hair Cell Mechanotransduction Failure",
-      "Photoreceptor Connecting Cilium Dysfunction",
+      "Photoreceptor Calyceal Process Network Disruption",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell",
+      "cochlea auditory hair cell",
+      "retinal rod cell",
+      "retinal cone cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601",
+      "CL:4023120",
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "mechanoreceptor differentiation",
+      "sensory perception of sound",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Congenital Sensorineural Hearing Loss",
+      "Vestibular Areflexia",
+      "Delayed Motor Development",
+      "Retinitis Pigmentosa",
+      "Constricted Visual Fields",
+      "Night Blindness",
+      "Abnormal Electroretinogram"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular",
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008527",
+      "HP:0008568",
+      "HP:0002194",
+      "HP:0000510",
+      "HP:0001133",
+      "HP:0000662",
+      "HP:0000512"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYO7A",
+      "USH1C",
+      "CDH23",
+      "PCDH15",
+      "USH1G",
+      "CIB2"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Vestibular Physical Therapy",
+      "Speech and Multimodal Communication Support",
+      "Low-Vision Rehabilitation and Psychosocial Support",
+      "Audiologic and Ophthalmologic Surveillance",
+      "Smoking Avoidance and Sunlight Protection",
+      "Genetic Counseling",
+      "Dual-AAV MYO7A Retinal Gene Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Usher_Syndrome_Type_1.yaml",
+    "page_url": "../pages/disorders/Usher_Syndrome_Type_1.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Usher Syndrome Type 2",
+    "disease_id": "MONDO:0016484",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited retinal dystrophy",
+      "Sensorineural hearing loss"
+    ],
+    "creation_date": "2026-09-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "USH2A",
+      "USH2C",
+      "USH2D"
+    ],
+    "description": "Usher syndrome type 2 is the mechanism entity in which biallelic loss of a component of the ankle-link complex - usherin (USH2A), ADGRV1/VLGR1, and whirlin (WHRN), with PDZD7 as a modifier - produces sloping congenital sensorineural hearing loss, generally intact vestibular function, and later-onset retinitis pigmentosa.\nTwo things separate this from Usher syndrome type 1, and both are structural rather than a matter of severity. First, the ankle-link complex is a TRANSIENT assembly of the DEVELOPING hair bundle - whirlin and PDZD7 orchestrate ADGRV1 and usherin into a condensate by liquid-liquid phase separation, and ankle links are not present in mature stereocilia. The type-1 upper tip-link density is by contrast a tension-bearing complex of the mature bundle. The two are different assemblies acting in different developmental windows, which is why the auditory phenotype here is a sloping loss rather than the profound congenital loss of type 1, and why vestibular function is usually spared.\nSecond, in the retina the type-2 proteins sit at the periciliary membrane compartment, a photoreceptor ciliary trafficking site. That is a different subcellular compartment from the calyceal-process adhesion belt that carries the type-1 retinal mechanism.\nHarmonin (USH1C) is annotated to both complexes. That is not an artifact: harmonin PDZ1 binds the C-terminal PDZ-binding motifs of both usherin and ADGRV1, so it is a deliberate physical bridge between the type-1 and type-2 networks. It is curated as a type-1 gene because the tension-bearing tip-link role is the one whose loss gives the type-1 presentation.\n",
+    "pathophysiology": [
+      "Ankle-Link Complex Assembly Failure",
+      "Developing Hair Bundle Ankle-Link Loss",
+      "Hair Cell Mechanotransduction Failure",
+      "Photoreceptor Periciliary Membrane Complex Disruption",
       "Photoreceptor Degeneration"
     ],
     "cell_types": [
@@ -315670,72 +316730,131 @@ window.searchData = [
       "visual perception"
     ],
     "phenotypes": [
-      "Sensorineural Hearing Loss",
-      "Congenital Sensorineural Hearing Loss",
+      "Sloping Congenital Sensorineural Hearing Loss",
       "Retinitis Pigmentosa",
-      "Cataract",
       "Night Blindness",
       "Constricted Visual Fields",
-      "Abnormal Electroretinogram",
-      "Vestibular Dysfunction",
-      "Delayed Motor Development"
+      "Cataract",
+      "Cystoid Macular Edema",
+      "Abnormal Electroretinogram"
     ],
     "phenotype_categories": [
       "Auditory",
-      "Ophthalmologic",
-      "Vestibular",
-      "Neurologic"
+      "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
       "Ear",
-      "Eye",
-      "Nervous System"
+      "Eye"
     ],
     "phenotype_ids": [
-      "HP:0000407",
       "HP:0008527",
       "HP:0000510",
-      "HP:0000518",
       "HP:0000662",
       "HP:0001133",
-      "HP:0000512",
-      "HP:0008568",
-      "HP:0002194"
+      "HP:0000518",
+      "HP:0011505",
+      "HP:0000512"
     ],
     "frequencies": [],
     "genes": [
-      "MYO7A Mutations",
-      "USH1C Mutations",
-      "CDH23 Mutations",
-      "PCDH15 Mutations",
-      "USH1G Mutations",
-      "USH2A Mutations",
-      "ADGRV1 Mutations",
-      "WHRN Mutations",
-      "CLRN1 Mutations"
+      "USH2A",
+      "ADGRV1",
+      "WHRN",
+      "PDZD7"
     ],
     "treatments": [
-      "Vestibular Physical Therapy",
-      "Cochlear Implantation",
       "Hearing Aids",
-      "Speech and Multimodal Communication Support",
       "Low-Vision Rehabilitation and Psychosocial Support",
       "Audiologic and Ophthalmologic Surveillance",
-      "Smoking Avoidance and Sunlight Protection",
       "Genetic Counseling",
-      "Gene Therapy",
       "Ultevursen (QR-421a)"
     ],
     "environmental": [],
     "biochemical": [],
-    "source_file": "Usher_Syndrome.yaml",
-    "page_url": "../pages/disorders/Usher_Syndrome.html",
-    "num_phenotypes": 9,
+    "source_file": "Usher_Syndrome_Type_2.yaml",
+    "page_url": "../pages/disorders/Usher_Syndrome_Type_2.html",
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
-    "num_genes": 9,
-    "num_treatments": 10,
-    "causal_graph_edges": "17",
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Usher Syndrome Type 3",
+    "disease_id": "MONDO:0016485",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited retinal dystrophy",
+      "Sensorineural hearing loss"
+    ],
+    "creation_date": "2026-09-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Usher syndrome type 3 is the mechanism entity caused by biallelic loss of clarin-1 (CLRN1), producing progressive postlingual sensorineural hearing loss, variable vestibular dysfunction, and variable-onset retinitis pigmentosa.\nClarin-1 is the outlier of the Usher proteins, and that is the reason this is a separate entity rather than a third clinical grade of one disease. It belongs to neither the upper tip-link density complex of type 1 nor the ankle-link complex of type 2. Its core experimentally supported role is actin filament organization, and the in vivo support for it is the disorganized stereocilia of Clrn1-null mice.\nThe retinal arm diverges even further. Clarin-1 is expressed in M\u00dcLLER GLIA, not photoreceptors, in both mouse and human adult retina - so the type-3 retinal mechanism is a glial support failure that causes photoreceptor loss secondarily, rather than a photoreceptor-intrinsic defect. In zebrafish, re-expressing clarin-1 in M\u00fcller glia rescues light-induced retinal cell death while rod- or cone-specific re-expression does not. A single \"photoreceptor connecting cilium dysfunction\" node, as the previously lumped Usher entry carried, was simply wrong for this entity: clarin-1 is not in photoreceptors.\nThe clinical typing is an imperfect proxy for the mechanism in both directions here. A Spanish series reported clarin-1 phenotypic variability such that the progression of hearing impairment, the parameter classically used to separate type 3 from types 1 and 2, does not cleanly assign every CLRN1 family.\n",
+    "pathophysiology": [
+      "Clarin-1 Loss of Function",
+      "Cochlear Hair Bundle Disorganization",
+      "M\u00fcller Glial Support Failure",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "cochlea auditory hair cell",
+      "Mueller cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:4023120",
+      "CL:0000636",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "sensory perception of sound",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Progressive Postlingual Sensorineural Hearing Loss",
+      "Vestibular Dysfunction",
+      "Retinitis Pigmentosa",
+      "Night Blindness",
+      "Constricted Visual Fields"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000408",
+      "HP:0001751",
+      "HP:0000510",
+      "HP:0000662",
+      "HP:0001133"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CLRN1",
+      "HARS1"
+    ],
+    "treatments": [
+      "Hearing Aids and Cochlear Implantation",
+      "Genetic Counseling",
+      "Investigational Gene-Directed Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Usher_Syndrome_Type_3.yaml",
+    "page_url": "../pages/disorders/Usher_Syndrome_Type_3.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Usher Syndrome Type 4",
@@ -327717,19 +328836,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3113,
-  "total_subtypes": 3880,
-  "total_disorders_and_subtypes": 6993,
-  "total_unique_evidence_sources": 45044,
-  "total_unique_publications": 42332,
+  "total_disorder_pages": 3122,
+  "total_subtypes": 3931,
+  "total_disorders_and_subtypes": 7053,
+  "total_unique_evidence_sources": 45196,
+  "total_unique_publications": 42471,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3108,
-  "total_unique_pathological_events": 19505,
+  "total_pathographs": 3117,
+  "total_unique_pathological_events": 19574,
   "total_modules": 178,
-  "total_research_reports": 3222,
+  "total_research_reports": 3227,
   "total_classifications": 20,
   "total_comorbidities": 46,
-  "total_groupings": 103
+  "total_groupings": 104
 };
 window.dispatchEvent(new Event('searchDataReady'));
