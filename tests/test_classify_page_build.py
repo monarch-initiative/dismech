@@ -121,6 +121,12 @@ def test_docs_only_is_incremental():
     assert d.disorder_files == []
 
 
+def test_extension_only_does_not_rebuild_disorder_pages():
+    d = classify([("M", "extension/popup.js"), ("M", "scripts/package_extension.py")])
+    assert d.mode == "incremental"
+    assert d.disorder_files == []
+
+
 def test_unknown_path_fails_safe_to_full():
     d = classify([("A", "some/unexpected/module.py")])
     assert d.mode == "full"

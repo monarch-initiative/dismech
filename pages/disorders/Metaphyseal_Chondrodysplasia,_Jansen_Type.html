@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4138,6 +4206,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4221,6 +4290,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4242,6 +4312,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4338,6 +4409,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4359,6 +4431,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4434,6 +4507,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4455,6 +4529,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4492,6 +4567,7 @@ Two features make this entry mechanistically unusual. The severity tracks the in
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutively-active-pth1r" data-dismech-node="Constitutively Active PTH1R" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutively Active PTH1R</div>
+
 
 
 
@@ -4543,6 +4619,8 @@ This genetic context concerns PTH1R (hgnc:9608). hgnc:9608 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4555,6 +4633,9 @@ This genetic context concerns PTH1R (hgnc:9608). hgnc:9608 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous activating missense variants at H223, T410 or I458 stabilise the active receptor conformation. Most arise de novo; inherited cases are documented.</div>
 
@@ -4642,6 +4723,7 @@ This pathophysiological event involves constitutively active PTH/PTHrP receptor 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4664,6 +4746,7 @@ This pathophysiological event involves constitutively active PTH/PTHrP receptor 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ligand-independent-gs-alpha-and-camp-signaling" data-dismech-node="Ligand-Independent Gs-alpha and cAMP Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Ligand-Independent Gs-alpha and cAMP Signaling</div>
+
 
                 <div class="item-desc">Basal Gs-alpha activation with elevated cAMP. Gs-alpha is the critical mediator of PTH1R action in growth-plate chondrocytes: chondrocyte-specific Gs-alpha knockout accelerates hypertrophy, the mirror image of what constitutive receptor activity does.</div>
 
@@ -4763,6 +4846,7 @@ This pathophysiological event involves adenylate cyclase-activating G protein-co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4785,6 +4869,7 @@ This pathophysiological event involves adenylate cyclase-activating G protein-co
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sik2-sik3-inhibition-and-class-iia-hdac-de-repression" data-dismech-node="SIK2/SIK3 Inhibition and Class IIa HDAC De-repression" data-dismech-type="pathophysiology">
                 <div class="item-name">SIK2/SIK3 Inhibition and Class IIa HDAC De-repression</div>
+
 
                 <div class="item-desc">The transcriptional route from receptor to skeletal phenotype. SIK inhibition de-represses class IIa histone deacetylases, and the genetic evidence for this being the operative path is unusually strong: combined Sik2/Sik3 deletion in osteoblasts and osteocytes produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R that causes JMC. That is a phenocopy in the direction that matters — removing the kinase reproduces the disease.</div>
 
@@ -4935,6 +5020,7 @@ This pathophysiological event involves osteocyte (CL:0000137). CL:0000137 is a c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4956,6 +5042,7 @@ This pathophysiological event involves osteocyte (CL:0000137). CL:0000137 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4981,6 +5068,7 @@ This pathophysiological event involves osteocyte (CL:0000137). CL:0000137 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-growth-plate-chondrocyte-hypertrophy" data-dismech-node="Delayed Growth Plate Chondrocyte Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Growth Plate Chondrocyte Hypertrophy</div>
+
 
                 <div class="item-desc">Chondrocytes fail to progress to hypertrophy on schedule, disorganising the growth plate and producing the metaphyseal widening and irregularity that name the disease. In the normal PTHrP-Indian hedgehog feedback loop this delay is a regulated, transient signal; here it is permanent.</div>
 
@@ -5169,6 +5257,7 @@ This pathophysiological event involves decreased growth plate cartilage chondroc
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5191,6 +5280,7 @@ This pathophysiological event involves decreased growth plate cartilage chondroc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-and-skeletal-calcium-mobilization" data-dismech-node="Renal and Skeletal Calcium Mobilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal and Skeletal Calcium Mobilization</div>
+
 
                 <div class="item-desc">Constitutive PTH1R signalling in kidney and bone raises serum calcium and lowers phosphate with low or suppressed PTH. Bone histomorphometry in two H223R patients shows what this looks like in tissue: increased osteoid with prolonged maturation, intense cortical osteoclast activity, marrow fibrosis, osteoid buildup within osteocyte lacunae, a shortened and sparser canalicular network, enhanced FGF23 and diminished sclerostin staining.</div>
 
@@ -5328,6 +5418,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5349,6 +5440,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,6 +5466,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-short-limbed-short-stature-and-skeletal-deformity" data-dismech-node="Short-Limbed Short Stature and Skeletal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Short-Limbed Short Stature and Skeletal Deformity</div>
+
 
                 <div class="item-desc">The skeletal endpoint: short-limb short stature with joint swelling, bowed lower limbs, scoliosis, and characteristic craniofacial and dental features. Intelligence is normal.</div>
 
@@ -5412,6 +5505,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5434,6 +5528,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypercalciuria" data-dismech-node="Hypercalciuria" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypercalciuria</div>
+
 
                 <div class="item-desc">The filtered calcium load rises with the serum calcium. Unlike serum calcium, urinary calcium/creatinine is consistently elevated in both children and adults, which is what makes it the durable marker of disease activity.</div>
 
@@ -5487,6 +5582,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5509,6 +5605,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrocalcinosis</div>
+
 
                 <div class="item-desc">Calcium deposition in the renal parenchyma, present in most patients in the largest cohort. This is the lesion that accumulates: serum calcium normalises in adults, and nephrocalcinosis does not.</div>
 
@@ -5562,6 +5659,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5584,6 +5682,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-kidney-disease" data-dismech-node="Chronic Kidney Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Kidney Disease</div>
+
 
                 <div class="item-desc">Advanced chronic kidney disease occurred in two of the 24 patients in the largest cohort. It is the least reversible consequence of the disease and the main argument for lifelong calcium and renal surveillance.</div>
 
@@ -5619,6 +5718,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5667,7 +5767,7 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bisphosphonate Therapy for Severe Hypercalcemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for severe hypercalcaemia. Alendronate has been reported to control hypercalciuria in an adult with JMC. This addresses the consequence rather than the receptor.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced chronic kidney disease occurred in two of the 24 patients in the largest cohort. It is the least reversible consequence of the disease and the main argument for lifelong calcium and renal surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutively Active PTH1R\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"constitutively active PTH/PTHrP receptor activity\"], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous activating missense variants at H223, T410 or I458 stabilise the active receptor conformation. Most arise de novo; inherited cases are documented.\", \"gene_terms\": [{\"label\": \"PTH1R\", \"id\": \"hgnc:9608\"}]}}}, {\"id\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocytes fail to progress to hypertrophy on schedule, disorganising the growth plate and producing the metaphyseal widening and irregularity that name the disease. In the normal PTHrP-Indian hedgehog feedback loop this delay is a regulated, transient signal; here it is permanent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate chondrocyte\", \"hypertrophic chondrocyte\"], \"biological_processes\": [\"growth plate cartilage chondrocyte differentiation\"], \"animal_models\": [{\"name\": \"Humanized H223R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"H223R-hPTH1R expressed from the endogenous Pth1r promoter\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Growth plates show markedly expanded proliferating and prehypertrophic zones with progressive loss of type X collagen-positive hypertrophic chondrocytes - the delayed-maturation lesion, seen directly.\"}, {\"name\": \"Jansen H223R-PTH1R transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Collagen II promoter-driven H223R-PTH1R transgene\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Expressing the human JMC allele in growth-plate chondrocytes reproduces the delayed-hypertrophy phenotype and rescues receptor-null mice.\"}]}}, {\"id\": \"Humanized H223R-PTH1R knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Expressing the common human allele from the endogenous locus, in all relevant target tissues. Its defining feature is severity: founders typically died within two months without reproducing, and F1 offspring were small with marked growth plate abnormalities. This model exists because the earlier transgenic lines did not work - promoter-restricted expression gave either excess bone mass or only minor growth plate change, and neither adequately recapitulated the human disease.\"}, {\"id\": \"Humanized T410R-PTH1R knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The best available model, and the one that resolved the field\u0027s problem. Expressing the milder T410R allele from the endogenous locus gives mice with near-normal longevity and fertility - unlike the H223R humanized line, which dies early without breeding - while still showing misshapen long bones, expanded metaphyses, disarrayed chondrocyte zones, reduced primary spongiosa, elevated serum calcium and suppressed PTH. It reproduces both arms of the human disease in one animal, which no earlier model did.\"}, {\"id\": \"Hydration to Reduce Stone and Nephrocalcinosis Risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Generous fluid intake to reduce the risk of hypercalcaemia, hypercalciuria, nephrolithiasis and nephrocalcinosis. Simple, and the first line against the complication that accumulates irreversibly.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002150\"}}, {\"id\": \"Jansen H223R-PTH1R transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Growth-plate-targeted expression of the constitutively active Jansen receptor delays chondrocyte differentiation, and it rescues the early lethality of PTHrP-null mice by preventing their accelerated chondrocyte differentiation. In PTH/PTHrP receptor-null mice the same transgene restored most bone abnormalities but did *not* prevent perinatal lethality, which the authors read as evidence that something besides the abnormal rib cage kills those animals. The informative part for JMC is the first result: a ligand-independent receptor substitutes for the ligand-dependent one in the growth plate and produces delay, which is what the human allele does.\"}, {\"id\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal Gs-alpha activation with elevated cAMP. Gs-alpha is the critical mediator of PTH1R action in growth-plate chondrocytes: chondrocyte-specific Gs-alpha knockout accelerates hypertrophy, the mirror image of what constitutive receptor activity does.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\"]}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Orthopedic Surgery for Limb Deformity and Scoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most patients in the largest series had undergone orthopaedic surgical procedures. GeneReviews directs treatment of severe limb deformity and scoliosis to an orthopaedist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PTH1R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTH1R\"], \"gene_terms\": [{\"label\": \"PTH1R\", \"id\": \"hgnc:9608\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"PTH1R H223R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A histidine-to-arginine substitution at a strictly conserved residue in the first intracellular loop; the original and by far the commonest JMC allele.\"}, {\"id\": \"PTH1R T410R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The milder allele. Transmitted through a father and two sons, and the only genotype in the series whose carriers reached adult heights at or above the third centile.\"}, {\"id\": \"Renal and Skeletal Calcium Mobilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive PTH1R signalling in kidney and bone raises serum calcium and lowers phosphate with low or suppressed PTH. Bone histomorphometry in two H223R patients shows what this looks like in tissue: increased osteoid with prolonged maturation, intense cortical osteoclast activity, marrow fibrosis, osteoid buildup within osteocyte lacunae, a shortened and sparser canalicular network, enhanced FGF23 and diminished sclerostin staining.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteocyte\", \"osteoblast\"], \"animal_models\": [{\"name\": \"Humanized T410R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"T410R-hPTH1R humanized knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Serum calcium is elevated and endogenous PTH suppressed, reproducing the PTH-independent hypercalcaemia that defines the human disease.\"}]}}, {\"id\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcriptional route from receptor to skeletal phenotype. SIK inhibition de-represses class IIa histone deacetylases, and the genetic evidence for this being the operative path is unusually strong: combined Sik2/Sik3 deletion in osteoblasts and osteocytes produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R that causes JMC. That is a phenocopy in the direction that matters \\u2014 removing the kinase reproduces the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\", \"osteocyte\"], \"animal_models\": [{\"name\": \"Humanized T410R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"T410R-hPTH1R humanized knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This model supplies the decisive in vivo test of the SIK-HDAC route: genetic ablation of Hdac4 rescues the growth plate abnormalities, which is an epistasis result rather than a correlation.\"}, {\"name\": \"Sik2/Sik3 double-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sik2 and Sik3 conditional double knockout in osteoblasts and osteocytes\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Combined Sik2/Sik3 deletion produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R.\"}]}}, {\"id\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal endpoint: short-limb short stature with joint swelling, bowed lower limbs, scoliosis, and characteristic craniofacial and dental features. Intelligence is normal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sik2/Sik3 double-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A phenocopy model rather than a disease model, and the reason the SIK node is in this pathograph at all. Deleting the kinases that constitutively active PTH1R inhibits reproduces the JMC skeletal and molecular phenotype - that is, removing the brake from below does what jamming the receptor on does from above.\"}, {\"id\": \"Thiazide Diuretic for Hypercalciuria\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thiazides reduce urinary calcium excretion by increasing distal tubular reabsorption. In the one long-term follow-up available, alendronate alone reduced hypercalciuria but only the addition of a thiazide achieved normocalciuria - which is why it is curated as its own treatment rather than folded into the bisphosphonate entry.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiazide diuretic\"]}}], \"edges\": [{\"source\": \"Constitutively Active PTH1R\", \"target\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The stabilised active receptor drives basal Gs-alpha coupling and cAMP accumulation with no hormone present.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"cAMP-dependent signalling inhibits salt-inducible kinases, which are the kinases that transduce PTH1R\u0027s skeletal actions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same constitutive signal in kidney and bone drives calcium reabsorption and release, producing hypercalcaemia without PTH.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The de-repressed transcriptional program holds chondrocytes in proliferation and delays their differentiation into hypertrophic cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"target\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered endochondral bone formation produces metaphyseal widening, bowed long bones, scoliosis and severe short stature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal and Skeletal Calcium Mobilization\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypercalcaemia raises the filtered calcium load and produces persistent hypercalciuria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalciuria\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained calcium excretion deposits calcium in the renal parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated nephrocalcinosis progresses over years to impaired renal function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydration to Reduce Stone and Nephrocalcinosis Risk\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bisphosphonate Therapy for Severe Hypercalcemia\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiazide Diuretic for Hypercalciuria\", \"target\": \"Hypercalciuria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery for Limb Deformity and Scoliosis\", \"target\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Humanized T410R-PTH1R knock-in mouse\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This model supplies the decisive in vivo test of the SIK-HDAC route: genetic ablation of Hdac4 rescues the growth plate abnormalities, which is an epistasis result rather than a correlation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"T410R is the mildest of the five human alleles, so quantitative severity does not transfer to H223R patients. The rescue is genetic ablation from conception, not a post-hoc intervention.\"}, {\"source\": \"Humanized T410R-PTH1R knock-in mouse\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Serum calcium is elevated and endogenous PTH suppressed, reproducing the PTH-independent hypercalcaemia that defines the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The allele is T410R, which in humans is the milder end of the spectrum and is not the common H223R; and murine mineral-ion handling differs from human in its calcium set point and renal phosphate response, so the magnitude of the abnormality does not transfer even though its direction and PTH-independence do.\"}, {\"source\": \"Humanized H223R-PTH1R knock-in mouse\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Growth plates show markedly expanded proliferating and prehypertrophic zones with progressive loss of type X collagen-positive hypertrophic chondrocytes - the delayed-maturation lesion, seen directly.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The line is barely viable: founders typically die within two months without reproducing, and only mosaic males produced offspring, which constrains what can be asked of it. Serum calcium and phosphate were not different from wild-type littermates, so this model does not reproduce the mineral-ion arm.\"}, {\"source\": \"Sik2/Sik3 double-knockout mouse\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Combined Sik2/Sik3 deletion produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a phenocopy of the mechanism, not a model of the disease: the mice carry no PTH1R lesion, deletion is restricted to osteoblasts and osteocytes rather than chondrocytes, and no mineral-ion phenotype is reported. It cannot be used to test therapies, only to place the node.\"}, {\"source\": \"Jansen H223R-PTH1R transgenic mouse\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Expressing the human JMC allele in growth-plate chondrocytes reproduces the delayed-hypertrophy phenotype and rescues receptor-null mice.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a transgenic overexpression model on a receptor-null background rather than a knock-in of the human heterozygous state, so expression level and cellular context differ from patients. It also addresses only the growth-plate arm; the mineral-ion and renal phenotypes are not what this model was built to test.\"}, {\"source\": \"PTH1R H223R\", \"target\": \"PTH1R\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTH1R T410R\", \"target\": \"PTH1R\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bisphosphonate Therapy for Severe Hypercalcemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for severe hypercalcaemia. Alendronate has been reported to control hypercalciuria in an adult with JMC. This addresses the consequence rather than the receptor.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced chronic kidney disease occurred in two of the 24 patients in the largest cohort. It is the least reversible consequence of the disease and the main argument for lifelong calcium and renal surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutively Active PTH1R\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"constitutively active PTH/PTHrP receptor activity\"], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous activating missense variants at H223, T410 or I458 stabilise the active receptor conformation. Most arise de novo; inherited cases are documented.\", \"gene_terms\": [{\"label\": \"PTH1R\", \"id\": \"hgnc:9608\"}]}}}, {\"id\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocytes fail to progress to hypertrophy on schedule, disorganising the growth plate and producing the metaphyseal widening and irregularity that name the disease. In the normal PTHrP-Indian hedgehog feedback loop this delay is a regulated, transient signal; here it is permanent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate chondrocyte\", \"hypertrophic chondrocyte\"], \"biological_processes\": [\"growth plate cartilage chondrocyte differentiation\"], \"animal_models\": [{\"name\": \"Humanized H223R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"H223R-hPTH1R expressed from the endogenous Pth1r promoter\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Growth plates show markedly expanded proliferating and prehypertrophic zones with progressive loss of type X collagen-positive hypertrophic chondrocytes - the delayed-maturation lesion, seen directly.\"}, {\"name\": \"Jansen H223R-PTH1R transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Collagen II promoter-driven H223R-PTH1R transgene\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Expressing the human JMC allele in growth-plate chondrocytes reproduces the delayed-hypertrophy phenotype and rescues receptor-null mice.\"}]}}, {\"id\": \"Humanized H223R-PTH1R knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Expressing the common human allele from the endogenous locus, in all relevant target tissues. Its defining feature is severity: founders typically died within two months without reproducing, and F1 offspring were small with marked growth plate abnormalities. This model exists because the earlier transgenic lines did not work - promoter-restricted expression gave either excess bone mass or only minor growth plate change, and neither adequately recapitulated the human disease.\"}, {\"id\": \"Humanized T410R-PTH1R knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The best available model, and the one that resolved the field\u0027s problem. Expressing the milder T410R allele from the endogenous locus gives mice with near-normal longevity and fertility - unlike the H223R humanized line, which dies early without breeding - while still showing misshapen long bones, expanded metaphyses, disarrayed chondrocyte zones, reduced primary spongiosa, elevated serum calcium and suppressed PTH. It reproduces both arms of the human disease in one animal, which no earlier model did.\"}, {\"id\": \"Hydration to Reduce Stone and Nephrocalcinosis Risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Generous fluid intake to reduce the risk of hypercalcaemia, hypercalciuria, nephrolithiasis and nephrocalcinosis. Simple, and the first line against the complication that accumulates irreversibly.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002150\"}}, {\"id\": \"Jansen H223R-PTH1R transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Growth-plate-targeted expression of the constitutively active Jansen receptor delays chondrocyte differentiation, and it rescues the early lethality of PTHrP-null mice by preventing their accelerated chondrocyte differentiation. In PTH/PTHrP receptor-null mice the same transgene restored most bone abnormalities but did *not* prevent perinatal lethality, which the authors read as evidence that something besides the abnormal rib cage kills those animals. The informative part for JMC is the first result: a ligand-independent receptor substitutes for the ligand-dependent one in the growth plate and produces delay, which is what the human allele does.\"}, {\"id\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal Gs-alpha activation with elevated cAMP. Gs-alpha is the critical mediator of PTH1R action in growth-plate chondrocytes: chondrocyte-specific Gs-alpha knockout accelerates hypertrophy, the mirror image of what constitutive receptor activity does.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\"]}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Orthopedic Surgery for Limb Deformity and Scoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most patients in the largest series had undergone orthopaedic surgical procedures. GeneReviews directs treatment of severe limb deformity and scoliosis to an orthopaedist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PTH1R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTH1R\"], \"gene_terms\": [{\"label\": \"PTH1R\", \"id\": \"hgnc:9608\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"PTH1R H223R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A histidine-to-arginine substitution at a strictly conserved residue in the first intracellular loop; the original and by far the commonest JMC allele.\"}, {\"id\": \"PTH1R T410R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The milder allele. Transmitted through a father and two sons, and the only genotype in the series whose carriers reached adult heights at or above the third centile.\"}, {\"id\": \"Renal and Skeletal Calcium Mobilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive PTH1R signalling in kidney and bone raises serum calcium and lowers phosphate with low or suppressed PTH. Bone histomorphometry in two H223R patients shows what this looks like in tissue: increased osteoid with prolonged maturation, intense cortical osteoclast activity, marrow fibrosis, osteoid buildup within osteocyte lacunae, a shortened and sparser canalicular network, enhanced FGF23 and diminished sclerostin staining.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteocyte\", \"osteoblast\"], \"animal_models\": [{\"name\": \"Humanized T410R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"T410R-hPTH1R humanized knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Serum calcium is elevated and endogenous PTH suppressed, reproducing the PTH-independent hypercalcaemia that defines the human disease.\"}]}}, {\"id\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcriptional route from receptor to skeletal phenotype. SIK inhibition de-represses class IIa histone deacetylases, and the genetic evidence for this being the operative path is unusually strong: combined Sik2/Sik3 deletion in osteoblasts and osteocytes produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R that causes JMC. That is a phenocopy in the direction that matters \\u2014 removing the kinase reproduces the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\", \"osteocyte\"], \"animal_models\": [{\"name\": \"Humanized T410R-PTH1R knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"T410R-hPTH1R humanized knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This model supplies the decisive in vivo test of the SIK-HDAC route: genetic ablation of Hdac4 rescues the growth plate abnormalities, which is an epistasis result rather than a correlation.\"}, {\"name\": \"Sik2/Sik3 double-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sik2 and Sik3 conditional double knockout in osteoblasts and osteocytes\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Combined Sik2/Sik3 deletion produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R.\"}]}}, {\"id\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal endpoint: short-limb short stature with joint swelling, bowed lower limbs, scoliosis, and characteristic craniofacial and dental features. Intelligence is normal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sik2/Sik3 double-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A phenocopy model rather than a disease model, and the reason the SIK node is in this pathograph at all. Deleting the kinases that constitutively active PTH1R inhibits reproduces the JMC skeletal and molecular phenotype - that is, removing the brake from below does what jamming the receptor on does from above.\"}, {\"id\": \"Thiazide Diuretic for Hypercalciuria\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thiazides reduce urinary calcium excretion by increasing distal tubular reabsorption. In the one long-term follow-up available, alendronate alone reduced hypercalciuria but only the addition of a thiazide achieved normocalciuria - which is why it is curated as its own treatment rather than folded into the bisphosphonate entry.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiazide diuretic\"]}}], \"edges\": [{\"source\": \"Constitutively Active PTH1R\", \"target\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The stabilised active receptor drives basal Gs-alpha coupling and cAMP accumulation with no hormone present.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"cAMP-dependent signalling inhibits salt-inducible kinases, which are the kinases that transduce PTH1R\u0027s skeletal actions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ligand-Independent Gs-alpha and cAMP Signaling\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same constitutive signal in kidney and bone drives calcium reabsorption and release, producing hypercalcaemia without PTH.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The de-repressed transcriptional program holds chondrocytes in proliferation and delays their differentiation into hypertrophic cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"target\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered endochondral bone formation produces metaphyseal widening, bowed long bones, scoliosis and severe short stature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal and Skeletal Calcium Mobilization\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypercalcaemia raises the filtered calcium load and produces persistent hypercalciuria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypercalciuria\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained calcium excretion deposits calcium in the renal parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated nephrocalcinosis progresses over years to impaired renal function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydration to Reduce Stone and Nephrocalcinosis Risk\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bisphosphonate Therapy for Severe Hypercalcemia\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiazide Diuretic for Hypercalciuria\", \"target\": \"Hypercalciuria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery for Limb Deformity and Scoliosis\", \"target\": \"Short-Limbed Short Stature and Skeletal Deformity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Humanized T410R-PTH1R knock-in mouse\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This model supplies the decisive in vivo test of the SIK-HDAC route: genetic ablation of Hdac4 rescues the growth plate abnormalities, which is an epistasis result rather than a correlation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"T410R is the mildest of the five human alleles, so quantitative severity does not transfer to H223R patients. The rescue is genetic ablation from conception, not a post-hoc intervention.\"}, {\"source\": \"Humanized T410R-PTH1R knock-in mouse\", \"target\": \"Renal and Skeletal Calcium Mobilization\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Serum calcium is elevated and endogenous PTH suppressed, reproducing the PTH-independent hypercalcaemia that defines the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The allele is T410R, which in humans is the milder end of the spectrum and is not the common H223R; and murine mineral-ion handling differs from human in its calcium set point and renal phosphate response, so the magnitude of the abnormality does not transfer even though its direction and PTH-independence do.\"}, {\"source\": \"Humanized H223R-PTH1R knock-in mouse\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Growth plates show markedly expanded proliferating and prehypertrophic zones with progressive loss of type X collagen-positive hypertrophic chondrocytes - the delayed-maturation lesion, seen directly.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The line is barely viable: founders typically die within two months without reproducing, and only mosaic males produced offspring, which constrains what can be asked of it. Serum calcium and phosphate were not different from wild-type littermates, so this model does not reproduce the mineral-ion arm.\"}, {\"source\": \"Sik2/Sik3 double-knockout mouse\", \"target\": \"SIK2/SIK3 Inhibition and Class IIa HDAC De-repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Combined Sik2/Sik3 deletion produces a skeletal and molecular phenotype closely resembling that of the constitutively active PTH1R.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a phenocopy of the mechanism, not a model of the disease: the mice carry no PTH1R lesion, deletion is restricted to osteoblasts and osteocytes rather than chondrocytes, and no mineral-ion phenotype is reported. It cannot be used to test therapies, only to place the node.\"}, {\"source\": \"Jansen H223R-PTH1R transgenic mouse\", \"target\": \"Delayed Growth Plate Chondrocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Expressing the human JMC allele in growth-plate chondrocytes reproduces the delayed-hypertrophy phenotype and rescues receptor-null mice.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a transgenic overexpression model on a receptor-null background rather than a knock-in of the human heterozygous state, so expression level and cellular context differ from patients. It also addresses only the growth-plate arm; the mineral-ion and renal phenotypes are not what this model was built to test.\"}, {\"source\": \"PTH1R\", \"target\": \"Constitutively Active PTH1R\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTH1R H223R\", \"target\": \"PTH1R\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTH1R T410R\", \"target\": \"PTH1R\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5739,6 +5839,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5756,6 +5859,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5782,6 +5886,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5846,6 +5951,9 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5860,6 +5968,7 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5916,6 +6025,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5930,6 +6042,7 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5984,6 +6097,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5998,6 +6114,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6054,6 +6171,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6068,6 +6188,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6133,6 +6254,9 @@ This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6271,7 @@ This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6326,9 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6215,6 +6343,7 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6269,6 +6398,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6283,6 +6415,7 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6346,6 +6479,9 @@ This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6360,6 +6496,7 @@ This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6414,6 +6551,9 @@ This clinical feature is Bowing of the legs (HP:0002979). HP:0002979 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6428,6 +6568,7 @@ This clinical feature is Bowing of the legs (HP:0002979). HP:0002979 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,6 +6632,9 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6505,6 +6649,7 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6704,9 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6573,6 +6721,7 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6597,6 +6746,7 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6660,6 +6810,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6674,6 +6827,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6739,6 +6893,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6753,6 +6910,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6851,6 +7009,9 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6865,6 +7026,7 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6892,6 +7054,7 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6913,6 +7076,7 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6947,6 +7111,12 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A histidine-to-arginine substitution at a strictly conserved residue in the first intracellular loop; the original and by far the commonest JMC allele.</div>
 
 
@@ -6969,6 +7139,12 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
         PTH1R T410R
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The milder allele. Transmitted through a father and two sons, and the only genotype in the series whose carriers reached adult heights at or above the third centile.</div>
@@ -7051,6 +7227,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7061,6 +7240,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7097,6 +7279,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7140,6 +7323,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7206,6 +7390,9 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7216,6 +7403,9 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
     </div>
+
+
+
 
 
 
@@ -7252,6 +7442,7 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7295,6 +7486,7 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7383,6 +7575,9 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7393,6 +7588,9 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -7429,6 +7627,7 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7472,6 +7671,7 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7538,6 +7738,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7548,6 +7751,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7584,6 +7790,7 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7627,6 +7834,7 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7694,6 +7902,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7704,6 +7915,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7729,6 +7943,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7796,6 +8011,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7842,6 +8058,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7911,6 +8128,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7965,6 +8183,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7986,6 +8205,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8043,6 +8263,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8094,6 +8315,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8164,6 +8386,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8185,6 +8408,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8240,6 +8464,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8261,6 +8486,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8314,6 +8540,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8335,6 +8562,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8405,6 +8633,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8426,6 +8655,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8508,6 +8738,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8529,6 +8760,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8587,6 +8819,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8608,6 +8841,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8757,6 +8991,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8796,6 +9031,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8875,6 +9111,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8914,6 +9151,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9051,6 +9289,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9090,6 +9329,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9205,6 +9445,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9314,6 +9555,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11156,6 +11398,31 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming hazard. kb/disorders/Chung-Jansen_Syndrome.yaml is a different disease (PHIP-related) sharing only the eponym. Nothing was cited across between the two entries, and no Chung-Jansen source was consulted.
+Deep research. One OpenScientist report was generated (research/Metaphyseal_Chondrodysplasia_Jansen_Type-deep-research-openscientist.md). It was the cleanest of the five reports in this batch: 32/32 references verified, 33/34 terms verified, and one label mismatch (GO:0007050, whose ontology label resolves as the bare identifier because the term is obsolete — it is not used here).
+Review round 1 (PR #10146) added, from evidence already in the branch or one fetch away: joint swelling and two dental phenotypes from the GeneReviews clinical characteristics; a diagnosis section and the Blomstrand loss-of-function contrast as a differential; the thiazide, which had been described only inside an explanation string; three animal models, including the T410R humanized knock-in whose Hdac4 rescue is the decisive in vivo support for the SIK-HDAC node this entry already carried; and a split of the bundled renal node into hypercalciuria, nephrocalcinosis and chronic kidney disease. GO:0004930 was replaced with GO:0004991, the parathyroid hormone receptor activity term, which is what the node actually describes.
+It is worth recording that this report *declined to guess* the MONDO ID, writing &#34;MONDO ID not resolved in this investigation&#34; rather than supplying a plausible-looking wrong one. Three of the other four reports in this batch offered a disease-level MONDO term that named an entirely different disease while reporting a confabulation rate of 0.0. Abstaining was the correct behaviour and is the reason this entry needed no MONDO correction.
+Care guidance recorded here rather than modelled, because none of it is an intervention with a mechanism target. Contact sports and other high-risk activities are to be avoided in those with significant skeletal involvement. The full GeneReviews surveillance programme also covers growth and limb-length measurement every six to twelve months in children, dental review with radiographs, audiometry and ophthalmic assessment every one to two years, and blood pressure at each visit; the mineral and renal elements of it are modelled as a diagnosis record because they are what prevent the disease&#39;s least reversible outcome.
+Deliberately not curated. No prevalence record: no population rate has been published, and the largest series is 24 patients. The FGF23 elevation reported in JMC is real but the quotable statements attach it either to bisphosphonate pharmacology or to immunohistochemical staining intensity rather than to a measured circulating disease phenotype, so no biochemical record is made for it; the osteocyte staining finding is carried in the pathophysiology node description instead. The craniofacial series (PMID:39830149) was consulted but not curated as its own phenotype record: it needs frequency data the abstract does not carry. Its cache is deliberately not shipped, because an uncited reference cache belongs to no entry - which is also why the earlier claim here that it &#34;is cached&#34; became wrong once the uncited-cache pruning pass ran. Hypertension was initially left out on the same reasoning - the only dedicated report is a single neonate, and its own title poses the association as a question - but that reading missed that GeneReviews independently tells clinicians to measure blood pressure at every visit and to treat elevation with angiotensin-pathway drugs. A disorder-specific management recommendation is not a single case, so hypertension is now curated with no frequency band and the case report attached as INDIRECT.
+Two validator catches worth recording. A first draft quoted the article title of PMID:11713230 as the transgenic-mouse evidence; the reference validator rejected it, the abstract turned out to contain a far better sentence, and reading it also corrected the entry - the transgene rescues PTHrP-null lethality but does *not* prevent perinatal lethality in receptor-null mice, which the first draft had conflated. Separately, the inverse-agonist snippet originally included the peptide&#39;s bracketed residue notation and failed to match, because bracketed spans are stripped before matching unless conf/reference_validator_config.yaml lists a literal_bracket_patterns entry. Rather than widen that shared config for one quote, the snippet was shortened to a bracket-free span of the same sentence.
+Frequency bands are given for short stature, hypercalciuria and nephrocalcinosis, where the cohort text supports &#34;all patients except&#34;, &#34;consistently elevated&#34; and &#34;most&#34; respectively. Everything else is unbanded.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Metaphyseal Chondrodysplasia, Jansen Type</strong> · 2026-08-30T07:12:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Metaphyseal_Chondrodysplasia_Jansen_Type/2026-08-30T071258Z-claude-code-3315c1.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of Jansen metaphyseal chondrodysplasia (MONDO:0007982, PTH1R), using GeneReviews PMID:40638774 as the phenotype baseline plus the 24-patient natural-history series and the SIK/HDAC mechanism work. One OpenScientist deep-research report was generated and read; it was the cleanest of this batch, with 32/32 references verified and 33/34 terms verified, its single label mismatch being the obsolete GO:0007050, which is not used. Notably this report declined to guess a MONDO ID, writing that it was not resolved, where three of the other four reports in the batch supplied a disease-level MONDO term naming a different disease. Two validator catches: a first draft quoted the article title of PMID:11713230 as animal-model evidence and the reference validator rejected it; reading the actual abstract supplied a better sentence and corrected a factual error, since the transgene rescues PTHrP-null lethality but does not prevent perinatal lethality in receptor-null mice, which the draft had conflated. Separately the inverse-agonist snippet failed to match because bracketed residue notation is stripped before matching; rather than widen conf/reference_validator_config.yaml for one quote, the snippet was shortened to a bracket-free span. Named Entity Confusion: Chung-Jansen syndrome (PHIP) shares only the eponym and nothing was cited across. Validated with just validate (53/53 snippets verified), check-entity-refs, check-duplicate-keys, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

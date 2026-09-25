@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4232,6 +4300,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4256,6 +4325,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4277,6 +4347,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4345,6 +4416,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4366,6 +4438,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4554,6 +4627,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4578,6 +4652,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4599,6 +4674,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4768,6 +4844,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4789,6 +4866,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4951,6 +5029,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4972,6 +5051,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5009,6 +5089,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-still-spectrum-monocyte-and-macrophage-activation-extrapolated" data-dismech-node="Still-spectrum monocyte and macrophage activation (extrapolated)" data-dismech-type="pathophysiology">
                 <div class="item-name">Still-spectrum monocyte and macrophage activation (extrapolated)</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">AOSD literature implicates PAMP/DAMP-pattern-recognition-receptor signalling and other stimuli in monocyte/macrophage activation. This is a hypothesis for Wissler-labelled illness only when the Still-spectrum interpretation is accepted; no Wissler-specific cellular study was identified.</div>
 
@@ -5220,6 +5307,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5242,6 +5330,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-still-spectrum-nlrp3-and-il-1-il-18-activation-extrapolated" data-dismech-node="Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)" data-dismech-type="pathophysiology">
                 <div class="item-name">Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">AOSD studies describe NLRP3 inflammasome activation, caspase-1 activation, and maturation of IL-1β and IL-18 in activated monocytes/macrophages. No corresponding measurement has been reported specifically in a Wissler-syndrome cohort.</div>
 
@@ -5487,6 +5582,7 @@ This pathophysiological event involves increased interleukin-18 production (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5509,6 +5605,13 @@ This pathophysiological event involves increased interleukin-18 production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-systemic-inflammatory-episodes" data-dismech-node="Recurrent systemic inflammatory episodes" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent systemic inflammatory episodes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The directly observed syndrome is a recurrent inflammatory state marked by fever, polymorphous exanthem, leukocytosis, and arthralgia. The proximal disease-specific molecular cause is unresolved.</div>
 
@@ -5664,6 +5767,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5686,6 +5790,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-small-vessel-inflammation" data-dismech-node="Cutaneous small-vessel inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous small-vessel inflammation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Skin biopsy in one diagnostically complex case was interpreted as urticarial vasculitis. This case observation should not be generalized to every Wissler-associated exanthem.</div>
 
@@ -5811,6 +5922,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5833,6 +5945,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-microvascular-intravascular-coagulation" data-dismech-node="Renal microvascular intravascular coagulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal microvascular intravascular coagulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A renal biopsy in a single report of persistent microscopic hematuria was compatible with intravascular coagulation. This rare case-level lesion is not evidence of a universal renal mechanism.</div>
 
@@ -5922,6 +6041,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5944,6 +6064,13 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pericardial-inflammation" data-dismech-node="Pericardial inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pericardial inflammation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Pericarditis, sometimes with an effusion, is a reported cardiac complication. It is separated from myocardial inflammation because the tissues and clinical consequences are distinct.</div>
 
@@ -6043,6 +6170,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6064,6 +6192,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6089,6 +6218,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-inflammation" data-dismech-node="Myocardial inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial inflammation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Myocarditis is reported within pericardo-myocarditis. One chronic case progressed over seven years to refractory congestive cardiac failure.</div>
 
@@ -6186,6 +6322,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6231,7 +6368,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0011227\", \"term_label\": \"Elevated circulating C-reactive protein concentration\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CRP reports systemic inflammation but is not disease-specific.\"}]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cutaneous small-vessel inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin biopsy in one diagnostically complex case was interpreted as urticarial vasculitis. This case observation should not be generalized to every Wissler-associated exanthem.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0003565\", \"term_label\": \"Elevated erythrocyte sedimentation rate\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ESR reports systemic inflammation but is not disease-specific.\"}]}}, {\"id\": \"Exanthem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:4000054\"}}, {\"id\": \"Hyperferritinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"HP:0003281\", \"term_label\": \"Increased circulating ferritin concentration\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ferritin reports inflammatory activity but does not resolve nosology.\"}]}}, {\"id\": \"IL-1 inhibition after Still-disease classification (conditional)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra or canakinumab may be appropriate when a patient is diagnosed or reclassified as Still disease under contemporary criteria. No Wissler-specific trial was identified, so this is not an evidence-based treatment recommendation for a distinct Wissler entity. The two agents are different biologic platforms: anakinra is a recombinant IL-1 receptor antagonist protein given daily, whereas canakinumab is a long-acting anti-IL-1-beta monoclonal antibody.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001974\"}}, {\"id\": \"Microscopic hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002907\"}}, {\"id\": \"Myocardial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myocarditis is reported within pericardo-myocarditis. One chronic case progressed over seven years to refractory congestive cardiac failure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012819\"}}, {\"id\": \"Neutrophilic leukocytosis\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0011897\", \"term_label\": \"Increased total neutrophil count\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Neutrophilic leukocytosis reports the inflammatory episode after infection is excluded.\"}]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001698\"}}, {\"id\": \"Pericardial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericarditis, sometimes with an effusion, is a reported cardiac complication. It is separated from myocardial inflammation because the tissues and clinical consequences are distinct.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Recurrent high fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Recurrent systemic inflammatory episodes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The directly observed syndrome is a recurrent inflammatory state marked by fever, polymorphous exanthem, leukocytosis, and arthralgia. The proximal disease-specific molecular cause is unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Renal microvascular intravascular coagulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A renal biopsy in a single report of persistent microscopic hematuria was compatible with intravascular coagulation. This rare case-level lesion is not evidence of a universal renal mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOSD studies describe NLRP3 inflammasome activation, caspase-1 activation, and maturation of IL-1\\u03b2 and IL-18 in activated monocytes/macrophages. No corresponding measurement has been reported specifically in a Wissler-syndrome cohort.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"interleukin-1 beta production\", \"interleukin-18 production\"]}}, {\"id\": \"Still-spectrum monocyte and macrophage activation (extrapolated)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOSD literature implicates PAMP/DAMP-pattern-recognition-receptor signalling and other stimuli in monocyte/macrophage activation. This is a hypothesis for Wissler-labelled illness only when the Still-spectrum interpretation is accepted; no Wissler-specific cellular study was identified.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"inflammatory response\"]}}, {\"id\": \"Vasculitis in the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200029\"}}], \"edges\": [{\"source\": \"Still-spectrum monocyte and macrophage activation (extrapolated)\", \"target\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In AOSD, the reviewed stimuli activate NLRP3 and caspase-1, producing mature IL-1\\u03b2 and IL-18.\", \"hypothesis_groups\": [\"still_spectrum_extrapolation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"target\": \"Recurrent systemic inflammatory episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AOSD literature links IL-1\\u03b2/IL-18 to clinical manifestations, but the causal bridge has not been demonstrated in Wissler-labelled patients.\", \"hypothesis_groups\": [\"still_spectrum_extrapolation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Recurrent high fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent fever is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Exanthem\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polymorphous exanthem is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthralgia is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukocytosis is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Migratory polyarthritis was observed in a reported case.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Pericardial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation can accompany recurrent febrile exacerbations.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Myocardial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial inflammation can accompany recurrent febrile exacerbations.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Cutaneous small-vessel inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory syndrome and biopsy-interpreted urticarial vasculitis were observed in the same diagnostically complex case; causal direction and intervening mechanisms are unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Renal microvascular intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A renal biopsy lesion was reported in a patient labelled with incomplete Still\u0027s disease or Wissler-Fanconi syndrome, but hematuria was the initial finding; temporal direction, causal direction, and intermediates are unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cutaneous small-vessel inflammation\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Histologic cutaneous small-vessel inflammation is the lesion represented by this phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal microvascular intravascular coagulation\", \"target\": \"Microscopic hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Renal microvascular injury associated with biopsy-observed intravascular coagulation.\"]}, {\"source\": \"Pericardial inflammation\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation is the lesion represented by pericarditis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pericardial inflammation\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation can produce an effusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myocardial inflammation\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial inflammation is the lesion represented by myocarditis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myocardial inflammation\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic pericardo-myocarditis with progressive cardiac dysfunction.\"]}, {\"source\": \"IL-1 inhibition after Still-disease classification (conditional)\", \"target\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ESR reports systemic inflammation but is not disease-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CRP reports systemic inflammation but is not disease-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Hyperferritinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ferritin reports inflammatory activity but does not resolve nosology.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Neutrophilic leukocytosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Neutrophilic leukocytosis reports the inflammatory episode after infection is excluded.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0011227\", \"term_label\": \"Elevated circulating C-reactive protein concentration\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CRP reports systemic inflammation but is not disease-specific.\"}]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cutaneous small-vessel inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin biopsy in one diagnostically complex case was interpreted as urticarial vasculitis. This case observation should not be generalized to every Wissler-associated exanthem.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0003565\", \"term_label\": \"Elevated erythrocyte sedimentation rate\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ESR reports systemic inflammation but is not disease-specific.\"}]}}, {\"id\": \"Exanthem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:4000054\"}}, {\"id\": \"Hyperferritinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"HP:0003281\", \"term_label\": \"Increased circulating ferritin concentration\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ferritin reports inflammatory activity but does not resolve nosology.\"}]}}, {\"id\": \"IL-1 inhibition after Still-disease classification (conditional)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra or canakinumab may be appropriate when a patient is diagnosed or reclassified as Still disease under contemporary criteria. No Wissler-specific trial was identified, so this is not an evidence-based treatment recommendation for a distinct Wissler entity. The two agents are different biologic platforms: anakinra is a recombinant IL-1 receptor antagonist protein given daily, whereas canakinumab is a long-acting anti-IL-1-beta monoclonal antibody.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001974\"}}, {\"id\": \"Microscopic hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002907\"}}, {\"id\": \"Myocardial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myocarditis is reported within pericardo-myocarditis. One chronic case progressed over seven years to refractory congestive cardiac failure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012819\"}}, {\"id\": \"Neutrophilic leukocytosis\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0011897\", \"term_label\": \"Increased total neutrophil count\", \"readouts\": [{\"target\": \"Recurrent systemic inflammatory episodes\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Neutrophilic leukocytosis reports the inflammatory episode after infection is excluded.\"}]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001698\"}}, {\"id\": \"Pericardial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericarditis, sometimes with an effusion, is a reported cardiac complication. It is separated from myocardial inflammation because the tissues and clinical consequences are distinct.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Recurrent high fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Recurrent systemic inflammatory episodes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The directly observed syndrome is a recurrent inflammatory state marked by fever, polymorphous exanthem, leukocytosis, and arthralgia. The proximal disease-specific molecular cause is unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Renal microvascular intravascular coagulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A renal biopsy in a single report of persistent microscopic hematuria was compatible with intravascular coagulation. This rare case-level lesion is not evidence of a universal renal mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOSD studies describe NLRP3 inflammasome activation, caspase-1 activation, and maturation of IL-1\\u03b2 and IL-18 in activated monocytes/macrophages. No corresponding measurement has been reported specifically in a Wissler-syndrome cohort.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"interleukin-1 beta production\", \"interleukin-18 production\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Still-spectrum monocyte and macrophage activation (extrapolated)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOSD literature implicates PAMP/DAMP-pattern-recognition-receptor signalling and other stimuli in monocyte/macrophage activation. This is a hypothesis for Wissler-labelled illness only when the Still-spectrum interpretation is accepted; no Wissler-specific cellular study was identified.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"inflammatory response\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Vasculitis in the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200029\"}}], \"edges\": [{\"source\": \"Still-spectrum monocyte and macrophage activation (extrapolated)\", \"target\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In AOSD, the reviewed stimuli activate NLRP3 and caspase-1, producing mature IL-1\\u03b2 and IL-18.\", \"hypothesis_groups\": [\"still_spectrum_extrapolation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"target\": \"Recurrent systemic inflammatory episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AOSD literature links IL-1\\u03b2/IL-18 to clinical manifestations, but the causal bridge has not been demonstrated in Wissler-labelled patients.\", \"hypothesis_groups\": [\"still_spectrum_extrapolation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Recurrent high fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent fever is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Exanthem\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polymorphous exanthem is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthralgia is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukocytosis is part of the observed systemic inflammatory state.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Migratory polyarthritis was observed in a reported case.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Pericardial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation can accompany recurrent febrile exacerbations.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Myocardial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial inflammation can accompany recurrent febrile exacerbations.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Cutaneous small-vessel inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory syndrome and biopsy-interpreted urticarial vasculitis were observed in the same diagnostically complex case; causal direction and intervening mechanisms are unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Renal microvascular intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A renal biopsy lesion was reported in a patient labelled with incomplete Still\u0027s disease or Wissler-Fanconi syndrome, but hematuria was the initial finding; temporal direction, causal direction, and intermediates are unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cutaneous small-vessel inflammation\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Histologic cutaneous small-vessel inflammation is the lesion represented by this phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal microvascular intravascular coagulation\", \"target\": \"Microscopic hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Renal microvascular injury associated with biopsy-observed intravascular coagulation.\"]}, {\"source\": \"Pericardial inflammation\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation is the lesion represented by pericarditis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pericardial inflammation\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial inflammation can produce an effusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myocardial inflammation\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial inflammation is the lesion represented by myocarditis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myocardial inflammation\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic pericardo-myocarditis with progressive cardiac dysfunction.\"]}, {\"source\": \"IL-1 inhibition after Still-disease classification (conditional)\", \"target\": \"Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ESR reports systemic inflammation but is not disease-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CRP reports systemic inflammation but is not disease-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Hyperferritinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ferritin reports inflammatory activity but does not resolve nosology.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Recurrent systemic inflammatory episodes\", \"target\": \"Neutrophilic leukocytosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Neutrophilic leukocytosis reports the inflammatory episode after infection is excluded.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6307,6 +6444,9 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6321,6 +6461,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6372,6 +6513,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Mild anemia was documented in one case; its mechanism was not established.</div>
 
 
@@ -6391,6 +6535,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6456,6 +6601,9 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6470,6 +6618,7 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6526,6 +6675,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6540,6 +6692,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6591,6 +6744,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Documented as a chronic endpoint in one fatal case.</div>
 
 
@@ -6610,6 +6766,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6661,6 +6818,9 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Directly imaged in one diagnostically overlapping case.</div>
 
 
@@ -6680,6 +6840,7 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6731,6 +6892,9 @@ This clinical feature is Urticarial vasculitis, annotated with Vasculitis in the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Urticarial vasculitis was diagnosed histologically in one case.</div>
 
 
@@ -6750,6 +6914,7 @@ This clinical feature is Urticarial vasculitis, annotated with Vasculitis in the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6810,6 +6975,9 @@ This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported as the presenting sign in a single case.</div>
 
 
@@ -6829,6 +6997,7 @@ This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6894,6 +7063,9 @@ This clinical feature is Exanthem (HP:4000054). HP:4000054 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6908,6 +7080,7 @@ This clinical feature is Exanthem (HP:4000054). HP:4000054 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6975,6 +7148,9 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6989,6 +7165,7 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7049,6 +7226,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Migratory polyarthritis was reported in a diagnostically overlapping single case.</div>
 
 
@@ -7068,6 +7248,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7133,6 +7314,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7147,6 +7331,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7287,6 +7472,9 @@ This treatment uses naproxen (NCIT:C680). NCIT:C680 is a therapeutic agent from 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7297,6 +7485,9 @@ This treatment uses naproxen (NCIT:C680). NCIT:C680 is a therapeutic agent from 
 
 
     </div>
+
+
+
 
 
 
@@ -7324,6 +7515,7 @@ This treatment uses naproxen (NCIT:C680). NCIT:C680 is a therapeutic agent from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7605,9 @@ This treatment uses prednisolone (NCIT:C769). NCIT:C769 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7423,6 +7618,9 @@ This treatment uses prednisolone (NCIT:C769). NCIT:C769 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7453,6 +7651,7 @@ This treatment uses prednisolone (NCIT:C769). NCIT:C769 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7474,6 +7673,7 @@ This treatment uses prednisolone (NCIT:C769). NCIT:C769 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7562,6 +7762,9 @@ This treatment uses dapsone (NCIT:C415). NCIT:C415 is a therapeutic agent from t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7572,6 +7775,9 @@ This treatment uses dapsone (NCIT:C415). NCIT:C415 is a therapeutic agent from t
 
 
     </div>
+
+
+
 
 
 
@@ -7599,6 +7805,7 @@ This treatment uses dapsone (NCIT:C415). NCIT:C415 is a therapeutic agent from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7688,6 +7895,9 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7698,6 +7908,9 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7725,6 +7938,7 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7760,6 +7974,9 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7770,6 +7987,9 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7797,6 +8017,7 @@ This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7902,6 +8123,9 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7912,6 +8136,9 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7951,6 +8178,7 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7972,6 +8200,7 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8018,6 +8247,7 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8039,6 +8269,7 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8127,6 +8358,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8137,6 +8371,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8167,6 +8404,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8188,6 +8426,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8516,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8316,6 +8556,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8390,6 +8631,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8429,6 +8671,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8503,6 +8746,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8545,6 +8789,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8566,6 +8811,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8640,6 +8886,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8679,6 +8926,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8750,6 +8998,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8803,6 +9052,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8895,6 +9145,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8962,6 +9213,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8986,6 +9238,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9007,6 +9260,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9060,6 +9314,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9107,6 +9362,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9178,6 +9434,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9230,12 +9487,11 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-sepsis">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Sepsis</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Sepsis.html">Sepsis</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_1040015" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_1040015" target="_blank">
                             MONDO:1040015
                         </a>
                     </span>
@@ -9278,6 +9534,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9299,6 +9556,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9364,6 +9622,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9425,6 +9684,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9483,6 +9743,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9548,6 +9809,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9606,6 +9868,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9670,6 +9933,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9728,6 +9992,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

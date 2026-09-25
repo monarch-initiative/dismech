@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4218,6 +4286,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4239,6 +4308,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4461,6 +4531,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-trappc4-loss-of-function" data-dismech-node="Biallelic TRAPPC4 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TRAPPC4 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic pathogenic variants in TRAPPC4 (11q23.3; historical protein name synbindin) reduce the amount or function of TRAPPC4, one of the small core subunits shared by the TRAPPII and TRAPPIII complexes. The overwhelmingly predominant allele worldwide is the recurrent non-canonical splice variant NM_016146.5:c.454+3A&gt;G (hg19:chr11:g.118890966A&gt;G), found homozygously in almost every reported family, mostly in the setting of consanguinity. Single nucleotide polymorphism array analysis found no shared haplotype between a Turkish and a Caucasian family, favouring a recurrent mutational hotspot over a single ancient founder allele. A small number of families carry other biallelic alleles: novel missense variants c.191T&gt;C p.(Leu64Pro) and c.278C&gt;T p.(Pro93Leu) in two Indian families, and a biallelic in-frame deletion causing stop-loss in one family with a milder phenotype. Because the recurrent splice allele is leaky, residual correctly spliced transcript persists; complete loss of this essential core subunit is thought to be incompatible with survival.</div>
 
 
@@ -4562,6 +4639,7 @@ This pathophysiological event involves TRAPPC4 (hgnc:19943). hgnc:19943 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4583,6 +4661,7 @@ This pathophysiological event involves TRAPPC4 (hgnc:19943). hgnc:19943 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4610,6 +4689,7 @@ This pathophysiological event involves TRAPPC4 (hgnc:19943). hgnc:19943 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4634,6 +4714,13 @@ This pathophysiological event involves TRAPPC4 (hgnc:19943). hgnc:19943 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-trappc4-pre-mrna-splicing-and-transcript-loss" data-dismech-node="Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The c.454+3A&gt;G variant lies in the intron 3 splice donor region. RNA studies in patient cells show that it is an incompletely penetrant (leaky) splice defect: full-length TRAPPC4 transcript is reduced while a shorter transcript lacking exon 3 accumulates. RNA sequencing further resolved partial exon 3 skipping plus use of a downstream cryptic splice donor site, producing an aberrant transcript with a premature termination codon that is predicted to be degraded by nonsense-mediated decay. The net effect is a dosage reduction of normal TRAPPC4 protein rather than production of a dominant-negative product.</div>
 
@@ -4793,6 +4880,7 @@ This pathophysiological event involves increased nonsense-mediated mRNA decay of
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4814,6 +4902,7 @@ This pathophysiological event involves increased nonsense-mediated mRNA decay of
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4839,6 +4928,13 @@ This pathophysiological event involves increased nonsense-mediated mRNA decay of
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-trapp-complex-assembly-and-stability" data-dismech-node="Reduced TRAPP Complex Assembly and Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced TRAPP Complex Assembly and Stability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">TRAPPC4 is one of the small core subunits present in every TRAPP complex, and all four core subunits are essential for cell viability. Reduced TRAPPC4 protein selectively destabilizes the assembled machine: in patient fibroblasts TRAPPC4 protein levels fall while the levels of other TRAPP subunits are unchanged, yet native gel electrophoresis and size exclusion chromatography reveal a defect in assembly and/or stability of the intact complex. The lesion is therefore at the level of the holo-complex, not of an individual partner subunit.</div>
 
@@ -4947,6 +5043,7 @@ This pathophysiological event involves decreased TRAPP complex (GO:0030008). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4968,6 +5065,7 @@ This pathophysiological event involves decreased TRAPP complex (GO:0030008). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4995,6 +5093,7 @@ This pathophysiological event involves decreased TRAPP complex (GO:0030008). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5019,6 +5118,13 @@ This pathophysiological event involves decreased TRAPP complex (GO:0030008). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rab1-guanine-nucleotide-exchange-factor-activity" data-dismech-node="Impaired RAB1 Guanine Nucleotide Exchange Factor Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired RAB1 Guanine Nucleotide Exchange Factor Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The TRAPP complexes are Rab guanine-nucleotide-exchange factors: TRAPPIII activates RAB1 (the master regulator of the early secretory pathway and of the first step of macroautophagy) and TRAPPII activates RAB11. TRAPPC4 and its yeast orthologue Trs23 are among the essential subunits for the RAB1 GEF activity, and structural work localizes the exchange site to a conserved surface spanning several core subunits, so a destabilized core lowers exchange activity rather than abolishing a discrete catalytic site. Reduced RAB1 activation leaves less RAB1-GTP available on donor and acceptor membranes to recruit long coiled-coil tethers.</div>
 
@@ -5139,6 +5245,7 @@ This pathophysiological event involves decreased RAB1 guanyl-nucleotide exchange
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5160,6 +5267,7 @@ This pathophysiological event involves decreased RAB1 guanyl-nucleotide exchange
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5187,6 +5295,7 @@ This pathophysiological event involves decreased RAB1 guanyl-nucleotide exchange
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5211,6 +5320,13 @@ This pathophysiological event involves decreased RAB1 guanyl-nucleotide exchange
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-er-to-golgi-vesicular-tethering-and-golgi-transit" data-dismech-node="Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The functional consequence in patient cells is a secretory-pathway defect. Using the temperature-sensitive Golgi cargo marker VSVG-GFP-ts045, patient fibroblasts show significantly delayed entry into and exit from the Golgi apparatus. The defect is a direct consequence of reduced TRAPPC4 dosage rather than of an unrelated cellular abnormality, because lentiviral expression of wild-type TRAPPC4 in the same fibroblasts restores normal trafficking. Relative to the autophagy arm below, the secretory defect is the milder of the two.</div>
 
@@ -5408,6 +5524,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5429,6 +5546,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5456,6 +5574,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5478,6 +5597,13 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-autophagosome-formation-and-autophagic-flux" data-dismech-node="Defective Autophagosome Formation and Autophagic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Autophagosome Formation and Autophagic Flux</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The second and, on current evidence, more severe cellular consequence is a macroautophagy defect. Patient fibroblasts have a basal autophagy defect and a delay in autophagic flux, attributed to autophagosomes that fail to seal. The same dissociation is reproduced in a yeast trs23 temperature-sensitive model, which shows constitutive and stress-induced autophagic defects at the permissive temperature while the secretory defect appears only at the restrictive temperature, i.e. autophagy is the more dosage-sensitive output of the core TRAPP complex.</div>
 
@@ -5671,6 +5797,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5692,6 +5819,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5719,6 +5847,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5743,6 +5872,13 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-secretory-and-autophagic-failure" data-dismech-node="Neuronal Secretory and Autophagic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Secretory and Autophagic Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The step from a fibroblast phenotype to a brain phenotype is the least directly evidenced link in the chain and is currently a well-motivated hypothesis rather than a demonstrated fact. The proposal, advanced by the discovery group, is that a chronic low-grade autophagy defect is especially harmful to neurons, which are post-mitotic, long-lived and unusually dependent on membrane trafficking and proteostasis. A second, neuron-specific route is suggested by TRAPPC4/synbindin biology: through its atypical PDZ-like domain synbindin binds the cytoplasmic tail of syndecan-2, and the synbindin/syndecan complex participates in synaptic membrane trafficking and dendritic spine morphogenesis, so reduced TRAPPC4 may also impair synapse formation and maturation directly. Neither route has been tested in patient-derived neurons.</div>
 
@@ -5948,6 +6084,7 @@ This pathophysiological event involves decreased intracellular protein transport
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5974,6 +6111,7 @@ This pathophysiological event involves decreased intracellular protein transport
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5995,6 +6133,7 @@ This pathophysiological event involves decreased intracellular protein transport
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6022,6 +6161,13 @@ This pathophysiological event involves decreased intracellular protein transport
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability-and-epileptic-encephalopathy" data-dismech-node="Cortical Network Hyperexcitability and Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability and Epileptic Encephalopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Seizures are a defining feature and typically begin within the first six months of life, with onset in the first year in nearly all affected individuals. Semiology is varied: epileptic spasms, focal, tonic, atonic and generalized tonic-clonic seizures are all described. The electroencephalogram is not specific but shows epileptiform abnormalities, generalized disorganization and, in the more advanced cases, a strikingly low voltage background that tracks the cortical atrophy. Response to antiseizure medication is often only partial.</div>
 
@@ -6162,6 +6308,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6183,6 +6330,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6208,6 +6356,13 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-dysfunction-and-spasticity" data-dismech-node="Corticospinal Tract Dysfunction and Spasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Dysfunction and Spasticity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Upper-motor-neuron signs dominate the motor examination. Spasticity affects all four limbs (spastic quadriparesis/tetraplegia) with brisk deep tendon reflexes, and it is progressive, ultimately contributing to complete loss of independent mobility. Spasticity is frequently refractory to baclofen and physical rehabilitation.</div>
 
@@ -6298,6 +6453,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6319,6 +6475,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6501,13 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-and-cerebellar-neurodegeneration" data-dismech-node="Progressive Cerebral and Cerebellar Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral and Cerebellar Neurodegeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neuroimaging converts this from a static developmental disorder into a neurodegenerative one. Brain MRI shows a variable but progressive degree of cerebral cortical atrophy that is more severe in older children, commonly accompanied by cerebellar atrophy, enlarged subarachnoid spaces, white-matter volume loss, ventriculomegaly and a thin corpus callosum. Delayed myelination is also reported on early infant imaging, but it is a developmental rather than degenerative finding and is deliberately not attributed to this node (see the knowledge-gap discussion). Serial imaging in individual patients documents the progression directly: repeat scans within months can show new severe cortical atrophy. The progressive brain volume loss is also the substrate for the progressive postnatal microcephaly.</div>
 
@@ -6637,6 +6801,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6658,6 +6823,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6685,6 +6851,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6707,6 +6874,13 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrest-of-psychomotor-development-with-regression" data-dismech-node="Arrest of Psychomotor Development with Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrest of Psychomotor Development with Regression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The organism-level outcome is a profound, essentially complete arrest of psychomotor development, with loss of the few milestones that were attained. Affected children do not walk or speak, cannot feed themselves and develop feeding difficulties and failure to thrive, and remain profoundly dependent. Because the substrate is a degenerative process superimposed on a developmental one, the trajectory is one of stagnation followed by decline rather than of slow ongoing gains. Death in the first decade, most often from intercurrent infection, is reported in a minority.</div>
 
@@ -6808,6 +6982,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6829,6 +7004,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6856,6 +7032,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6878,6 +7055,13 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-involvement" data-dismech-node="Skeletal Muscle Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Involvement</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A subset of patients has evidence of skeletal muscle damage: persistently or episodically elevated serum creatine kinase, in one reported individual amounting to probable episodic rhabdomyolysis. Muscle involvement is a recurring theme across the TRAPPopathies (episodic rhabdomyolysis in TRAPPC2L disease, limb-girdle muscular dystrophy in TRAPPC11 disease), so a shared trafficking-dependent vulnerability of muscle is plausible, but the route from reduced TRAPPC4 to muscle-fibre damage has not been studied and creatine kinase is normal in other reported patients.</div>
 
@@ -6952,6 +7136,7 @@ This pathophysiological event occurs in skeletal muscle, annotated with skeletal
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6973,6 +7158,7 @@ This pathophysiological event occurs in skeletal muscle, annotated with skeletal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7021,7 +7207,7 @@ This pathophysiological event occurs in skeletal muscle, annotated with skeletal
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The c.454+3A\u003eG variant lies in the intron 3 splice donor region. RNA studies in patient cells show that it is an incompletely penetrant (leaky) splice defect: full-length TRAPPC4 transcript is reduced while a shorter transcript lacking exon 3 accumulates. RNA sequencing further resolved partial exon 3 skipping plus use of a downstream cryptic splice donor site, producing an aberrant transcript with a premature termination codon that is predicted to be degraded by nonsense-mediated decay. The net effect is a dosage reduction of normal TRAPPC4 protein rather than production of a dominant-negative product.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\", \"nonsense-mediated mRNA decay of the aberrant TRAPPC4 transcript\"]}}, {\"id\": \"Abnormal cerebral white matter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter involvement is non-specific but frequent: delayed myelination, white-matter volume loss, and periventricular T2/FLAIR hyperintensities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language does not develop in the classic severe presentation. In the mildest reported family speech was delayed and limited to short sentences by age five, before regression.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the epilepsy. Levetiracetam, topiramate, clobazam and valproate have all been used; responses are frequently partial and seizures may persist or recur despite escalation, so drug substitution is common. No disease-modifying therapy exists.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anticonvulsant agent\", \"levetiracetam\", \"topiramate\"]}}, {\"id\": \"Arrest of Psychomotor Development with Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level outcome is a profound, essentially complete arrest of psychomotor development, with loss of the few milestones that were attained. Affected children do not walk or speak, cannot feed themselves and develop feeding difficulties and failure to thrive, and remain profoundly dependent. Because the substrate is a degenerative process superimposed on a developmental one, the trajectory is one of stagnation followed by decline rather than of slow ongoing gains. Death in the first decade, most often from intercurrent infection, is reported in a minority.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait and limb ataxia occurs in the subset of patients with enough motor ability to demonstrate it, and is part of the same involuntary-movement spectrum as tremor and dystonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Biallelic TRAPPC4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in TRAPPC4 (11q23.3; historical protein name synbindin) reduce the amount or function of TRAPPC4, one of the small core subunits shared by the TRAPPII and TRAPPIII complexes. The overwhelmingly predominant allele worldwide is the recurrent non-canonical splice variant NM_016146.5:c.454+3A\u003eG (hg19:chr11:g.118890966A\u003eG), found homozygously in almost every reported family, mostly in the setting of consanguinity. Single nucleotide polymorphism array analysis found no shared haplotype between a Turkish and a Caucasian family, favouring a recurrent mutational hotspot over a single ancient founder allele. A small number of families carry other biallelic alleles: novel missense variants c.191T\u003eC p.(Leu64Pro) and c.278C\u003eT p.(Pro93Leu) in two Indian families, and a biallelic in-frame deletion causing stop-loss in one family with a milder phenotype. Because the recurrent splice allele is leaky, residual correctly spliced transcript persists; complete loss of this essential core subunit is thought to be incompatible with survival.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"TRAPPC4\"], \"gene_terms\": [{\"label\": \"TRAPPC4\", \"id\": \"hgnc:19943\"}], \"role\": \"root\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy accompanies the cerebral atrophy in most, but not all, imaged patients; it was reported in 21 of 27 individuals in a literature review and was absent in the two Indian families with novel missense variants.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebral cortical atrophy, most marked in frontotemporal regions, is the imaging hallmark. It is present in essentially all imaged patients with the recurrent splice variant and worsens with age, with enlarged subarachnoid spaces and secondary ventricular enlargement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002120\"}}, {\"id\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seizures are a defining feature and typically begin within the first six months of life, with onset in the first year in nearly all affected individuals. Semiology is varied: epileptic spasms, focal, tonic, atonic and generalized tonic-clonic seizures are all described. The electroencephalogram is not specific but shows epileptiform abnormalities, generalized disorganization and, in the more advanced cases, a strikingly low voltage background that tracks the cortical atrophy. Response to antiseizure medication is often only partial.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical pyramidal neuron\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Corticospinal Tract Dysfunction and Spasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron signs dominate the motor examination. Spasticity affects all four limbs (spastic quadriparesis/tetraplegia) with brisk deep tendon reflexes, and it is progressive, ultimately contributing to complete loss of independent mobility. Spasticity is frequently refractory to baclofen and physical rehabilitation.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebral white matter\"]}}, {\"id\": \"Defective Autophagosome Formation and Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second and, on current evidence, more severe cellular consequence is a macroautophagy defect. Patient fibroblasts have a basal autophagy defect and a delay in autophagic flux, attributed to autophagosomes that fail to seal. The same dissociation is reproduced in a yeast trs23 temperature-sensitive model, which shows constitutive and stress-induced autophagic defects at the permissive temperature while the secretory defect appears only at the restrictive temperature, i.e. autophagy is the more dosage-sensitive output of the core TRAPP complex.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"autophagy\", \"autophagosome assembly\", \"macroautophagy\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired milestones is superimposed on the delay in most individuals, and is the feature that identifies the disorder as neurodegenerative rather than purely developmental. Regression is usually early; in the mildest reported family it began only after school age.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is part of a mixed involuntary-movement disorder (with ataxia and tremor, each recorded separately) present in a substantial minority, reported in 12 of 33 individuals in the literature review and confirmed in subsequently reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The EEG is abnormal but not specific: epileptiform discharges, generalized disorganization, and progressive background voltage suppression that parallels the developing cortical atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002353\"}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients has laboratory evidence of muscle involvement, with persistently or episodically elevated serum creatine kinase, in one instance amounting to probable episodic rhabdomyolysis. Muscle involvement is a recurring theme across the TRAPPopathies and its presence should prompt CK measurement, but it is not universal: CK was normal in other reported patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003236\"}}, {\"id\": \"Epileptic spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic (infantile) spasms are one of the reported early seizure types and may be the presenting event, accompanied by a very low voltage EEG background.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain and failure to thrive follow from the feeding difficulties and the overall severity of the encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties, including regurgitation of feeds from the newborn period, are an early consequence of the profound neurological impairment and are a common reason for enteral feeding support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized tonic-clonic seizures are among the reported semiologies and were the presenting seizure type in the individuals with novel missense TRAPPC4 variants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002069\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompany the spasticity and confirm the upper-motor-neuron localization.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001347\"}}, {\"id\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional consequence in patient cells is a secretory-pathway defect. Using the temperature-sensitive Golgi cargo marker VSVG-GFP-ts045, patient fibroblasts show significantly delayed entry into and exit from the Golgi apparatus. The defect is a direct consequence of reduced TRAPPC4 dosage rather than of an unrelated cellular abnormality, because lentiviral expression of wild-type TRAPPC4 in the same fibroblasts restores normal trafficking. Relative to the autophagy arm below, the secretory defect is the milder of the two.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\", \"vesicle-mediated transport\"]}}, {\"id\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TRAPP complexes are Rab guanine-nucleotide-exchange factors: TRAPPIII activates RAB1 (the master regulator of the early secretory pathway and of the first step of macroautophagy) and TRAPPII activates RAB11. TRAPPC4 and its yeast orthologue Trs23 are among the essential subunits for the RAB1 GEF activity, and structural work localizes the exchange site to a conserved surface spanning several core subunits, so a destabilized core lowers exchange activity rather than abolishing a discrete catalytic site. Reduced RAB1 activation leaves less RAB1-GTP available on donor and acceptor membranes to recruit long coiled-coil tethers.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"RAB1 guanyl-nucleotide exchange factor activity\"]}}, {\"id\": \"Inability to walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Almost all affected individuals show complete absence of motor development or such significant motor delay that independent ambulation is never achieved.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002540\"}}, {\"id\": \"Neuronal Secretory and Autophagic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step from a fibroblast phenotype to a brain phenotype is the least directly evidenced link in the chain and is currently a well-motivated hypothesis rather than a demonstrated fact. The proposal, advanced by the discovery group, is that a chronic low-grade autophagy defect is especially harmful to neurons, which are post-mitotic, long-lived and unusually dependent on membrane trafficking and proteostasis. A second, neuron-specific route is suggested by TRAPPC4/synbindin biology: through its atypical PDZ-like domain synbindin binds the cytoplasmic tail of syndecan-2, and the synbindin/syndecan complex participates in synaptic membrane trafficking and dendritic spine morphogenesis, so reduced TRAPPC4 may also impair synapse formation and maturation directly. Neither route has been tested in patient-derived neurons.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\", \"cortical pyramidal neuron\"], \"biological_processes\": [\"regulation of dendritic spine development\", \"intracellular protein transport\"]}}, {\"id\": \"Nutritional and feeding support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of feeding difficulties, regurgitation and failure to thrive, with enteral or tube feeding when oral intake becomes unsafe or insufficient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy develops during the course of the illness rather than being present at first assessment, mirroring the progressive nature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Profound global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental impairment is apparent within the first months of life and is profound: affected children make almost no psychomotor progress. It was present in all seven children of the founding cohort and in the expanded multicentre series.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012736\"}}, {\"id\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroimaging converts this from a static developmental disorder into a neurodegenerative one. Brain MRI shows a variable but progressive degree of cerebral cortical atrophy that is more severe in older children, commonly accompanied by cerebellar atrophy, enlarged subarachnoid spaces, white-matter volume loss, ventriculomegaly and a thin corpus callosum. Delayed myelination is also reported on early infant imaging, but it is a developmental rather than degenerative finding and is deliberately not attributed to this node (see the knowledge-gap discussion). Serial imaging in individual patients documents the progression directly: repeat scans within months can show new severe cortical atrophy. The progressive brain volume loss is also the substrate for the progressive postnatal microcephaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"brain\", \"cerebral cortex\", \"cerebellum\", \"corpus callosum\"]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is usually normal or near-normal at birth and falls steeply postnatally as brain volume is lost, reaching extreme values in older children. Microcephaly is one of the most consistent features of the disorder.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Reduced TRAPP Complex Assembly and Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRAPPC4 is one of the small core subunits present in every TRAPP complex, and all four core subunits are essential for cell viability. Reduced TRAPPC4 protein selectively destabilizes the assembled machine: in patient fibroblasts TRAPPC4 protein levels fall while the levels of other TRAPP subunits are unchanged, yet native gel electrophoresis and size exclusion chromatography reveal a defect in assembly and/or stability of the intact complex. The lesion is therefore at the level of the holo-complex, not of an individual partner subunit.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a defining feature and begin early, usually between two and six months of age and within the first year in nearly all patients. Seizure onset at seven years in the mildest reported family is the exception. Semiology includes epileptic spasms, focal, tonic, atonic and generalized tonic-clonic seizures, and control is often only partial.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe to profound intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is severe to profound and has been noted consistently in all reported individuals other than the two siblings of the mildest reported family. The founding report characterised the phenotype as severe syndromic intellectual disability. The ungraded parent term is bound because the quotable cohort literature reports the cognitive impairment without a formal severity grade; the severity range is kept in the display name.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Skeletal Muscle Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients has evidence of skeletal muscle damage: persistently or episodically elevated serum creatine kinase, in one reported individual amounting to probable episodic rhabdomyolysis. Muscle involvement is a recurring theme across the TRAPPopathies (episodic rhabdomyolysis in TRAPPC2L disease, limb-girdle muscular dystrophy in TRAPPC11 disease), so a shared trafficking-dependent vulnerability of muscle is plausible, but the route from reduced TRAPPC4 to muscle-fibre damage has not been studied and creatine kinase is normal in other reported patients.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal muscle\"]}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity involves all four limbs, is progressive, and is accompanied by brisk deep tendon reflexes. It is a cardinal feature and contributes directly to the inability to sit or walk; it is frequently refractory to baclofen.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002510\"}}, {\"id\": \"Spasticity management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antispasticity pharmacotherapy, in reported practice baclofen, combined with a physical rehabilitation programme. Reported responses are poor: spasticity persisted despite baclofen and rehabilitation in a documented patient, so expectations should be set accordingly.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baclofen\"]}}, {\"id\": \"TRAPPC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TRAPPC4\"], \"gene_terms\": [{\"label\": \"TRAPPC4\", \"id\": \"hgnc:19943\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin corpus callosum is a frequent, though non-specific, accompanying imaging finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tremor is the third element of the mixed involuntary-movement spectrum reported alongside dystonia and ataxia in a substantial minority of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001337\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is common and is largely secondary (ex vacuo) to the progressive loss of brain parenchyma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002119\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual dysfunction is near-universal and largely cortical: absent visual pursuit and tracking, roving eye movements, and cortical visual defects. Bilateral cataracts have been reported in a small number of patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Biallelic TRAPPC4 Loss of Function\", \"target\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent c.454+3A\u003eG allele acts at the RNA level, disrupting the splice donor of exon 3.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC4 Loss of Function\", \"target\": \"Skeletal Muscle Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle involvement recurs across the TRAPPopathies and is documented in TRAPPC4 patients with more than one allele class, but the intermediate steps from reduced TRAPPC4 to muscle-fibre damage have not been studied.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"target\": \"Reduced TRAPP Complex Assembly and Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less full-length TRAPPC4 protein is available to incorporate into the TRAPP complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced TRAPP Complex Assembly and Stability\", \"target\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The GEF active site is formed across several core subunits, so a destabilized complex has reduced exchange activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"target\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAB1-GTP is required to tether COPII vesicles at the cis-Golgi.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"target\": \"Defective Autophagosome Formation and Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAB1 is required for the first step of macroautophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"target\": \"Neuronal Secretory and Autophagic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic secretory-pathway impairment is presumed to be poorly tolerated by long-lived, highly polarized neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Autophagosome Formation and Autophagic Flux\", \"target\": \"Neuronal Secretory and Autophagic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Post-mitotic neurons depend on autophagy for proteostasis and cannot dilute undegraded cargo by division.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate steps linking trafficking failure to seizure generation in this disorder are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative neuronal proteostatic failure is the presumed but untested driver of the atrophy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Corticospinal Tract Dysfunction and Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron involvement follows cortical and white-matter loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-onset, poorly controlled epileptic activity contributes to the developmental arrest characteristic of an epileptic encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent early-onset seizures are the direct clinical expression of the cortical hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Epileptic spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic spasms are among the early seizure types produced by the hyperexcitable cortex and may be the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized tonic-clonic seizures are part of the varied semiology arising from the hyperexcitable cortical network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptiform discharges and generalized background disorganization are the electrographic signature of the hyperexcitable cortex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spastic tetraplegia is a direct barrier to the acquisition of motor milestones such as sitting and walking.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive four-limb spasticity is the direct clinical expression of the upper-motor-neuron dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes are the accompanying upper-motor-neuron sign of the same corticospinal dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing loss of brain volume underlies the loss of previously acquired milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical volume loss on serial MRI is the direct imaging readout of the degenerative process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss accompanies the cerebral atrophy in most imaged patients as part of the same degenerative process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive postnatal head-growth failure is the skull-circumference correlate of the underlying brain volume loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Abnormal cerebral white matter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter volume loss with periventricular signal change is the white-matter arm of the progressive parenchymal loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal thinning accompanies the diffuse white-matter volume loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is largely ex vacuo, secondary to the progressive loss of brain parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic atrophy appears during follow-up having been absent at first examination, but its route \\u2014 primary optic nerve degeneration versus retrograde/trans-synaptic loss from the degenerating visual cortex \\u2014 has not been established in any reported patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The visual dysfunction is largely cortical, reflecting degeneration of the visual cortex, with optic atrophy contributing in a subset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive background voltage suppression on EEG tracks the advancing cortical atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar degeneration is the presumed substrate of the ataxia seen in patients with sufficient residual motor function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomical substrate of the mixed movement disorder has not been localized; it is presumed to reflect the diffuse degenerative process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomical substrate of the mixed movement disorder has not been localized; it is presumed to reflect the diffuse degenerative process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Profound global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Profound global developmental delay is the clinical expression of the near-complete arrest of psychomotor development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the few milestones that were attained is the regressive component of the arrested trajectory.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Severe to profound intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent psychomotor progress translates into severe cognitive impairment in all but the mildest reported family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expressive language fails to develop as part of the global developmental arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Inability to walk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete absence of motor development, compounded by the spastic tetraplegia, precludes independent ambulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties, present from the newborn period in some patients, are an early consequence of the profound neurological impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor weight gain follows from the feeding difficulties and the overall severity of the encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Skeletal Muscle Involvement\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Creatine kinase released from damaged muscle fibres is the laboratory readout of the muscle involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Spasticity management\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and feeding support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TRAPPC4\", \"target\": \"Biallelic TRAPPC4 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The c.454+3A\u003eG variant lies in the intron 3 splice donor region. RNA studies in patient cells show that it is an incompletely penetrant (leaky) splice defect: full-length TRAPPC4 transcript is reduced while a shorter transcript lacking exon 3 accumulates. RNA sequencing further resolved partial exon 3 skipping plus use of a downstream cryptic splice donor site, producing an aberrant transcript with a premature termination codon that is predicted to be degraded by nonsense-mediated decay. The net effect is a dosage reduction of normal TRAPPC4 protein rather than production of a dominant-negative product.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\", \"nonsense-mediated mRNA decay of the aberrant TRAPPC4 transcript\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Abnormal cerebral white matter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter involvement is non-specific but frequent: delayed myelination, white-matter volume loss, and periventricular T2/FLAIR hyperintensities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language does not develop in the classic severe presentation. In the mildest reported family speech was delayed and limited to short sentences by age five, before regression.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the epilepsy. Levetiracetam, topiramate, clobazam and valproate have all been used; responses are frequently partial and seizures may persist or recur despite escalation, so drug substitution is common. No disease-modifying therapy exists.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anticonvulsant agent\", \"levetiracetam\", \"topiramate\"]}}, {\"id\": \"Arrest of Psychomotor Development with Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level outcome is a profound, essentially complete arrest of psychomotor development, with loss of the few milestones that were attained. Affected children do not walk or speak, cannot feed themselves and develop feeding difficulties and failure to thrive, and remain profoundly dependent. Because the substrate is a degenerative process superimposed on a developmental one, the trajectory is one of stagnation followed by decline rather than of slow ongoing gains. Death in the first decade, most often from intercurrent infection, is reported in a minority.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait and limb ataxia occurs in the subset of patients with enough motor ability to demonstrate it, and is part of the same involuntary-movement spectrum as tremor and dystonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Biallelic TRAPPC4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in TRAPPC4 (11q23.3; historical protein name synbindin) reduce the amount or function of TRAPPC4, one of the small core subunits shared by the TRAPPII and TRAPPIII complexes. The overwhelmingly predominant allele worldwide is the recurrent non-canonical splice variant NM_016146.5:c.454+3A\u003eG (hg19:chr11:g.118890966A\u003eG), found homozygously in almost every reported family, mostly in the setting of consanguinity. Single nucleotide polymorphism array analysis found no shared haplotype between a Turkish and a Caucasian family, favouring a recurrent mutational hotspot over a single ancient founder allele. A small number of families carry other biallelic alleles: novel missense variants c.191T\u003eC p.(Leu64Pro) and c.278C\u003eT p.(Pro93Leu) in two Indian families, and a biallelic in-frame deletion causing stop-loss in one family with a milder phenotype. Because the recurrent splice allele is leaky, residual correctly spliced transcript persists; complete loss of this essential core subunit is thought to be incompatible with survival.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"TRAPPC4\"], \"gene_terms\": [{\"label\": \"TRAPPC4\", \"id\": \"hgnc:19943\"}], \"role\": \"root\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy accompanies the cerebral atrophy in most, but not all, imaged patients; it was reported in 21 of 27 individuals in a literature review and was absent in the two Indian families with novel missense variants.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebral cortical atrophy, most marked in frontotemporal regions, is the imaging hallmark. It is present in essentially all imaged patients with the recurrent splice variant and worsens with age, with enlarged subarachnoid spaces and secondary ventricular enlargement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002120\"}}, {\"id\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seizures are a defining feature and typically begin within the first six months of life, with onset in the first year in nearly all affected individuals. Semiology is varied: epileptic spasms, focal, tonic, atonic and generalized tonic-clonic seizures are all described. The electroencephalogram is not specific but shows epileptiform abnormalities, generalized disorganization and, in the more advanced cases, a strikingly low voltage background that tracks the cortical atrophy. Response to antiseizure medication is often only partial.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical pyramidal neuron\"], \"locations\": [\"cerebral cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Corticospinal Tract Dysfunction and Spasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron signs dominate the motor examination. Spasticity affects all four limbs (spastic quadriparesis/tetraplegia) with brisk deep tendon reflexes, and it is progressive, ultimately contributing to complete loss of independent mobility. Spasticity is frequently refractory to baclofen and physical rehabilitation.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebral white matter\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Defective Autophagosome Formation and Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second and, on current evidence, more severe cellular consequence is a macroautophagy defect. Patient fibroblasts have a basal autophagy defect and a delay in autophagic flux, attributed to autophagosomes that fail to seal. The same dissociation is reproduced in a yeast trs23 temperature-sensitive model, which shows constitutive and stress-induced autophagic defects at the permissive temperature while the secretory defect appears only at the restrictive temperature, i.e. autophagy is the more dosage-sensitive output of the core TRAPP complex.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"autophagy\", \"autophagosome assembly\", \"macroautophagy\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired milestones is superimposed on the delay in most individuals, and is the feature that identifies the disorder as neurodegenerative rather than purely developmental. Regression is usually early; in the mildest reported family it began only after school age.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is part of a mixed involuntary-movement disorder (with ataxia and tremor, each recorded separately) present in a substantial minority, reported in 12 of 33 individuals in the literature review and confirmed in subsequently reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The EEG is abnormal but not specific: epileptiform discharges, generalized disorganization, and progressive background voltage suppression that parallels the developing cortical atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002353\"}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients has laboratory evidence of muscle involvement, with persistently or episodically elevated serum creatine kinase, in one instance amounting to probable episodic rhabdomyolysis. Muscle involvement is a recurring theme across the TRAPPopathies and its presence should prompt CK measurement, but it is not universal: CK was normal in other reported patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003236\"}}, {\"id\": \"Epileptic spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic (infantile) spasms are one of the reported early seizure types and may be the presenting event, accompanied by a very low voltage EEG background.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain and failure to thrive follow from the feeding difficulties and the overall severity of the encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties, including regurgitation of feeds from the newborn period, are an early consequence of the profound neurological impairment and are a common reason for enteral feeding support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized tonic-clonic seizures are among the reported semiologies and were the presenting seizure type in the individuals with novel missense TRAPPC4 variants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002069\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompany the spasticity and confirm the upper-motor-neuron localization.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001347\"}}, {\"id\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional consequence in patient cells is a secretory-pathway defect. Using the temperature-sensitive Golgi cargo marker VSVG-GFP-ts045, patient fibroblasts show significantly delayed entry into and exit from the Golgi apparatus. The defect is a direct consequence of reduced TRAPPC4 dosage rather than of an unrelated cellular abnormality, because lentiviral expression of wild-type TRAPPC4 in the same fibroblasts restores normal trafficking. Relative to the autophagy arm below, the secretory defect is the milder of the two.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\", \"vesicle-mediated transport\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TRAPP complexes are Rab guanine-nucleotide-exchange factors: TRAPPIII activates RAB1 (the master regulator of the early secretory pathway and of the first step of macroautophagy) and TRAPPII activates RAB11. TRAPPC4 and its yeast orthologue Trs23 are among the essential subunits for the RAB1 GEF activity, and structural work localizes the exchange site to a conserved surface spanning several core subunits, so a destabilized core lowers exchange activity rather than abolishing a discrete catalytic site. Reduced RAB1 activation leaves less RAB1-GTP available on donor and acceptor membranes to recruit long coiled-coil tethers.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"RAB1 guanyl-nucleotide exchange factor activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Inability to walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Almost all affected individuals show complete absence of motor development or such significant motor delay that independent ambulation is never achieved.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002540\"}}, {\"id\": \"Neuronal Secretory and Autophagic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step from a fibroblast phenotype to a brain phenotype is the least directly evidenced link in the chain and is currently a well-motivated hypothesis rather than a demonstrated fact. The proposal, advanced by the discovery group, is that a chronic low-grade autophagy defect is especially harmful to neurons, which are post-mitotic, long-lived and unusually dependent on membrane trafficking and proteostasis. A second, neuron-specific route is suggested by TRAPPC4/synbindin biology: through its atypical PDZ-like domain synbindin binds the cytoplasmic tail of syndecan-2, and the synbindin/syndecan complex participates in synaptic membrane trafficking and dendritic spine morphogenesis, so reduced TRAPPC4 may also impair synapse formation and maturation directly. Neither route has been tested in patient-derived neurons.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\", \"cortical pyramidal neuron\"], \"biological_processes\": [\"regulation of dendritic spine development\", \"intracellular protein transport\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Nutritional and feeding support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of feeding difficulties, regurgitation and failure to thrive, with enteral or tube feeding when oral intake becomes unsafe or insufficient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy develops during the course of the illness rather than being present at first assessment, mirroring the progressive nature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Profound global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental impairment is apparent within the first months of life and is profound: affected children make almost no psychomotor progress. It was present in all seven children of the founding cohort and in the expanded multicentre series.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012736\"}}, {\"id\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroimaging converts this from a static developmental disorder into a neurodegenerative one. Brain MRI shows a variable but progressive degree of cerebral cortical atrophy that is more severe in older children, commonly accompanied by cerebellar atrophy, enlarged subarachnoid spaces, white-matter volume loss, ventriculomegaly and a thin corpus callosum. Delayed myelination is also reported on early infant imaging, but it is a developmental rather than degenerative finding and is deliberately not attributed to this node (see the knowledge-gap discussion). Serial imaging in individual patients documents the progression directly: repeat scans within months can show new severe cortical atrophy. The progressive brain volume loss is also the substrate for the progressive postnatal microcephaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"brain\", \"cerebral cortex\", \"cerebellum\", \"corpus callosum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is usually normal or near-normal at birth and falls steeply postnatally as brain volume is lost, reaching extreme values in older children. Microcephaly is one of the most consistent features of the disorder.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Reduced TRAPP Complex Assembly and Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRAPPC4 is one of the small core subunits present in every TRAPP complex, and all four core subunits are essential for cell viability. Reduced TRAPPC4 protein selectively destabilizes the assembled machine: in patient fibroblasts TRAPPC4 protein levels fall while the levels of other TRAPP subunits are unchanged, yet native gel electrophoresis and size exclusion chromatography reveal a defect in assembly and/or stability of the intact complex. The lesion is therefore at the level of the holo-complex, not of an individual partner subunit.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a defining feature and begin early, usually between two and six months of age and within the first year in nearly all patients. Seizure onset at seven years in the mildest reported family is the exception. Semiology includes epileptic spasms, focal, tonic, atonic and generalized tonic-clonic seizures, and control is often only partial.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe to profound intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is severe to profound and has been noted consistently in all reported individuals other than the two siblings of the mildest reported family. The founding report characterised the phenotype as severe syndromic intellectual disability. The ungraded parent term is bound because the quotable cohort literature reports the cognitive impairment without a formal severity grade; the severity range is kept in the display name.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Skeletal Muscle Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients has evidence of skeletal muscle damage: persistently or episodically elevated serum creatine kinase, in one reported individual amounting to probable episodic rhabdomyolysis. Muscle involvement is a recurring theme across the TRAPPopathies (episodic rhabdomyolysis in TRAPPC2L disease, limb-girdle muscular dystrophy in TRAPPC11 disease), so a shared trafficking-dependent vulnerability of muscle is plausible, but the route from reduced TRAPPC4 to muscle-fibre damage has not been studied and creatine kinase is normal in other reported patients.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal muscle\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity involves all four limbs, is progressive, and is accompanied by brisk deep tendon reflexes. It is a cardinal feature and contributes directly to the inability to sit or walk; it is frequently refractory to baclofen.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002510\"}}, {\"id\": \"Spasticity management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antispasticity pharmacotherapy, in reported practice baclofen, combined with a physical rehabilitation programme. Reported responses are poor: spasticity persisted despite baclofen and rehabilitation in a documented patient, so expectations should be set accordingly.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baclofen\"]}}, {\"id\": \"TRAPPC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TRAPPC4\"], \"gene_terms\": [{\"label\": \"TRAPPC4\", \"id\": \"hgnc:19943\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin corpus callosum is a frequent, though non-specific, accompanying imaging finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tremor is the third element of the mixed involuntary-movement spectrum reported alongside dystonia and ataxia in a substantial minority of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001337\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is common and is largely secondary (ex vacuo) to the progressive loss of brain parenchyma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002119\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual dysfunction is near-universal and largely cortical: absent visual pursuit and tracking, roving eye movements, and cortical visual defects. Bilateral cataracts have been reported in a small number of patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Biallelic TRAPPC4 Loss of Function\", \"target\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent c.454+3A\u003eG allele acts at the RNA level, disrupting the splice donor of exon 3.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC4 Loss of Function\", \"target\": \"Skeletal Muscle Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle involvement recurs across the TRAPPopathies and is documented in TRAPPC4 patients with more than one allele class, but the intermediate steps from reduced TRAPPC4 to muscle-fibre damage have not been studied.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant TRAPPC4 Pre-mRNA Splicing and Transcript Loss\", \"target\": \"Reduced TRAPP Complex Assembly and Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less full-length TRAPPC4 protein is available to incorporate into the TRAPP complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced TRAPP Complex Assembly and Stability\", \"target\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The GEF active site is formed across several core subunits, so a destabilized complex has reduced exchange activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"target\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAB1-GTP is required to tether COPII vesicles at the cis-Golgi.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired RAB1 Guanine Nucleotide Exchange Factor Activity\", \"target\": \"Defective Autophagosome Formation and Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAB1 is required for the first step of macroautophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER-to-Golgi Vesicular Tethering and Golgi Transit\", \"target\": \"Neuronal Secretory and Autophagic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic secretory-pathway impairment is presumed to be poorly tolerated by long-lived, highly polarized neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Autophagosome Formation and Autophagic Flux\", \"target\": \"Neuronal Secretory and Autophagic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Post-mitotic neurons depend on autophagy for proteostasis and cannot dilute undegraded cargo by division.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate steps linking trafficking failure to seizure generation in this disorder are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative neuronal proteostatic failure is the presumed but untested driver of the atrophy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Secretory and Autophagic Failure\", \"target\": \"Corticospinal Tract Dysfunction and Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron involvement follows cortical and white-matter loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-onset, poorly controlled epileptic activity contributes to the developmental arrest characteristic of an epileptic encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent early-onset seizures are the direct clinical expression of the cortical hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Epileptic spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic spasms are among the early seizure types produced by the hyperexcitable cortex and may be the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized tonic-clonic seizures are part of the varied semiology arising from the hyperexcitable cortical network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptic Encephalopathy\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptiform discharges and generalized background disorganization are the electrographic signature of the hyperexcitable cortex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spastic tetraplegia is a direct barrier to the acquisition of motor milestones such as sitting and walking.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive four-limb spasticity is the direct clinical expression of the upper-motor-neuron dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction and Spasticity\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes are the accompanying upper-motor-neuron sign of the same corticospinal dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Arrest of Psychomotor Development with Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing loss of brain volume underlies the loss of previously acquired milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical volume loss on serial MRI is the direct imaging readout of the degenerative process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss accompanies the cerebral atrophy in most imaged patients as part of the same degenerative process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive postnatal head-growth failure is the skull-circumference correlate of the underlying brain volume loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Abnormal cerebral white matter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter volume loss with periventricular signal change is the white-matter arm of the progressive parenchymal loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal thinning accompanies the diffuse white-matter volume loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is largely ex vacuo, secondary to the progressive loss of brain parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic atrophy appears during follow-up having been absent at first examination, but its route \\u2014 primary optic nerve degeneration versus retrograde/trans-synaptic loss from the degenerating visual cortex \\u2014 has not been established in any reported patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The visual dysfunction is largely cortical, reflecting degeneration of the visual cortex, with optic atrophy contributing in a subset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive background voltage suppression on EEG tracks the advancing cortical atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar degeneration is the presumed substrate of the ataxia seen in patients with sufficient residual motor function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomical substrate of the mixed movement disorder has not been localized; it is presumed to reflect the diffuse degenerative process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebral and Cerebellar Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomical substrate of the mixed movement disorder has not been localized; it is presumed to reflect the diffuse degenerative process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Profound global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Profound global developmental delay is the clinical expression of the near-complete arrest of psychomotor development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the few milestones that were attained is the regressive component of the arrested trajectory.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Severe to profound intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent psychomotor progress translates into severe cognitive impairment in all but the mildest reported family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expressive language fails to develop as part of the global developmental arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Inability to walk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete absence of motor development, compounded by the spastic tetraplegia, precludes independent ambulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties, present from the newborn period in some patients, are an early consequence of the profound neurological impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest of Psychomotor Development with Regression\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor weight gain follows from the feeding difficulties and the overall severity of the encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Skeletal Muscle Involvement\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Creatine kinase released from damaged muscle fibres is the laboratory readout of the muscle involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Spasticity management\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and feeding support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TRAPPC4\", \"target\": \"Biallelic TRAPPC4 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7097,6 +7283,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7111,6 +7300,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7174,6 +7364,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7188,6 +7381,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7212,6 +7406,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7275,6 +7470,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7289,6 +7487,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7313,6 +7512,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7385,6 +7585,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7399,6 +7602,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7453,6 +7657,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7467,6 +7674,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7548,6 +7756,9 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7562,6 +7773,7 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7586,6 +7798,7 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7853,9 @@ This clinical feature is Narrow forehead (HP:0000341). HP:0000341 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7654,6 +7870,7 @@ This clinical feature is Narrow forehead (HP:0000341). HP:0000341 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7708,6 +7925,9 @@ This clinical feature is Thick eyebrow (HP:0000574). HP:0000574 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7722,6 +7942,7 @@ This clinical feature is Thick eyebrow (HP:0000574). HP:0000574 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7776,6 +7997,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7790,6 +8014,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7844,6 +8069,9 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7858,6 +8086,7 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7912,6 +8141,9 @@ This clinical feature is Full cheeks (HP:0000293). HP:0000293 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7926,6 +8158,7 @@ This clinical feature is Full cheeks (HP:0000293). HP:0000293 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7989,6 +8222,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8003,6 +8239,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8030,6 +8267,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8075,7 +8313,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -8085,10 +8323,13 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8108,6 +8349,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8132,6 +8374,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8188,6 +8431,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8202,6 +8448,7 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8283,6 +8530,9 @@ This clinical feature is Spastic tetraplegia (HP:0002510), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8297,6 +8547,7 @@ This clinical feature is Spastic tetraplegia (HP:0002510), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8321,6 +8572,7 @@ This clinical feature is Spastic tetraplegia (HP:0002510), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8384,6 +8636,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8398,6 +8653,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8422,6 +8678,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8494,6 +8751,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8508,6 +8768,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8532,6 +8793,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8586,6 +8848,9 @@ This clinical feature is Severe to profound intellectual disability, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8600,6 +8865,7 @@ This clinical feature is Severe to profound intellectual disability, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8624,6 +8890,7 @@ This clinical feature is Severe to profound intellectual disability, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8695,6 +8962,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the count of 23 out of 31 individuals with the recurrent splicing variant reported to have early-onset seizures (74%), which falls in the FREQUENT (30-79%) band. Essentially all reported individuals develop seizures at some point, but the quotable count is for early onset.</div>
 
 
@@ -8714,6 +8984,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8738,6 +9009,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8794,6 +9066,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8808,6 +9083,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8832,6 +9108,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8888,6 +9165,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8902,6 +9182,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8926,6 +9207,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8980,6 +9262,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8994,6 +9279,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9048,6 +9334,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9062,6 +9351,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9113,6 +9403,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">The literature review reports involuntary movements in 12 of 33 individuals (36%). No `frequency` band is asserted here, because that count aggregates dystonia, ataxia and tremor and cannot be attributed to the bound term (HP:0001332 Dystonia) alone; per the frequency-evidence guidelines the band is omitted rather than over-attributed. The aggregate figure is retained in this note so the underlying data are not lost.</div>
 
 
@@ -9132,6 +9425,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9186,6 +9480,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9200,6 +9497,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9254,6 +9552,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9268,6 +9569,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9322,6 +9624,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9336,6 +9641,7 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9392,6 +9698,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9406,6 +9715,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9478,6 +9788,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9492,6 +9805,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9516,6 +9830,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9569,6 +9884,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the reported count of 21 out of 27 individuals (78%), which falls at the top of the FREQUENT (30-79%) band.</div>
 
 
@@ -9588,6 +9906,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9612,6 +9931,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9668,6 +9988,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9682,6 +10005,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9736,6 +10060,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9750,6 +10077,7 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9804,6 +10132,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9818,6 +10149,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9872,6 +10204,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9886,6 +10221,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9910,6 +10246,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9973,6 +10310,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9987,6 +10327,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10085,6 +10426,9 @@ This disease-associated gene is TRAPPC4 (hgnc:19943). hgnc:19943 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -10107,6 +10451,7 @@ This disease-associated gene is TRAPPC4 (hgnc:19943). hgnc:19943 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10134,6 +10479,7 @@ This disease-associated gene is TRAPPC4 (hgnc:19943). hgnc:19943 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10155,6 +10501,7 @@ This disease-associated gene is TRAPPC4 (hgnc:19943). hgnc:19943 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10300,6 +10647,9 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10310,6 +10660,9 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -10362,6 +10715,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10383,6 +10737,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10473,6 +10828,9 @@ This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10483,6 +10841,9 @@ This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -10532,6 +10893,7 @@ This treatment targets Spastic tetraplegia (HP:0002510). HP:0002510 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10600,6 +10962,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10610,6 +10975,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10637,6 +11005,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10705,6 +11074,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10715,6 +11087,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -10764,6 +11139,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10832,6 +11208,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10842,6 +11221,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10872,6 +11254,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10893,6 +11276,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11005,6 +11389,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11026,6 +11411,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11118,6 +11504,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11204,6 +11591,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11296,6 +11684,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11385,6 +11774,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11452,6 +11842,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11501,6 +11892,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11556,6 +11948,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11605,6 +11998,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11676,6 +12070,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11735,6 +12130,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11756,6 +12152,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11862,6 +12259,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11883,6 +12281,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11963,6 +12362,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11984,6 +12384,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12064,6 +12465,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12085,6 +12487,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12165,6 +12568,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12242,6 +12646,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12310,6 +12715,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12331,6 +12737,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14156,10 +14563,10 @@ phenotypes:
     measurement, but it is not universal: CK was normal in other reported
     patients.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:34878169
     reference_title: Further evidence of muscle involvement in neurodevelopmental disorder
@@ -15442,6 +15849,40 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews baseline: a PubMed search for a GeneReviews chapter on TRAPPC4, NEDESBA, or the TRAPPopathies returned no results, so no GeneReviews phenotype baseline was available for this entry. Phenotype coverage was instead cross-referenced against the two largest primary cohorts (PMID:31794024, PMID:32901138) and the literature review tabulated in PMID:34878169. Named-entity-confusion preflight: MONDO:0032894 was confirmed by OAK to carry OMIM:618741 and the RO:0004003 relationship to HGNC:19943 (TRAPPC4), and `just preflight-dr` on the falcon deep-research report returned PASS with 56 TRAPPC4 mentions and no competing TRAPPC-family gene dominating the report. Every citation in this entry was individually checked to be TRAPPC4-specific, except the deliberately cross-family citations used in `differential_diagnoses`, where the sibling gene is named explicitly in the distinguishing_features text. Two cited papers (PMID:32125366, PMID:33011761) are Brain correspondence letters whose full text is not retrievable through the reference cache; they are listed under `references` for completeness but are deliberately not used as evidence snippets anywhere in the entry. Deliberate phenotype omissions: muscle wasting (HP:0003202) and joint contracture (HP:0001371) are plausible and are mentioned in secondary review syntheses, but no exact-quote snippet supporting either could be found in any cached reference for this entry, so neither is asserted as a phenotype. They are recorded here as candidates for a future pass if a citable primary source becomes available. The muscle axis that IS citable is captured as the elevated creatine kinase and elevated lactate phenotypes.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Epilepsy, Spasticity, and Brain Atrophy (NEDESBA, TRAPPC4)</strong> · 2026-08-17T02:21:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Epilepsy_Spasticity_and_Brain_Atrophy/2026-08-17T022107Z-claude-code-bca67d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of NEDESBA (MONDO:0032894, OMIM:618741), an autosomal recessive TRAPPopathy caused by biallelic TRAPPC4 variants.
+
+NEC preflight: OAK confirmed MONDO:0032894 carries OMIM:618741 and an RO:0004003 relationship to HGNC:19943 (TRAPPC4); `just preflight-dr` on the falcon deep-research report returned PASS (TRAPPC4 mentioned 56 times, no competing TRAPPC-family gene). The TRAPPC gene family is a known named-entity-confusion trap, so every citation was individually checked to be TRAPPC4-specific, except the deliberately cross-family citations used in differential_diagnoses.
+
+Deep research provider: falcon (Edison). All PMIDs were fetched with `just fetch-reference` and every snippet verified as an exact substring of the cached reference (119/119).
+
+Pathophysiology modeled as an 11-node causal chain, each node tagged with biological_scale: biallelic TRAPPC4 loss of function (MOLECULAR) -&gt; aberrant exon-3 splicing with nonsense-mediated decay (MOLECULAR) -&gt; reduced TRAPP complex assembly and stability (MOLECULAR) -&gt; impaired RAB1 GEF activity (MOLECULAR) -&gt; impaired ER-to-Golgi vesicular tethering and Golgi transit (CELLULAR) plus defective autophagosome formation and autophagic flux (CELLULAR) -&gt; neuronal secretory and autophagic failure (CELLULAR, mechanism_confidence HYPOTHETICAL) -&gt; cortical network hyperexcitability, corticospinal spasticity and progressive cerebral/cerebellar neurodegeneration (TISSUE) -&gt; arrest of psychomotor development with regression (ORGANISM). Mechanistic cell-biology evidence is tagged IN_VITRO (patient fibroblasts, VSVG-GFP trafficking, autophagic flux, native PAGE/SEC) or MODEL_ORGANISM (yeast trs23 temperature-sensitive model), never HUMAN_CLINICAL.
+
+The degenerative-on-developmental course is modeled explicitly: clinical_course PROGRESSIVE on developmental regression, microcephaly, spastic tetraplegia, cerebral cortical atrophy and optic atrophy, plus a four-phase progression section (onset, stagnation/regression, progressive brain atrophy, late complications and mortality).
+
+Five sibling TRAPPopathies (TRAPPC12/PEBAS, TRAPPC6B/NEDMEBA, TRAPPC2L, TRAPPC11/LGMD R18, TRAPPC9/MRT13) are curated as differential_diagnoses with MONDO bindings and the gene distinction stated explicitly in distinguishing_features, plus a neurometabolic/neurodegenerative-mimic differential.
+
+Frequency bands are used only where a quotable numerator and denominator exist (early-onset seizures 23/31, cerebellar atrophy 21/27, movement disorder 12/33), with the derivation recorded in the phenotype notes.
+
+No GeneReviews chapter exists for TRAPPC4, NEDESBA, or the TRAPPopathies (PubMed searched); this is documented in the entry notes. Mortality is recorded in the progression section rather than as a phenotype because HP:0003819 sits under Clinical modifier rather than Phenotypic abnormality and is not a valid phenotype_term in this schema. Physical therapy is bound to NCIT:C15302 rather than MAXO:0000011 because the TreatmentActionTerm dynamic enum is reachable only from NCIT:C25218.
+
+Validation: `just validate` (schema + terms + references) passes; 119/119 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16568,7 +17009,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Epilepsy, Spasticity, and Brain Atrophy", "mondoId": "MONDO:0032894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Epilepsy,_Spasticity,_and_Brain_Atrophy", "yamlRevision": "5233057c2114"};
+        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Epilepsy, Spasticity, and Brain Atrophy", "mondoId": "MONDO:0032894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Epilepsy,_Spasticity,_and_Brain_Atrophy", "yamlRevision": "688e8a820d3d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

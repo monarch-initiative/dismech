@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4396,6 +4464,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4417,6 +4486,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4487,6 +4557,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4562,6 +4633,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4583,6 +4655,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4671,6 +4744,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4692,6 +4766,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4794,6 +4869,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4818,6 +4894,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4839,6 +4916,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4927,6 +5005,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4948,6 +5027,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5015,6 +5095,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5076,6 +5157,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5179,6 +5261,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5200,6 +5283,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5284,6 +5368,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5305,6 +5390,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5382,6 +5468,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5403,6 +5490,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5440,6 +5528,7 @@ This subtype is caused by variation in UBE3A (hgnc:12496). hgnc:12496 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-ube3a-allele-disruption" data-dismech-node="Maternal UBE3A allele disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal UBE3A allele disruption</div>
+
 
                 <div class="item-desc">Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).</div>
 
@@ -5591,6 +5680,7 @@ This pathophysiological event occurs in nervous system (UBERON:0001016). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5613,6 +5703,7 @@ This pathophysiological event occurs in nervous system (UBERON:0001016). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuron-specific-paternal-ube3a-silencing" data-dismech-node="Neuron-specific paternal UBE3A silencing" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuron-specific paternal UBE3A silencing</div>
+
 
                 <div class="item-desc">In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.</div>
 
@@ -5764,6 +5855,7 @@ This pathophysiological event occurs in nervous system (UBERON:0001016). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5786,6 +5878,7 @@ This pathophysiological event occurs in nervous system (UBERON:0001016). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neuronal-ube3a-protein-abundance" data-dismech-node="Reduced neuronal UBE3A protein abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced neuronal UBE3A protein abundance</div>
+
 
                 <div class="item-desc">Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.</div>
 
@@ -5956,6 +6049,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5977,6 +6071,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6002,6 +6097,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-ube3a-mediated-protein-ubiquitination" data-dismech-node="Decreased UBE3A-mediated protein ubiquitination" data-dismech-type="pathophysiology">
                 <div class="item-name">Decreased UBE3A-mediated protein ubiquitination</div>
+
 
                 <div class="item-desc">UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.</div>
 
@@ -6182,6 +6278,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6203,6 +6300,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6228,6 +6326,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-experience-dependent-synaptic-remodeling" data-dismech-node="Impaired experience-dependent synaptic remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired experience-dependent synaptic remodeling</div>
+
 
                 <div class="item-desc">UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.</div>
 
@@ -6496,6 +6595,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6517,6 +6617,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6544,6 +6645,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6566,6 +6668,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neuronal-excitability-homeostasis" data-dismech-node="Disrupted neuronal excitability homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted neuronal excitability homeostasis</div>
+
 
                 <div class="item-desc">Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.</div>
 
@@ -6746,6 +6849,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6767,6 +6871,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6792,6 +6897,13 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gaba-a-receptor-cluster-hemizygosity-in-deletion-subtype" data-dismech-node="GABA-A receptor cluster hemizygosity in deletion subtype" data-dismech-type="pathophysiology">
                 <div class="item-name">GABA-A receptor cluster hemizygosity in deletion subtype</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In deletion-type Angelman syndrome, hemizygous loss of the contiguous GABRB3-GABRA5-GABRG3 GABA-A receptor subunit cluster is a proposed contributor to the more severe epilepsy and EEG phenotype observed relative to non-deletion genotypes; the human studies do not isolate its causal effect.</div>
 
@@ -7021,6 +7133,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7042,6 +7155,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7067,6 +7181,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oca2-haploinsufficiency-in-deletion-subtype" data-dismech-node="OCA2 haploinsufficiency in deletion subtype" data-dismech-type="pathophysiology">
                 <div class="item-name">OCA2 haploinsufficiency in deletion subtype</div>
+
 
                 <div class="item-desc">Codeletion of OCA2 in the typical 15q11.2-q13 deletion produces partial oculocutaneous albinism features (iris hypopigmentation, severe astigmatism, and high myopia) restricted to the deletion subtype.</div>
 
@@ -7252,6 +7367,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7274,6 +7390,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability-with-abnormal-eeg-background" data-dismech-node="Cortical network hyperexcitability with abnormal EEG background" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical network hyperexcitability with abnormal EEG background</div>
+
 
                 <div class="item-desc">Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.</div>
 
@@ -7416,6 +7533,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7440,6 +7558,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7461,6 +7580,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7509,7 +7629,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Astigmatism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0000483\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad-based gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002120\"}}, {\"id\": \"Combination anti-seizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure control is frequently achieved with combination anti-seizure medication regimens, with a newer-agent-forward approach for tolerability.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"levetiracetam\", \"lamotrigine\", \"clobazam\", \"valproic acid\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cortical network hyperexcitability with abnormal EEG background\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"species\": \"Mouse (Mus musculus)\", \"genotype\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+)\", \"background\": \"C57BL/6J\", \"category\": \"Knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Intrinsic optical signal imaging shows enhanced visually evoked cortical responses in the model that persist across development and partly track disease severity in adulthood, and that normalize when UBE3A expression is restored. The same amplification is detectable in individuals with AS by fNIRS, which is what makes this a cross-species readout of the node.\"}]}}, {\"id\": \"Decreased UBE3A-mediated protein ubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein ubiquitination\", \"regulation of protein stability\"], \"locations\": [\"brain\"]}}, {\"id\": \"Disrupted neuronal excitability homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\", \"regulation of membrane potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002353\"}}, {\"id\": \"Fair hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002286\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"GABA-A receptor cluster hemizygosity in deletion subtype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In deletion-type Angelman syndrome, hemizygous loss of the contiguous GABRB3-GABRA5-GABRG3 GABA-A receptor subunit cluster is a proposed contributor to the more severe epilepsy and EEG phenotype observed relative to non-deletion genotypes; the human studies do not isolate its causal effect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"genes\": [\"GABRB3\", \"GABRA5\", \"GABRG3\"], \"gene_terms\": [{\"label\": \"GABRB3\", \"id\": \"hgnc:4083\"}, {\"label\": \"GABRA5\", \"id\": \"hgnc:4079\"}, {\"label\": \"GABRG3\", \"id\": \"hgnc:4088\"}], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Happy demeanor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040082\"}}, {\"id\": \"Highly purified cannabidiol for refractory epilepsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Highly purified cannabidiol is being used for refractory epilepsy associated with 15q11.2-q13 deletion (Angelman syndrome) and duplication syndromes; real-world data show meaningful seizure reduction and adjunctive behavioral/sleep benefits with good tolerability.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Hyperactivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000752\"}}, {\"id\": \"Hypopigmentation of the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Impaired experience-dependent synaptic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Inappropriate laughter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000748\"}}, {\"id\": \"Infantile hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008947\"}}, {\"id\": \"Iris hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0007730\"}}, {\"id\": \"Low-glycemic-index dietary therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-glycemic-index dietary intervention is used as an adjunctive non-pharmacologic seizure-management strategy, with mixed efficacy signals but good tolerability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Maternal UBE3A allele disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"locations\": [\"nervous system\"]}}, {\"id\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A widely used maternal Ube3a-loss mouse model that reproduces several EEG, seizure, and sleep phenotypes. Model timing and magnitude of white-matter changes cannot be directly extrapolated to humans.\"}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0000545\"}}, {\"id\": \"Neuron-specific paternal UBE3A silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"locations\": [\"nervous system\"]}}, {\"id\": \"OCA2 haploinsufficiency in deletion subtype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Codeletion of OCA2 in the typical 15q11.2-q13 deletion produces partial oculocutaneous albinism features (iris hypopigmentation, severe astigmatism, and high myopia) restricted to the deletion subtype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"genes\": [\"OCA2\"], \"gene_terms\": [{\"label\": \"OCA2\", \"id\": \"hgnc:8101\"}], \"locations\": [\"eye\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy is used to improve mobility and support motor function.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent hand flapping\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100023\"}}, {\"id\": \"Reduced neuronal UBE3A protein abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational intrathecal rugonersen (RO7248824) reduces UBE3A-ATS to derepress the paternal UBE3A allele. Phase 1 data support safety, tolerability, and pharmacodynamic activity; efficacy findings were exploratory and do not establish clinical benefit.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Severe speech impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002465\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech therapy and augmentative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech therapy with nonverbal augmentative strategies is recommended due to severe expressive language deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Strabismus surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standardized strabismus surgery (extraocular-muscle surgery) achieves stable ocular alignment in Angelman syndrome regardless of molecular subtype, with high success rates and minimal need for reoperation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structured management of gastrointestinal comorbidities\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing management of reflux, feeding, and constipation is recommended.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tonsillectomy with enhanced postoperative monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tonsillectomy is used in selected Angelman patients with sleep-disordered breathing or sialorrhea, and should be paired with structured postoperative respiratory, pain, and feeding monitoring.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001337\"}}, {\"id\": \"UBE3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"association\": \"Causative\"}}, {\"id\": \"Wide mouth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000154\"}}], \"edges\": [{\"source\": \"Maternal UBE3A allele disruption\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal imprinting limits compensatory expression from the paternal allele.\"}, {\"source\": \"Neuron-specific paternal UBE3A silencing\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effective neuronal UBE3A protein dosage falls below physiologic levels.\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Decreased UBE3A-mediated protein ubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower UBE3A dosage reduces normal ubiquitination activity in neuronal systems.\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation is associated with the UBE3A-loss syndrome, but the intervening neural, behavioral, and treatment-related mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is associated with the UBE3A-loss syndrome, but the causal intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties occur in AS, with no single established causal intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysphagia occurs in AS, but the causal intermediates and subtype effects require further study.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Wide mouth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Polyphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Decreased UBE3A-mediated protein ubiquitination\", \"target\": \"Impaired experience-dependent synaptic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered UBE3A-dependent protein turnover is proposed to impair activity-dependent synaptic plasticity and remodeling.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling defects alter network excitability and transmission balance.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling dysfunction contributes to severe cognitive impairment.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe speech impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic-network disruption contributes to profound expressive language deficits.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network-level motor-circuit dysfunction contributes to persistent gait ataxia.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling failure across cortical circuits manifests as universal early developmental delay.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UBE3A-dependent neuronal/synaptic developmental defects contribute to acquired postnatal microcephaly.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling defects in motor circuits produce limb tremulousness.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical and limbic synaptic-circuit dysfunction contributes to hypermotoric/hyperactive behavior.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Inappropriate laughter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted limbic-cortical synaptic networks contribute to the characteristic happy demeanor and unprovoked laughter.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Happy demeanor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Happy demeanor is part of the characteristic behavioral phenotype, while its causal circuit intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia and motor-circuit dysfunction secondary to synaptic remodeling defects predispose to progressive spinal curvature.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Recurrent hand flapping\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Infantile hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neuronal excitability homeostasis\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Physiologic instability at synaptic and membrane levels manifests as hyperexcitable cortical activity.\"}, {\"source\": \"GABA-A receptor cluster hemizygosity in deletion subtype\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The codeleted GABA-A receptor cluster is associated with genotype-specific EEG differences, but its independent causal contribution is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Iris hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCA2 haploinsufficiency reduces ocular pigmentation in deletion-type AS.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Astigmatism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced melanin during ocular development contributes to refractive abnormality, with high astigmatism enriched in the deletion subgroup.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCA2 haploinsufficiency contributes to high myopia restricted to deletion-type AS.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Hypopigmentation of the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Fair hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks drive recurrent seizure phenotypes.\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent network instability contributes to long-term sleep dysregulation.\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus surgery\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tonsillectomy with enhanced postoperative monitoring\", \"target\": \"Drooling\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech therapy and augmentative communication\", \"target\": \"Severe speech impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Constipation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Intrinsic optical signal imaging shows enhanced visually evoked cortical responses in the model that persist across development and partly track disease severity in adulthood, and that normalize when UBE3A expression is restored. The same amplification is detectable in individuals with AS by fNIRS, which is what makes this a cross-species readout of the node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model reads out visually evoked hemodynamic amplitude in one cortical area, not the epileptiform spiking and abnormal EEG background this node is named for, so the link is an inference from one correlate of cortical excitability rather than a reproduction of the node. Severity tracking is described as partial and confined to adulthood, and the only source is a preprint.\"}, {\"source\": \"UBE3A\", \"target\": \"Maternal UBE3A allele disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"UBE3A\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Astigmatism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0000483\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad-based gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002120\"}}, {\"id\": \"Combination anti-seizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure control is frequently achieved with combination anti-seizure medication regimens, with a newer-agent-forward approach for tolerability.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"levetiracetam\", \"lamotrigine\", \"clobazam\", \"valproic acid\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cortical network hyperexcitability with abnormal EEG background\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"species\": \"Mouse (Mus musculus)\", \"genotype\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+)\", \"background\": \"C57BL/6J\", \"category\": \"Knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Intrinsic optical signal imaging shows enhanced visually evoked cortical responses in the model that persist across development and partly track disease severity in adulthood, and that normalize when UBE3A expression is restored. The same amplification is detectable in individuals with AS by fNIRS, which is what makes this a cross-species readout of the node.\"}]}}, {\"id\": \"Decreased UBE3A-mediated protein ubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein ubiquitination\", \"regulation of protein stability\"], \"locations\": [\"brain\"]}}, {\"id\": \"Disrupted neuronal excitability homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\", \"regulation of membrane potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002353\"}}, {\"id\": \"Fair hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002286\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"GABA-A receptor cluster hemizygosity in deletion subtype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In deletion-type Angelman syndrome, hemizygous loss of the contiguous GABRB3-GABRA5-GABRG3 GABA-A receptor subunit cluster is a proposed contributor to the more severe epilepsy and EEG phenotype observed relative to non-deletion genotypes; the human studies do not isolate its causal effect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"genes\": [\"GABRB3\", \"GABRA5\", \"GABRG3\"], \"gene_terms\": [{\"label\": \"GABRB3\", \"id\": \"hgnc:4083\"}, {\"label\": \"GABRA5\", \"id\": \"hgnc:4079\"}, {\"label\": \"GABRG3\", \"id\": \"hgnc:4088\"}], \"locations\": [\"cerebral cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Happy demeanor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040082\"}}, {\"id\": \"Highly purified cannabidiol for refractory epilepsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Highly purified cannabidiol is being used for refractory epilepsy associated with 15q11.2-q13 deletion (Angelman syndrome) and duplication syndromes; real-world data show meaningful seizure reduction and adjunctive behavioral/sleep benefits with good tolerability.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Hyperactivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000752\"}}, {\"id\": \"Hypopigmentation of the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Impaired experience-dependent synaptic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Inappropriate laughter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000748\"}}, {\"id\": \"Infantile hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008947\"}}, {\"id\": \"Iris hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0007730\"}}, {\"id\": \"Low-glycemic-index dietary therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-glycemic-index dietary intervention is used as an adjunctive non-pharmacologic seizure-management strategy, with mixed efficacy signals but good tolerability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Maternal UBE3A allele disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"locations\": [\"nervous system\"]}}, {\"id\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A widely used maternal Ube3a-loss mouse model that reproduces several EEG, seizure, and sleep phenotypes. Model timing and magnitude of white-matter changes cannot be directly extrapolated to humans.\"}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Maternal 15q11.2-q13 deletion Angelman syndrome\"], \"term_id\": \"HP:0000545\"}}, {\"id\": \"Neuron-specific paternal UBE3A silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"locations\": [\"nervous system\"]}}, {\"id\": \"OCA2 haploinsufficiency in deletion subtype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Codeletion of OCA2 in the typical 15q11.2-q13 deletion produces partial oculocutaneous albinism features (iris hypopigmentation, severe astigmatism, and high myopia) restricted to the deletion subtype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"genes\": [\"OCA2\"], \"gene_terms\": [{\"label\": \"OCA2\", \"id\": \"hgnc:8101\"}], \"locations\": [\"eye\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy is used to improve mobility and support motor function.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent hand flapping\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100023\"}}, {\"id\": \"Reduced neuronal UBE3A protein abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational intrathecal rugonersen (RO7248824) reduces UBE3A-ATS to derepress the paternal UBE3A allele. Phase 1 data support safety, tolerability, and pharmacodynamic activity; efficacy findings were exploratory and do not establish clinical benefit.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Severe speech impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002465\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech therapy and augmentative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech therapy with nonverbal augmentative strategies is recommended due to severe expressive language deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Strabismus surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standardized strabismus surgery (extraocular-muscle surgery) achieves stable ocular alignment in Angelman syndrome regardless of molecular subtype, with high success rates and minimal need for reoperation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structured management of gastrointestinal comorbidities\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing management of reflux, feeding, and constipation is recommended.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tonsillectomy with enhanced postoperative monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tonsillectomy is used in selected Angelman patients with sleep-disordered breathing or sialorrhea, and should be paired with structured postoperative respiratory, pain, and feeding monitoring.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001337\"}}, {\"id\": \"UBE3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}], \"association\": \"Causative\"}}, {\"id\": \"Wide mouth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000154\"}}], \"edges\": [{\"source\": \"Maternal UBE3A allele disruption\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal imprinting limits compensatory expression from the paternal allele.\"}, {\"source\": \"Neuron-specific paternal UBE3A silencing\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effective neuronal UBE3A protein dosage falls below physiologic levels.\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Decreased UBE3A-mediated protein ubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower UBE3A dosage reduces normal ubiquitination activity in neuronal systems.\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation is associated with the UBE3A-loss syndrome, but the intervening neural, behavioral, and treatment-related mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is associated with the UBE3A-loss syndrome, but the causal intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties occur in AS, with no single established causal intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysphagia occurs in AS, but the causal intermediates and subtype effects require further study.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Wide mouth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Polyphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Decreased UBE3A-mediated protein ubiquitination\", \"target\": \"Impaired experience-dependent synaptic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered UBE3A-dependent protein turnover is proposed to impair activity-dependent synaptic plasticity and remodeling.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling defects alter network excitability and transmission balance.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling dysfunction contributes to severe cognitive impairment.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe speech impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic-network disruption contributes to profound expressive language deficits.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network-level motor-circuit dysfunction contributes to persistent gait ataxia.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling failure across cortical circuits manifests as universal early developmental delay.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UBE3A-dependent neuronal/synaptic developmental defects contribute to acquired postnatal microcephaly.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic remodeling defects in motor circuits produce limb tremulousness.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical and limbic synaptic-circuit dysfunction contributes to hypermotoric/hyperactive behavior.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Inappropriate laughter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted limbic-cortical synaptic networks contribute to the characteristic happy demeanor and unprovoked laughter.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Happy demeanor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Happy demeanor is part of the characteristic behavioral phenotype, while its causal circuit intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia and motor-circuit dysfunction secondary to synaptic remodeling defects predispose to progressive spinal curvature.\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Recurrent hand flapping\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Infantile hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neuronal excitability homeostasis\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Physiologic instability at synaptic and membrane levels manifests as hyperexcitable cortical activity.\"}, {\"source\": \"GABA-A receptor cluster hemizygosity in deletion subtype\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The codeleted GABA-A receptor cluster is associated with genotype-specific EEG differences, but its independent causal contribution is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Iris hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCA2 haploinsufficiency reduces ocular pigmentation in deletion-type AS.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Astigmatism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced melanin during ocular development contributes to refractive abnormality, with high astigmatism enriched in the deletion subgroup.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCA2 haploinsufficiency contributes to high myopia restricted to deletion-type AS.\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Hypopigmentation of the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"OCA2 haploinsufficiency in deletion subtype\", \"target\": \"Fair hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks drive recurrent seizure phenotypes.\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent network instability contributes to long-term sleep dysregulation.\"}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rugonersen UBE3A-ATS antisense oligonucleotide therapy\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Highly purified cannabidiol for refractory epilepsy\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus surgery\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tonsillectomy with enhanced postoperative monitoring\", \"target\": \"Drooling\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech therapy and augmentative communication\", \"target\": \"Severe speech impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Constipation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maternally inherited Ube3a exon-2 deletion (Ube3am-/p+) Mouse (Mus musculus)\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Intrinsic optical signal imaging shows enhanced visually evoked cortical responses in the model that persist across development and partly track disease severity in adulthood, and that normalize when UBE3A expression is restored. The same amplification is detectable in individuals with AS by fNIRS, which is what makes this a cross-species readout of the node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model reads out visually evoked hemodynamic amplitude in one cortical area, not the epileptiform spiking and abnormal EEG background this node is named for, so the link is an inference from one correlate of cortical excitability rather than a reproduction of the node. Severity tracking is described as partial and confined to adulthood, and the only source is a preprint.\"}, {\"source\": \"UBE3A\", \"target\": \"Maternal UBE3A allele disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"UBE3A\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7583,6 +7703,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7597,6 +7720,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7653,6 +7777,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7667,6 +7794,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7723,6 +7851,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7737,6 +7868,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7793,6 +7925,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7807,6 +7942,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7872,6 +8008,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7886,6 +8025,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7910,6 +8050,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7964,6 +8105,9 @@ This clinical feature is Iris hypopigmentation (HP:0007730). HP:0007730 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7978,6 +8122,7 @@ This clinical feature is Iris hypopigmentation (HP:0007730). HP:0007730 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8032,6 +8177,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8046,6 +8194,7 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8100,6 +8249,9 @@ This clinical feature is High myopia, annotated with Myopia (HP:0000545). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8114,6 +8266,7 @@ This clinical feature is High myopia, annotated with Myopia (HP:0000545). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8179,6 +8332,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8193,6 +8349,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8217,6 +8374,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8273,6 +8431,9 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8287,6 +8448,7 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8343,6 +8505,9 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8357,6 +8522,7 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8413,6 +8579,9 @@ This clinical feature is Protruding tongue (HP:0010808). HP:0010808 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8427,6 +8596,7 @@ This clinical feature is Protruding tongue (HP:0010808). HP:0010808 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8492,6 +8662,9 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8506,6 +8679,7 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8562,6 +8736,9 @@ This clinical feature is Fair hair (HP:0002286). HP:0002286 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8576,6 +8753,7 @@ This clinical feature is Fair hair (HP:0002286). HP:0002286 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8641,6 +8819,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8655,6 +8836,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8679,6 +8861,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8737,6 +8920,9 @@ This clinical feature is Infantile hypotonia, annotated with Floppy infant (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8751,6 +8937,7 @@ This clinical feature is Infantile hypotonia, annotated with Floppy infant (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8816,6 +9003,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8830,6 +9020,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8854,6 +9045,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8910,6 +9102,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8924,6 +9119,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8982,6 +9178,9 @@ This clinical feature is Severe expressive speech impairment, annotated with Poo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8996,6 +9195,7 @@ This clinical feature is Severe expressive speech impairment, annotated with Poo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9052,6 +9252,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9066,6 +9269,7 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,6 +9294,7 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9146,6 +9351,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9160,6 +9368,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9184,6 +9393,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9240,6 +9450,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9254,6 +9467,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9310,6 +9524,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9324,6 +9541,7 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9380,6 +9598,9 @@ This clinical feature is Inappropriate laughter (HP:0000748). HP:0000748 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9394,6 +9615,7 @@ This clinical feature is Inappropriate laughter (HP:0000748). HP:0000748 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9450,6 +9672,9 @@ This clinical feature is Happy demeanor (HP:0040082). HP:0040082 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9464,6 +9689,7 @@ This clinical feature is Happy demeanor (HP:0040082). HP:0040082 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9491,6 +9717,7 @@ This clinical feature is Happy demeanor (HP:0040082). HP:0040082 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9512,6 +9739,7 @@ This clinical feature is Happy demeanor (HP:0040082). HP:0040082 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9566,6 +9794,9 @@ This clinical feature is Tremor of the limbs, annotated with Tremor (HP:0001337)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9580,6 +9811,7 @@ This clinical feature is Tremor of the limbs, annotated with Tremor (HP:0001337)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9636,6 +9868,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9650,6 +9885,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9674,6 +9910,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9730,6 +9967,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9744,6 +9984,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9800,6 +10041,9 @@ This clinical feature is Broad-based gait (HP:0002136). HP:0002136 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9814,6 +10058,7 @@ This clinical feature is Broad-based gait (HP:0002136). HP:0002136 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9870,6 +10115,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9884,6 +10132,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9940,6 +10189,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9954,6 +10206,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10010,6 +10263,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10024,6 +10280,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10080,6 +10337,9 @@ This clinical feature is Recurrent hand flapping (HP:0100023). HP:0100023 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10094,6 +10354,7 @@ This clinical feature is Recurrent hand flapping (HP:0100023). HP:0100023 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10150,6 +10411,9 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10164,6 +10428,7 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10229,6 +10494,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10243,6 +10511,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10341,6 +10610,9 @@ This disease-associated gene is UBE3A (hgnc:12496). hgnc:12496 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10355,6 +10627,7 @@ This disease-associated gene is UBE3A (hgnc:12496). hgnc:12496 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10379,6 +10652,7 @@ This disease-associated gene is UBE3A (hgnc:12496). hgnc:12496 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10414,6 +10688,9 @@ This disease-associated gene is UBE3A (hgnc:12496). hgnc:12496 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10428,6 +10705,7 @@ This disease-associated gene is UBE3A (hgnc:12496). hgnc:12496 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10485,6 +10763,9 @@ This disease-associated gene is GABRB3 (hgnc:4083). hgnc:4083 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10499,6 +10780,7 @@ This disease-associated gene is GABRB3 (hgnc:4083). hgnc:4083 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10556,6 +10838,9 @@ This disease-associated gene is GABRA5 (hgnc:4079). hgnc:4079 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10570,6 +10855,7 @@ This disease-associated gene is GABRA5 (hgnc:4079). hgnc:4079 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10627,6 +10913,9 @@ This disease-associated gene is GABRG3 (hgnc:4088). hgnc:4088 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10641,6 +10930,7 @@ This disease-associated gene is GABRG3 (hgnc:4088). hgnc:4088 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10698,6 +10988,9 @@ This disease-associated gene is OCA2 (hgnc:8101). hgnc:8101 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10712,6 +11005,7 @@ This disease-associated gene is OCA2 (hgnc:8101). hgnc:8101 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10795,6 +11089,7 @@ This disease-associated gene is OCA2 (hgnc:8101). hgnc:8101 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10819,6 +11114,7 @@ This disease-associated gene is OCA2 (hgnc:8101). hgnc:8101 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10840,6 +11136,7 @@ This disease-associated gene is OCA2 (hgnc:8101). hgnc:8101 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10923,6 +11220,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10935,6 +11235,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -11022,6 +11325,7 @@ This treatment base-pairs with the transcript of UBE3A (hgnc:12496). hgnc:12496 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11069,6 +11373,7 @@ This treatment base-pairs with the transcript of UBE3A (hgnc:12496). hgnc:12496 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11112,6 +11417,7 @@ This treatment base-pairs with the transcript of UBE3A (hgnc:12496). hgnc:12496 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11133,6 +11439,7 @@ This treatment base-pairs with the transcript of UBE3A (hgnc:12496). hgnc:12496 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11277,6 +11584,12 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizure control is frequently achieved with combination anti-seizure medication regimens, with a newer-agent-forward approach for tolerability.</div>
 
 
@@ -11307,6 +11620,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11354,6 +11668,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11422,6 +11737,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11446,6 +11762,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11467,6 +11784,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11560,6 +11878,12 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Highly purified cannabidiol is being used for refractory epilepsy associated with 15q11.2-q13 deletion (Angelman syndrome) and duplication syndromes; real-world data show meaningful seizure reduction and adjunctive behavioral/sleep benefits with good tolerability.</div>
 
 
@@ -11590,6 +11914,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11637,6 +11962,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11722,6 +12048,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11746,6 +12073,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11767,6 +12095,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11834,6 +12163,9 @@ This treatment is extraocular muscle surgery for strabismus, annotated with Surg
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11844,6 +12176,9 @@ This treatment is extraocular muscle surgery for strabismus, annotated with Surg
 
 
     </div>
+
+
+
 
 
 
@@ -11893,6 +12228,7 @@ This treatment targets Strabismus (HP:0000486). HP:0000486 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11960,6 +12296,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11970,6 +12309,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -12006,6 +12348,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12091,6 +12434,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12112,6 +12456,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12171,6 +12516,12 @@ This treatment is tonsillectomy (NCIT:C51679). NCIT:C51679 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12247,6 +12598,7 @@ This treatment targets Sialorrhea, annotated with Drooling (HP:0002307). HP:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12268,6 +12620,7 @@ This treatment targets Sialorrhea, annotated with Drooling (HP:0002307). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12335,6 +12688,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12345,6 +12701,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -12394,6 +12753,7 @@ This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12461,6 +12821,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12471,6 +12834,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12498,6 +12864,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12565,6 +12932,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12575,6 +12945,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -12624,6 +12997,7 @@ This treatment targets Severe expressive speech impairment, annotated with Poor 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12683,6 +13057,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -12756,6 +13136,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12866,6 +13247,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12952,6 +13334,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13042,6 +13425,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13126,6 +13510,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13218,6 +13603,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13242,6 +13628,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13263,6 +13650,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13450,6 +13838,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13556,6 +13945,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13582,6 +13972,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13605,6 +13996,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13672,6 +14064,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13696,6 +14089,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13717,6 +14111,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13772,6 +14167,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13822,6 +14218,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13843,6 +14240,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13919,6 +14317,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13972,6 +14371,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14031,6 +14431,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14084,6 +14485,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14143,6 +14545,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14199,6 +14602,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14252,6 +14656,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14343,6 +14748,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14402,6 +14808,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14476,6 +14883,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14573,6 +14981,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14650,6 +15059,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14732,6 +15142,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14821,6 +15232,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14842,6 +15254,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14925,6 +15338,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14990,6 +15404,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15011,6 +15426,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15064,6 +15480,7 @@ This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15142,6 +15559,7 @@ This clinical trial targets Sleep disturbance (HP:0002360). HP:0002360 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15192,6 +15610,7 @@ This clinical trial targets Sleep disturbance (HP:0002360). HP:0002360 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15287,6 +15706,7 @@ This clinical trial targets Severe intellectual disability (HP:0010864). HP:0010
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15362,6 +15782,7 @@ This clinical trial targets Severe intellectual disability (HP:0010864). HP:0010
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15415,6 +15836,7 @@ This clinical trial targets Severe intellectual disability (HP:0010864). HP:0010
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15465,6 +15887,7 @@ This clinical trial targets Severe intellectual disability (HP:0010864). HP:0010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15665,6 +16088,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15726,6 +16150,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15767,6 +16192,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15814,6 +16240,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15835,6 +16262,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15975,6 +16403,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15996,6 +16425,7 @@ This experimental model concerns UBE3A (hgnc:12496). hgnc:12496 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -21582,6 +22012,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Angelman_Syndrome-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

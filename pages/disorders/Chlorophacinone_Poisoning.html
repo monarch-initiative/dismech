@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4278,6 +4346,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4302,6 +4371,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4425,6 +4495,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4451,6 +4522,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4475,6 +4547,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4537,6 +4610,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4561,6 +4635,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4686,6 +4761,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4760,6 +4836,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4786,6 +4863,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4810,6 +4888,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4846,6 +4925,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-chlorophacinone-exposure" data-dismech-node="Systemic Chlorophacinone Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Chlorophacinone Exposure</div>
+
 
                 <div class="item-desc">Chlorophacinone enters the body by ingestion of bait or concentrate. Inhalational and transcutaneous routes are documented for the anticoagulant rodenticides as a class; the cited source does not attribute either specifically to chlorophacinone. Ingested doses reported in human cases span roughly 100 mg to nearly 2 g, and plasma concentrations after a large deliberate ingestion reach the tens of mg/L.</div>
 
@@ -4909,6 +4989,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4933,6 +5014,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4961,6 +5043,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4983,6 +5066,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitamin-k-epoxide-reductase-inhibition" data-dismech-node="Vitamin K Epoxide Reductase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitamin K Epoxide Reductase Inhibition</div>
+
 
                 <div class="item-desc">Chlorophacinone inhibits the vitamin K 2,3-epoxide reductase complex (VKORC1) in the hepatocyte endoplasmic reticulum. VKORC1 normally reduces vitamin K 2,3-epoxide back to vitamin K hydroquinone; blocking it halts the vitamin K cycle at the epoxide step.</div>
 
@@ -5153,6 +5237,7 @@ This pathophysiological event involves decreased vitamin K epoxide reductase act
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5177,6 +5262,7 @@ This pathophysiological event involves decreased vitamin K epoxide reductase act
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5205,6 +5291,7 @@ This pathophysiological event involves decreased vitamin K epoxide reductase act
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5229,6 +5316,7 @@ This pathophysiological event involves decreased vitamin K epoxide reductase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-the-reduced-vitamin-k-pool" data-dismech-node="Depletion of the Reduced Vitamin K Pool" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of the Reduced Vitamin K Pool</div>
+
 
                 <div class="item-desc">The hepatic pool of reduced vitamin K (hydroquinone) is depleted because the epoxide formed at each carboxylation cycle cannot be recycled. Dietary vitamin K intake alone does not replace it at the rate the cycle consumes it, which is why exogenous vitamin K1 in gram-scale cumulative doses is the antidote.</div>
 
@@ -5322,6 +5410,7 @@ This pathophysiological event involves decreased vitamin K metabolic process (GO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5344,6 +5433,7 @@ This pathophysiological event involves decreased vitamin K metabolic process (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gamma-carboxylation-of-vitamin-k-dependent-clotting-factors" data-dismech-node="Impaired Gamma-Carboxylation of Vitamin K-Dependent Clotting Factors" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gamma-Carboxylation of Vitamin K-Dependent Clotting Factors</div>
+
 
                 <div class="item-desc">Hepatic gamma-glutamyl carboxylase can no longer convert glutamate residues in the Gla domains of the vitamin K-dependent proteins to gamma-carboxyglutamate. The affected proteins are prothrombin (factor II) and factors VII, IX and X, together with the anticoagulant proteins C and S. Under-carboxylated Gla domains cannot chelate calcium and so cannot dock the factor onto anionic phospholipid membranes.</div>
 
@@ -5748,6 +5838,7 @@ This pathophysiological event involves decreased peptidyl-glutamic acid carboxyl
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5770,6 +5861,7 @@ This pathophysiological event involves decreased peptidyl-glutamic acid carboxyl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-deficiency-of-coagulation-factors-ii-vii-ix-and-x" data-dismech-node="Functional Deficiency of Coagulation Factors II, VII, IX and X" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Deficiency of Coagulation Factors II, VII, IX and X</div>
+
 
                 <div class="item-desc">Circulating activity of prothrombin and factors VII, IX and X falls. Because factor VII has the shortest half-life of the four, the prothrombin time and INR move first; the activated partial thromboplastin time follows as factors IX, X and II decline.</div>
 
@@ -5985,6 +6077,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6011,6 +6104,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6033,6 +6127,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-accumulation-and-prolonged-elimination" data-dismech-node="Hepatic Accumulation and Prolonged Elimination" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Accumulation and Prolonged Elimination</div>
+
 
                 <div class="item-desc">Chlorophacinone is lipid-soluble, accumulates in liver and undergoes enterohepatic recirculation, so its biological half-life is long and grows longer with larger ingested doses. This is the property that separates the long-acting rodenticides from warfarin clinically, and it is what makes the coagulopathy last weeks rather than days. Chlorophacinone is nevertheless shorter-acting than the second-generation compounds: the class treatment durations reported in reviews are driven by brodifacoum and should not be read as a chlorophacinone expectation.</div>
 
@@ -6088,6 +6183,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6112,6 +6208,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6140,6 +6237,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6162,6 +6260,7 @@ This pathophysiological event involves F10 (hgnc:3528). hgnc:3528 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-coagulopathy" data-dismech-node="Prolonged Coagulopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Coagulopathy</div>
+
 
                 <div class="item-desc">The clotting defect is global, severe and long-lived. Prothrombin time, INR and activated partial thromboplastin time are grossly prolonged, often beyond the measurable range of the assay, and normalization can take weeks to months after a single large ingestion.</div>
 
@@ -6289,6 +6388,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6315,6 +6415,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6337,6 +6438,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multicompartment-hemorrhage" data-dismech-node="Multicompartment Hemorrhage" data-dismech-type="pathophysiology">
                 <div class="item-name">Multicompartment Hemorrhage</div>
+
 
                 <div class="item-desc">Bleeding is characteristically multifocal rather than confined to one site. Mucocutaneous bleeding predominates, with haematuria the single most frequently reported manifestation, and haemorrhage into serous cavities, muscle and the central nervous system also occurs.</div>
 
@@ -6463,6 +6565,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6489,6 +6592,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6511,6 +6615,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypovolemic-shock-and-death" data-dismech-node="Hypovolemic Shock and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypovolemic Shock and Death</div>
+
 
                 <div class="item-desc">Death follows either exsanguinating blood loss with hypovolaemic shock or haemorrhage into the central nervous system. Intracranial haemorrhage is the most commonly reported cause of death in this class of poisoning.</div>
 
@@ -6551,6 +6656,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6575,6 +6681,7 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6694,6 +6801,9 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6711,6 +6821,7 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6737,6 +6848,7 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6792,6 +6904,9 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6809,6 +6924,7 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6862,6 +6978,9 @@ This clinical feature is Reduced factor VII activity (HP:0008169). HP:0008169 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6879,6 +6998,7 @@ This clinical feature is Reduced factor VII activity (HP:0008169). HP:0008169 is
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6932,6 +7052,9 @@ This clinical feature is Reduced factor X activity (HP:0008321). HP:0008321 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6949,6 +7072,7 @@ This clinical feature is Reduced factor X activity (HP:0008321). HP:0008321 is a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7002,6 +7126,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7019,6 +7146,7 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7072,6 +7200,9 @@ This clinical feature is Gingival bleeding (HP:0000225). HP:0000225 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7089,6 +7220,7 @@ This clinical feature is Gingival bleeding (HP:0000225). HP:0000225 is a phenoty
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7144,6 +7276,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7161,6 +7296,7 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7214,6 +7350,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7231,6 +7370,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7284,6 +7424,9 @@ This clinical feature is Hematochezia (HP:0002573). HP:0002573 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7301,6 +7444,7 @@ This clinical feature is Hematochezia (HP:0002573). HP:0002573 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7354,6 +7498,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7371,6 +7518,7 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7424,6 +7572,9 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7441,6 +7592,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7494,6 +7646,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7511,6 +7666,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7573,6 +7729,9 @@ This clinical feature is Hypovolemic shock (HP:0031274). HP:0031274 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7590,6 +7749,7 @@ This clinical feature is Hypovolemic shock (HP:0031274). HP:0031274 is a phenoty
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7652,6 +7812,9 @@ This clinical feature is Hemoperitoneum (HP:0011854). HP:0011854 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7669,6 +7832,7 @@ This clinical feature is Hemoperitoneum (HP:0011854). HP:0011854 is a phenotype 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7722,6 +7886,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7739,6 +7906,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7801,6 +7969,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7818,6 +7989,7 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7844,6 +8016,7 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7906,6 +8079,9 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7923,6 +8099,7 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7985,6 +8162,9 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8002,6 +8182,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8047,6 +8228,9 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8064,6 +8248,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8202,6 +8387,9 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8212,6 +8400,9 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8251,6 +8442,7 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8298,6 +8490,7 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8324,6 +8517,7 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8348,6 +8542,7 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8437,6 +8632,9 @@ This treatment uses four-factor prothrombin complex concentrate (NCIT:C208347). 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8447,6 +8645,9 @@ This treatment uses four-factor prothrombin complex concentrate (NCIT:C208347). 
 
 
     </div>
+
+
+
 
 
 
@@ -8486,6 +8687,7 @@ This treatment uses four-factor prothrombin complex concentrate (NCIT:C208347). 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8533,6 +8735,7 @@ This treatment uses four-factor prothrombin complex concentrate (NCIT:C208347). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8557,6 +8760,7 @@ This treatment uses four-factor prothrombin complex concentrate (NCIT:C208347). 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8644,6 +8848,9 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8654,6 +8861,9 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8693,6 +8903,7 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8738,6 +8949,7 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8827,6 +9039,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8853,6 +9066,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8877,6 +9091,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8932,6 +9147,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9001,6 +9217,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9027,6 +9244,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9051,6 +9269,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9104,6 +9323,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9128,6 +9348,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9200,6 +9421,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9226,6 +9448,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9250,6 +9473,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9310,6 +9534,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9366,6 +9591,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9390,6 +9616,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9461,6 +9688,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9515,6 +9743,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9567,6 +9796,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9638,6 +9868,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9689,6 +9920,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9713,6 +9945,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9768,6 +10001,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9792,6 +10026,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9930,6 +10165,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10072,6 +10308,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10222,6 +10459,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10264,6 +10502,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10310,6 +10549,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10438,6 +10678,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10480,6 +10721,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10526,6 +10768,7 @@ This environmental factor is exposure to anticoagulant rodenticide (ECTO:9002177
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -13049,6 +13292,183 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Chlorophacinone Poisoning</strong> · 2026-09-03T18:51:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chlorophacinone_Poisoning/2026-09-03T185147Z-claude-code-d4f1f6.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Chlorophacinone_Poisoning.yaml de novo. Chlorophacinone is
+an indanedione anticoagulant rodenticide; the entry models the acquired vitamin
+K-antagonist coagulopathy it causes.
+
+No MONDO term exists. MONDO was searched live through OLS4 for chlorophacinone,
+indandione, anticoagulant rodenticide and rodenticide poisoning, and the 60
+hierarchical children of MONDO:0029000 (poisoning) were enumerated; none covers
+rodenticides or anticoagulants. The entry therefore carries no primary
+disease_term and records only a skos:broadMatch to MONDO:0029000, with the
+reasoning in the entry notes. A new MONDO term request is the correct follow-up.
+
+Deep research. The user asked for Edison falcon. The falcon provider could not
+run: EDISON_API_KEY from .env is rejected with HTTP 403 Forbidden at
+https://api.platform.edisonscientific.com/auth/login (edison_client raises
+&#34;Failed to authenticate&#34;). The key is well formed, 235 characters, unquoted, no
+whitespace, so this is a server-side credential rejection and not a local
+configuration fault. Two attempts were made. Deep research was therefore run
+with the claude_code provider instead, producing
+research/Chlorophacinone_Poisoning-deep-research-claude_code.md (798 s, 16 web
+searches, 58 turns).
+
+Report validation, per the skill&#39;s Step 3a. The report&#39;s own frontmatter records
+needs_review: true, 48 references checked, 47 resolved, 1 unresolved
+(PMID:34748846), confabulation_rate 0.021, 31 of 47 on topic, 0 off topic; term
+validation 45/45 resolved. PMID:34748846 is NOT cited anywhere in this entry.
+The six terms the validator lists as &#34;named as a different term&#34; are a report
+formatting artifact: the report wrote the string &#34;not verified this session&#34; in
+the label column rather than a wrong label. HP:0000132 (Menorrhagia) and
+HP:0001903 (Anemia) are used here and both were independently confirmed against
+the local HPO adapter.
+
+NEC check. just preflight-dr cannot run without a MONDO ID. The manual
+substitute was a gene- and agent-frequency count over the report body: 124
+mentions of chlorophacinone against 16 brodifacoum, 15 bromadiolone, 29 warfarin
+(mostly as the comparator), and 25 VKORC1. The report is about the intended
+entity.
+
+Curated content. Nine pathophysiology nodes forming a connected chain from
+systemic exposure through VKORC1 inhibition, reduced-vitamin-K depletion,
+failed gamma-carboxylation, functional factor II/VII/IX/X deficiency,
+prolonged coagulopathy and multicompartment haemorrhage to hypovolaemic
+shock and death, with hepatic accumulation and prolonged elimination as a
+parallel branch feeding the coagulopathy node. 19 phenotypes, 2 biochemical
+markers, 1 environmental exposure (ECTO:9002177) linked into the pathograph,
+3 treatments, 3 diagnosis entries, 3 progression phases, 3 epidemiology
+entries, 5 differential diagnoses, 2 animal models, 5 discussions, 109
+evidence items over 22 references. Connectivity was checked
+programmatically: no pathophysiology node lacks an incoming edge, and every
+downstream, influences_mechanisms, target_mechanisms, modeled_mechanisms,
+readout and attaches_to target resolves.
+
+Evidence discipline. Every snippet was pre-verified against the local
+references_cache before being written into YAML, using a
+whitespace-normalizing substring check, so no blocked write or re-emission
+was needed. Every reference_title was extracted programmatically from the
+cache title: line and re-checked against the cache after all edits; all 22
+match, and the set of cited PMIDs equals the set listed in the top-level
+references block.
+
+Class-level evidence and the directness slot. Most of the anticoagulant
+rodenticide literature reports the class rather than chlorophacinone. Note
+that the schema no longer accepts supports: PARTIAL, which CLAUDE.md still
+documents; supports is direction only and directness carries the inference
+step. One rule was applied to every one of the 109 items and no item is left
+untagged: INDIRECT where the quoted sentence is about the class rather than
+chlorophacinone, or comes from a non-human system, or is a therapeutic
+recommendation used as mechanism evidence; DIRECT where the sentence names
+chlorophacinone or the specific case and asserts the claim. That yields 75
+INDIRECT and 34 DIRECT. For evidence_source in reviews and guidelines the
+rule is OTHER for pharmacological assertions and management recommendations,
+HUMAN_CLINICAL for aggregated patient observations. An automated audit
+confirms no snippet carries two different tag combinations anywhere in the
+file.
+
+Adversarial self-review before the PR. A subagent review against the
+dismech-pr-review skill returned five blocking and six high findings; all
+were acted on. The frequency: FREQUENT band on Hematuria was removed, since
+39 of 88 comes from a case-report synthesis enriched for severe outcomes and
+the entry&#39;s own epidemiology records about 2 per cent morbidity across
+reported exposures; the sources support a rank, not a rate. The
+directness and evidence_source inconsistencies described above were the
+review&#39;s other two blocking findings and were fixed by the whole-file
+retag. Two chlorophacinone-specific papers already in this branch&#39;s cache
+but uncited were brought in: PMID:1522713, twenty poisoned patients and the
+only source giving a serum concentration below which bleeding risk has
+resolved, and PMID:23109180, which identifies three hydroxy-metabolites in
+rat and reports a hepatic plateau suggesting rapid elimination, both of
+which bear directly on the persistence discussion and one of which cuts
+against it. Also added on review: the lamb epizootic (PMID:17037620) as a
+second animal model, three missing differentials (warfarin/coumarin, liver
+failure, disseminated intravascular coagulation), the consensus
+out-of-hospital guideline (PMID:17357377), the Paris series recommendation
+to recheck the prothrombin time 48 hours after stopping vitamin K
+(PMID:2729812), coma and acute compartment syndrome as phenotypes, milk
+transfer as an exposure route, and an INTERPRETATION discussion on whether
+the published argument against CYP inducers, which rests on brodifacoum not
+being metabolised, transfers to a compound that is. The 39893780 snippet was
+swapped from an aims sentence to the paper&#39;s validation result, and the
+16716547 snippet from an &#34;the authors discuss&#34; sentence to the one reporting
+the case; the thrombosis discussion no longer says the death was attributed
+to chlorophacinone, since that paper calls the diagnosis suspicious and
+problematic. The factor VII half-life ordering is retained but now carries a
+note saying it is standard coagulation physiology not demonstrated in any
+cited source. Curation-process narrative was trimmed out of the rendered
+notes fields and lives here instead.
+
+Post-review round on PR #10782. The ai4c-reviewer approved with no critical or
+important findings and three optional suggestions; all three were acted on. The
+frequency-band cleanup had landed on the wrong occurrence of a snippet that
+appears on two blocks, so the corrected wording sat on the Multicompartment
+Hemorrhage node while the Hematuria phenotype kept prose still arguing for the
+removed FREQUENT band. Both explanations were rewritten to speak to their own
+block. NCIT:C208347 (Four-factor Prothrombin Complex Concentrate) was bound as
+therapeutic_agent on the factor-replacement treatment, with a note recording
+that recombinant activated factor VII and fresh frozen plasma are named in the
+same recommendation and are deliberately left unbound because no suitable term
+was resolved. PMID:29897553 (cholestyramine in a rabbit brodifacoum model),
+already cited in prose on the hepatic-accumulation node, was added to the
+top-level references block. Activated charcoal and antifibrinolytics were NOT
+curated: the reviewer independently confirmed that both appear only in
+PMID:16499407&#39;s MeSH keywords and never in its abstract body, so no exact-quote
+snippet exists for either.
+
+Deliberate omissions, recorded in the entry notes so they are not
+re-attempted. HP:4000177 (Bleeding ameliorated by vitamin K) fits this
+disorder but descends from HP:0012823 Clinical modifier rather than
+HP:0000118, so it is outside the PhenotypeTerm dynamic enum; it was tried
+and removed. HP:0045063 (Increased PIVKA-II) is mechanistically apt but no
+cited source here reports PIVKA-II measurement in chlorophacinone poisoning,
+and the PIVKA-antigen clause that had been asserted in a node description
+was removed for the same reason. No datasets block: no omics or perturbation
+dataset for chlorophacinone exposure was found, only wildlife and livestock
+residue chemistry, which measures the compound rather than a host response.
+A VKORC1 or CYP2C9 pharmacogenomic susceptibility claim was NOT curated; it
+is mechanistically plausible but every available citation is a warfarin
+study. An unevidenced claim that vitamin K1 works by way of a
+warfarin-insensitive quinone reductase was written into a treatment
+description and then removed, because nothing cited here states it. The
+class-level clauses about greater VKOR affinity are explicitly not carried
+over onto the chlorophacinone node, because the same entry records that
+rodent-efficacy sources call it first-generation, which is a lower-potency
+claim.
+
+Discussions. Two knowledge gaps: whether loss of the vitamin K-dependent
+anticoagulants protein C and protein S explains the reported paradoxical
+thrombosis, and why hypocoagulability persists after plasma chlorophacinone
+falls. Two interpretation entries: chlorophacinone is called first-generation
+by rodent-efficacy sources and long-acting by human-toxicology sources, with
+the verbatim quote for each, because the first-generation label wrongly
+implies a warfarin-length treatment course; and whether the anti-CYP-inducer
+argument transfers. One knowledge gap on the widely repeated claim that
+indandiones uncouple oxidative phosphorylation, for which PubMed queries
+pairing chlorophacinone, indandione, diphacinone and pindone with uncoupling,
+mitochondria and oxidative phosphorylation returned no records; it carries
+the FXR-antagonism paper (PMID:27773686) so the entry is not read as
+claiming chlorophacinone has no off-target activity at all.
+
+Validation actually run and read. just validate (schema, terms, references) and
+just validate-disorders, the batched form CI runs: schema clean, terms passed,
+109/109 snippets verified against cached references. just check-duplicate-keys,
+just check-entity-refs (2832 files), just check-title-snippets, just
+check-folded-hyphens: all pass. just compliance: 96.6% global, 97.0% weighted.
+Term validation genuinely consulted the ontologies, confirmed by new rows
+appearing in cache/chebi, cache/ecto, cache/go and cache/hgnc terms.csv and in
+four cache/enums membership files. uv run pytest tests/test_data.py against the final file state: 47829 passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

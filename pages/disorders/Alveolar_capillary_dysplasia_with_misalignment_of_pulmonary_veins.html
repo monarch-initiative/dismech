@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4132,6 +4200,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4241,6 +4310,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4265,6 +4335,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4286,6 +4357,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4445,6 +4517,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4539,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4730,6 +4804,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4754,6 +4829,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4775,6 +4851,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4812,6 +4889,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxf1-coding-or-upstream-enhancer-lesion" data-dismech-node="FOXF1 Coding or Upstream Enhancer Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">FOXF1 Coding or Upstream Enhancer Lesion</div>
+
 
                 <div class="item-desc">The causal lesion is either a heterozygous point mutation in FOXF1 itself or, frequently, a deletion of the distant upstream enhancer region at 16q24.1 that contains the fetal lung-expressed long non-coding RNA genes LINC01081 and LINC01082. The enhancer route is what makes exome-only testing an incomplete strategy here: the coding sequence can be entirely normal while the gene is functionally silenced in lung.</div>
 
@@ -4908,6 +4986,7 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4930,6 +5009,13 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parent-specific-foxf1-enhancer-activity" data-dismech-node="Parent-Specific FOXF1 Enhancer Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Parent-Specific FOXF1 Enhancer Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Pathogenic deletions of the distant enhancer show a strong bias toward the maternally inherited chromosome. The current model assigns different activity to two enhancer units on the maternal and paternal chromosomes; this is more nuanced than whole-locus imprinting because FOXF1 is transcribed from both alleles and paternal-chromosome pathogenic lesions occur.</div>
 
@@ -5005,6 +5091,7 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5026,6 +5113,7 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5053,6 +5141,7 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5077,6 +5166,7 @@ This pathophysiological event involves FOXF1 (hgnc:3809). hgnc:3809 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-mesenchymal-foxf1-transcriptional-output" data-dismech-node="Loss of Mesenchymal FOXF1 Transcriptional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Mesenchymal FOXF1 Transcriptional Output</div>
+
 
                 <div class="item-desc">FOXF1 is expressed in lung mesenchyme and endothelium and drives the angiogenic programme that builds the pulmonary microvasculature. Mouse haploinsufficiency reproduces alveolar capillary dysplasia together with intestinal and gall bladder maldevelopment, matching the extrapulmonary anomalies seen in patients.</div>
 
@@ -5240,6 +5330,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5261,6 +5352,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5288,6 +5380,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5310,6 +5403,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-pulmonary-microvascular-angiogenesis" data-dismech-node="Failed Pulmonary Microvascular Angiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Pulmonary Microvascular Angiogenesis</div>
+
 
                 <div class="item-desc">The alveolar capillary bed fails to form in adequate density and, critically, fails to appose itself to the alveolar epithelium. FOXF1 acts through STAT3 to drive neonatal lung angiogenesis, and a knock-in mouse carrying the human S52F FOXF1 mutation recapitulates the histopathology, establishing that a single patient allele is sufficient.</div>
 
@@ -5451,6 +5545,7 @@ This pathophysiological event involves decreased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5472,6 +5567,7 @@ This pathophysiological event involves decreased angiogenesis (GO:0001525). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5499,6 +5595,7 @@ This pathophysiological event involves decreased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5521,6 +5618,13 @@ This pathophysiological event involves decreased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expansion-of-systemic-bronchial-endothelium" data-dismech-node="Expansion of Systemic Bronchial Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Expansion of Systemic Bronchial Endothelium</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Human single-cell lung data show marked expansion of systemic bronchial endothelial cells expressing COL15A1 alongside increased VEGFA signalling. This may be a compensatory or maladaptive response to loss of the alveolar microvasculature; its direction and contribution to disease are unresolved.</div>
 
@@ -5593,6 +5697,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5615,6 +5720,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misalignment-of-pulmonary-veins" data-dismech-node="Misalignment of Pulmonary Veins" data-dismech-type="pathophysiology">
                 <div class="item-name">Misalignment of Pulmonary Veins</div>
+
 
                 <div class="item-desc">The eponymous and diagnostically decisive lesion: pulmonary veins run anomalously within the bronchovascular bundle alongside the arteries, instead of in the interlobular septa where they belong. It is a patterning failure of the same mesenchymal programme, and it is what a pathologist looks for to confirm the diagnosis on lung biopsy or at autopsy.</div>
 
@@ -5653,6 +5759,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5675,6 +5782,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-alveolar-gas-exchange" data-dismech-node="Impaired Alveolar Gas Exchange" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Alveolar Gas Exchange</div>
+
 
                 <div class="item-desc">Because the capillaries are neither numerous enough nor close enough to the alveolar epithelium, the diffusion barrier is effectively unusable. This produces the refractory hypoxaemia that does not respond to ventilation or oxygen, and is the reason ACDMPV is fatal without transplant.</div>
 
@@ -5713,6 +5821,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5734,6 +5843,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5759,6 +5869,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pulmonary-vascular-resistance" data-dismech-node="Increased Pulmonary Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Pulmonary Vascular Resistance</div>
+
 
                 <div class="item-desc">ACDMPV enters the conserved pulmonary hypertension pathway at this node rather than at its usual trigger. In the module, raised resistance follows obstructive remodeling of a vascular bed that formed normally and then degenerated; in ACDMPV the distal bed was never built, so the substitution is developmental absence in place of acquired obstruction, with muscularized arterioles compounding it.</div>
 
@@ -5812,6 +5923,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5834,6 +5946,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-refractory-pulmonary-arterial-hypertension" data-dismech-node="Severe Refractory Pulmonary Arterial Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Refractory Pulmonary Arterial Hypertension</div>
+
 
                 <div class="item-desc">Severe pulmonary arterial hypertension presenting within hours to days of birth in a term infant and characteristically refractory to pulmonary vasodilators. The reduced capillary bed provides a structural explanation for why vasodilation cannot normalize the pulmonary circulation.</div>
 
@@ -5887,6 +6000,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5909,6 +6023,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-pressure-overload-and-hypertrophy" data-dismech-node="Right Ventricular Pressure Overload and Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Right Ventricular Pressure Overload and Hypertrophy</div>
+
 
                 <div class="item-desc">Pulmonary arterial hypertension raises right ventricular afterload, leading to compensatory right ventricular hypertrophy.</div>
 
@@ -5944,6 +6059,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6006,6 +6122,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6027,6 +6144,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6077,6 +6195,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6121,6 +6240,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6171,6 +6291,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6213,7 +6334,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Expansion of Systemic Bronchial Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human single-cell lung data show marked expansion of systemic bronchial endothelial cells expressing COL15A1 alongside increased VEGFA signalling. This may be a compensatory or maladaptive response to loss of the alveolar microvasculature; its direction and contribution to disease are unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"]}}, {\"id\": \"FOXF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal lesion is either a heterozygous point mutation in FOXF1 itself or, frequently, a deletion of the distant upstream enhancer region at 16q24.1 that contains the fetal lung-expressed long non-coding RNA genes LINC01081 and LINC01082. The enhancer route is what makes exome-only testing an incomplete strategy here: the coding sequence can be entirely normal while the gene is functionally silenced in lung.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}]}}, {\"id\": \"Failed Pulmonary Microvascular Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alveolar capillary bed fails to form in adequate density and, critically, fails to appose itself to the alveolar epithelium. FOXF1 acts through STAT3 to drive neonatal lung angiogenesis, and a knock-in mouse carrying the human S52F FOXF1 mutation recapitulates the histopathology, establishing that a single patient allele is sufficient.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Impaired Alveolar Gas Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the capillaries are neither numerous enough nor close enough to the alveolar epithelium, the diffusion barrier is effectively unusable. This produces the refractory hypoxaemia that does not respond to ventilation or oxygen, and is the reason ACDMPV is fatal without transplant.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACDMPV enters the conserved pulmonary hypertension pathway at this node rather than at its usual trigger. In the module, raised resistance follows obstructive remodeling of a vascular bed that formed normally and then degenerated; in ACDMPV the distal bed was never built, so the substitution is developmental absence in place of acquired obstruction, with muscularized arterioles compounding it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXF1 is expressed in lung mesenchyme and endothelium and drives the angiogenic programme that builds the pulmonary microvasculature. Mouse haploinsufficiency reproduces alveolar capillary dysplasia together with intestinal and gall bladder maldevelopment, matching the extrapulmonary anomalies seen in patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\", \"pericyte\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"]}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only disease-modifying intervention with published long-term survival, and an option only for selected infants\\u2014principally those with an atypical, slower course who can reach transplantation. Vasodilators and ECMO remain supportive or bridging measures rather than repairs of the malformed lung.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Misalignment of Pulmonary Veins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The eponymous and diagnostically decisive lesion: pulmonary veins run anomalously within the bronchovascular bundle alongside the arteries, instead of in the interlobular septa where they belong. It is a patterning failure of the same mesenchymal programme, and it is what a pathologist looks for to confirm the diagnosis on lung biopsy or at autopsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nanoparticle STAT3 delivery (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not a current therapy. Because FOXF1 drives neonatal lung angiogenesis through STAT3, nanoparticle delivery of STAT3 has been proposed as a strategy for the subset of ACDMPV with reduced STAT3 signalling. This is preclinical and mechanism-directed rather than supportive, which is what makes it notable in a disease whose only other option is transplant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Parent-Specific FOXF1 Enhancer Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic deletions of the distant enhancer show a strong bias toward the maternally inherited chromosome. The current model assigns different activity to two enhancer units on the maternal and paternal chromosomes; this is more nuanced than whole-locus imprinting because FOXF1 is transcribed from both alleles and paternal-chromosome pathogenic lesions occur.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary arterial hypertension raises right ventricular afterload, leading to compensatory right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension presenting within hours to days of birth in a term infant and characteristically refractory to pulmonary vasodilators. The reduced capillary bed provides a structural explanation for why vasodilation cannot normalize the pulmonary circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical ventilation, inhaled nitric oxide and other pulmonary vasodilators can transiently stabilize oxygenation, while ECMO may provide short-term rescue or a bridge to transplantation. These measures do not correct the malformed capillary bed, and most infants with classic ACDMPV cannot be weaned from escalating support.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Either lesion class reduces FOXF1 protein available to drive its transcriptional programme in lung mesenchyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parent-Specific FOXF1 Enhancer Activity\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parent-specific enhancer activity may explain why otherwise similar deletions have different consequences depending on parental chromosome.\", \"hypothesis_groups\": [\"parent_specific_foxf1_enhancer_activity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the FOXF1-driven angiogenic programme prevents formation of the alveolar capillary network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Misalignment of Pulmonary Veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same mesenchymal patterning programme positions the pulmonary veins, so its loss misplaces them into the bronchovascular bundle.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Expansion of Systemic Bronchial Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the pulmonary microvasculature is accompanied by expansion of a COL15A1-expressing systemic bronchial endothelial population and increased VEGFA signalling, although the intermediates and functional consequence remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A capillary bed that is sparse and not apposed to alveolar epithelium cannot support gas exchange.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An absent distal capillary bed and abnormally muscularized arterioles raise resistance across the pulmonary circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised resistance across a markedly reduced distal bed drives severe, treatment-refractory pulmonary arterial hypertension.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"target\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension increases right ventricular afterload and drives compensatory hypertrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung transplantation\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nanoparticle STAT3 delivery (investigational)\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXF1\", \"target\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Expansion of Systemic Bronchial Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human single-cell lung data show marked expansion of systemic bronchial endothelial cells expressing COL15A1 alongside increased VEGFA signalling. This may be a compensatory or maladaptive response to loss of the alveolar microvasculature; its direction and contribution to disease are unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"FOXF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal lesion is either a heterozygous point mutation in FOXF1 itself or, frequently, a deletion of the distant upstream enhancer region at 16q24.1 that contains the fetal lung-expressed long non-coding RNA genes LINC01081 and LINC01082. The enhancer route is what makes exome-only testing an incomplete strategy here: the coding sequence can be entirely normal while the gene is functionally silenced in lung.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}]}}, {\"id\": \"Failed Pulmonary Microvascular Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alveolar capillary bed fails to form in adequate density and, critically, fails to appose itself to the alveolar epithelium. FOXF1 acts through STAT3 to drive neonatal lung angiogenesis, and a knock-in mouse carrying the human S52F FOXF1 mutation recapitulates the histopathology, establishing that a single patient allele is sufficient.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Impaired Alveolar Gas Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the capillaries are neither numerous enough nor close enough to the alveolar epithelium, the diffusion barrier is effectively unusable. This produces the refractory hypoxaemia that does not respond to ventilation or oxygen, and is the reason ACDMPV is fatal without transplant.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACDMPV enters the conserved pulmonary hypertension pathway at this node rather than at its usual trigger. In the module, raised resistance follows obstructive remodeling of a vascular bed that formed normally and then degenerated; in ACDMPV the distal bed was never built, so the substitution is developmental absence in place of acquired obstruction, with muscularized arterioles compounding it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXF1 is expressed in lung mesenchyme and endothelium and drives the angiogenic programme that builds the pulmonary microvasculature. Mouse haploinsufficiency reproduces alveolar capillary dysplasia together with intestinal and gall bladder maldevelopment, matching the extrapulmonary anomalies seen in patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\", \"pericyte\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"]}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only disease-modifying intervention with published long-term survival, and an option only for selected infants\\u2014principally those with an atypical, slower course who can reach transplantation. Vasodilators and ECMO remain supportive or bridging measures rather than repairs of the malformed lung.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Misalignment of Pulmonary Veins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The eponymous and diagnostically decisive lesion: pulmonary veins run anomalously within the bronchovascular bundle alongside the arteries, instead of in the interlobular septa where they belong. It is a patterning failure of the same mesenchymal programme, and it is what a pathologist looks for to confirm the diagnosis on lung biopsy or at autopsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nanoparticle STAT3 delivery (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not a current therapy. Because FOXF1 drives neonatal lung angiogenesis through STAT3, nanoparticle delivery of STAT3 has been proposed as a strategy for the subset of ACDMPV with reduced STAT3 signalling. This is preclinical and mechanism-directed rather than supportive, which is what makes it notable in a disease whose only other option is transplant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Parent-Specific FOXF1 Enhancer Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic deletions of the distant enhancer show a strong bias toward the maternally inherited chromosome. The current model assigns different activity to two enhancer units on the maternal and paternal chromosomes; this is more nuanced than whole-locus imprinting because FOXF1 is transcribed from both alleles and paternal-chromosome pathogenic lesions occur.\", \"meta\": {\"evidence_count\": 4, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary arterial hypertension raises right ventricular afterload, leading to compensatory right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension presenting within hours to days of birth in a term infant and characteristically refractory to pulmonary vasodilators. The reduced capillary bed provides a structural explanation for why vasodilation cannot normalize the pulmonary circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical ventilation, inhaled nitric oxide and other pulmonary vasodilators can transiently stabilize oxygenation, while ECMO may provide short-term rescue or a bridge to transplantation. These measures do not correct the malformed capillary bed, and most infants with classic ACDMPV cannot be weaned from escalating support.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Either lesion class reduces FOXF1 protein available to drive its transcriptional programme in lung mesenchyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parent-Specific FOXF1 Enhancer Activity\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parent-specific enhancer activity may explain why otherwise similar deletions have different consequences depending on parental chromosome.\", \"hypothesis_groups\": [\"parent_specific_foxf1_enhancer_activity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the FOXF1-driven angiogenic programme prevents formation of the alveolar capillary network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Misalignment of Pulmonary Veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same mesenchymal patterning programme positions the pulmonary veins, so its loss misplaces them into the bronchovascular bundle.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Expansion of Systemic Bronchial Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the pulmonary microvasculature is accompanied by expansion of a COL15A1-expressing systemic bronchial endothelial population and increased VEGFA signalling, although the intermediates and functional consequence remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A capillary bed that is sparse and not apposed to alveolar epithelium cannot support gas exchange.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An absent distal capillary bed and abnormally muscularized arterioles raise resistance across the pulmonary circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised resistance across a markedly reduced distal bed drives severe, treatment-refractory pulmonary arterial hypertension.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"target\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension increases right ventricular afterload and drives compensatory hypertrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung transplantation\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nanoparticle STAT3 delivery (investigational)\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXF1\", \"target\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6281,6 +6402,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6295,6 +6419,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6319,6 +6444,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6373,6 +6499,9 @@ This clinical feature is Hypoplastic left ventricle (HP:0004383). HP:0004383 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6387,6 +6516,7 @@ This clinical feature is Hypoplastic left ventricle (HP:0004383). HP:0004383 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6441,6 +6571,9 @@ This clinical feature is Single umbilical artery (HP:0001195). HP:0001195 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6455,6 +6588,7 @@ This clinical feature is Single umbilical artery (HP:0001195). HP:0001195 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6518,6 +6652,9 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6532,6 +6669,7 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6595,6 +6733,9 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6609,6 +6750,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6674,6 +6816,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6688,6 +6833,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6715,6 +6861,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6736,6 +6883,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6836,6 +6984,9 @@ This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6850,6 +7001,7 @@ This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6909,6 +7061,9 @@ This disease-associated gene is ESRP1 (hgnc:25966). hgnc:25966 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6923,6 +7078,7 @@ This disease-associated gene is ESRP1 (hgnc:25966). hgnc:25966 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7014,6 +7170,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Mechanical ventilation, inhaled nitric oxide and other pulmonary vasodilators can transiently stabilize oxygenation, while ECMO may provide short-term rescue or a bridge to transplantation. These measures do not correct the malformed capillary bed, and most infants with classic ACDMPV cannot be weaned from escalating support.</div>
 
 
@@ -7069,6 +7231,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7090,6 +7253,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7157,6 +7321,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7167,6 +7334,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7212,6 +7382,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7279,6 +7450,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7289,6 +7463,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7334,6 +7511,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,6 +7620,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7466,6 +7645,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7487,6 +7667,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7577,6 +7758,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7642,6 +7824,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7663,6 +7846,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7713,6 +7897,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7789,6 +7974,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7810,6 +7996,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7913,6 +8100,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9271,6 +9459,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

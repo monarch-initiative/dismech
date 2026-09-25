@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4122,6 +4190,7 @@ Two features of the genotype-phenotype relationship are unusually well resolved 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4284,7 @@ Two features of the genotype-phenotype relationship are unusually well resolved 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4288,6 +4358,7 @@ A later retrospective analysis does report a domain-level correlation, at 100% e
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4322,6 +4393,7 @@ A later retrospective analysis does report a domain-level correlation, at 100% e
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mcm3ap-variants" data-dismech-node="Biallelic MCM3AP Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MCM3AP Variants</div>
+
 
                 <div class="item-desc">Missense, splice, frameshift, nonsense and multi-exon deletion alleles in trans or in homozygosity. The functional consequence divides into two classes that behave differently: alleles that deplete GANP protein, and Sac3-domain missense alleles that leave protein levels intact and impair mRNA binding instead.</div>
 
@@ -4418,6 +4490,7 @@ This pathophysiological event involves MCM3AP (hgnc:6946), qualified as loss of 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4440,6 +4513,7 @@ This pathophysiological event involves MCM3AP (hgnc:6946), qualified as loss of 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ganp-depletion-or-sac3-domain-dysfunction" data-dismech-node="GANP Depletion or Sac3-Domain Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GANP Depletion or Sac3-Domain Dysfunction</div>
+
 
                 <div class="item-desc">The protein-level consequence, and the point at which the two allele classes diverge. Depleting alleles remove the TREX-2 scaffold; Sac3-domain missense alleles leave it present but impaired. The depleting class is associated with the more severe clinical picture, which is the mechanistic basis of the genotype-phenotype correlation.</div>
 
@@ -4546,6 +4620,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4572,6 +4647,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4594,6 +4670,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-trex-2-mediated-nuclear-mrna-export" data-dismech-node="Impaired TREX-2-Mediated Nuclear mRNA Export" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TREX-2-Mediated Nuclear mRNA Export</div>
+
 
                 <div class="item-desc">Loss of the TREX-2 scaffold impairs handoff of messenger ribonucleoproteins to the export receptor at the nuclear pore. Defects in mRNA export from the nucleus were already linked to neurodegenerative disease before this gene was implicated, which is the general context that made the finding interpretable.</div>
 
@@ -4704,6 +4781,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4725,6 +4803,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4750,6 +4829,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intron-content-dependent-transcriptome-alteration" data-dismech-node="Intron-Content-Dependent Transcriptome Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Intron-Content-Dependent Transcriptome Alteration</div>
+
 
                 <div class="item-desc">The export defect does not perturb the transcriptome uniformly. In patient fibroblasts every differentially expressed intronless gene was downregulated, and one of them is ATXN7L3B, which itself couples mRNA export to transcription activation through the TREX-2 and SAGA complexes. That makes the perturbation partly self-reinforcing, and it is the most specific available account of why a general export defect should hit some cells harder than others.</div>
 
@@ -4839,6 +4919,7 @@ This pathophysiological event involves abnormal mRNA transport (GO:0051028). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4861,6 +4942,7 @@ This pathophysiological event involves abnormal mRNA transport (GO:0051028). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-peripheral-axonal-degeneration" data-dismech-node="Length-Dependent Peripheral Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Peripheral Axonal Degeneration</div>
+
 
                 <div class="item-desc">Degeneration of long peripheral motor and sensory axons, confirmed on electrophysiology and sural nerve biopsy as an axonal sensorimotor neuropathy in most patients. A minority have demyelinating features instead, including one of the five original families, so the axonal picture is predominant rather than exclusive.</div>
 
@@ -5020,6 +5102,7 @@ This pathophysiological event occurs in sural nerve (UBERON:0015488). UBERON:001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5041,6 +5124,7 @@ This pathophysiological event occurs in sural nerve (UBERON:0015488). UBERON:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5157,6 +5241,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5171,6 +5258,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5234,6 +5322,9 @@ This clinical feature is Foot deformity, annotated with Pes cavus (HP:0001761). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5248,6 +5339,7 @@ This clinical feature is Foot deformity, annotated with Pes cavus (HP:0001761). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5331,6 +5423,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5345,6 +5440,7 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5399,6 +5495,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5413,6 +5512,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5496,6 +5596,9 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477), qualified as
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5510,6 +5613,7 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477), qualified as
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,6 +5670,9 @@ This clinical feature is Mild to moderate intellectual disability, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5580,6 +5687,7 @@ This clinical feature is Mild to moderate intellectual disability, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5604,6 +5712,7 @@ This clinical feature is Mild to moderate intellectual disability, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5658,6 +5767,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5784,7 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5728,6 +5841,9 @@ This clinical feature is Wheelchair dependency, annotated with Loss of ambulatio
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5742,6 +5858,7 @@ This clinical feature is Wheelchair dependency, annotated with Loss of ambulatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5796,6 +5913,9 @@ This clinical feature is Delayed independent walking, annotated with Motor delay
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5810,6 +5930,7 @@ This clinical feature is Delayed independent walking, annotated with Motor delay
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5866,6 +5987,9 @@ This clinical feature is Widespread fasciculations, annotated with Fasciculation
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5880,6 +6004,7 @@ This clinical feature is Widespread fasciculations, annotated with Fasciculation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5904,6 +6029,7 @@ This clinical feature is Widespread fasciculations, annotated with Fasciculation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5960,6 +6086,9 @@ This clinical feature is Generalized areflexia, annotated with Areflexia (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5974,6 +6103,7 @@ This clinical feature is Generalized areflexia, annotated with Areflexia (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6204,9 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6088,6 +6221,7 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6124,6 +6258,12 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Variants altering critical residues within the Sac3 mRNA-binding domain do not deplete GANP, and are associated with a milder phenotype than the depleting alleles. This is the structural basis of the reported genotype-phenotype correlation.</div>
 
 
@@ -6151,6 +6291,7 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6172,6 +6313,7 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6208,6 +6350,12 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Splice, frameshift, nonsense and deletion alleles that reduce GANP protein. In cohort analysis these are associated with delayed independent walking, and with a numerically higher rate of intellectual disability and loss of ambulation.</div>
 
 
@@ -6235,6 +6383,7 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6259,6 +6408,7 @@ This disease-associated gene is MCM3AP (hgnc:6946). hgnc:6946 is a gene from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6348,6 +6498,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6358,6 +6511,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -6406,6 +6562,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6427,6 +6584,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6493,6 +6651,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6503,6 +6664,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -6530,6 +6694,7 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6596,6 +6761,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6606,6 +6774,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6633,6 +6804,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6708,6 +6880,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6762,6 +6935,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6813,6 +6987,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6910,6 +7085,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6965,6 +7141,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6986,6 +7163,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7041,6 +7219,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8061,6 +8240,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research provenance. Curated alongside an OpenScientist report (research/MCM3AP-Related_Peripheral_Neuropathy-deep-research-openscientist.md). All 18 of its references resolved, and its causal chain matched the one built here from the primary literature.
+Its quote validation flagged two references whose attributed quotes could not be found in the record: PMID:23652018 and PMID:27235683. Neither is cited in this entry, and no quoted material from either was reused.
+PMID:28969388 has no abstract available in PubMed, so it carries no evidence item and appears in the reference block only. It is kept there because it is one of the concurrent papers that established the gene-disease relationship.
+Where the mechanism stops being demonstrated. The chain from biallelic variants through GANP depletion to impaired mRNA export is measured. The step from impaired export to length-dependent axonal degeneration is not: the disease-defining paper presents it as a suggested potential mechanism, and that edge is typed INDIRECT_UNKNOWN_INTERMEDIATES with a knowledge gap attached rather than being asserted. The report&#39;s own chain labels the same step &#34;(Inferred.)&#34;, which agrees.
+The R-loop and transcription-coupled genome instability branch that the report describes is not curated as a pathophysiology node. The report itself marks the contribution of that branch to the neuropathy as inferred, and the sources cached here do not carry a quotable statement connecting R-loops to this disease, so a node would assert more than the evidence supports.
+GANP&#39;s acetyltransferase activity is recorded on the protein-level node with directness INDIRECT and an explanation stating that no reported work shows it contributing to the neuropathy. It is included because it is what a reader encountering the gene&#39;s other literature will need to place.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: MCM3AP-Related Peripheral Neuropathy (PNRIID, GANP/TREX-2)</strong> · 2026-09-05T15:17:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MCM3AP-Related_Peripheral_Neuropathy/2026-09-05T151704Z-claude-code-50194b.yaml">View source</a></p>
+                        <p class="research-review-text">New kb/disorders entry for PNRIID (MONDO:0029131), claimed via issue #11108. Curated as a nuclear mRNA export defect presenting as recessive Charcot-Marie-Tooth neuropathy, which is what distinguishes it from the rest of the recessive CMT differential: nothing in the mechanism concerns myelin proteins, axonal transport motors or mitochondrial dynamics. Chain runs biallelic MCM3AP variants to GANP depletion or Sac3-domain dysfunction to impaired TREX-2-mediated export to intron-content-dependent transcriptome alteration to length-dependent axonal degeneration. The last edge is typed INDIRECT_UNKNOWN_INTERMEDIATES with an attached KNOWLEDGE_GAP, because the disease-defining paper presents the export-to-degeneration link as a suggested potential mechanism and the report&#39;s own chain labels the same step inferred. Ten HPO-bound phenotypes, two allele classes with the fibroblast protein-level evidence that separates them, three treatments, three diagnostic entries, three differentials, two KNOWLEDGE_GAP discussions. The genotype-phenotype gap quotes the cohort&#39;s own statement that the intellectual disability and loss-of-ambulation comparison failed to reach statistical significance, rather than rounding a trend up to a finding. Deep research: OpenScientist report committed; 18/18 references resolved. Its quote validation flagged PMID:23652018 and PMID:27235683 as carrying unsupported quotes; neither is cited here and no quoted material from either was reused. PMID:28969388 has no PubMed abstract so it is reference-block only. The report&#39;s R-loop and transcription-coupled genome instability branch is deliberately not curated as a node, because the report marks its contribution to the neuropathy as inferred and no cached source carries a quotable statement connecting R-loops to this disease. Validation: schema pass, term validation pass, 43/43 snippets verified, check-entity-refs / check-causal-targets / check-duplicate-keys / check-enum-values clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

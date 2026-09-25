@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4185,6 +4253,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4206,6 +4275,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4255,6 +4325,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tmem38b-loss-eliminates-the-er-cation-channel-tric-b-and-disrupts-er-calcium-flux" data-dismech-node="TMEM38B Loss Eliminates the ER Cation Channel TRIC-B and Disrupts ER Calcium Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">TMEM38B Loss Eliminates the ER Cation Channel TRIC-B and Disrupts ER Calcium Flux</div>
+
 
                 <div class="item-desc">TMEM38B encodes TRIC-B, a trimeric intracellular cation channel of the endoplasmic-reticulum membrane that conducts monovalent cations (K+) and is proposed to counterbalance IP3R-mediated Ca2+ release from intracellular stores. Biallelic null mutations render TRIC-B protein undetectable in patient fibroblasts and osteoblasts. The loss impairs release of ER luminal Ca2+ and store-operated calcium entry; steady-state ER Ca2+ is unchanged, indicating that TRIC-B governs the kinetics of ER calcium depletion and recovery rather than the resting store level. The disturbed Ca2+ flux triggers ER stress with increased BiP.</div>
 
@@ -4444,6 +4515,7 @@ This pathophysiological event involves decreased calcium ion transport (ER Ca2+ 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4465,6 +4537,7 @@ This pathophysiological event involves decreased calcium ion transport (ER Ca2+ 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4492,6 +4565,7 @@ This pathophysiological event involves decreased calcium ion transport (ER Ca2+ 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4514,6 +4588,7 @@ This pathophysiological event involves decreased calcium ion transport (ER Ca2+ 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-collagen-synthesis-and-defective-secretion" data-dismech-node="Dysregulated Collagen Synthesis and Defective Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Collagen Synthesis and Defective Secretion</div>
+
 
                 <div class="item-desc">The disturbed Ca2+ flux dysregulates type I collagen synthesis at multiple steps. Collagen helical lysine hydroxylation is reduced while telopeptide hydroxylation is increased, reflecting altered activity of Ca2+-dependent collagen-modifying enzymes and chaperones (increased LH1, decreased FKBP65). Procollagen chain assembly is delayed and the resulting misfolded collagen is substantially retained intracellularly, producing a 50-70% reduction in secreted collagen. Lower-stability forms that escape proteasomal degradation are not incorporated into matrix, so collagen production — rather than collagen quality — is the primary deficit.</div>
 
@@ -4669,6 +4744,7 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4690,6 +4766,7 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4717,6 +4794,7 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4739,6 +4817,7 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-bone-matrix-reduced-mineralization-and-skeletal-fragility" data-dismech-node="Insufficient Bone Matrix, Reduced Mineralization, and Skeletal Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient Bone Matrix, Reduced Mineralization, and Skeletal Fragility</div>
+
 
                 <div class="item-desc">Reduced collagen deposition and impaired osteoblast proliferation and function produce an insufficient bone extracellular matrix with poor mineralization, yielding low bone mineral density (osteopenia) and skeletal fragility. Clinically this manifests as recurrent fractures, growth deficiency, and long-bone bowing/deformity. Tric-b-knockout mice serve as an OI model in which deranged ER Ca2+ handling reduces ECM synthesis in osteoblasts, leading to poor mineralization.</div>
 
@@ -4913,6 +4992,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4937,6 +5017,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4958,6 +5039,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5074,6 +5156,9 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5088,6 +5173,7 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5153,6 +5239,9 @@ This clinical feature is Dental abnormalities, annotated with Abnormality of the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5167,6 +5256,7 @@ This clinical feature is Dental abnormalities, annotated with Abnormality of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5230,6 +5320,9 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5244,6 +5337,7 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5298,6 +5392,9 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5312,6 +5409,7 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5375,6 +5473,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5389,6 +5490,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5443,6 +5545,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5457,6 +5562,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5511,6 +5617,9 @@ This clinical feature is Vertebral fractures, annotated with Vertebral compressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5525,6 +5634,7 @@ This clinical feature is Vertebral fractures, annotated with Vertebral compressi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5579,6 +5689,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5593,6 +5706,7 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5647,6 +5761,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5661,6 +5778,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5726,6 +5844,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5740,6 +5861,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5838,6 +5960,9 @@ This disease-associated gene is TMEM38B (TRIC-B, ER monovalent cation channel), 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5852,6 +5977,7 @@ This disease-associated gene is TMEM38B (TRIC-B, ER monovalent cation channel), 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5879,6 +6005,7 @@ This disease-associated gene is TMEM38B (TRIC-B, ER monovalent cation channel), 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5900,6 +6027,7 @@ This disease-associated gene is TMEM38B (TRIC-B, ER monovalent cation channel), 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5990,6 +6118,12 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Intravenous bisphosphonates (e.g., pamidronate, zoledronic acid) are the pharmacological mainstay of severe OI, increasing bone mineral density and reducing fracture frequency. They are antiresorptive and do not correct the underlying ER calcium-channel defect.</div>
 
 
@@ -6014,6 +6148,7 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6035,6 +6170,7 @@ This treatment is Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,6 +6238,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6112,6 +6251,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6139,6 +6281,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6206,6 +6349,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6216,6 +6362,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6243,6 +6392,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6348,6 +6498,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
