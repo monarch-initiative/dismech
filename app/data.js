@@ -74793,6 +74793,127 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Christianson Syndrome",
+    "disease_id": "MONDO:0010278",
+    "category": "",
+    "parents": [
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-09-04T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An X-linked disorder caused by loss of function of SLC9A6, which encodes NHE6, the sodium-hydrogen exchanger of early and recycling endosomes. NHE6 supplies the proton leak that keeps endosomal pH from falling too far, so its loss over-acidifies the endosome and derails endosomal maturation, trafficking and the lysosomal system downstream of it. The clinical picture is unusual in being both neurodevelopmental and neurodegenerative in the same patient: impaired neuronal arborisation and synaptogenesis produce postnatal microcephaly, non-verbal status and severe intellectual disability, while progressive Purkinje cell loss and glycolipid storage produce a worsening ataxia and, in many, frank regression from the second decade. Affected males meet a tight set of core criteria; heterozygous females range from asymptomatic to mildly affected, in proportion to X-inactivation.",
+    "pathophysiology": [
+      "SLC9A6 Loss of Function",
+      "Endosomal Over-Acidification",
+      "Impaired Endosomal Maturation and Lysosomal Function",
+      "Reduced BDNF-TrkB Endosomal Signalling",
+      "Impaired Neuronal Arborisation and Synaptogenesis",
+      "Progressive Neurodegeneration with Purkinje Cell Loss"
+    ],
+    "cell_types": [
+      "neuron",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "regulation of intracellular pH",
+      "endosomal transport",
+      "lysosome organization",
+      "neurotrophin TRK receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Severe Intellectual Disability",
+      "Absent Speech",
+      "Seizure",
+      "Postnatal Microcephaly",
+      "Ataxia",
+      "Hyperkinetic Movements",
+      "Pain Insensitivity",
+      "Developmental Regression",
+      "Autistic Behavior",
+      "Oropharyngeal Dysphagia",
+      "Failure to Thrive",
+      "Cerebellar Atrophy",
+      "Eye Movement Abnormality",
+      "Hypotonia",
+      "Upper Motor Neuron Dysfunction",
+      "Unprovoked Laughter",
+      "Scoliosis",
+      "Gastroesophageal Reflux",
+      "Constipation",
+      "Sleep Disturbance",
+      "Reduced Visual Acuity",
+      "Contractures"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Gastrointestinal",
+      "Growth",
+      "Skeletal",
+      "Ophthalmologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0001344",
+      "HP:0001250",
+      "HP:0005484",
+      "HP:0001251",
+      "HP:0002487",
+      "HP:0007021",
+      "HP:0002376",
+      "HP:0000729",
+      "HP:0200136",
+      "HP:0001508",
+      "HP:0001272",
+      "HP:0000496",
+      "HP:0001252",
+      "HP:0002493",
+      "HP:0000748",
+      "HP:0002650",
+      "HP:0002020",
+      "HP:0002019",
+      "HP:0002360",
+      "HP:0007663",
+      "HP:0034392"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLC9A6"
+    ],
+    "treatments": [
+      "Seizure Management",
+      "Supportive and Nutritional Care",
+      "Regression Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Christianson_Syndrome.yaml",
+    "page_url": "../pages/disorders/Christianson_Syndrome.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Chromoblastomycosis",
     "disease_id": "MONDO:0015908",
     "category": "Infectious Disease",
@@ -331238,17 +331359,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3140,
+  "total_disorder_pages": 3141,
   "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7170,
-  "total_unique_evidence_sources": 45572,
-  "total_unique_publications": 42827,
+  "total_disorders_and_subtypes": 7171,
+  "total_unique_evidence_sources": 45584,
+  "total_unique_publications": 42839,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 284,
-  "total_pathographs": 3135,
-  "total_unique_pathological_events": 19732,
+  "total_pathographs": 3136,
+  "total_unique_pathological_events": 19738,
   "total_modules": 178,
-  "total_research_reports": 3248,
+  "total_research_reports": 3249,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
