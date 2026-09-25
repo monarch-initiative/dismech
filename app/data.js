@@ -8932,6 +8932,126 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Achondrogenesis Type IA",
+    "disease_id": "MONDO:0008701",
+    "category": "Mendelian",
+    "parents": [
+      "Achondrogenesis",
+      "Severe Spondylodysplastic Dysplasia",
+      "TRIP11-Related Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-09-24T20:42:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Achondrogenesis type IA (ACG1A; Houston-Harris type; OMIM #200600) is an autosomal recessive, perinatally lethal chondrodysplasia caused by biallelic loss-of-function variants in TRIP11, which encodes GMAP-210, a golgin that tethers vesicles at the cis-Golgi and holds the Golgi cisternal stack together. Affected fetuses have intrauterine growth failure, extreme micromelia, a narrow thorax with short, beaded ribs that fracture, and absent or minimal ossification of the skull vault, vertebral bodies, sacrum and ischia; death occurs in utero or shortly after birth from thoracic and pulmonary hypoplasia. Although GMAP-210 is ubiquitously expressed, its complete loss disrupts Golgi architecture, secretory trafficking and glycan processing, and in chondrocytes causes retention of a subset of cartilage matrix cargoes, endoplasmic reticulum swelling, precocious cell death and a block in hypertrophic differentiation. Conditional deletion in mice places the skeletal disease in chondrocytes. ACG1A is the null end of a TRIP11 allelic series whose hypomorphic end is odontochondrodysplasia.",
+    "pathophysiology": [
+      "Biallelic TRIP11 Loss-of-Function Variants",
+      "Loss of GMAP-210 Protein",
+      "Loss of Golgi Cisternal Stack Architecture",
+      "Impaired Early Secretory Pathway Trafficking",
+      "Defective Golgi Glycan Processing",
+      "Retention of Selected Cartilage Matrix Cargoes in Chondrocytes",
+      "Chondrocyte ER Stress",
+      "Premature Chondrocyte Death",
+      "Block in Hypertrophic Chondrocyte Differentiation",
+      "Loss of IFT20 Anchoring at the Golgi",
+      "Failure of Endochondral Ossification",
+      "Cranial Osteogenic Cell ER and Golgi Stress",
+      "Restrictive Thoracic Hypoplasia"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "chondrocyte",
+      "hypertrophic chondrocyte",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000138",
+      "CL:0000743",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "Golgi organization",
+      "endoplasmic reticulum to Golgi vesicle-mediated transport",
+      "protein secretion",
+      "glycoprotein biosynthetic process",
+      "proteoglycan biosynthetic process",
+      "response to endoplasmic reticulum stress",
+      "chondrocyte death",
+      "chondrocyte hypertrophy",
+      "chondrocyte differentiation",
+      "cilium assembly",
+      "endochondral ossification",
+      "intramembranous ossification"
+    ],
+    "phenotypes": [
+      "Micromelia",
+      "Short Deformed Long Bones",
+      "Intrauterine Growth Retardation",
+      "Short Beaded Ribs",
+      "Multiple Rib Fractures",
+      "Decreased Skull Ossification",
+      "Absent or Minimally Ossified Vertebral Bodies",
+      "Unossified Sacrum",
+      "Hypoplastic Ischia",
+      "Narrow Chest",
+      "Pulmonary Hypoplasia",
+      "Respiratory Insufficiency",
+      "Hydrops Fetalis",
+      "Short Neck"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Growth",
+      "Respiratory",
+      "Prenatal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002983",
+      "HP:0003026",
+      "HP:0001511",
+      "HP:0000773",
+      "HP:0006640",
+      "HP:0004331",
+      "HP:0004599",
+      "HP:0030290",
+      "HP:0003175",
+      "HP:0000774",
+      "HP:0002089",
+      "HP:0002093",
+      "HP:0001789",
+      "HP:0000470"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRIP11"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Achondrogenesis_Type_IA.yaml",
+    "page_url": "../pages/disorders/Achondrogenesis_Type_IA.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Achondrogenesis Type II",
     "disease_id": "MONDO:0008702",
     "category": "Mendelian",
@@ -10148,6 +10268,133 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Acrocapitofemoral Dysplasia",
+    "disease_id": "MONDO:0011907",
+    "category": "Mendelian",
+    "parents": [
+      "acromelic dysplasia",
+      "osteochondrodysplasia"
+    ],
+    "creation_date": "2026-09-24T20:42:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acrocapitofemoral dysplasia (ACFD) is an ultra-rare autosomal recessive skeletal dysplasia caused by homozygous missense variants in the amino-terminal signaling domain of IHH (Indian hedgehog). It presents with postnatal-onset disproportionate short stature with short limbs, brachydactyly, a narrow thorax and a relatively large head, with normal intelligence. The defining radiographic signs are cone-shaped epiphyses, mainly in the hands and hips, and an egg-shaped capital femoral epiphysis on a short femoral neck. These are followed by early, prepubertal closure of the growth plates, which permanently shortens the tubular bones of the hands and the long bones of the limbs. The mechanism is inferred from mouse genetics: IHH secreted by prehypertrophic chondrocytes drives chondrocyte proliferation and paces hypertrophic differentiation through a PTHrP feedback loop, and postnatal loss of chondrocyte IHH disorganizes the growth plate and fuses it prematurely. No functional assay of an ACFD allele has been published.",
+    "pathophysiology": [
+      "Biallelic IHH Signaling-Domain Missense Variants",
+      "Reduced IHH Signaling Output",
+      "Reduced Growth Plate Chondrocyte Proliferation",
+      "Accelerated Hypertrophic Differentiation and Loss of Columnar Organization",
+      "Premature Growth Plate Closure"
+    ],
+    "cell_types": [
+      "prehypertrophic chondrocyte",
+      "columnar chondrocyte",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0020022",
+      "CL:0000744",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "Smoothened signaling pathway",
+      "chondrocyte proliferation",
+      "chondrocyte hypertrophy",
+      "growth plate cartilage chondrocyte differentiation",
+      "endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Disproportionate short stature",
+      "Limb undergrowth",
+      "Short humerus",
+      "Short tibia",
+      "Brachydactyly",
+      "Short middle phalanges",
+      "Short metacarpals",
+      "Cone-shaped epiphyses of the hand phalanges",
+      "Egg-shaped capital femoral epiphysis",
+      "Short femoral neck",
+      "Premature epimetaphyseal fusion",
+      "Narrow chest",
+      "Relative macrocephaly",
+      "Lumbar hyperlordosis",
+      "Coxa vara",
+      "Hip osteoarthritis",
+      "Genu varum",
+      "Waddling gait",
+      "Fifth toe symphalangism",
+      "Short nail",
+      "Broad nail",
+      "Short metatarsals",
+      "Flared iliac wing",
+      "Acetabular dysplasia",
+      "Radial bowing",
+      "Finger symphalangism",
+      "Hyperplastic distal femur"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Craniofacial",
+      "Neurological",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003498",
+      "HP:0009826",
+      "HP:0005792",
+      "HP:0005736",
+      "HP:0001156",
+      "HP:0005819",
+      "HP:0010049",
+      "HP:0010230",
+      "HP:0010574",
+      "HP:0100864",
+      "HP:0010588",
+      "HP:0000774",
+      "HP:0004482",
+      "HP:0002938",
+      "HP:0002812",
+      "HP:0008843",
+      "HP:0002970",
+      "HP:0002515",
+      "HP:0010389",
+      "HP:0001799",
+      "HP:0001821",
+      "HP:0010743",
+      "HP:0002869",
+      "HP:0008807",
+      "HP:0002986",
+      "HP:0009700"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IHH"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Acrocapitofemoral_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Acrocapitofemoral_Dysplasia.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Acrodysostosis",
@@ -83668,10 +83915,29 @@ window.searchData = [
     ],
     "creation_date": "2026-03-06T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "CVID1",
+      "CVID2",
+      "CVID3",
+      "CVID4",
+      "CVID5",
+      "CVID6",
+      "CVID7",
+      "CVID10",
+      "CVID11",
+      "CVID12",
+      "CVID13",
+      "CVID-APRIL",
+      "CVID14",
+      "CVID15"
+    ],
     "description": "Common variable immunodeficiency (CVID) is the most prevalent symptomatic primary immunodeficiency, characterized by defective B cell differentiation, hypogammaglobulinemia, and failure of antibody production. Patients present with recurrent bacterial infections, particularly of the respiratory and gastrointestinal tracts, and have increased susceptibility to autoimmune manifestations, granulomatous disease, and lymphoproliferative disorders. CVID is best understood as an umbrella diagnosis with heterogeneous genetic and immunologic etiologies spanning monogenic, digenic, and polygenic models.",
     "pathophysiology": [
       "Defective B Cell Differentiation and Class-Switch Recombination",
+      "Early B Cell Lymphopoiesis Failure",
+      "B Cell Coreceptor Complex Failure",
+      "BAFF/APRIL Receptor Signaling Deficiency",
+      "NF-kB Pathway Signaling Deficiency",
       "T Cell Dysregulation",
       "Immune Dysregulation and Autoimmunity",
       "Granulomatous Disease and GLILD"
@@ -83679,6 +83945,7 @@ window.searchData = [
     "cell_types": [
       "B cell",
       "Plasma cell",
+      "precursor B cell",
       "CD4+ T Cell",
       "Regulatory T cell",
       "Macrophage"
@@ -83686,6 +83953,7 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000236",
       "CL:0000786",
+      "CL:0000817",
       "CL:0000624",
       "CL:0000815",
       "CL:0000235"
@@ -83694,6 +83962,11 @@ window.searchData = [
       "Immunoglobulin Production",
       "Isotype Switching",
       "B Cell Activation",
+      "B cell differentiation",
+      "B cell receptor signaling pathway",
+      "tumor necrosis factor-mediated signaling pathway",
+      "canonical NF-kappaB signal transduction",
+      "non-canonical NF-kappaB signal transduction",
       "T Cell Activation",
       "Immune Response",
       "Inflammatory Response"
@@ -83758,7 +84031,16 @@ window.searchData = [
       "BAFF-R (TNFRSF13C) Mutations",
       "CTNNBL1",
       "TNFSF12",
-      "TNFSF13"
+      "TNFSF13",
+      "CD19 Deficiency",
+      "CD81 Deficiency",
+      "CR2 (CD21) Deficiency",
+      "MS4A1 (CD20) Deficiency",
+      "NFKB2 Deficiency",
+      "IKZF1 (IKAROS) Haploinsufficiency",
+      "IL21 Deficiency",
+      "IRF2BP2 Deficiency",
+      "SEC61A1 Deficiency"
     ],
     "treatments": [
       "Immunoglobulin Replacement Therapy",
@@ -83771,11 +84053,11 @@ window.searchData = [
     "source_file": "Common_Variable_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Common_Variable_Immunodeficiency.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 4,
-    "num_genes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 18,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Complement Component 2 Deficiency",
@@ -239385,13 +239667,23 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "ARO",
+      "ARO2",
+      "ARO4",
+      "ARO5",
+      "ARO6",
+      "ARO7",
+      "ARO8",
       "ADO2",
+      "ADO3",
+      "OSMD",
       "IRO"
     ],
     "description": "Osteopetrosis (marble bone disease) is a group of heritable skeletal disorders characterized by increased bone density resulting from defective osteoclast-mediated bone resorption. The clinical spectrum ranges from the severe autosomal recessive infantile form (ARO), which is life-threatening in infancy due to bone marrow failure, to the milder autosomal dominant adult form (ADO2), which may be incidentally discovered on radiographs. Mutations in genes essential for osteoclast differentiation or acidification of the resorption lacuna (TCIRG1, CLCN7, OSTM1, SNX10, TNFSF11, TNFRSF11A) underlie most cases. Hematopoietic stem cell transplantation is curative for osteoclast-rich ARO forms, whereas osteoclast-poor forms caused by defective RANKL signaling do not respond to transplantation.\n",
     "pathophysiology": [
       "Defective osteoclast acidification",
       "Defective osteoclast differentiation (osteoclast-poor forms)",
+      "Defective osteoclast vesicular transport and ruffled border formation",
+      "LRRK1-dependent osteoclast RAC1/CDC42 activation",
       "Bone marrow failure due to marrow space obliteration"
     ],
     "cell_types": [
@@ -239406,6 +239698,7 @@ window.searchData = [
       "Bone resorption",
       "Vacuolar acidification",
       "Osteoclast differentiation",
+      "Vesicle-mediated transport in the osteoclast",
       "Bone mineralization"
     ],
     "phenotypes": [
@@ -239476,11 +239769,15 @@ window.searchData = [
     ],
     "genes": [
       "TCIRG1 mutations",
-      "CLCN7 mutations",
+      "CLCN7 biallelic mutations",
+      "CLCN7 heterozygous mutations",
       "OSTM1 mutations",
       "TNFSF11 mutations",
       "TNFRSF11A mutations",
-      "SNX10 mutations"
+      "SNX10 mutations",
+      "PLEKHM1 biallelic mutations",
+      "PLEKHM1 heterozygous mutation",
+      "LRRK1 mutations"
     ],
     "treatments": [
       "Hematopoietic stem cell transplantation",
@@ -239491,11 +239788,11 @@ window.searchData = [
     "source_file": "Osteopetrosis.yaml",
     "page_url": "../pages/disorders/Osteopetrosis.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 3,
-    "num_genes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 10,
     "num_treatments": 2,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Osteoporosis",
@@ -285682,12 +285979,24 @@ window.searchData = [
     ],
     "creation_date": "2026-05-09T14:41:38Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "SCKL1",
+      "SCKL2",
+      "SCKL4",
+      "SCKL5",
+      "SCKL6",
+      "SCKL7",
+      "SCKL8",
+      "SCKL9",
+      "SCKL10",
+      "SCKL11"
+    ],
     "description": "Seckel syndrome is a rare autosomal recessive microcephalic primordial dwarfism syndrome characterized by prenatal and postnatal growth restriction, microcephaly, intellectual disability, and distinctive bird-headed craniofacial appearance.",
     "pathophysiology": [
       "ATR-related DNA damage checkpoint disruption",
       "Centrosome-dependent neural progenitor division impairment",
-      "CENPJ-associated centriole and mitotic failure"
+      "CENPJ-associated centriole and mitotic failure",
+      "Replication-stress intolerance in Seckel-spectrum genome maintenance genes"
     ],
     "cell_types": [
       "neural progenitor cell",
@@ -285704,7 +286013,9 @@ window.searchData = [
       "cell population proliferation",
       "centriole replication",
       "chromosome segregation",
-      "cell division"
+      "cell division",
+      "DNA repair",
+      "replication fork processing"
     ],
     "phenotypes": [
       "Intrauterine growth retardation",
@@ -285747,7 +286058,14 @@ window.searchData = [
       "ATR",
       "CEP152",
       "RTTN",
-      "CENPJ"
+      "CENPJ",
+      "RBBP8",
+      "CEP63",
+      "NIN",
+      "DNA2",
+      "TRAIP",
+      "NSMCE2",
+      "CEP295"
     ],
     "treatments": [
       "Genetic counseling and reproductive planning"
@@ -285757,10 +286075,10 @@ window.searchData = [
     "source_file": "Seckel_Syndrome.yaml",
     "page_url": "../pages/disorders/Seckel_syndrome.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 11,
     "num_treatments": 1,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "2"
   },
   {
@@ -317408,7 +317726,8 @@ window.searchData = [
       "USH1C",
       "USH1D",
       "USH1F",
-      "USH1G"
+      "USH1G",
+      "USH1DF"
     ],
     "description": "Usher syndrome type 1 is the mechanism entity in which biallelic loss of a component of the stereocilia upper tip-link density (UTLD) complex - myosin VIIa (MYO7A), harmonin (USH1C), SANS (USH1G), cadherin-23 (CDH23) and protocadherin-15 (PCDH15) - produces congenital profound sensorineural hearing loss, absent vestibular function, and adolescent-onset retinitis pigmentosa. The defining lesion is a tension-bearing complex of the MATURE hair bundle, in which a myosin motor cluster anchored by harmonin and SANS holds the cadherin-23/protocadherin-15 tip link under resting tension so that bundle deflection gates the mechanotransduction channel. This is a different assembly, in a different developmental window, from the transient ankle-link complex of Usher syndrome type 2, and clarin-1 (type 3) belongs to neither.\nIn the retina the same five proteins form a conserved network at the calyceal processes - microvillus-like projections collaring the base of the photoreceptor outer segment in human, macaque and frog. This is NOT the periciliary membrane compartment that carries the type-2 retinal mechanism, and it is the reason the classical mouse models are deaf without retinal degeneration: mice have no calyceal processes at all.\nThe numbered clinical type is retained as the entry label because it is the identity ClinGen and MONDO both curate at, but the entity is defined by the complex rather than by the clinical typing, which is an imperfect proxy - a CLRN1 (type 3) family has been reported as clinically diagnosable as type 1.\n",
     "pathophysiology": [
@@ -317495,8 +317814,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Usher Syndrome Type 2",
@@ -317589,7 +317908,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -317665,8 +317984,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Usher Syndrome Type 4",
@@ -329685,17 +330004,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3129,
-  "total_subtypes": 3957,
-  "total_disorders_and_subtypes": 7086,
-  "total_unique_evidence_sources": 45296,
-  "total_unique_publications": 42568,
+  "total_disorder_pages": 3131,
+  "total_subtypes": 3990,
+  "total_disorders_and_subtypes": 7121,
+  "total_unique_evidence_sources": 45368,
+  "total_unique_publications": 42626,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3124,
-  "total_unique_pathological_events": 19630,
+  "total_pathographs": 3126,
+  "total_unique_pathological_events": 19654,
   "total_modules": 178,
-  "total_research_reports": 3237,
+  "total_research_reports": 3239,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
