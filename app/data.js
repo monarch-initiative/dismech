@@ -322346,6 +322346,136 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "WHIM Syndrome 1",
+    "disease_id": "MONDO:8000006",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-24T19:23:48Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "WHIM syndrome 1 is the CXCR4 form of WHIM syndrome, a rare autosomal dominant combined primary immunodeficiency named for its tetrad of warts, hypogammaglobulinemia, infections and myelokathexis. It is caused by heterozygous gain-of-function variants in CXCR4, most of them nonsense or frameshift variants that truncate the cytoplasmic carboxy-terminal tail of the receptor (R334X is the most common), and more rarely a charge-changing missense substitution in the same domain. The tail carries the phosphorylation sites that normally terminate signaling, so the mutant receptor resists CXCL12-induced desensitization and internalization and signals in an enhanced, prolonged fashion.\nThe exaggerated response to CXCL12, the chemokine that holds leukocytes in the bone marrow, produces the defining hematopathology. Mature neutrophils are retained in the marrow (myelokathexis), where they become hypersegmented and degenerate, while the blood shows chronic severe neutropenia. Most patients are panleukopenic: lymphocytes (especially B cells), monocytes and plasmacytoid dendritic cells are also reduced, reflecting both leukocyte sequestration and defective B and T lymphopoiesis. Humoral immunity is impaired, with poor class switching, reduced memory B cells and variable hypogammaglobulinemia.\nClinically, bacterial infections of the ears, sinuses, lungs and skin begin in infancy or early childhood, and recurrent pneumonia leads to bronchiectasis. Susceptibility to human papillomavirus is disproportionate: cutaneous and anogenital warts are refractory to treatment and can progress to HPV-associated squamous cell carcinoma, and EBV-associated lymphomas also occur. Conotruncal heart defects, including tetralogy of Fallot, and autoimmune complications are uncommon additional features. Standard care is G-CSF, immunoglobulin replacement and antibiotic prophylaxis; mechanism-based therapy with CXCR4 antagonists (plerixafor, and the oral agent mavorixafor, approved by the FDA in 2024 for patients aged 12 years and older) corrects the leukopenia by releasing sequestered leukocytes. Hematopoietic stem cell transplantation is curative in selected patients.",
+    "pathophysiology": [
+      "CXCR4 Carboxy-Terminal Gain-of-Function Variant",
+      "Impaired CXCR4 Desensitization and Internalization",
+      "Enhanced CXCL12-CXCR4 Signaling",
+      "Neutrophil Retention in Bone Marrow",
+      "Lymphocyte and Monocyte Sequestration",
+      "Impaired B and T Lymphopoiesis",
+      "Defective B Cell Memory and Isotype Switching",
+      "Plasmacytoid Dendritic Cell Deficiency",
+      "CXCR4-Driven HPV Keratinocyte Transformation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "T cell",
+      "B cell",
+      "monocyte",
+      "memory B cell",
+      "plasmacytoid dendritic cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000576",
+      "CL:0000787",
+      "CL:0000784",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "desensitization of G protein-coupled receptor signaling pathway",
+      "G protein-coupled receptor internalization",
+      "CXCL12-activated CXCR4 signaling pathway",
+      "neutrophil chemotaxis",
+      "leukocyte migration",
+      "B cell differentiation",
+      "T cell differentiation in thymus",
+      "isotype switching",
+      "type I interferon production"
+    ],
+    "phenotypes": [
+      "Myelokathexis",
+      "Chronic severe neutropenia",
+      "Lymphopenia",
+      "Decreased B cell count",
+      "Monocytopenia",
+      "Hypogammaglobulinemia",
+      "Recurrent bacterial infections",
+      "Recurrent bacterial upper respiratory tract infections",
+      "Recurrent pneumonia",
+      "Bronchiectasis",
+      "Cutaneous warts",
+      "HPV-associated squamous cell carcinoma",
+      "Lymphoma",
+      "Tetralogy of Fallot",
+      "Autoimmunity"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Immunological",
+      "Respiratory",
+      "Dermatological",
+      "Neoplastic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031160",
+      "HP:0410252",
+      "HP:0001888",
+      "HP:0010976",
+      "HP:0012312",
+      "HP:0004313",
+      "HP:0002718",
+      "HP:0031949",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0200043",
+      "HP:0002860",
+      "HP:0002665",
+      "HP:0001636",
+      "HP:0002960"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CXCR4"
+    ],
+    "treatments": [
+      "Mavorixafor",
+      "Plerixafor",
+      "Granulocyte Colony-Stimulating Factor",
+      "Immunoglobulin Replacement",
+      "Antibiotic Prophylaxis",
+      "Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "WHIM_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/WHIM_Syndrome_1.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "WWOX-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0014533",
     "category": "Mendelian",
@@ -330004,17 +330134,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3131,
+  "total_disorder_pages": 3132,
   "total_subtypes": 3990,
-  "total_disorders_and_subtypes": 7121,
-  "total_unique_evidence_sources": 45368,
-  "total_unique_publications": 42626,
+  "total_disorders_and_subtypes": 7122,
+  "total_unique_evidence_sources": 45396,
+  "total_unique_publications": 42652,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3126,
-  "total_unique_pathological_events": 19654,
+  "total_pathographs": 3127,
+  "total_unique_pathological_events": 19663,
   "total_modules": 178,
-  "total_research_reports": 3239,
+  "total_research_reports": 3240,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
