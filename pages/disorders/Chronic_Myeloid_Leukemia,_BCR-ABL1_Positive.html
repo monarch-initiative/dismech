@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3796,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chronic%20Myeloid%20Leukemia%2C%20BCR-ABL1%20Positive"
@@ -3972,7 +4049,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3981,7 +4058,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4514,6 +4591,7 @@ This experiment is of type signaling-pathway epistasis mapping assay.</span>
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4548,6 +4626,7 @@ This experiment is of type signaling-pathway epistasis mapping assay.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bcr-abl1-fusion-oncogene-formation" data-dismech-node="BCR-ABL1 Fusion Oncogene Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">BCR-ABL1 Fusion Oncogene Formation</div>
+
 
                 <div class="item-desc">The t(9;22)(q34;q11) translocation juxtaposes the ABL1 tyrosine kinase gene on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine kinase activity independent of normal regulatory mechanisms.</div>
 
@@ -4589,6 +4668,197 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BCR
+
+
+    <a href="https://bioregistry.io/hgnc:1014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1014</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCR (hgnc:1014). hgnc:1014 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ABL1
+
+
+    <a href="https://bioregistry.io/hgnc:76" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:76</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BCR
+
+
+    <a href="https://bioregistry.io/hgnc:1014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1014</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns BCR (hgnc:1014). hgnc:1014 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ABL1
+
+
+    <a href="https://bioregistry.io/hgnc:76" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:76</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Acquired somatic t(9;22)(q34;q11) reciprocal translocation; the fusion product in CML is typically the p210 BCR-ABL1 protein. The lesion is a gene fusion rather than a point mutation, so the two partner genes are bound here together: neither is altered in isolation, and the gain-of-function belongs to the chimeric product.</div>
+
 
 
 
@@ -4604,11 +4874,11 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006468</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4669,6 +4939,7 @@ This pathophysiological event involves protein phosphorylation (GO:0006468). GO:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"BCR-ABL is a constitutively activated tyrosine kinase that causes chronic myeloid leukemia (CML). Since tyrosine kinase activity is essential to the transforming function of BCR-ABL, an inhibitor of the kinase could be an effective treatment for CML."</div>
@@ -4688,6 +4959,7 @@ This pathophysiological event involves protein phosphorylation (GO:0006468). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4714,6 +4986,7 @@ This pathophysiological event involves protein phosphorylation (GO:0006468). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-tyrosine-kinase-activation" data-dismech-node="Constitutive Tyrosine Kinase Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Tyrosine Kinase Activation</div>
 
+
                 <div class="item-desc">The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity, bypassing normal growth factor regulation. This activates multiple downstream signaling cascades including RAS-MAPK, PI3K-AKT, and JAK-STAT pathways, promoting cell proliferation and survival.</div>
 
 
@@ -4728,11 +5001,11 @@ This pathophysiological event involves protein phosphorylation (GO:0006468). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000763" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000763" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000763</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves myeloid cell (CL:0000763). CL:0000763 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4769,11 +5042,11 @@ This pathophysiological event involves myeloid cell (CL:0000763). CL:0000763 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0018108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0018108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased protein tyrosine kinase activity, annotated with peptidyl-tyrosine phosphorylation (GO:0018108). GO:0018108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4803,11 +5076,11 @@ This pathophysiological event involves increased protein tyrosine kinase activit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007165</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4896,6 +5169,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4919,6 +5193,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-mapk-pathway-hyperactivation" data-dismech-node="RAS-MAPK Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS-MAPK Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">BCR-ABL1 activates the RAS-MAPK signaling cascade through GRB2/SOS adaptor proteins. Constitutive MAPK pathway activation drives uncontrolled myeloid progenitor proliferation by upregulating cell cycle progression genes.</div>
 
 
@@ -4940,11 +5215,11 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0000165</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4998,6 +5273,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-pathway-activation" data-dismech-node="PI3K-AKT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-AKT Pathway Activation</div>
 
+
                 <div class="item-desc">BCR-ABL1 activates the PI3K-AKT survival pathway through direct phosphorylation and adaptor protein recruitment. AKT phosphorylates and inactivates pro-apoptotic proteins (BAD, FOXO3a), upregulates BCL2 family anti-apoptotic members, and promotes cell survival.</div>
 
 
@@ -5019,11 +5295,11 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0043491</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased PI3K-AKT signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5077,6 +5353,7 @@ This pathophysiological event involves increased PI3K-AKT signaling, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-activation" data-dismech-node="JAK-STAT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Activation</div>
 
+
                 <div class="item-desc">BCR-ABL1 activates JAK-STAT signaling independently of cytokine receptor engagement. STAT5 activation drives expression of proliferative and anti-apoptotic target genes, contributing to cytokine-independent growth of leukemic cells.</div>
 
 
@@ -5098,11 +5375,11 @@ This pathophysiological event involves increased PI3K-AKT signaling, annotated w
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007259</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased JAK-STAT signaling, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5164,6 +5441,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-oxygen-species-generation" data-dismech-node="Reactive Oxygen Species Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Oxygen Species Generation</div>
 
+
                 <div class="item-desc">BCR-ABL1 kinase activity increases mitochondrial reactive oxygen species (ROS) production. Chronic oxidative stress causes DNA double-strand breaks and impairs DNA repair fidelity, promoting acquisition of additional mutations and chromosomal abnormalities that drive disease progression.</div>
 
 
@@ -5185,11 +5463,11 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:1903409</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:1903409</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased reactive oxygen species biosynthetic process (GO:1903409). GO:1903409 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5243,6 +5521,7 @@ This pathophysiological event involves increased reactive oxygen species biosynt
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-myeloid-proliferation" data-dismech-node="Uncontrolled Myeloid Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Myeloid Proliferation</div>
 
+
                 <div class="item-desc">BCR-ABL1 signaling drives excessive proliferation of myeloid progenitor cells, leading to marked expansion of the granulocytic lineage. The bone marrow becomes hypercellular with a massively expanded myeloid compartment.</div>
 
 
@@ -5257,11 +5536,11 @@ This pathophysiological event involves increased reactive oxygen species biosynt
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000094" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000094</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000094" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000094</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves granulocyte (CL:0000094). CL:0000094 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5287,11 +5566,11 @@ This pathophysiological event involves granulocyte (CL:0000094). CL:0000094 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000049" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000049</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000049" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000049</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves myeloid progenitor cell, annotated with common myeloid progenitor (CL:0000049). CL:0000049 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5328,11 +5607,11 @@ This pathophysiological event involves myeloid progenitor cell, annotated with c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002262" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0002262</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002262" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0002262</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal myeloid cell homeostasis (GO:0002262). GO:0002262 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5369,11 +5648,11 @@ This pathophysiological event involves abnormal myeloid cell homeostasis (GO:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002371</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5391,6 +5670,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptosis-resistance" data-dismech-node="Apoptosis Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptosis Resistance</div>
+
 
                 <div class="item-desc">BCR-ABL1 activates anti-apoptotic pathways, particularly through PI3K-AKT signaling and upregulation of BCL2 family members. This confers resistance to programmed cell death, allowing accumulation of leukemic cells.</div>
 
@@ -5413,11 +5693,11 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5456,6 +5736,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability-and-disease-progression" data-dismech-node="Genomic Instability and Disease Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability and Disease Progression</div>
 
+
                 <div class="item-desc">BCR-ABL1 induces genomic instability through reactive oxygen species generation and impaired DNA repair. This promotes acquisition of additional mutations and chromosomal abnormalities, driving progression from chronic phase to blast crisis.</div>
 
 
@@ -5477,11 +5758,11 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0006281</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5533,6 +5814,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5557,6 +5839,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5620,6 +5903,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"CML is defined by the presence of the Philadelphia (Ph)"</div>
@@ -5660,7 +5944,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates anti-apoptotic pathways, particularly through PI3K-AKT signaling and upregulation of BCL2 family members. This confers resistance to programmed cell death, allowing accumulation of leukemic cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"BCR-ABL1 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(9;22)(q34;q11) translocation juxtaposes the ABL1 tyrosine kinase gene on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine kinase activity independent of normal regulatory mechanisms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"protein phosphorylation\"]}}, {\"id\": \"Constitutive Tyrosine Kinase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity, bypassing normal growth factor regulation. This activates multiple downstream signaling cascades including RAS-MAPK, PI3K-AKT, and JAK-STAT pathways, promoting cell proliferation and survival.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"protein tyrosine kinase activity\", \"signal transduction\"]}}, {\"id\": \"Dasatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-generation TKI with greater potency against BCR-ABL1 and activity against many imatinib-resistant mutations. Also inhibits SRC family kinases. Used for imatinib intolerance/resistance or as first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dasatinib\"]}}, {\"id\": \"Genomic Instability and Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 induces genomic instability through reactive oxygen species generation and impaired DNA repair. This promotes acquisition of additional mutations and chromosomal abnormalities, driving progression from chronic phase to blast crisis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Imatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-generation tyrosine kinase inhibitor that revolutionized CML treatment. Competitively inhibits BCR-ABL1 ATP binding, inducing molecular remission in most chronic phase patients. Standard first-line therapy with excellent long-term outcomes.\", \"meta\": {\"evidence_count\": 3, \"pdb_structures\": [{\"pdb_id\": \"1IEP\", \"description\": \"ABL kinase domain in complex with imatinib (STI-571), the landmark structure showing how imatinib binds the inactive DFG-out conformation and blocks ATP access\", \"resolution_angstrom\": 2.1, \"method\": \"X-ray\", \"ligand\": \"imatinib\", \"target_protein\": \"ABL1 kinase domain\"}], \"therapeutic_agents\": [\"imatinib\"]}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independently of cytokine receptor engagement. STAT5 activation drives expression of proliferative and anti-apoptotic target genes, contributing to cytokine-independent growth of leukemic cells.\", \"meta\": {\"biological_processes\": [\"JAK-STAT signaling\"]}}, {\"id\": \"Nilotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-generation TKI designed for improved BCR-ABL1 binding. More selective than dasatinib with different side effect profile. Used for imatinib intolerance/resistance or first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nilotinib\"]}}, {\"id\": \"PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the PI3K-AKT survival pathway through direct phosphorylation and adaptor protein recruitment. AKT phosphorylates and inactivates pro-apoptotic proteins (BAD, FOXO3a), upregulates BCL2 family anti-apoptotic members, and promotes cell survival.\", \"meta\": {\"biological_processes\": [\"PI3K-AKT signaling\"]}}, {\"id\": \"Ponatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Third-generation TKI active against the T315I gatekeeper mutation that confers resistance to other TKIs. Reserved for patients with T315I mutation or failure of multiple prior TKIs due to cardiovascular risks.\", \"meta\": {\"evidence_count\": 2, \"pdb_structures\": [{\"pdb_id\": \"3OXZ\", \"description\": \"Ponatinib bound to native ABL1 kinase domain, showing how the linear ethynyl linker avoids the T315I steric clash that blocks imatinib binding at the gatekeeper residue\", \"resolution_angstrom\": 1.8, \"method\": \"X-ray\", \"ligand\": \"ponatinib\", \"target_protein\": \"ABL1 kinase domain\"}, {\"pdb_id\": \"1IEP\", \"description\": \"Imatinib/ABL1 co-crystal \\u2014 T315 forms a hydrogen bond with imatinib that is lost upon T315I mutation, explaining gatekeeper resistance\", \"resolution_angstrom\": 2.1, \"method\": \"X-ray\", \"ligand\": \"imatinib\", \"target_protein\": \"ABL1 kinase domain (wild-type reference for resistance mapping)\"}], \"therapeutic_agents\": [\"ponatinib\"]}}, {\"id\": \"RAS-MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the RAS-MAPK signaling cascade through GRB2/SOS adaptor proteins. Constitutive MAPK pathway activation drives uncontrolled myeloid progenitor proliferation by upregulating cell cycle progression genes.\", \"meta\": {\"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 kinase activity increases mitochondrial reactive oxygen species (ROS) production. Chronic oxidative stress causes DNA double-strand breaks and impairs DNA repair fidelity, promoting acquisition of additional mutations and chromosomal abnormalities that drive disease progression.\", \"meta\": {\"biological_processes\": [\"reactive oxygen species biosynthetic process\"]}}, {\"id\": \"Uncontrolled Myeloid Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 signaling drives excessive proliferation of myeloid progenitor cells, leading to marked expansion of the granulocytic lineage. The bone marrow becomes hypercellular with a massively expanded myeloid compartment.\", \"meta\": {\"cell_types\": [\"granulocyte\", \"myeloid progenitor cell\"], \"biological_processes\": [\"myeloid cell homeostasis\"], \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"BCR-ABL1 Fusion Oncogene Formation\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits ligand-independent kinase activity\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"RAS-MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates RAS via GRB2/SOS, driving the MAPK proliferative cascade\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates PI3K via direct binding and adaptor proteins\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independent of cytokine receptors\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive kinase activity increases mitochondrial ROS production\"}, {\"source\": \"RAS-MAPK Pathway Hyperactivation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive MAPK signaling drives excessive myeloid progenitor expansion\"}, {\"source\": \"PI3K-AKT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT-mediated inactivation of pro-apoptotic factors promotes leukemic cell survival\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT5-driven transcriptional programs promote myeloid expansion\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT5 upregulates BCL-XL and other anti-apoptotic factors\"}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"Genomic Instability and Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ROS-induced DNA damage promotes acquisition of additional mutations driving blast crisis\"}, {\"source\": \"Imatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dasatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nilotinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ponatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ABL1\"], \"gene_terms\": [{\"label\": \"ABL1\", \"id\": \"hgnc:76\"}], \"association\": \"Somatic fusion partner (3\u0027 partner of BCR::ABL1); kinase-domain resistance mutations\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates anti-apoptotic pathways, particularly through PI3K-AKT signaling and upregulation of BCL2 family members. This confers resistance to programmed cell death, allowing accumulation of leukemic cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"BCR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BCR\"], \"gene_terms\": [{\"label\": \"BCR\", \"id\": \"hgnc:1014\"}], \"association\": \"Somatic fusion partner (5\u0027 partner of BCR::ABL1)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BCR-ABL1 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(9;22)(q34;q11) translocation juxtaposes the ABL1 tyrosine kinase gene on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine kinase activity independent of normal regulatory mechanisms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"protein phosphorylation\"], \"genes\": [\"BCR\", \"ABL1\"], \"gene_terms\": [{\"label\": \"BCR\", \"id\": \"hgnc:1014\"}, {\"label\": \"ABL1\", \"id\": \"hgnc:76\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Acquired somatic t(9;22)(q34;q11) reciprocal translocation; the fusion product in CML is typically the p210 BCR-ABL1 protein. The lesion is a gene fusion rather than a point mutation, so the two partner genes are bound here together: neither is altered in isolation, and the gain-of-function belongs to the chimeric product.\", \"gene_terms\": [{\"label\": \"BCR\", \"id\": \"hgnc:1014\"}, {\"label\": \"ABL1\", \"id\": \"hgnc:76\"}]}}}, {\"id\": \"Constitutive Tyrosine Kinase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity, bypassing normal growth factor regulation. This activates multiple downstream signaling cascades including RAS-MAPK, PI3K-AKT, and JAK-STAT pathways, promoting cell proliferation and survival.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"protein tyrosine kinase activity\", \"signal transduction\"]}}, {\"id\": \"Dasatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-generation TKI with greater potency against BCR-ABL1 and activity against many imatinib-resistant mutations. Also inhibits SRC family kinases. Used for imatinib intolerance/resistance or as first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dasatinib\"]}}, {\"id\": \"Genomic Instability and Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 induces genomic instability through reactive oxygen species generation and impaired DNA repair. This promotes acquisition of additional mutations and chromosomal abnormalities, driving progression from chronic phase to blast crisis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Imatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-generation tyrosine kinase inhibitor that revolutionized CML treatment. Competitively inhibits BCR-ABL1 ATP binding, inducing molecular remission in most chronic phase patients. Standard first-line therapy with excellent long-term outcomes.\", \"meta\": {\"evidence_count\": 3, \"pdb_structures\": [{\"pdb_id\": \"1IEP\", \"description\": \"ABL kinase domain in complex with imatinib (STI-571), the landmark structure showing how imatinib binds the inactive DFG-out conformation and blocks ATP access\", \"resolution_angstrom\": 2.1, \"method\": \"X-ray\", \"ligand\": \"imatinib\", \"target_protein\": \"ABL1 kinase domain\"}], \"therapeutic_agents\": [\"imatinib\"]}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independently of cytokine receptor engagement. STAT5 activation drives expression of proliferative and anti-apoptotic target genes, contributing to cytokine-independent growth of leukemic cells.\", \"meta\": {\"biological_processes\": [\"JAK-STAT signaling\"]}}, {\"id\": \"Nilotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-generation TKI designed for improved BCR-ABL1 binding. More selective than dasatinib with different side effect profile. Used for imatinib intolerance/resistance or first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nilotinib\"]}}, {\"id\": \"PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the PI3K-AKT survival pathway through direct phosphorylation and adaptor protein recruitment. AKT phosphorylates and inactivates pro-apoptotic proteins (BAD, FOXO3a), upregulates BCL2 family anti-apoptotic members, and promotes cell survival.\", \"meta\": {\"biological_processes\": [\"PI3K-AKT signaling\"]}}, {\"id\": \"Ponatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Third-generation TKI active against the T315I gatekeeper mutation that confers resistance to other TKIs. Reserved for patients with T315I mutation or failure of multiple prior TKIs due to cardiovascular risks.\", \"meta\": {\"evidence_count\": 2, \"pdb_structures\": [{\"pdb_id\": \"3OXZ\", \"description\": \"Ponatinib bound to native ABL1 kinase domain, showing how the linear ethynyl linker avoids the T315I steric clash that blocks imatinib binding at the gatekeeper residue\", \"resolution_angstrom\": 1.8, \"method\": \"X-ray\", \"ligand\": \"ponatinib\", \"target_protein\": \"ABL1 kinase domain\"}, {\"pdb_id\": \"1IEP\", \"description\": \"Imatinib/ABL1 co-crystal \\u2014 T315 forms a hydrogen bond with imatinib that is lost upon T315I mutation, explaining gatekeeper resistance\", \"resolution_angstrom\": 2.1, \"method\": \"X-ray\", \"ligand\": \"imatinib\", \"target_protein\": \"ABL1 kinase domain (wild-type reference for resistance mapping)\"}], \"therapeutic_agents\": [\"ponatinib\"]}}, {\"id\": \"RAS-MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the RAS-MAPK signaling cascade through GRB2/SOS adaptor proteins. Constitutive MAPK pathway activation drives uncontrolled myeloid progenitor proliferation by upregulating cell cycle progression genes.\", \"meta\": {\"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 kinase activity increases mitochondrial reactive oxygen species (ROS) production. Chronic oxidative stress causes DNA double-strand breaks and impairs DNA repair fidelity, promoting acquisition of additional mutations and chromosomal abnormalities that drive disease progression.\", \"meta\": {\"biological_processes\": [\"reactive oxygen species biosynthetic process\"]}}, {\"id\": \"Uncontrolled Myeloid Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 signaling drives excessive proliferation of myeloid progenitor cells, leading to marked expansion of the granulocytic lineage. The bone marrow becomes hypercellular with a massively expanded myeloid compartment.\", \"meta\": {\"cell_types\": [\"granulocyte\", \"myeloid progenitor cell\"], \"biological_processes\": [\"myeloid cell homeostasis\"], \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"BCR-ABL1 Fusion Oncogene Formation\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits ligand-independent kinase activity\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"RAS-MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates RAS via GRB2/SOS, driving the MAPK proliferative cascade\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates PI3K via direct binding and adaptor proteins\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independent of cytokine receptors\"}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive kinase activity increases mitochondrial ROS production\"}, {\"source\": \"RAS-MAPK Pathway Hyperactivation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive MAPK signaling drives excessive myeloid progenitor expansion\"}, {\"source\": \"PI3K-AKT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT-mediated inactivation of pro-apoptotic factors promotes leukemic cell survival\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT5-driven transcriptional programs promote myeloid expansion\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT5 upregulates BCL-XL and other anti-apoptotic factors\"}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"Genomic Instability and Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ROS-induced DNA damage promotes acquisition of additional mutations driving blast crisis\"}, {\"source\": \"Imatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dasatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nilotinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ponatinib\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BCR\", \"target\": \"BCR-ABL1 Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABL1\", \"target\": \"BCR-ABL1 Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5716,15 +6000,18 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001974</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukocytosis, annotated with Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5744,6 +6031,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,15 +6076,18 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031807</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031807</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Basophilia, annotated with Increased total basophil count (HP:0031807). HP:0031807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5816,6 +6107,7 @@ This clinical feature is Basophilia, annotated with Increased total basophil cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5858,15 +6150,18 @@ This clinical feature is Basophilia, annotated with Increased total basophil cou
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001894</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001894</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5886,6 +6181,7 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5928,15 +6224,18 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5956,6 +6255,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6007,15 +6307,18 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6035,6 +6338,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6059,6 +6363,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6110,15 +6415,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6138,6 +6446,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6189,15 +6498,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6220,6 +6532,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6281,16 +6594,45 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-bcr-abl1" data-dismech-node="BCR-ABL1" data-dismech-type="genetic">
+            <div class="item-box genetic-box anchor-target" id="genetic-bcr" data-dismech-node="BCR" data-dismech-type="genetic">
                 <div class="item-name">
-                    BCR-ABL1
+                    BCR
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Fusion Oncogene)</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic fusion partner (5&#39; partner of BCR::ABL1))</span>
 
                 </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BCR
+
+
+    <a href="https://bioregistry.io/hgnc:1014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:1014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BCR (hgnc:1014). hgnc:1014 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
 
 
 
@@ -6309,6 +6651,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6334,6 +6677,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"These studies provide evidence that genetically complex cancers retain dependence on an initial oncogenic event."</div>
@@ -6356,6 +6700,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6364,6 +6709,138 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                 <div class="evidence-explanation">CIViC&#39;s accepted assertion supports BCR::ABL1 as the defining genetic alteration for this CML entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-abl1" data-dismech-node="ABL1" data-dismech-type="genetic">
+                <div class="item-name">
+                    ABL1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic fusion partner (3&#39; partner of BCR::ABL1); kinase-domain resistance mutations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ABL1
+
+
+    <a href="https://bioregistry.io/hgnc:76" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:76</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10428738" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10428738" target="_blank">PMID:10428738</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Translation of the fusion products yields chimeric proteins of variable size that have increased tyrosine kinase activity."</div>
+
+
+                <div class="evidence-explanation">Establishes that the ABL1-derived kinase activity of the chimeric product is what is deregulated.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11423618" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11423618" target="_blank">PMID:11423618</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In six of
+nine patients, resistance was associated with a single amino acid substitution
+in a threonine residue of the Abl kinase domain known to form a critical
+hydrogen bond with the drug."</div>
+
+
+                <div class="evidence-explanation">Documents the acquired ABL1 kinase-domain substitution that reactivates signalling under inhibitor therapy, supporting the resistance-mutation role recorded in this gene&#39;s notes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CIVIC_EID:234" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/evidence_items/234" target="_blank">CIVIC_EID:234</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In chronic myeloid leukemia patients with the ABL T315I mutation, tumors have shown to be resistant to imatinib treatment."</div>
+
+
+                <div class="evidence-explanation">CIViC records the ABL1 T315I resistance association that this record names as the acquired-resistance role of the gene.</div>
 
 
 
@@ -6438,6 +6915,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6502,6 +6980,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6572,6 +7051,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6613,7 +7093,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6655,16 +7135,30 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45783" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:45783</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45783" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:45783</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6698,6 +7192,7 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +7276,7 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Complete hematologic responses were observed in 53 of 54 patients treated with daily doses of 300 mg or more and typically occurred in the first four weeks of therapy."</div>
@@ -6803,6 +7299,7 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Our results provide evidence of the essential role of BCR-ABL tyrosine kinase activity in CML and demonstrate the potential for the development of anticancer drugs based on the specific molecular abnormality present in a human cancer."</div>
@@ -6822,6 +7319,7 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6853,7 +7351,7 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6895,16 +7393,30 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_49375" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:49375</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_49375" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:49375</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375). CHEBI:49375 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6950,6 +7462,7 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6978,7 +7491,7 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7020,16 +7533,30 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_52172" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:52172</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_52172" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:52172</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses nilotinib (CHEBI:52172). CHEBI:52172 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7075,6 +7602,7 @@ This treatment uses nilotinib (CHEBI:52172). CHEBI:52172 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7103,7 +7631,7 @@ This treatment uses nilotinib (CHEBI:52172). CHEBI:52172 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7145,16 +7673,30 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_78543" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:78543</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_78543" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:78543</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ponatinib (CHEBI:78543). CHEBI:78543 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7269,6 +7811,7 @@ This treatment uses ponatinib (CHEBI:78543). CHEBI:78543 is a therapeutic agent 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In six of nine patients, resistance was associated with a single amino acid substitution in a threonine residue of the Abl kinase domain known to form a critical hydrogen bond with the drug. This substitution of threonine with isoleucine was sufficient to confer STI-571 resistance."</div>
@@ -7288,6 +7831,7 @@ This treatment uses ponatinib (CHEBI:78543). CHEBI:78543 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7319,7 +7863,7 @@ This treatment uses ponatinib (CHEBI:78543). CHEBI:78543 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Allogeneic Stem Cell Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Allogeneic Stem Cell Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201466 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7351,6 +7895,20 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Potentially curative option historically used as primary therapy before TKI era. Now reserved for patients failing multiple TKIs, those with T315I mutation without ponatinib access, or blast crisis. Significant morbidity and mortality risks.</div>
 
 
@@ -7372,6 +7930,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7437,6 +7996,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7481,6 +8041,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7553,6 +8114,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7601,6 +8163,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7646,6 +8209,7 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7841,6 +8405,33 @@ pathophysiology:
     on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia
     chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine
     kinase activity independent of normal regulatory mechanisms.
+  genetic_context:
+    variant_origin: SOMATIC
+    functional_impact_category: GAIN_OF_FUNCTION
+    genes:
+    - preferred_term: BCR
+      term:
+        id: hgnc:1014
+        label: BCR
+    - preferred_term: ABL1
+      term:
+        id: hgnc:76
+        label: ABL1
+    description: &gt;-
+      Acquired somatic t(9;22)(q34;q11) reciprocal translocation; the fusion
+      product in CML is typically the p210 BCR-ABL1 protein. The lesion is a
+      gene fusion rather than a point mutation, so the two partner genes are
+      bound here together: neither is altered in isolation, and the
+      gain-of-function belongs to the chimeric product.
+  genes:
+  - preferred_term: BCR
+    term:
+      id: hgnc:1014
+      label: BCR
+  - preferred_term: ABL1
+    term:
+      id: hgnc:76
+      label: ABL1
   cell_types:
   - preferred_term: hematopoietic stem cell
     term:
@@ -8270,12 +8861,27 @@ biochemical:
       This review documents the BCR-ABL fusion gene as the defining molecular
       lesion of CML that is detected as a diagnostic marker.
 genetic:
-- name: BCR-ABL1
-  association: Somatic Fusion Oncogene
+- name: BCR
+  gene_term:
+    preferred_term: BCR
+    term:
+      id: hgnc:1014
+      label: BCR
+  association: Somatic fusion partner (5&#39; partner of BCR::ABL1)
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
   notes: &gt;-
-    The t(9;22)(q34;q11) translocation creates a fusion between BCR on chromosome 22
-    and ABL1 on chromosome 9. The resulting BCR-ABL1 fusion protein (p210 in CML)
-    has constitutive tyrosine kinase activity that drives the disease.
+    BCR is the chromosome 22 partner of the t(9;22)(q34;q11) translocation. It
+    contributes the 5&#39; end of the fusion transcript, and its coiled-coil
+    oligomerisation domain is what forces the ABL1 kinase into the constitutively
+    active state. BCR is therefore a genuine constituent of the CML lesion but is
+    not itself mutated: no germline or somatic point variant of BCR causes CML,
+    and a BCR allele outside the fusion is unremarkable. This is why the record
+    is graded SOMATIC_DRIVER rather than CAUSATIVE, and it is the basis of this
+    entry&#39;s disagreement with MONDO, which asserts
+    `RO:0004003 has material basis in germline mutation in BCR` for
+    MONDO:0011996 and in consequence classifies chronic myeloid leukemia under
+    `MONDO:0003847 hereditary disease`.
   evidence:
   - reference: PMID:11287972
     reference_title: &#34;Efficacy and safety of a specific inhibitor of the BCR-ABL tyrosine kinase in chronic myeloid leukemia.&#34;
@@ -8293,6 +8899,47 @@ genetic:
     evidence_source: OTHER
     snippet: BCR::ABL1 fusion is a diagnostic criterion for Chronic Myeloid Leukemia (CML).
     explanation: CIViC&#39;s accepted assertion supports BCR::ABL1 as the defining genetic alteration for this CML entry.
+- name: ABL1
+  gene_term:
+    preferred_term: ABL1
+    term:
+      id: hgnc:76
+      label: ABL1
+  association: Somatic fusion partner (3&#39; partner of BCR::ABL1); kinase-domain resistance mutations
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  notes: &gt;-
+    ABL1 is the chromosome 9 partner of the translocation and contributes the
+    tyrosine kinase domain that the fusion deregulates. Unlike BCR, ABL1 also
+    acquires ordinary point mutations in this disease, but as a *later* event:
+    kinase-domain substitutions such as T315I arise under tyrosine-kinase-inhibitor
+    selection and cause acquired resistance rather than initiating the leukemia.
+    Both roles are somatic, which is why one SOMATIC_DRIVER record covers them
+    and the distinction is drawn here rather than by splitting the gene in two.
+  evidence:
+  - reference: PMID:10428738
+    reference_title: &#34;Chronic myelogenous leukemia: biology and therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Translation of the fusion products yields chimeric proteins of variable size
+      that have increased tyrosine kinase activity.
+    explanation: Establishes that the ABL1-derived kinase activity of the chimeric product is what is deregulated.
+  - reference: PMID:11423618
+    reference_title: &#34;Clinical resistance to STI-571 cancer therapy caused by BCR-ABL gene mutation or amplification.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In six of \nnine patients, resistance was associated with a single amino acid substitution \nin a threonine residue of the Abl kinase domain known to form a critical \nhydrogen bond with the drug.&#34;
+    explanation: &gt;-
+      Documents the acquired ABL1 kinase-domain substitution that reactivates
+      signalling under inhibitor therapy, supporting the resistance-mutation role
+      recorded in this gene&#39;s notes.
+  - reference: CIVIC_EID:234
+    reference_title: &#34;BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia (Predictive Resistance)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: In chronic myeloid leukemia patients with the ABL T315I mutation, tumors have shown to be resistant to imatinib treatment.
+    explanation: CIViC records the ABL1 T315I resistance association that this record names as the acquired-resistance role of the gene.
 treatments:
 - name: Imatinib
   target_mechanisms:
@@ -8584,7 +9231,7 @@ disease_term:
   preferred_term: chronic myeloid leukemia
   term:
     id: MONDO:0011996
-    label: chronic myelogenous leukemia, BCR-ABL1 positive
+    label: chronic myeloid leukemia
 
 gene_sets:
 - gene_set: MYGENESET:KEGG_CHRONIC_MYELOID_LEUKEMIA
@@ -8614,6 +9261,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8916,7 +9565,7 @@ CML pathophysiology is anchored in BCR-ABL1–driven oncogenic signaling (STAT5,
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Myeloid Leukemia, BCR-ABL1 Positive", "mondoId": "MONDO:0011996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive", "yamlRevision": "c272557962af"};
+        const OS_CONFIG = {"diseaseName": "Chronic Myeloid Leukemia, BCR-ABL1 Positive", "mondoId": "MONDO:0011996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive", "yamlRevision": "2a92adde4bc8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

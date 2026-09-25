@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4211,6 +4288,7 @@ The entry also records a genuine disagreement in the literature rather than aver
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4232,6 +4310,7 @@ The entry also records a genuine disagreement in the literature rather than aver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4442,6 +4521,7 @@ Practical consequence, recorded in the diagnosis section: normal muscle respirat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4546,7 @@ Practical consequence, recorded in the diagnosis section: normal muscle respirat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4487,6 +4568,7 @@ Practical consequence, recorded in the diagnosis section: normal muscle respirat
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4576,6 +4658,7 @@ This matters beyond mechanism. If the gradient tracks translational demand, then
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4600,6 +4683,7 @@ This matters beyond mechanism. If the gradient tracks translational demand, then
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4636,6 +4720,7 @@ This matters beyond mechanism. If the gradient tracks translational demand, then
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trmt5-biallelic-loss-of-function" data-dismech-node="TRMT5 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">TRMT5 Biallelic Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic TRMT5 variants remove or degrade the nuclear-encoded methyltransferase that catalyses m1G37 formation on mitochondrial tRNAs. TRMT5 is the human orthologue of yeast Trm5p, and residues involved in catalysis are absolutely conserved between the two - which is what made a heterologous yeast complementation assay a usable pathogenicity test for the patient alleles. In the neuropathy series the missense allele p.Ile222Thr is predicted by structural modelling to destabilise tRNA binding rather than to abolish the catalytic site.</div>
 
@@ -4696,6 +4781,8 @@ This pathophysiological event involves TRMT5 (hgnc:23141). hgnc:23141 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4711,6 +4798,9 @@ This pathophysiological event involves TRMT5 (hgnc:23141). hgnc:23141 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4832,6 +4922,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4853,6 +4944,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4880,6 +4972,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4902,6 +4995,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m1g37-hypomodification-of-mitochondrial-trna" data-dismech-node="m1G37 Hypomodification of Mitochondrial tRNA" data-dismech-type="pathophysiology">
                 <div class="item-name">m1G37 Hypomodification of Mitochondrial tRNA</div>
+
 
                 <div class="item-desc">The direct molecular consequence, and the one measured in patients. Reverse-transcriptase primer-extension across position 37 of mt-tRNA-Leu(CUN) shows markedly increased readthrough in patient material, meaning the methyl group is missing. Two controls make this causal rather than correlative: siRNA depletion of TRMT5 in control cells reproduces the hypomodification, and lentiviral re-expression of wild-type TRMT5 in patient fibroblasts reverses it to control levels.
 A negative result is worth recording here too: loss of m1G37 does not destabilise the tRNA. Steady-state mt-tRNA-Leu(CUN) levels are similar in control and patient fibroblasts, so the downstream defect is a translation-fidelity or efficiency problem rather than a loss of the tRNA pool.</div>
@@ -5025,6 +5119,7 @@ This pathophysiological event involves decreased mitochondrial tRNA methylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5046,6 +5141,7 @@ This pathophysiological event involves decreased mitochondrial tRNA methylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5073,6 +5169,7 @@ This pathophysiological event involves decreased mitochondrial tRNA methylation 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5097,6 +5194,7 @@ This pathophysiological event involves decreased mitochondrial tRNA methylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-specific-amplification-of-the-modification-defect-in-skeletal-muscle" data-dismech-node="Tissue-Specific Amplification of the Modification Defect in Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-Specific Amplification of the Modification Defect in Skeletal Muscle</div>
+
 
                 <div class="item-desc">The hypomodification is not uniform across tissues. In the founding report the deficit was described as particularly prominent in skeletal muscle, with severely diminished pausing at G37 in muscle biopsy RNA - more marked than in the same patients&#39; fibroblasts. The clinical correlate is direct and diagnostically important: in one of the two founding individuals, muscle respiratory-chain analysis showed decreased complex IV and borderline-low complex I activity while fibroblast studies were normal.
 This node is modelled explicitly rather than left as a caveat because it changes what a negative test means. A normal fibroblast respiratory-chain assay does not exclude COXPD26.</div>
@@ -5183,6 +5281,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5204,6 +5303,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5229,6 +5329,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
+
 
                 <div class="item-desc">m1G37 sits immediately 3&#39; of the anticodon and maintains reading-frame fidelity and translational efficiency; losing it degrades synthesis of the thirteen mtDNA-encoded respiratory-chain subunits. In COXPD26 this step is inferred rather than directly measured - the founding report measures the modification and the respiratory-chain output and reasons across the gap. It is measured directly, however, in the cybrid systems where an mtDNA point mutation creates a spurious TRMT5 substrate, which is why those papers are cited here with their indirectness marked.</div>
 
@@ -5320,6 +5421,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5344,6 +5446,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5372,6 +5475,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5394,6 +5498,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-complex-deficiency" data-dismech-node="Combined Respiratory Chain Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Complex Deficiency</div>
+
 
                 <div class="item-desc">Because every mtDNA-encoded subunit passes through the same translational bottleneck, the enzymology in muscle shows several complexes affected together rather than one. In the founding individuals this took the form of a marked histochemical and biochemical cytochrome c oxidase deficiency with a complex III defect in one, and decreased complex IV with borderline-low complex I in the other.
 This node is where the literature disagrees, and the entry does not resolve the disagreement - see the CONTROVERSY discussion. The 2022 neuropathy series found normal respiratory-chain activity in the skeletal muscle of all three of its patients bar a mild complex I decrease in one, despite giant mitochondria on morphology.</div>
@@ -5484,6 +5589,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5505,6 +5611,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5532,6 +5639,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5556,6 +5664,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-energy-failure-phenotype" data-dismech-node="Multisystem Energy-Failure Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Energy-Failure Phenotype</div>
+
 
                 <div class="item-desc">The clinical endpoint, and the least uniform part of the disease. Reported presentations range from adult-onset exercise intolerance with exertional dyspnoea, through childhood failure to thrive with hypertrophic cardiomyopathy, to infantile severe developmental delay with demyelinating neuropathy, seizures, spastic diplegia, and hepatic and renal involvement. Lactic acidosis is the recurring biochemical accompaniment.
 The tissues that fail are the ones the founding authors predicted would: the heart is called out as specifically vulnerable to a diminished mitochondrial translation rate, a threshold-effect argument they draw from the shared cardiomyopathy across three tRNA-modification disorders.</div>
@@ -5626,6 +5735,7 @@ The tissues that fail are the ones the founding authors predicted would: the hea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5650,6 +5760,7 @@ The tissues that fail are the ones the founding authors predicted would: the hea
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5711,6 +5822,7 @@ The tissues that fail are the ones the founding authors predicted would: the hea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5760,6 +5872,7 @@ Read with the corresponding caution: it is one patient, and the entry bands the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5784,6 +5897,7 @@ Read with the corresponding caution: it is one patient, and the entry bands the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5805,6 +5919,7 @@ Read with the corresponding caution: it is one patient, and the entry bands the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5852,6 +5967,7 @@ Read with the corresponding caution: it is one patient, and the entry bands the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5918,19 +6034,19 @@ Read with the corresponding caution: it is one patient, and the entry bands the 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6002,6 +6118,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6016,6 +6135,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6047,1072 +6167,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-involvement" data-dismech-node="Renal Involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal Involvement
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the kidney</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000077</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
-
-
-                <div class="evidence-explanation">Single patient in this report. Banded OCCASIONAL rather than lower because renal tubulopathy is tabulated for an earlier published patient in the same paper.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lactic-acidosis" data-dismech-node="Lactic Acidosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lactic Acidosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0003128</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both affected individuals presented with lactic acidosis and evidence of multiple mitochondrial respiratory-chain-complex deficiencies in skeletal muscle"</div>
-
-
-                <div class="evidence-explanation">Lactic acidosis in both founding individuals.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Digestive
                     <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Muscle Weakness
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001324</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
-
-
-                <div class="evidence-explanation">The disease-level characterization sentence, which lists hypotonia and muscle weakness among the features defining COXPD26 across published patients rather than in one case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
-
-
-                <div class="evidence-explanation">Same characterization sentence; hypotonia and weakness are listed as separate features and are curated as separate phenotypes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-demyelinating-peripheral-neuropathy" data-dismech-node="Demyelinating Peripheral Neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Demyelinating Peripheral Neuropathy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0007108</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Demyelinating peripheral neuropathy (HP:0007108), qualified as infantile onset. HP:0007108 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: INFANTILE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
-
-
-                <div class="evidence-explanation">The neuropathy and its associated features in all three patients of the series.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our study expands the phenotype of mitochondrial disorders caused by TRTM5 mutations and defines a new form of recessive demyelinating peripheral neuropathy."</div>
-
-
-                <div class="evidence-explanation">The authors&#39; own framing of the neuropathy as a phenotypic expansion of this disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global Developmental Delay
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
-
-
-                <div class="evidence-explanation">The full multisystem presentation of the Chinese case, including the severe developmental delay this phenotype records.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
-
-
-                <div class="evidence-explanation">Reported in 3 of 3 patients from three unrelated families - the largest published COXPD26 cohort, and the only one in which a per-feature count is available.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
-
-
-                <div class="evidence-explanation">From the single-patient presentation. Banded lower than the features that appear in the disease-level characterization, because one patient is the whole basis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise Intolerance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exercise Intolerance
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003546</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Exercise intolerance (HP:0003546), qualified as temporality chronic. HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She presented at the age of 25 years with prolonged dyspnea associated with lactic acidosis following an episode of prolonged walking."</div>
-
-
-                <div class="evidence-explanation">The presenting episode in the adult individual, with its exertional trigger.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patients presented similar aspects of the previously described phenotypes, including muscle weakness, exercise intolerance, neuropathy, and spastic diplegia"</div>
-
-
-                <div class="evidence-explanation">Recurrence of exercise intolerance across the published cases.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to Thrive
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"one presented in childhood with failure to thrive and hypertrophic cardiomyopathy"</div>
-
-
-                <div class="evidence-explanation">Failure to thrive as the childhood presentation in the founding report.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
-
-
-                <div class="evidence-explanation">3 of 3, from the same cohort sentence. This is the measured growth outcome rather than an inference from the failure-to-thrive presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-abnormality" data-dismech-node="Cerebellar Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Abnormality
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cerebellum morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001317</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cerebellum morphology (HP:0001317). HP:0001317 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
-
-
-                <div class="evidence-explanation">3 of 3 in the largest published cohort, from the same sentence that carries the neuropathy and the intellectual disability.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-diplegia" data-dismech-node="Spastic Diplegia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spastic Diplegia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001264</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
-
-
-                <div class="evidence-explanation">Listed among the defining features in the disease-level characterization sentence rather than as a single-patient finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-dysmotility" data-dismech-node="Gastrointestinal Dysmotility" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7130,15 +6187,18 @@ This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002579</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7158,6 +6218,7 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,15 +6263,18 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7233,6 +6297,7 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7241,6 +6306,1123 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
                 <div class="evidence-explanation">Single patient, and explicitly novel at the time of reporting - the same paper says the hepatic feature was first observed in a COXPD26 patient here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-involvement" data-dismech-node="Renal Involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal Involvement
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the kidney</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000077</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
+
+
+                <div class="evidence-explanation">Single patient in this report. Banded OCCASIONAL rather than lower because renal tubulopathy is tabulated for an earlier published patient in the same paper.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lactic-acidosis" data-dismech-node="Lactic Acidosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lactic Acidosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003128</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both affected individuals presented with lactic acidosis and evidence of multiple mitochondrial respiratory-chain-complex deficiencies in skeletal muscle"</div>
+
+
+                <div class="evidence-explanation">Lactic acidosis in both founding individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Muscle Weakness
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
+
+
+                <div class="evidence-explanation">The disease-level characterization sentence, which lists hypotonia and muscle weakness among the features defining COXPD26 across published patients rather than in one case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
+
+
+                <div class="evidence-explanation">Same characterization sentence; hypotonia and weakness are listed as separate features and are curated as separate phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-diplegia" data-dismech-node="Spastic Diplegia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spastic Diplegia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001264</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Combined oxidative phosphorylation deficiency 26 (COXPD26) is an autosomal recessive disorder characterized by early onset, developmental delay, gastrointestinal dysfunction, shortness of breath, exercise intolerance, hypotonia and muscle weakness, neuropathy, and spastic diplegia."</div>
+
+
+                <div class="evidence-explanation">Listed among the defining features in the disease-level characterization sentence rather than as a single-patient finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-demyelinating-peripheral-neuropathy" data-dismech-node="Demyelinating Peripheral Neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Demyelinating Peripheral Neuropathy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007108</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Demyelinating peripheral neuropathy (HP:0007108), qualified as infantile onset. HP:0007108 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: INFANTILE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
+
+
+                <div class="evidence-explanation">The neuropathy and its associated features in all three patients of the series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study expands the phenotype of mitochondrial disorders caused by TRTM5 mutations and defines a new form of recessive demyelinating peripheral neuropathy."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own framing of the neuropathy as a phenotypic expansion of this disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
+
+
+                <div class="evidence-explanation">The full multisystem presentation of the Chinese case, including the severe developmental delay this phenotype records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual Disability
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
+
+
+                <div class="evidence-explanation">Reported in 3 of 3 patients from three unrelated families - the largest published COXPD26 cohort, and the only one in which a per-feature count is available.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-abnormality" data-dismech-node="Cerebellar Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar Abnormality
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebellum morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001317</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cerebellum morphology (HP:0001317). HP:0001317 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
+
+
+                <div class="evidence-explanation">3 of 3 in the largest published cohort, from the same sentence that carries the neuropathy and the intellectual disability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we report a female child with COXPD26 manifesting as shortness of breath, gastrointestinal dysmotility, severe developmental delay, muscle hypotonia and weakness, exercise intolerance, renal and hepatic defects, and recurrent seizures with spastic diplegia"</div>
+
+
+                <div class="evidence-explanation">From the single-patient presentation. Banded lower than the features that appear in the disease-level characterization, because one patient is the whole basis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise Intolerance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Exercise Intolerance
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546), qualified as temporality chronic. HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She presented at the age of 25 years with prolonged dyspnea associated with lactic acidosis following an episode of prolonged walking."</div>
+
+
+                <div class="evidence-explanation">The presenting episode in the adult individual, with its exertional trigger.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35109800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35109800" target="_blank">PMID:35109800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients presented similar aspects of the previously described phenotypes, including muscle weakness, exercise intolerance, neuropathy, and spastic diplegia"</div>
+
+
+                <div class="evidence-explanation">Recurrence of exercise intolerance across the published cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to Thrive
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26189817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26189817" target="_blank">PMID:26189817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"one presented in childhood with failure to thrive and hypertrophic cardiomyopathy"</div>
+
+
+                <div class="evidence-explanation">Failure to thrive as the childhood presentation in the founding report.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35342985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35342985" target="_blank">PMID:35342985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients had a short stature, delayed motor milestone acquisition, intellectual disability and cerebellar abnormalities associated with a severe demyelinating neuropathy, with distinct morphological features."</div>
+
+
+                <div class="evidence-explanation">3 of 3, from the same cohort sentence. This is the measured growth outcome rather than an inference from the failure-to-thrive presentation.</div>
 
 
 
@@ -7328,6 +7510,9 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7342,6 +7527,7 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7376,6 +7562,12 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Known pathogenic frameshift allele, carried by all three patients of the 2022 neuropathy series in trans with a rare missense change.</div>
 
 
@@ -7400,6 +7592,7 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7434,6 +7627,12 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Rare missense allele in the 2022 series. Structural modelling suggests it acts by destabilising tRNA binding rather than by disabling catalysis - a mechanistic distinction that may matter for the milder biochemical phenotype in those patients.</div>
 
 
@@ -7458,6 +7657,7 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7545,6 +7745,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive with a 25% recurrence risk. Counselling in this disorder has an unusual difficulty to convey: the three patients of the 2022 series carry the identical allele pair and one of the founding pair had adult-onset exercise intolerance, so a confirmed genotype does not predict severity.</div>
 
 
@@ -7566,6 +7791,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +7855,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive and follows the organs involved in the individual patient - cardiac surveillance where cardiomyopathy is present, nutritional and gastrointestinal support, seizure control, and rehabilitation for the neuropathy and weakness. Recorded with no agent bound, because none of the cited sources makes a pharmacological recommendation for this disorder.</div>
 
 
@@ -7671,6 +7922,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7746,6 +7998,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7767,6 +8020,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7824,6 +8078,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7845,6 +8100,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7899,6 +8155,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7969,6 +8226,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8016,6 +8274,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8087,6 +8346,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8108,6 +8368,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,6 +8522,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8300,6 +8562,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8695,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8491,6 +8755,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8530,6 +8795,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8928,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8701,6 +8968,7 @@ The test is not sufficient either: the 2022 series found essentially normal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10180,6 +10448,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Evidence base and its limits. Three primary sources carry this entry, and they are small: the founding report of two unrelated individuals with functional work (PMID:26189817), a three-patient series from three unrelated families that redefines the phenotype as a demyelinating neuropathy (PMID:35342985), and a single-patient case report adding hepatic involvement (PMID:35109800). Two further papers (PMID:33398350, PMID:29222331) are cited only for TRMT5 enzymology and the downstream consequences of losing m1G37 - both study mitochondrial tRNA point mutations that *create* a TRMT5 substrate rather than TRMT5 variants themselves, and their evidence is graded INDIRECT wherever it is used for a claim about this disease.
+Why the phenotype section is hedged. With under a dozen published patients and no cohort study, per-phenotype frequencies cannot be computed honestly. Frequencies here are set from what the sources state about their own patients and no attempt is made to convert a case count into a population rate.
+The tissue-specificity point is load-bearing and is easy to lose. Muscle is the tissue where the m1G37 deficit and the respiratory-chain defect are found; fibroblasts were normal on respiratory-chain enzymology in one of the two founding patients and showed no detectable change in oxygen consumption in the other. A clinician or curator reading only &#34;combined OXPHOS deficiency&#34; would expect a fibroblast assay to be informative, and it is not reliably.
+Deep research, and a warning worth carrying with the entry. The first OpenScientist run for this disease returned a complete, internally coherent, fully cited report about the wrong disease: it described TRMT10C / MRPP1, which is COXPD30 (MONDO:0014856, OMIM 616974), while labelling it COXPD26 and printing MONDO:0014684 in its own identifier table. Its validators looked healthy - 14/14 references resolved, confabulation rate 0.0, 21/22 ontology terms resolved. `just preflight-dr` caught it unambiguously (&#34;Expected gene TRMT5 is never mentioned, but TRMT10C is mentioned 52 times&#34;), and the report was discarded rather than cherry-picked, per that tool&#39;s own advice. It contributed nothing to this entry, which was built from primary literature throughout.
+A second run, with the gene named in the brief rather than only the MONDO ID, is the report committed alongside this entry. It passes `preflight-dr` cleanly (TRMT5 mentioned 38 times to TRMT10C&#39;s 5, the latter only as the contrast), which is the useful experimental result here: passing the MONDO ID was not enough, and naming the gene in the disease-name variable was. It too is a lead source only - every snippet below is anchored to a PMID fetched into `references_cache/` and read directly.
+What the second report does *not* contain is worth recording, because it bears on how much weight a deep-research report should carry on its own. It never cites PMID:35342985 - the three-patient neuropathy series that found normal skeletal-muscle respiratory-chain activity, which is the observation this entry&#39;s CONTROVERSY discussion is about and arguably the single most important thing to know about the disorder&#39;s biochemical phenotype. A report that is on the right disease and cites 18 references with zero confabulation still missed the paper that complicates its own central claim.
+The general point is worth recording because it is not obvious from the numbers: citation validation and entity correctness are orthogonal. A report can quote every source accurately and still be about a different disease, and for a numbered disease series like COXPD, where the number is the only thing distinguishing two neighbouring entities with similar mechanisms, that failure is easy to make and hard to see.
+No mechanism module fits. `kb/modules/mitochondrial_dysfunction.yaml` is the aging-hallmark module (mtDNA damage, mitophagy, senescence), not a primary mitochondrial-translation module, so no `conforms_to` is declared here. The sibling entry `Combined_Oxidative_Phosphorylation_Defect_Type_21` (TARS2) makes the same choice and repeats the same node chain independently, which is the signature of a missing module rather than of two unrelated diseases.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Combined Oxidative Phosphorylation Defect Type 26 (COXPD26, TRMT5)</strong> · 2026-08-30T21:34:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_26/2026-08-30T213421Z-claude-code-80207b.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of COXPD26 (MONDO:0014684, TRMT5) from primary literature. Modelled the chain: TRMT5 loss of function, m1G37 hypomodification of mitochondrial tRNA, tissue-specific amplification of the modification defect in skeletal muscle, impaired mitochondrial translation, combined respiratory chain complex deficiency, multisystem energy-failure phenotype. Recorded two negative results explicitly: loss of m1G37 does not destabilise the tRNA, and one of the two founding patients showed no detectable change in fibroblast oxygen consumption. Filed a CONTROVERSY discussion because the 2022 three-patient neuropathy series found normal skeletal-muscle respiratory-chain activity, contradicting the biochemical feature the disorder is named for, and a KNOWLEDGE_GAP on the unexplained muscle-versus-fibroblast tissue gradient. The first OpenScientist deep-research run produced a fully cited report about TRMT10C, which is COXPD30, not COXPD26; just preflight-dr flagged it and the report was discarded. The entry was built from primary literature and is unaffected. Validated with just validate, just validate-terms, just validate-disorders, just check-entity-refs, just check-duplicate-keys and just check-snippet-grading.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

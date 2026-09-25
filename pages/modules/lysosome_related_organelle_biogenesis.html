@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2125,11 +2177,13 @@ Conformance requires evidencing a trafficking or biogenesis lesion in the LRO ma
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-a-lysosome-related-organelle-biogenesis-or-trafficking-component" data-dismech-node="Loss of a Lysosome-Related Organelle Biogenesis or Trafficking Component" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Lysosome-Related Organelle Biogenesis or Trafficking Component</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A component of the machinery that builds, sizes, or positions lysosome-related organelles is lost. The machinery is shared across organelles that have nothing functionally in common, so which organelles fail depends on which component is lost - some components serve every LRO, others only one.</div>
                 
@@ -2307,11 +2361,13 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             
             <div class="item-box anchor-target" id="module-pathophysiology-interrupted-melanosome-maturation-or-peripheral-positioning" data-dismech-node="Interrupted Melanosome Maturation or Peripheral Positioning" data-dismech-type="pathophysiology">
                 <div class="item-name">Interrupted Melanosome Maturation or Peripheral Positioning</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The melanosome fails at one of three steps. Its melanogenic and structural cargo is not routed in, so the organelle is built but not loaded; or its size and fission are uncontrolled, so it enlarges into a giant granule with mis-sorted contents; or it matures normally but is never captured at the dendrite tip, because the RAB27A-melanophilin-myosin Va complex that tethers it to peripheral actin is broken. The three are not interchangeable, and a conforming entry should name which one it has.</div>
                 
@@ -2475,11 +2531,13 @@ This pathophysiological event involves melanosome (GO:0042470). GO:0042470 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-failed-delivery-of-functional-melanosomes-to-keratinocytes" data-dismech-node="Failed Delivery of Functional Melanosomes to Keratinocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Delivery of Functional Melanosomes to Keratinocytes</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Functional, pigment-bearing melanosomes are not transferred from the melanocyte to surrounding keratinocytes. This is the rate-limiting, disorder-agnostic node of the module: all three upstream routes converge here, and conformance should be declared against it. Because skin and hair are almost entirely keratinocyte, visible pigmentation depends on this transfer and not on melanin synthesis alone - which is why the disorders in this module are hypopigmented despite making normal or excess pigment.</div>
                 
@@ -2641,11 +2699,13 @@ This pathophysiological event involves decreased pigmentation (GO:0043473). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-other-lysosome-related-organelles-sharing-the-machinery" data-dismech-node="Failure of Other Lysosome-Related Organelles Sharing the Machinery" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Other Lysosome-Related Organelles Sharing the Machinery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Organelles unrelated to pigmentation but built by the same machinery fail in parallel with the melanosome. Platelet dense granules are absent or reduced, giving a bleeding diathesis; cytotoxic granules of T and NK cells cannot be formed or released, giving impaired cytotoxicity and a predisposition to haemophagocytic lymphohistiocytosis; alveolar type II lamellar bodies malfunction, giving pulmonary fibrosis. Which of these occurs is set by which organelles the lost component serves, and it is this arm - not the pigmentary one - that determines prognosis.</div>
                 
@@ -2882,11 +2942,13 @@ This pathophysiological event involves platelet dense granule (GO:0042827). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-hypopigmentation-with-syndrome-specific-extracutaneous-disease" data-dismech-node="Hypopigmentation with Syndrome-Specific Extracutaneous Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypopigmentation with Syndrome-Specific Extracutaneous Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The organ-level endpoint, and the reason these disorders present as syndromes rather than as isolated pigmentary anomalies: hypopigmentation of skin, hair and eye combined with an extracutaneous complication whose identity depends on which other LROs were lost. The pigmentary sign is the diagnostic clue; the extracutaneous arm carries the morbidity and mortality, so recognizing the hypopigmentation is what triggers the surveillance that matters.</div>
                 
@@ -2935,6 +2997,9 @@ This pathophysiological event involves decreased pigmentation (GO:0043473). GO:0
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

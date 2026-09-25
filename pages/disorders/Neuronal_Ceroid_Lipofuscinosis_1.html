@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4091,6 +4168,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4138,6 +4216,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ppt1-lysosomal-depalmitoylation-failure" data-dismech-node="PPT1 lysosomal depalmitoylation failure" data-dismech-type="pathophysiology">
                 <div class="item-name">PPT1 lysosomal depalmitoylation failure</div>
+
 
                 <div class="item-desc">PPT1 deficiency prevents normal depalmitoylation and lysosomal clearance of S-palmitoylated proteins. This produces autofluorescent storage material in neurons and disrupts lysosomal nutrient sensing, mTORC1/autophagy control, cholesterol trafficking, synaptic protein trafficking, and inflammatory glial signaling.
 </div>
@@ -4377,6 +4456,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4399,6 +4479,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4425,6 +4506,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-suppression-and-neurodegeneration" data-dismech-node="Autophagy Suppression and Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy Suppression and Neurodegeneration</div>
+
 
                 <div class="item-desc">PPT1 loss disrupts lysosomal nutrient sensing and hyperactivates mTORC1 through IGF1/PI3K/Akt signaling, suppressing autophagy and contributing to neurologic injury.
 </div>
@@ -4536,6 +4618,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4559,6 +4642,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-cholesterol-homeostasis-defect" data-dismech-node="Lysosomal Cholesterol Homeostasis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Cholesterol Homeostasis Defect</div>
+
 
                 <div class="item-desc">Persistent NPC1 palmitoylation and misrouting in PPT1 deficiency impair lysosomal cholesterol homeostasis, producing cholesterol-dependent mTORC1 activation, autophagy inhibition, and neuronal injury.
 </div>
@@ -4670,6 +4754,7 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4693,6 +4778,7 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-akap5-nfat-synaptic-neuroinflammatory-signaling" data-dismech-node="AKAP5-NFAT Synaptic Neuroinflammatory Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">AKAP5-NFAT Synaptic Neuroinflammatory Signaling</div>
+
 
                 <div class="item-desc">PPT1 deficiency causes excess AKAP5 palmitoylation at synapses, aberrant GluA1 synaptic scaling, NFAT sensitization, and increased neuroinflammatory signaling.
 </div>
@@ -4796,6 +4882,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4863,9 +4950,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4906,6 +4991,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4920,6 +5008,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4953,7 +5042,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
@@ -4984,6 +5073,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4998,6 +5090,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5053,6 +5146,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5067,6 +5163,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5122,6 +5219,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5139,6 +5239,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5147,6 +5248,79 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">CLN1 is an NCL subtype; this review summarizes seizures among the common NCL manifestations.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-deterioration" data-dismech-node="Motor deterioration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor deterioration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002333</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor deterioration (HP:0002333). HP:0002333 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35628533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35628533" target="_blank">PMID:35628533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common symptoms of NCLs include the progressive loss of vision, mental and motor deterioration, epileptic seizures, premature death, and, in rare adult-onset cases, dementia."</div>
+
+
+                <div class="evidence-explanation">This review explicitly includes motor deterioration in the NCL phenotype spectrum.
 </div>
 
 
@@ -5177,15 +5351,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001268</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001268</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mental deterioration (HP:0001268). HP:0001268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5205,6 +5382,7 @@ This clinical feature is Mental deterioration (HP:0001268). HP:0001268 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5216,84 +5394,6 @@ This clinical feature is Mental deterioration (HP:0001268). HP:0001268 is a phen
 
 
                 <div class="evidence-explanation">This broad NCL review supports mental deterioration as part of the shared NCL phenotype relevant to CLN1.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-deterioration" data-dismech-node="Motor deterioration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor deterioration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002333</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Motor deterioration (HP:0002333). HP:0002333 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35628533" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35628533" target="_blank">PMID:35628533</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common symptoms of NCLs include the progressive loss of vision, mental and motor deterioration, epileptic seizures, premature death, and, in rare adult-onset cases, dementia."</div>
-
-
-                <div class="evidence-explanation">This review explicitly includes motor deterioration in the NCL phenotype spectrum.
 </div>
 
 
@@ -5382,6 +5482,9 @@ This disease-associated gene is PPT1 (hgnc:9325). hgnc:9325 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5396,6 +5499,7 @@ This disease-associated gene is PPT1 (hgnc:9325). hgnc:9325 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5480,6 +5584,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lentiviral hPPT1-overexpressing HSPC therapy is a preclinical, disease-targeted strategy for CLN1. It is not established clinical care, but it supports the biological plausibility of PPT1 restoration.
 </div>
 
@@ -5502,6 +5631,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5582,6 +5712,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5633,6 +5764,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6368,6 +6500,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

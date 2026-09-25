@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4157,6 +4234,7 @@ What makes the entry mechanistically interesting is a negative result. WFDC2 is 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4491,6 +4569,7 @@ This is tractable without new discovery work: serum WFDC2 can be measured with a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4515,6 +4594,7 @@ This is tractable without new discovery work: serum WFDC2 can be measured with a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4551,6 +4631,7 @@ This is tractable without new discovery work: serum WFDC2 can be measured with a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-in-wfdc2" data-dismech-node="Biallelic Loss of Function in WFDC2" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss of Function in WFDC2</div>
+
 
                 <div class="item-desc">The initiating lesion. WFDC2 encodes a small secreted whey-acidic-protein family member expressed by airway secretory cells. Reported disease alleles include nonsense, frameshift and missense changes; the recurrent p.Cys49Arg founder variant acts by disrupting a disulfide-forming cysteine rather than by truncating the protein.</div>
 
@@ -4647,6 +4728,7 @@ This pathophysiological event involves WFDC2 (hgnc:15939). hgnc:15939 is a gene 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4673,6 +4755,7 @@ This pathophysiological event involves WFDC2 (hgnc:15939). hgnc:15939 is a gene 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4695,6 +4778,7 @@ This pathophysiological event involves WFDC2 (hgnc:15939). hgnc:15939 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-wfdc2-secretion" data-dismech-node="Failure of WFDC2 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of WFDC2 Secretion</div>
+
 
                 <div class="item-desc">The proximate consequence. For the p.Cys49Arg founder allele the mechanism is specific and was modelled directly: the substitution structurally hampers glycosylation, and the immature protein is not secreted. The result for the airway is the same whichever allele is involved - no mature WFDC2 reaches the extracellular space.</div>
 
@@ -4820,6 +4904,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4846,6 +4931,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4868,6 +4954,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-wfdc2-from-airway-surface-liquid-and-secretions" data-dismech-node="Depletion of WFDC2 from Airway Surface Liquid and Secretions" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of WFDC2 from Airway Surface Liquid and Secretions</div>
+
 
                 <div class="item-desc">The measurable deficiency state. WFDC2 is below the limit of detection in serum and barely detectable in saliva, seminal fluid and airway surface liquid from affected individuals. The contrast with the disease controls is informative: patients with CF and PCD have detectable, indeed elevated, WFDC2, so this is not a nonspecific consequence of chronic airway disease. It is also what makes a commercially available serum assay usable diagnostically.</div>
 
@@ -4948,6 +5035,7 @@ This pathophysiological event involves decreased extracellular region (GO:000557
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4974,6 +5062,7 @@ This pathophysiological event involves decreased extracellular region (GO:000557
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4996,6 +5085,7 @@ This pathophysiological event involves decreased extracellular region (GO:000557
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-airway-antiprotease-milieu" data-dismech-node="Altered Airway Antiprotease Milieu" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Airway Antiprotease Milieu</div>
+
 
                 <div class="item-desc">A candidate, partially supported consequence. WFDC family members are protease inhibitors, and comparative proteomics of saliva found the serine protease inhibitor SPINK5 significantly reduced in WFDC2-deficient individuals relative to both healthy controls and airway-disease controls. SLPI, the other WFDC protein highly expressed in airway epithelium, was not significantly altered.
 The claim carried here is deliberately narrow. The SPINK5 finding is real and controlled against disease as well as healthy comparators, but it is measured in saliva rather than in the airway, in three patients, and it establishes an association rather than a route to tissue destruction. It is modelled as a node because the protease-antiprotease balance is the mechanism the protein family&#39;s known biology predicts, not because the pathway to bronchiectasis has been demonstrated.</div>
@@ -5088,6 +5178,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5114,6 +5205,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5136,6 +5228,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airway-infection-and-rhinosinusitis" data-dismech-node="Chronic Airway Infection and Rhinosinusitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airway Infection and Rhinosinusitis</div>
+
 
                 <div class="item-desc">Chronic infection of the upper and lower airways, with Pseudomonas aeruginosa prominent, together with pronounced chronic rhinosinusitis. This is the step at which the disorder becomes clinically indistinguishable from cystic fibrosis and inborn errors of immunity, and it is a persistent state rather than recurrent discrete episodes.</div>
 
@@ -5189,6 +5282,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5211,6 +5305,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-wall-destruction-and-nasal-polyp-formation" data-dismech-node="Airway Wall Destruction and Nasal Polyp Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Wall Destruction and Nasal Polyp Formation</div>
+
 
                 <div class="item-desc">The structural endpoint: irreversible bronchial dilatation and nasal polyposis. The general route from repeated airway insult to bronchiectasis is the vicious cycle of infection, inflammation, damage and abnormal remodelling that is common to bronchiectasis of any cause; what is specific to this disorder is what initiates the cycle. Distribution is a useful discriminator - disease in all lobes, mimicking CF and inborn errors of immunity, rather than the middle and lower lobe predominance of PCD.</div>
 
@@ -5251,6 +5346,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5277,6 +5373,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5299,6 +5396,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-mucociliary-clearance" data-dismech-node="Preserved Mucociliary Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Mucociliary Clearance</div>
+
 
                 <div class="item-desc">Recorded as an explicitly excluded step rather than omitted. Because WFDC2 is a secreted airway protein, impaired mucociliary clearance is the natural hypothesis, and it is the mechanism by which both diseases this disorder mimics - cystic fibrosis and primary ciliary dyskinesia - cause bronchiectasis. It was tested and did not hold. In patient-derived cultures at air-liquid interface, ciliary beat frequency was normal, ciliary length was unchanged, epithelial morphology and cilia and centrosome composition were comparable to controls, mucus viscosity was no different, and the cultures generated directed mucociliary transport. Transport speed was low relative to controls, but the authors&#39; own conclusion is that clearance is within the normal range.
 This node carries no downstream edge on purpose: the point is that the expected link to airway destruction is absent. The residual transport-speed observation is the loose end, and it is captured as a knowledge gap rather than promoted to a mechanism.</div>
@@ -5374,6 +5472,7 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5400,6 +5499,7 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5424,6 +5524,7 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5494,11 +5595,11 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5541,6 +5642,9 @@ This clinical feature is Otitis media (HP:0000388). HP:0000388 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5558,6 +5662,7 @@ This clinical feature is Otitis media (HP:0000388). HP:0000388 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5584,6 +5689,7 @@ This clinical feature is Otitis media (HP:0000388). HP:0000388 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5648,6 +5754,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5665,6 +5774,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5691,6 +5801,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5722,7 +5833,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-polyposis" data-dismech-node="Nasal Polyposis" data-dismech-type="phenotype">
@@ -5755,6 +5866,9 @@ This clinical feature is Nasal polyposis (HP:0100582). HP:0100582 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5772,6 +5886,7 @@ This clinical feature is Nasal polyposis (HP:0100582). HP:0100582 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5847,6 +5962,9 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5864,6 +5982,7 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5889,13 +6008,214 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-pyramid-broadening" data-dismech-node="Nasal Pyramid Broadening" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nasal Pyramid Broadening
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Wide nose</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000445</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broadening of the nasal pyramid, annotated with Wide nose (HP:0000445), qualified as course progressive. HP:0000445 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, all 11 individuals showed severe upper airway disease manifesting as CRS with pronounced nasal polyposis and progressive broadening of the nasal pyramid (Figure 2E and Table 1)."</div>
+
+
+                <div class="evidence-explanation">All eleven cohort individuals, alongside the polyposis and rhinosinusitis in the same sentence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pseudomonas-aeruginosa-airway-infection" data-dismech-node="Chronic Pseudomonas aeruginosa Airway Infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic Pseudomonas aeruginosa Airway Infection
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent Pseudomonas aeruginosa infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:5210057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Pseudomonas aeruginosa airway infection, annotated with Recurrent Pseudomonas aeruginosa infection (HP:5210057), qualified as temporality chronic. HP:5210057 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, nine individuals with WFDC2 mutations suffered from chronic P. aeruginosa infection, which is known to be a risk factor associated with bronchiectasis (14)."</div>
+
+
+                <div class="evidence-explanation">The cohort frequency, nine of eleven. Replaces the paper&#39;s Objectives sentence, which describes who was recruited rather than what was found and so could not establish a frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
@@ -5914,10 +6234,10 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110), qualified as course progressive. HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5946,6 +6266,9 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5963,6 +6286,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5991,6 +6315,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6015,6 +6340,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,10 +6382,10 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002643</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6070,6 +6396,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6087,6 +6416,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6097,199 +6427,6 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                 <div class="evidence-explanation">Three of eleven individuals, named, indicating onset can be immediately postnatal.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pseudomonas-aeruginosa-airway-infection" data-dismech-node="Chronic Pseudomonas aeruginosa Airway Infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic Pseudomonas aeruginosa Airway Infection
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent Pseudomonas aeruginosa infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:5210057</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic Pseudomonas aeruginosa airway infection, annotated with Recurrent Pseudomonas aeruginosa infection (HP:5210057), qualified as temporality chronic. HP:5210057 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Furthermore, nine individuals with WFDC2 mutations suffered from chronic P. aeruginosa infection, which is known to be a risk factor associated with bronchiectasis (14)."</div>
-
-
-                <div class="evidence-explanation">The cohort frequency, nine of eleven. Replaces the paper&#39;s Objectives sentence, which describes who was recruited rather than what was found and so could not establish a frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-pyramid-broadening" data-dismech-node="Nasal Pyramid Broadening" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nasal Pyramid Broadening
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Wide nose</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000445</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broadening of the nasal pyramid, annotated with Wide nose (HP:0000445), qualified as course progressive. HP:0000445 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition, all 11 individuals showed severe upper airway disease manifesting as CRS with pronounced nasal polyposis and progressive broadening of the nasal pyramid (Figure 2E and Table 1)."</div>
-
-
-                <div class="evidence-explanation">All eleven cohort individuals, alongside the polyposis and rhinosinusitis in the same sentence.</div>
 
 
 
@@ -6337,6 +6474,9 @@ This clinical feature is Reduced forced expiratory volume in one second (HP:0032
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6354,6 +6494,7 @@ This clinical feature is Reduced forced expiratory volume in one second (HP:0032
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6380,6 +6521,7 @@ This clinical feature is Reduced forced expiratory volume in one second (HP:0032
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6437,6 +6579,9 @@ This clinical feature is Decreased nasal nitric oxide (HP:0033036). HP:0033036 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6454,6 +6599,7 @@ This clinical feature is Decreased nasal nitric oxide (HP:0033036). HP:0033036 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6551,6 +6697,9 @@ This disease-associated gene is WFDC2 (hgnc:15939). hgnc:15939 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6568,6 +6717,7 @@ This disease-associated gene is WFDC2 (hgnc:15939). hgnc:15939 is a gene from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6649,6 +6799,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard bronchiectasis management. Worth recording that it is inadequate here - all three Japanese patients had frequent exacerbations and respiratory dysfunction despite long-term macrolides.</div>
 
 
@@ -6673,6 +6848,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6736,6 +6912,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The endpoint for advanced disease; two of the three reported Japanese patients required it, in their twenties or earlier.</div>
 
 
@@ -6760,6 +6961,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6822,6 +7024,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Proposed but not tested. The rationale is unusually clean for a Mendelian disorder - the missing gene product is small and acts extracellularly, so it need not be delivered into cells - which is why it is recorded here despite being hypothetical. No preclinical or clinical data exist.</div>
 
 
@@ -6864,6 +7091,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6940,6 +7168,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6964,6 +7193,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7022,6 +7252,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7046,6 +7277,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7102,6 +7334,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7171,6 +7404,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7221,6 +7455,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7323,6 +7558,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7460,6 +7696,7 @@ The open question is whether Woakes&#39; syndrome is this disease described befo
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7484,6 +7721,7 @@ The open question is whether Woakes&#39; syndrome is this disease described befo
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8518,6 +8756,26 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry is the monogenic WFDC2-deficiency disease, not bronchiectasis as a radiological sign. Bronchiectasis is the common endpoint of many conditions, several of which the KB already covers separately (cystic fibrosis, primary ciliary dyskinesia, alpha-1 antitrypsin deficiency); what is curated here is the specific causal chain from biallelic WFDC2 loss.
+Ontology note. The glycosylation defect underlying the p.Cys49Arg founder variant is described in prose rather than bound to a GO term: GO:0006486 (protein glycosylation), the obvious candidate, is obsolete, and the remaining glycosylation classes are either regulatory or linkage-specific and would overstate what the source shows. The secretion failure, which is the load-bearing claim, is bound to GO:0009306.
+Deep-research divergence. The committed OpenScientist report reproduces this entry&#39;s chain for the first five steps independently, but its lower-airway branch asserts impaired mucociliary clearance as a step toward bronchiectasis. That is imported from the generic bronchiectasis literature and is contradicted by the primary source for this disease, which measured clearance in patient cultures and found it within the normal range. The report labels those downstream steps inferred, which is the honest flag, but the inference is wrong here specifically. This entry follows the measurement, not the report.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Bronchiectasis and Nasal Polyposis (WFDC2 deficiency)</strong> · 2026-09-01T17:14:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bronchiectasis_And_Nasal_Polyposis/2026-09-01T171401Z-claude-code-49d42f.yaml">View source</a></p>
+                        <p class="research-review-text">Curated the WFDC2-deficiency entry, a Mendelian sinopulmonary disease first defined in 2024, from primary literature plus an OpenScientist deep-research run. Seven pathophysiology nodes run from biallelic WFDC2 loss through failed glycosylation and secretion, depletion of the protein from airway surface liquid, an altered antiprotease milieu, chronic Pseudomonas infection, to bronchiectasis and nasal polyposis. A seventh node records mucociliary clearance as an explicitly excluded step, carrying REFUTE evidence: ciliary beat, ciliary length, epithelial and centrosome composition and mucus viscosity are all normal and patient cultures generate directed transport, so the mechanism by which CF and PCD cause bronchiectasis does not apply here. Two knowledge gaps model what follows from that, one on the unexplained route from secreted-protein loss to airway destruction and one on ascertainment, since low nasal nitric oxide gives these patients a positive PCD screening result and terminates the workup at the wrong answer. Validation: 32/32 snippets verified, all 32 reference titles audited programmatically against cache frontmatter, terms validated, all ten qc gates clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

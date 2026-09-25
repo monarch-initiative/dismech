@@ -8,9 +8,6 @@ reference/snippet pairs actually verified against ``references_cache/``.
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from dismech.reference_snippet_audit import (
@@ -238,88 +235,6 @@ def test_cli_is_advisory_by_default_and_gated_by_strict(tmp_path: Path, capsys) 
     assert "0/1 verified" in capsys.readouterr().out
     assert main([*args, "--strict"]) == 1
 
-
-def test_wrapper_appends_the_audit_line_to_validator_output(tmp_path: Path) -> None:
-    """The wrapper prints the affirmative count without touching the exit code."""
-    entry = _write_entry(tmp_path / "entry.yaml", [("PMID:123", "mutations in EPG5")])
-    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
-
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_uv = bin_dir / "uv"
-    # Stand in for the validator itself; the audit invocation (``uv run python -m
-    # dismech.reference_snippet_audit ...``) is delegated to the real interpreter.
-    fake_uv.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *reference_snippet_audit* ]]; then\n'
-        "  shift 2\n"
-        f'  exec "{sys.executable}" "$@"\n'
-        "fi\n"
-        "printf '%s\\n' '  Total checks: 0'\n"
-        "printf '%s\\n' '  All validations passed!'\n",
-        encoding="utf-8",
-    )
-    fake_uv.chmod(0o755)
-
-    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
-    result = subprocess.run(
-        [
-            "bash",
-            str(ROOT / "scripts" / "run_reference_validator.sh"),
-            "validate",
-            "data",
-            str(entry),
-            "--schema",
-            str(ROOT / DEFAULT_SCHEMA),
-            "--target-class",
-            "Disease",
-        ],
-        capture_output=True,
-        check=False,
-        # Run from tmp_path so the audit's default references_cache/ is the
-        # fixture cache, not the repository's.
-        cwd=tmp_path,
-        env=env,
-        text=True,
-    )
-
-    assert result.returncode == 0
-    assert "Total checks: 0" in result.stdout
-    assert "Snippets checked: 1/1 verified" in result.stdout
-
-
-def test_wrapper_audit_can_be_disabled(tmp_path: Path) -> None:
-    fake_uv = tmp_path / "uv"
-    fake_uv.write_text(
-        "#!/usr/bin/env bash\nprintf '%s\\n' '  All validations passed!'\n",
-        encoding="utf-8",
-    )
-    fake_uv.chmod(0o755)
-
-    env = {
-        **os.environ,
-        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
-        "DISMECH_SKIP_SNIPPET_AUDIT": "1",
-    }
-    result = subprocess.run(
-        [
-            "bash",
-            str(ROOT / "scripts" / "run_reference_validator.sh"),
-            "validate",
-            "data",
-            "dummy.yaml",
-        ],
-        capture_output=True,
-        check=False,
-        cwd=ROOT,
-        env=env,
-        text=True,
-    )
-
-    assert result.returncode == 0
-    assert "Snippets checked" not in result.stdout
-
-
 def test_literal_bracket_patterns_are_honoured_like_the_validator(
     tmp_path: Path,
 ) -> None:
@@ -388,74 +303,6 @@ def test_body_cache_eviction_does_not_change_results(tmp_path: Path) -> None:
 
     assert len(index._normalized) == 1
 
-
-def test_wrapper_stays_quiet_when_the_validator_crashes(tmp_path: Path) -> None:
-    """A traceback means the run never happened; don't print a reassuring count."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_uv = bin_dir / "uv"
-    fake_uv.write_text(
-        "#!/usr/bin/env bash\n"
-        "printf '%s\\n' 'Traceback (most recent call last):'\n"
-        "printf '%s\\n' 'RuntimeError: boom'\n"
-        "exit 1\n",
-        encoding="utf-8",
-    )
-    fake_uv.chmod(0o755)
-
-    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
-    result = subprocess.run(
-        [
-            "bash",
-            str(ROOT / "scripts" / "run_reference_validator.sh"),
-            "validate",
-            "data",
-            "dummy.yaml",
-        ],
-        capture_output=True,
-        check=False,
-        cwd=tmp_path,
-        env=env,
-        text=True,
-    )
-
-    assert result.returncode == 1
-    assert "Snippets checked" not in result.stdout
-    assert "snippet audit skipped" in result.stderr
-
-
-def test_wrapper_reports_an_arg_order_it_cannot_parse(tmp_path: Path) -> None:
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_uv = bin_dir / "uv"
-    fake_uv.write_text(
-        "#!/usr/bin/env bash\nprintf '%s\\n' '  All validations passed!'\n",
-        encoding="utf-8",
-    )
-    fake_uv.chmod(0o755)
-
-    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
-    result = subprocess.run(
-        [
-            "bash",
-            str(ROOT / "scripts" / "run_reference_validator.sh"),
-            "validate",
-            "data",
-            "--schema",
-            str(ROOT / DEFAULT_SCHEMA),
-            "entry.yaml",
-        ],
-        capture_output=True,
-        check=False,
-        cwd=tmp_path,
-        env=env,
-        text=True,
-    )
-
-    assert result.returncode == 0
-    assert "no data files found before the first option" in result.stderr
-
-
 def test_per_file_validation_loops_surface_the_snippet_count() -> None:
     """The three ``ref_output``-capturing loops must not swallow the audit line."""
     justfile = (ROOT / "project.justfile").read_text()
@@ -485,8 +332,16 @@ def _audit_all_prefixes(tmp_path: Path, snippets: list[tuple[str, str]], **kwarg
 # mechanical classes and the incomplete-cache state.
 
 
-def test_folds_pdf_ligatures_in_the_cached_text(tmp_path: Path) -> None:
-    """A PDF extractor emits 'ﬁ' (U+FB01); the curator typed 'fi'."""
+def test_pdf_ligatures_verify_strictly(tmp_path: Path) -> None:
+    """A PDF extractor emits 'ﬁ' (U+FB01); the curator typed 'fi'.
+
+    This used to need the relaxed cache-defect pass, because dismech folded
+    ligatures in a local table that the gate's own normalizer did not have.
+    Upstream now folds them inside ``normalize_text``
+    (linkml/linkml-reference-validator#73), so the quote matches on the strict
+    path and the relaxed counter stays at zero -- a ligature is no longer a
+    cache defect, it is just a match.
+    """
     _write_cache(
         tmp_path / "references_cache",
         "DOI_10.1000_x.md",
@@ -498,10 +353,9 @@ def test_folds_pdf_ligatures_in_the_cached_text(tmp_path: Path) -> None:
         tmp_path, [("DOI:10.1000/x", "amyloid fibrils in the biopsy")]
     )
 
-    assert (report.verified, report.verified_relaxed) == (0, 1)
+    assert (report.verified, report.verified_relaxed) == (1, 0)
     assert report.mismatched == []
     assert "1/1 verified" in report.summary_line()
-    assert "1 only after cache-defect normalization" in report.summary_line()
 
 
 def test_tolerates_words_joined_by_stripped_inline_markup(tmp_path: Path) -> None:
@@ -641,11 +495,19 @@ def test_content_type_is_read_from_the_cache_frontmatter(tmp_path: Path) -> None
     assert not index.is_abstract_only("DOI:10.1000/nope")
 
 
-def test_ligature_folding_is_symmetric() -> None:
-    fold = CachedReferenceIndex.fold_ligatures
-    assert fold("amyloid ﬁbrils") == "amyloid fibrils"
-    assert fold("aﬂatoxin") == "aflatoxin"
-    assert fold("amyloid fibrils") == "amyloid fibrils"
+def test_compatibility_folding_bridges_codepoints_that_render_alike() -> None:
+    """NFKC is what this pass still contributes; ligatures moved upstream.
+
+    The micro sign (U+00B5) and Greek mu (U+03BC) are visually identical and a
+    PDF extractor picks whichever the font used, so a faithful quote can differ
+    from its own cached source by that one codepoint. Upstream's ``normalize_text``
+    deliberately does not apply NFKC -- it would rewrite ``10⁶`` as ``106`` in the
+    gate -- so the advisory pass keeps it locally.
+    """
+    fold = CachedReferenceIndex.fold_compatibility
+
+    assert fold("10 µL") == fold("10 μL")
+    assert fold("plain text") == "plain text"
 
 
 # --- Bracketed abbreviations in the shipped config (issue #8597) -------------

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Mendelian%20Susceptibility%20To%20Mycobacterial%20Diseases%20Due%20To%20Complete%20IL12B%20Deficiency"
@@ -3971,7 +4048,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4186,6 +4263,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4210,6 +4288,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4231,6 +4310,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4281,6 +4361,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il12b-loss-of-function" data-dismech-node="IL12B Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">IL12B Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion is biallelic loss of function of IL12B, abolishing the p40 protein. Because p40 is an obligate subunit of both IL-12p70 (p35/p40) and IL-23 (p19/p40), a complete p40 defect prevents assembly and secretion of both cytokines by activated macrophages and dendritic cells.
 </div>
 
@@ -4292,6 +4373,8 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4311,6 +4394,9 @@ It was the first human disease shown to result from a cytokine gene defect, repo
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4358,6 +4444,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4380,6 +4467,7 @@ It was the first human disease shown to result from a cytokine gene defect, repo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-il-12-and-il-23-cytokine-production" data-dismech-node="Absent IL-12 and IL-23 Cytokine Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent IL-12 and IL-23 Cytokine Production</div>
+
 
                 <div class="item-desc">With no p40 subunit, activated macrophages and dendritic cells secrete neither IL-12p70 nor IL-23. IL-12p70 is the principal inducer of IFN-gamma by NK and T lymphocytes; IL-23 drives the IL-17-producing T-cell program. The single subunit defect therefore removes two effector cytokines at once.
 </div>
@@ -4578,6 +4666,7 @@ This pathophysiological event involves decreased interleukin-23 production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4600,6 +4689,7 @@ This pathophysiological event involves decreased interleukin-23 production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-il-12-dependent-ifn-gamma-production" data-dismech-node="Impaired IL-12-Dependent IFN-gamma Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired IL-12-Dependent IFN-gamma Production</div>
+
 
                 <div class="item-desc">Without IL-12p70 the NK and T lymphocytes that supply IFN-gamma in response to mycobacterial challenge produce markedly reduced amounts of the cytokine. IFN-gamma production is not abolished — residual IL-12-independent secretion persists, which is why the clinical phenotype is milder than in complete IFN-gamma receptor deficiency — but it is insufficient for protective anti-mycobacterial immunity.
 </div>
@@ -4756,6 +4846,7 @@ This pathophysiological event involves decreased type II interferon (IFN-gamma) 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4777,6 +4868,7 @@ This pathophysiological event involves decreased type II interferon (IFN-gamma) 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4894,7 @@ This pathophysiological event involves decreased type II interferon (IFN-gamma) 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-ifn-gamma-dependent-macrophage-activation" data-dismech-node="Failed IFN-gamma-Dependent Macrophage Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed IFN-gamma-Dependent Macrophage Activation</div>
+
 
                 <div class="item-desc">IFN-gamma is the signal that licenses macrophages to kill the intracellular mycobacteria and Salmonella they harbour. With IFN-gamma output insufficient, infected macrophages are not activated and cannot restrict microbial growth. This is the shared final mechanism across MSMD etiologies: the disease is defined by insufficient IFN-gamma-mediated immunity, whether the lesion is in cytokine production (as here) or in the response to the cytokine.
 </div>
@@ -4928,6 +5021,7 @@ This pathophysiological event involves decreased macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4950,6 +5044,7 @@ This pathophysiological event involves decreased macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-intramacrophage-replication-of-weakly-virulent-mycobacteria-and-salmonella" data-dismech-node="Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella</div>
+
 
                 <div class="item-desc">The organism-level consequence is disseminated or recurrent infection by intracellular pathogens that a competent IFN-gamma response would contain: the BCG vaccine strain, environmental non-tuberculous mycobacteria, Mycobacterium tuberculosis, and non-typhoidal Salmonella. This node initiates the infectious phenotypes.
 </div>
@@ -5020,6 +5115,7 @@ This pathophysiological event involves decreased macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5042,6 +5138,7 @@ This pathophysiological event involves decreased macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-il-23-dependent-il-17-immunity" data-dismech-node="Impaired IL-23-Dependent IL-17 Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired IL-23-Dependent IL-17 Immunity</div>
+
 
                 <div class="item-desc">A second, distinct arm follows from the same shared-subunit defect. Loss of IL-23 impairs the development and maintenance of IL-17-producing T cells, reducing mucosal IL-17-dependent antifungal defence. This underlies the chronic mucocutaneous candidiasis seen in a minority of patients, and is mechanistically separate from the IFN-gamma arm that causes the mycobacterial disease.
 </div>
@@ -5138,6 +5235,7 @@ This pathophysiological event involves decreased interleukin-17 production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5159,6 +5257,7 @@ This pathophysiological event involves decreased interleukin-17 production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5207,7 +5306,7 @@ This pathophysiological event involves decreased interleukin-17 production (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent IL-12 and IL-23 Cytokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no p40 subunit, activated macrophages and dendritic cells secrete neither IL-12p70 nor IL-23. IL-12p70 is the principal inducer of IFN-gamma by NK and T lymphocytes; IL-23 drives the IL-17-producing T-cell program. The single subunit defect therefore removes two effector cytokines at once.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\", \"macrophage\"], \"biological_processes\": [\"interleukin-12 production\", \"interleukin-23 production\"]}}, {\"id\": \"Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged multidrug antimycobacterial chemotherapy is the mainstay of managing the mycobacterial disease itself and is required regardless of the underlying immune defect. Regimen composition should follow species identification and susceptibility testing \\u2014 drug-resistant BCG strains are reported \\u2014 rather than being applied as a fixed block; this entry does not assert a specific regimen or duration. It treats the infection, not the immune defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antitubercular agent\", \"rifampicin\", \"isoniazid\"]}}, {\"id\": \"Avoidance of BCG Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Live BCG vaccine is the commonest trigger of disease in MSMD, so it is contraindicated in an affected child and should be delayed in at-risk newborn siblings pending genetic testing. Because in endemic countries BCG is given at birth, the vaccine is frequently administered before any diagnosis is possible.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Routine BCG immunisation is the sentinel environmental exposure in this disorder. The attenuated Mycobacterium bovis BCG strain is harmless to immunocompetent infants but disseminates in a host that cannot mount IFN-gamma-dependent macrophage activation, which is how patients typically come to attention. In endemic countries the vaccine is given at birth, so the exposure almost always precedes any possibility of diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic mucocutaneous candidiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of patients develop mucocutaneous Candida albicans infection (oral thrush or disseminated candidiasis), attributed to the impaired IL-23-dependent IL-17 immunity that follows loss of the shared p40 subunit. It is less frequent here than in IL-12Rbeta1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002728\"}}, {\"id\": \"Disseminated BCG disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by the M. bovis BCG vaccine strain following routine vaccination, most often disseminated (BCG-osis) but also regional (BCG-itis). In endemic countries this is typically the presenting event, since BCG given at birth is the first mycobacterial challenge an affected infant meets. In the largest cohort, BCG vaccination caused disease in 40 of 41 vaccinated patients.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0020087\"}}, {\"id\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IFN-gamma is the signal that licenses macrophages to kill the intracellular mycobacteria and Salmonella they harbour. With IFN-gamma output insufficient, infected macrophages are not activated and cannot restrict microbial growth. This is the shared final mechanism across MSMD etiologies: the disease is defined by insufficient IFN-gamma-mediated immunity, whether the lesion is in cytokine production (as here) or in the response to the cytokine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage activation\"]}}, {\"id\": \"IL12B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is biallelic loss of function of IL12B, abolishing the p40 protein. Because p40 is an obligate subunit of both IL-12p70 (p35/p40) and IL-23 (p19/p40), a complete p40 defect prevents assembly and secretion of both cytokines by activated macrophages and dendritic cells.\\n\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without IL-12p70 the NK and T lymphocytes that supply IFN-gamma in response to mycobacterial challenge produce markedly reduced amounts of the cytokine. IFN-gamma production is not abolished \\u2014 residual IL-12-independent secretion persists, which is why the clinical phenotype is milder than in complete IFN-gamma receptor deficiency \\u2014 but it is insufficient for protective anti-mycobacterial immunity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"type II interferon (IFN-gamma) production\"]}}, {\"id\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, distinct arm follows from the same shared-subunit defect. Loss of IL-23 impairs the development and maintenance of IL-17-producing T cells, reducing mucosal IL-17-dependent antifungal defence. This underlies the chronic mucocutaneous candidiasis seen in a minority of patients, and is mechanistically separate from the IFN-gamma arm that causes the mycobacterial disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17 production\"]}}, {\"id\": \"Klebsiella infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Klebsiella pneumoniae infection was reported in one patient. Klebsiella is a gram-negative enterobacterium related to Salmonella whose clearance depends on the IL-17/IL-23 axis, the same axis impaired by loss of the shared p40 subunit.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nocardiosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of patients develop nocardiosis. Nocardia is an intramacrophagic pathogen phylogenetically close to Mycobacterium, so its control shares the same IFN-gamma-dependent macrophage-activation requirement that fails in this disease. Both reported cases occurred alongside BCG disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-tuberculous mycobacterial infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Susceptibility to weakly virulent environmental non-tuberculous mycobacteria. In countries that do not vaccinate with BCG, these organisms rather than the vaccine strain are the usual precipitant. Susceptibility also extends to severe forms of Mycobacterium tuberculosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5210115\"}}, {\"id\": \"Non-typhoidal salmonellosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-typhoidal salmonellosis, often disseminated and recurrent, reflecting the same dependence on IFN-gamma-activated macrophages for control of intracellular bacteria. In the largest cohort salmonellosis occurred in about a quarter of patients, and recurrences of salmonellosis were more frequent than recurrences of mycobacterial disease. It may be the sole presenting infection in unvaccinated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:5210093\"}}, {\"id\": \"Recombinant Interferon Gamma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subcutaneous recombinant IFN-gamma is the mechanistically indicated adjunct for this etiology. The IL12B lesion impairs IFN-gamma production while leaving the IFN-gamma receptor and downstream JAK-STAT1 machinery intact, so exogenous cytokine engages a competent receptor and restores macrophage activation. This is the therapeutic dividing line within MSMD: production defects such as IL-12p40 deficiency are candidates for recombinant IFN-gamma, whereas defects abolishing the response to the cytokine are managed with transplantation or gene therapy. It is given together with antibiotics, not in place of them, and outcomes remain guarded.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level consequence is disseminated or recurrent infection by intracellular pathogens that a competent IFN-gamma response would contain: the BCG vaccine strain, environmental non-tuberculous mycobacteria, Mycobacterium tuberculosis, and non-typhoidal Salmonella. This node initiates the infectious phenotypes.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"IL12B Loss of Function\", \"target\": \"Absent IL-12 and IL-23 Cytokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the shared p40 subunit prevents assembly of both IL-12p70 and IL-23, so neither heterodimer is produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent IL-12 and IL-23 Cytokine Production\", \"target\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12p70 removes the dominant signal driving IFN-gamma production by NK and T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent IL-12 and IL-23 Cytokine Production\", \"target\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-23 impairs the induction of IL-17-producing T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"target\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IFN-gamma output fails to deliver the macrophage-activating signal needed to kill intracellular mycobacteria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without macrophage activation the intracellular organisms are not killed and replicate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Disseminated BCG disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Non-tuberculous mycobacterial infection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Non-typhoidal salmonellosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Nocardiosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"target\": \"Chronic mucocutaneous candidiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"target\": \"Klebsiella infection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The live BCG strain is the mycobacterial challenge that the IFN-gamma-deficient host cannot contain, initiating disseminated disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimycobacterial Therapy\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Interferon Gamma\", \"target\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of BCG Vaccination\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent IL-12 and IL-23 Cytokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no p40 subunit, activated macrophages and dendritic cells secrete neither IL-12p70 nor IL-23. IL-12p70 is the principal inducer of IFN-gamma by NK and T lymphocytes; IL-23 drives the IL-17-producing T-cell program. The single subunit defect therefore removes two effector cytokines at once.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\", \"macrophage\"], \"biological_processes\": [\"interleukin-12 production\", \"interleukin-23 production\"]}}, {\"id\": \"Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged multidrug antimycobacterial chemotherapy is the mainstay of managing the mycobacterial disease itself and is required regardless of the underlying immune defect. Regimen composition should follow species identification and susceptibility testing \\u2014 drug-resistant BCG strains are reported \\u2014 rather than being applied as a fixed block; this entry does not assert a specific regimen or duration. It treats the infection, not the immune defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antitubercular agent\", \"rifampicin\", \"isoniazid\"]}}, {\"id\": \"Avoidance of BCG Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Live BCG vaccine is the commonest trigger of disease in MSMD, so it is contraindicated in an affected child and should be delayed in at-risk newborn siblings pending genetic testing. Because in endemic countries BCG is given at birth, the vaccine is frequently administered before any diagnosis is possible.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Routine BCG immunisation is the sentinel environmental exposure in this disorder. The attenuated Mycobacterium bovis BCG strain is harmless to immunocompetent infants but disseminates in a host that cannot mount IFN-gamma-dependent macrophage activation, which is how patients typically come to attention. In endemic countries the vaccine is given at birth, so the exposure almost always precedes any possibility of diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic mucocutaneous candidiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of patients develop mucocutaneous Candida albicans infection (oral thrush or disseminated candidiasis), attributed to the impaired IL-23-dependent IL-17 immunity that follows loss of the shared p40 subunit. It is less frequent here than in IL-12Rbeta1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002728\"}}, {\"id\": \"Decreased circulating interferon-gamma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Whole-blood or PBMC IFN-gamma output after mycobacterial (BCG) stimulation is low, reflecting the loss of the IL-12 signal that normally drives it. IFN-gamma is reduced rather than absent, distinguishing this production defect from a response defect.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The measurement of that node, and the assay this diagnosis is made on. Recorded as an observational readout rather than a causal edge: deficient IFN-gamma production is the node being measured, not something the node causes. Note the cited assays measure stimulated production rather than a resting circulating level, which is the distinction this entry\u0027s notes are written to preserve.\"}], \"term_id\": \"HP:0033253\"}}, {\"id\": \"Disseminated BCG disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by the M. bovis BCG vaccine strain following routine vaccination, most often disseminated (BCG-osis) but also regional (BCG-itis). In endemic countries this is typically the presenting event, since BCG given at birth is the first mycobacterial challenge an affected infant meets. In the largest cohort, BCG vaccination caused disease in 40 of 41 vaccinated patients.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0020087\"}}, {\"id\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IFN-gamma is the signal that licenses macrophages to kill the intracellular mycobacteria and Salmonella they harbour. With IFN-gamma output insufficient, infected macrophages are not activated and cannot restrict microbial growth. This is the shared final mechanism across MSMD etiologies: the disease is defined by insufficient IFN-gamma-mediated immunity, whether the lesion is in cytokine production (as here) or in the response to the cytokine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage activation\"]}}, {\"id\": \"IL12B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is biallelic loss of function of IL12B, abolishing the p40 protein. Because p40 is an obligate subunit of both IL-12p70 (p35/p40) and IL-23 (p19/p40), a complete p40 defect prevents assembly and secretion of both cytokines by activated macrophages and dendritic cells.\\n\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without IL-12p70 the NK and T lymphocytes that supply IFN-gamma in response to mycobacterial challenge produce markedly reduced amounts of the cytokine. IFN-gamma production is not abolished \\u2014 residual IL-12-independent secretion persists, which is why the clinical phenotype is milder than in complete IFN-gamma receptor deficiency \\u2014 but it is insufficient for protective anti-mycobacterial immunity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"type II interferon (IFN-gamma) production\"]}}, {\"id\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, distinct arm follows from the same shared-subunit defect. Loss of IL-23 impairs the development and maintenance of IL-17-producing T cells, reducing mucosal IL-17-dependent antifungal defence. This underlies the chronic mucocutaneous candidiasis seen in a minority of patients, and is mechanistically separate from the IFN-gamma arm that causes the mycobacterial disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-17 production\"]}}, {\"id\": \"Klebsiella infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Klebsiella pneumoniae infection was reported in one patient. Klebsiella is a gram-negative enterobacterium related to Salmonella whose clearance depends on the IL-17/IL-23 axis, the same axis impaired by loss of the shared p40 subunit.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nocardiosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of patients develop nocardiosis. Nocardia is an intramacrophagic pathogen phylogenetically close to Mycobacterium, so its control shares the same IFN-gamma-dependent macrophage-activation requirement that fails in this disease. Both reported cases occurred alongside BCG disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-tuberculous mycobacterial infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Susceptibility to weakly virulent environmental non-tuberculous mycobacteria. In countries that do not vaccinate with BCG, these organisms rather than the vaccine strain are the usual precipitant. Susceptibility also extends to severe forms of Mycobacterium tuberculosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5210115\"}}, {\"id\": \"Non-typhoidal salmonellosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-typhoidal salmonellosis, often disseminated and recurrent, reflecting the same dependence on IFN-gamma-activated macrophages for control of intracellular bacteria. In the largest cohort salmonellosis occurred in about a quarter of patients, and recurrences of salmonellosis were more frequent than recurrences of mycobacterial disease. It may be the sole presenting infection in unvaccinated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:5210093\"}}, {\"id\": \"Recombinant Interferon Gamma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subcutaneous recombinant IFN-gamma is the mechanistically indicated adjunct for this etiology. The IL12B lesion impairs IFN-gamma production while leaving the IFN-gamma receptor and downstream JAK-STAT1 machinery intact, so exogenous cytokine engages a competent receptor and restores macrophage activation. This is the therapeutic dividing line within MSMD: production defects such as IL-12p40 deficiency are candidates for recombinant IFN-gamma, whereas defects abolishing the response to the cytokine are managed with transplantation or gene therapy. It is given together with antibiotics, not in place of them, and outcomes remain guarded.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level consequence is disseminated or recurrent infection by intracellular pathogens that a competent IFN-gamma response would contain: the BCG vaccine strain, environmental non-tuberculous mycobacteria, Mycobacterium tuberculosis, and non-typhoidal Salmonella. This node initiates the infectious phenotypes.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"IL12B Loss of Function\", \"target\": \"Absent IL-12 and IL-23 Cytokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the shared p40 subunit prevents assembly of both IL-12p70 and IL-23, so neither heterodimer is produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent IL-12 and IL-23 Cytokine Production\", \"target\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12p70 removes the dominant signal driving IFN-gamma production by NK and T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent IL-12 and IL-23 Cytokine Production\", \"target\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-23 impairs the induction of IL-17-producing T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"target\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IFN-gamma output fails to deliver the macrophage-activating signal needed to kill intracellular mycobacteria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without macrophage activation the intracellular organisms are not killed and replicate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Disseminated BCG disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Non-tuberculous mycobacterial infection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Non-typhoidal salmonellosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"target\": \"Nocardiosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"target\": \"Chronic mucocutaneous candidiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired IL-23-Dependent IL-17 Immunity\", \"target\": \"Klebsiella infection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The live BCG strain is the mycobacterial challenge that the IFN-gamma-deficient host cannot contain, initiating disseminated disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimycobacterial Therapy\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Interferon Gamma\", \"target\": \"Failed IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of BCG Vaccination\", \"target\": \"Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Impaired IL-12-Dependent IFN-gamma Production\", \"target\": \"Decreased circulating interferon-gamma\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The measurement of that node, and the assay this diagnosis is made on. Recorded as an observational readout rather than a causal edge: deficient IFN-gamma production is the node being measured, not something the node causes. Note the cited assays measure stimulated production rather than a resting circulating level, which is the distinction this entry\u0027s notes are written to preserve.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5224,18 +5323,36 @@ This pathophysiological event involves decreased interleukin-17 production (GO:0
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-bcg-disease" data-dismech-node="Disseminated BCG disease" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Disseminated BCG disease
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Infectious</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-bcg-disease" data-dismech-node="Disseminated BCG disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Disseminated BCG disease
+
+
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">BCGosis</span>
+
 
 
 
@@ -5247,9 +5364,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mean 0.75y. HP:0020087 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
-                <div class="item-meta">
+                    <div class="item-meta">
 
 
 
@@ -5276,7 +5393,10 @@ This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mea
 
 
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5296,6 +5416,7 @@ This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5323,6 +5444,7 @@ This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5347,6 +5469,7 @@ This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5368,19 +5491,19 @@ This clinical feature is BCGosis (HP:0020087), qualified as infantile onset, mea
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-non-tuberculous-mycobacterial-infection" data-dismech-node="Non-tuberculous mycobacterial infection" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Non-tuberculous mycobacterial infection
+                <div class="item-box phenotype-box anchor-target" id="phenotype-non-tuberculous-mycobacterial-infection" data-dismech-node="Non-tuberculous mycobacterial infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Non-tuberculous mycobacterial infection
 
 
-                    <span class="phenotype-category">Infectious</span>
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5392,7 +5515,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Non-tuberculous mycobacterial infection (HP:5210115). HP:5210115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5412,6 +5538,7 @@ This clinical feature is Non-tuberculous mycobacterial infection (HP:5210115). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5439,6 +5566,7 @@ This clinical feature is Non-tuberculous mycobacterial infection (HP:5210115). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5460,19 +5588,21 @@ This clinical feature is Non-tuberculous mycobacterial infection (HP:5210115). H
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-non-typhoidal-salmonellosis" data-dismech-node="Non-typhoidal salmonellosis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Non-typhoidal salmonellosis
+                <div class="item-box phenotype-box anchor-target" id="phenotype-non-typhoidal-salmonellosis" data-dismech-node="Non-typhoidal salmonellosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Non-typhoidal salmonellosis
 
 
-                    <span class="phenotype-category">Infectious</span>
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Unusual Salmonella infection</span>
+
 
 
 
@@ -5484,7 +5614,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Non-typhoidal salmonellosis, annotated with Unusual Salmonella infection (HP:5210093). HP:5210093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5504,6 +5637,7 @@ This clinical feature is Non-typhoidal salmonellosis, annotated with Unusual Sal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5528,19 +5662,19 @@ This clinical feature is Non-typhoidal salmonellosis, annotated with Unusual Sal
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-mucocutaneous-candidiasis" data-dismech-node="Chronic mucocutaneous candidiasis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Chronic mucocutaneous candidiasis
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-mucocutaneous-candidiasis" data-dismech-node="Chronic mucocutaneous candidiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic mucocutaneous candidiasis
 
 
-                    <span class="phenotype-category">Infectious</span>
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5552,7 +5686,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002728 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5572,6 +5709,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5596,17 +5734,102 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
 
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-interferon-gamma" data-dismech-node="Decreased circulating interferon-gamma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased circulating interferon-gamma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Reduced circulating interferon gamma concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0033253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced IFN-gamma production on BCG stimulation, annotated with Reduced circulating interferon gamma concentration (HP:0033253). HP:0033253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Concept-fit caveat: HP:0033253 names a reduced *circulating* IFN-gamma concentration, whereas the cited measurement is reduced IFN-gamma *production* by BCG-stimulated whole-blood/PBMC cells ex vivo. The binding is retained as the closest available HP term, and preferred_term states the specific production-assay reading; the term is slightly broader than the assay, not a false match.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23429356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23429356" target="_blank">PMID:23429356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"following stimulation with BCG, the patients’ cells produced significantly less IFN-γ than the cells of healthy travel controls (p &lt; 0.001)"</div>
+
+
+                <div class="evidence-explanation">Quantifies the reduced IFN-gamma output on BCG stimulation that defines this laboratory phenotype.</div>
+
+
+
             </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-nocardiosis" data-dismech-node="Nocardiosis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Nocardiosis
+
+        </div>
+    </details>
 
 
-                    <span class="phenotype-category">Infectious</span>
+
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nocardiosis" data-dismech-node="Nocardiosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nocardiosis
+
+
+                    </div>
+
+
+
 
 
 
@@ -5626,6 +5849,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5650,17 +5874,17 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
 
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-klebsiella-infection" data-dismech-node="Klebsiella infection" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Klebsiella infection
-
-
-                    <span class="phenotype-category">Infectious</span>
-
-
                 </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-klebsiella-infection" data-dismech-node="Klebsiella infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Klebsiella infection
+
+
+                    </div>
+
+
+
 
 
 
@@ -5680,6 +5904,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5707,6 +5932,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5728,78 +5954,34 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728). HP:0002
 
 
 
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-interferon-gamma" data-dismech-node="Decreased circulating interferon-gamma" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Decreased circulating interferon-gamma
-
-
-                    <span class="phenotype-category">Laboratory</span>
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0033253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced IFN-gamma production on BCG stimulation, annotated with Reduced circulating interferon gamma concentration (HP:0033253). HP:0033253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
                 </div>
 
+            </details>
 
-                <div class="item-desc">Concept-fit caveat: HP:0033253 names a reduced *circulating* IFN-gamma concentration, whereas the cited measurement is reduced IFN-gamma *production* by BCG-stimulated whole-blood/PBMC cells ex vivo. The binding is retained as the closest available HP term, and preferred_term states the specific production-assay reading; the term is slightly broader than the assay, not a false match.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23429356" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23429356" target="_blank">PMID:23429356</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"following stimulation with BCG, the patients’ cells produced significantly less IFN-γ than the cells of healthy travel controls (p &lt; 0.001)"</div>
-
-
-                <div class="evidence-explanation">Quantifies the reduced IFN-gamma output on BCG stimulation that defines this laboratory phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5848,6 +6030,9 @@ This disease-associated gene is IL12B (hgnc:5970). hgnc:5970 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5862,6 +6047,7 @@ This disease-associated gene is IL12B (hgnc:5970). hgnc:5970 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5889,6 +6075,7 @@ This disease-associated gene is IL12B (hgnc:5970). hgnc:5970 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5910,6 +6097,7 @@ This disease-associated gene is IL12B (hgnc:5970). hgnc:5970 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6049,6 +6237,31 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prolonged multidrug antimycobacterial chemotherapy is the mainstay of managing the mycobacterial disease itself and is required regardless of the underlying immune defect. Regimen composition should follow species identification and susceptibility testing — drug-resistant BCG strains are reported — rather than being applied as a fixed block; this entry does not assert a specific regimen or duration. It treats the infection, not the immune defect.
 </div>
 
@@ -6089,6 +6302,7 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6174,6 +6388,31 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subcutaneous recombinant IFN-gamma is the mechanistically indicated adjunct for this etiology. The IL12B lesion impairs IFN-gamma production while leaving the IFN-gamma receptor and downstream JAK-STAT1 machinery intact, so exogenous cytokine engages a competent receptor and restores macrophage activation. This is the therapeutic dividing line within MSMD: production defects such as IL-12p40 deficiency are candidates for recombinant IFN-gamma, whereas defects abolishing the response to the cytokine are managed with transplantation or gene therapy. It is given together with antibiotics, not in place of them, and outcomes remain guarded.
 </div>
 
@@ -6205,6 +6444,7 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,6 +6488,7 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6312,6 +6553,31 @@ This treatment is avoidance of live BCG vaccination, annotated with Supportive C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Live BCG vaccine is the commonest trigger of disease in MSMD, so it is contraindicated in an affected child and should be delayed in at-risk newborn siblings pending genetic testing. Because in endemic countries BCG is given at birth, the vaccine is frequently administered before any diagnosis is possible.
 </div>
 
@@ -6352,6 +6618,7 @@ This treatment is avoidance of live BCG vaccination, annotated with Supportive C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,6 +6702,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6483,6 +6751,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6553,6 +6822,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6620,6 +6890,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6672,6 +6943,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6749,6 +7021,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6770,6 +7043,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6839,6 +7113,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6863,6 +7138,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6884,6 +7160,7 @@ This environmental factor is exposure to Bacille Calmette-Guerin vaccine.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7666,6 +7943,18 @@ phenotypes:
     explanation: &gt;-
       Quantifies the reduced IFN-gamma output on BCG stimulation that defines this
       laboratory phenotype.
+  reports_on:
+  - target: Impaired IL-12-Dependent IFN-gamma Production
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The measurement of that node, and the assay this diagnosis is made on.
+      Recorded as an observational readout rather than a causal edge: deficient
+      IFN-gamma production is the node being measured, not something the node
+      causes. Note the cited assays measure stimulated production rather than a
+      resting circulating level, which is the distinction this entry&#39;s notes
+      are written to preserve.
 biochemical:
 - name: Undetectable IL-12p40 and IL-12p70
   presence: Absent
@@ -8051,7 +8340,7 @@ environmental:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12B Deficiency", "mondoId": "MONDO:0013954", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12B_Deficiency", "yamlRevision": "86ff86b73707"};
+        const OS_CONFIG = {"diseaseName": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12B Deficiency", "mondoId": "MONDO:0013954", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12B_Deficiency", "yamlRevision": "cefeb1ff356f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

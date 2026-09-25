@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4059,6 +4136,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-idh2-r172-neomorphic-hotspot-mutation" data-dismech-node="IDH2 R172 Neomorphic Hotspot Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">IDH2 R172 Neomorphic Hotspot Mutation</div>
 
+
                 <div class="item-desc">A somatic hotspot substitution at IDH2 residue R172 (R172S, R172T, R172M, and related variants) converts isocitrate dehydrogenase 2 into a neomorphic enzyme. This is the single most frequent recurrent alteration in SNUC, detected in 55% of cases in one targeted-sequencing series and in 82.4% in another, and it is essentially absent from the other head and neck tumor types tested. Mutant-specific IDH1/2 immunohistochemistry tracks the mutation, making it a practical diagnostic surrogate.</div>
 
 
@@ -4096,6 +4174,31 @@ This pathophysiological event involves sinonasal epithelial cell, annotated with
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4204,6 +4307,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4225,6 +4329,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4250,6 +4355,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-and-histone-hypermethylator-phenotype" data-dismech-node="DNA and Histone Hypermethylator Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA and Histone Hypermethylator Phenotype</div>
+
 
                 <div class="item-desc">Mutant IDH2 induces a global hypermethylator state: genome-wide DNA methylation profiling separates IDH2-mutant sinonasal tumors into a single cluster irrespective of histologic type, and the tumors show increased repressive H3K27 trimethylation relative to IDH2-wild-type tumors. This epigenetic reprogramming, rather than a proliferative signaling lesion, is the proximate consequence of the driver mutation.</div>
 
@@ -4375,6 +4481,7 @@ This pathophysiological event involves increased negative regulation of gene exp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4396,6 +4503,7 @@ This pathophysiological event involves increased negative regulation of gene exp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4421,6 +4529,7 @@ This pathophysiological event involves increased negative regulation of gene exp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cooperating-tumor-suppressor-loss" data-dismech-node="Cooperating Tumor Suppressor Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cooperating Tumor Suppressor Loss</div>
+
 
                 <div class="item-desc">IDH2 mutation alone is not sufficient. Within IDH2-mutant SNUC, co-occurring TP53 mutation and CDKN2A/2B loss-of-function alterations are each present in roughly a third to two fifths of cases, disabling the p53 and RB antiproliferative axes. IDH2-wild-type tumors reach a comparable end by a different route, through SMARCA4 loss-of-function with confirmed loss of protein expression, NOTCH1 gain-of-function, or TET2 loss-of-function.</div>
 
@@ -4580,6 +4689,7 @@ This pathophysiological event involves decreased chromatin remodeling (GO:000633
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4601,6 +4711,7 @@ This pathophysiological event involves decreased chromatin remodeling (GO:000633
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4626,6 +4737,7 @@ This pathophysiological event involves decreased chromatin remodeling (GO:000633
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-undifferentiated-high-grade-proliferation" data-dismech-node="Undifferentiated High-Grade Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Undifferentiated High-Grade Proliferation</div>
+
 
                 <div class="item-desc">The resulting tumor cell is undifferentiated and highly proliferative: cohesive nests, ribbons, and trabeculae of cells with hyperchromatic nuclei and a high nuclear-to-cytoplasmic ratio, a brisk mitotic rate, tumor necrosis, and vascular invasion. The absence of squamous or glandular differentiation is definitional and is what historically made SNUC a diagnosis of exclusion.</div>
 
@@ -4751,6 +4863,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4773,6 +4886,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rapid-local-invasion-of-orbit-and-anterior-skull-base" data-dismech-node="Rapid Local Invasion of Orbit and Anterior Skull Base" data-dismech-type="pathophysiology">
                 <div class="item-name">Rapid Local Invasion of Orbit and Anterior Skull Base</div>
+
 
                 <div class="item-desc">Because the paranasal sinuses are air-filled spaces that produce few early symptoms, SNUC characteristically reaches the orbit, cribriform plate, and anterior cranial fossa before diagnosis. Advanced stage at presentation, high locoregional recurrence, and a tendency to metastasize together account for the poor prognosis.</div>
 
@@ -4829,6 +4943,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4891,6 +5006,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4935,6 +5051,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4985,6 +5102,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5027,7 +5145,7 @@ This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cooperating Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH2 mutation alone is not sufficient. Within IDH2-mutant SNUC, co-occurring TP53 mutation and CDKN2A/2B loss-of-function alterations are each present in roughly a third to two fifths of cases, disabling the p53 and RB antiproliferative axes. IDH2-wild-type tumors reach a comparable end by a different route, through SMARCA4 loss-of-function with confirmed loss of protein expression, NOTCH1 gain-of-function, or TET2 loss-of-function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"signal transduction by p53 class mediator\", \"chromatin remodeling\"]}}, {\"id\": \"DNA and Histone Hypermethylator Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant IDH2 induces a global hypermethylator state: genome-wide DNA methylation profiling separates IDH2-mutant sinonasal tumors into a single cluster irrespective of histologic type, and the tumors show increased repressive H3K27 trimethylation relative to IDH2-wild-type tumors. This epigenetic reprogramming, rather than a proliferative signaling lesion, is the proximate consequence of the driver mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"negative regulation of gene expression via chromosomal CpG island methylation\"]}}, {\"id\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic hotspot substitution at IDH2 residue R172 (R172S, R172T, R172M, and related variants) converts isocitrate dehydrogenase 2 into a neomorphic enzyme. This is the single most frequent recurrent alteration in SNUC, detected in 55% of cases in one targeted-sequencing series and in 82.4% in another, and it is essentially absent from the other head and neck tumor types tested. Mutant-specific IDH1/2 immunohistochemistry tracks the mutation, making it a practical diagnostic surrogate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"molecular_functions\": [\"isocitrate dehydrogenase (NADP+) activity\"], \"locations\": [\"paranasal sinus\"]}}, {\"id\": \"IDH2-Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the IDH2 R172 hotspot is present in the large majority of SNUCs and is a druggable neomorphic enzyme, mutant-IDH2 inhibition has been proposed as a targeted strategy. It has reached prospective testing: NCT06176989 is an open NCI phase II of enasidenib in IDH2-mutated sinonasal and skull-base tumors, SNUC among them. No efficacy results are yet reported, so what is curated here remains a mechanistic rationale drawn from the genomic series rather than a demonstrated benefit.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"enasidenib\"]}}, {\"id\": \"Rapid Local Invasion of Orbit and Anterior Skull Base\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the paranasal sinuses are air-filled spaces that produce few early symptoms, SNUC characteristically reaches the orbit, cribriform plate, and anterior cranial fossa before diagnosis. Advanced stage at presentation, high locoregional recurrence, and a tendency to metastasize together account for the poor prognosis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"paranasal sinus\"]}}, {\"id\": \"Undifferentiated High-Grade Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The resulting tumor cell is undifferentiated and highly proliferative: cohesive nests, ribbons, and trabeculae of cells with hyperchromatic nuclei and a high nuclear-to-cytoplasmic ratio, a brisk mitotic rate, tumor necrosis, and vascular invasion. The absence of squamous or glandular differentiation is definitional and is what historically made SNUC a diagnosis of exclusion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"target\": \"DNA and Histone Hypermethylator Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neomorphic IDH2 activity drives the global methylation phenotype that distinguishes IDH2-mutant sinonasal carcinomas.\"}, {\"source\": \"DNA and Histone Hypermethylator Phenotype\", \"target\": \"Undifferentiated High-Grade Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread promoter and H3K27 hypermethylation is proposed to lock the sinonasal epithelium out of a differentiated program, leaving a high-grade undifferentiated tumor cell.\"}, {\"source\": \"Cooperating Tumor Suppressor Loss\", \"target\": \"Undifferentiated High-Grade Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the p53 and RB brakes, or of SWI/SNF chromatin-remodeling function, removes the antiproliferative control that would otherwise limit outgrowth of the transformed clone.\"}, {\"source\": \"Undifferentiated High-Grade Proliferation\", \"target\": \"Rapid Local Invasion of Orbit and Anterior Skull Base\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid, poorly differentiated growth in an anatomically unconfined air-filled space produces early transgression of the sinus walls.\"}, {\"source\": \"IDH2-Targeted Therapy\", \"target\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cooperating Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH2 mutation alone is not sufficient. Within IDH2-mutant SNUC, co-occurring TP53 mutation and CDKN2A/2B loss-of-function alterations are each present in roughly a third to two fifths of cases, disabling the p53 and RB antiproliferative axes. IDH2-wild-type tumors reach a comparable end by a different route, through SMARCA4 loss-of-function with confirmed loss of protein expression, NOTCH1 gain-of-function, or TET2 loss-of-function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"signal transduction by p53 class mediator\", \"chromatin remodeling\"]}}, {\"id\": \"DNA and Histone Hypermethylator Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant IDH2 induces a global hypermethylator state: genome-wide DNA methylation profiling separates IDH2-mutant sinonasal tumors into a single cluster irrespective of histologic type, and the tumors show increased repressive H3K27 trimethylation relative to IDH2-wild-type tumors. This epigenetic reprogramming, rather than a proliferative signaling lesion, is the proximate consequence of the driver mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"negative regulation of gene expression via chromosomal CpG island methylation\"]}}, {\"id\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic hotspot substitution at IDH2 residue R172 (R172S, R172T, R172M, and related variants) converts isocitrate dehydrogenase 2 into a neomorphic enzyme. This is the single most frequent recurrent alteration in SNUC, detected in 55% of cases in one targeted-sequencing series and in 82.4% in another, and it is essentially absent from the other head and neck tumor types tested. Mutant-specific IDH1/2 immunohistochemistry tracks the mutation, making it a practical diagnostic surrogate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sinonasal epithelial cell\"], \"molecular_functions\": [\"isocitrate dehydrogenase (NADP+) activity\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"locations\": [\"paranasal sinus\"]}}, {\"id\": \"IDH2-Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the IDH2 R172 hotspot is present in the large majority of SNUCs and is a druggable neomorphic enzyme, mutant-IDH2 inhibition has been proposed as a targeted strategy. It has reached prospective testing: NCT06176989 is an open NCI phase II of enasidenib in IDH2-mutated sinonasal and skull-base tumors, SNUC among them. No efficacy results are yet reported, so what is curated here remains a mechanistic rationale drawn from the genomic series rather than a demonstrated benefit.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"enasidenib\"]}}, {\"id\": \"Rapid Local Invasion of Orbit and Anterior Skull Base\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the paranasal sinuses are air-filled spaces that produce few early symptoms, SNUC characteristically reaches the orbit, cribriform plate, and anterior cranial fossa before diagnosis. Advanced stage at presentation, high locoregional recurrence, and a tendency to metastasize together account for the poor prognosis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"paranasal sinus\"]}}, {\"id\": \"Undifferentiated High-Grade Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The resulting tumor cell is undifferentiated and highly proliferative: cohesive nests, ribbons, and trabeculae of cells with hyperchromatic nuclei and a high nuclear-to-cytoplasmic ratio, a brisk mitotic rate, tumor necrosis, and vascular invasion. The absence of squamous or glandular differentiation is definitional and is what historically made SNUC a diagnosis of exclusion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sinonasal epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"target\": \"DNA and Histone Hypermethylator Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neomorphic IDH2 activity drives the global methylation phenotype that distinguishes IDH2-mutant sinonasal carcinomas.\"}, {\"source\": \"DNA and Histone Hypermethylator Phenotype\", \"target\": \"Undifferentiated High-Grade Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread promoter and H3K27 hypermethylation is proposed to lock the sinonasal epithelium out of a differentiated program, leaving a high-grade undifferentiated tumor cell.\"}, {\"source\": \"Cooperating Tumor Suppressor Loss\", \"target\": \"Undifferentiated High-Grade Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the p53 and RB brakes, or of SWI/SNF chromatin-remodeling function, removes the antiproliferative control that would otherwise limit outgrowth of the transformed clone.\"}, {\"source\": \"Undifferentiated High-Grade Proliferation\", \"target\": \"Rapid Local Invasion of Orbit and Anterior Skull Base\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid, poorly differentiated growth in an anatomically unconfined air-filled space produces early transgression of the sinus walls.\"}, {\"source\": \"IDH2-Targeted Therapy\", \"target\": \"IDH2 R172 Neomorphic Hotspot Mutation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5093,6 +5211,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5107,6 +5228,7 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5170,6 +5292,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5184,6 +5309,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5238,6 +5364,9 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5252,6 +5381,7 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5317,6 +5447,9 @@ This clinical feature is Nasal obstruction, annotated with Nasal congestion (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5331,6 +5464,7 @@ This clinical feature is Nasal obstruction, annotated with Nasal congestion (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5391,6 +5525,9 @@ This clinical feature is Facial pain, annotated with Pain (HP:0012531). HP:00125
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP has no dedicated facial-pain class, so this is bound to the generic Pain term with a more specific preferred_term.</div>
 
 
@@ -5410,6 +5547,7 @@ This clinical feature is Facial pain, annotated with Pain (HP:0012531). HP:00125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5508,6 +5646,9 @@ This disease-associated gene is IDH2 (hgnc:5383). hgnc:5383 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5522,6 +5663,7 @@ This disease-associated gene is IDH2 (hgnc:5383). hgnc:5383 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5579,6 +5721,9 @@ This disease-associated gene is SMARCA4 (hgnc:11100). hgnc:11100 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5593,6 +5738,7 @@ This disease-associated gene is SMARCA4 (hgnc:11100). hgnc:11100 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5650,6 +5796,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5664,6 +5813,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5721,6 +5871,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5735,6 +5888,7 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5792,6 +5946,9 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5806,6 +5963,7 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5889,6 +6047,31 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Induction chemotherapy before definitive locoregional therapy is both treatment and a biological test. In a 95-patient single-institution cohort the 5-year disease-specific survival was 59% overall; among responders, definitive chemoradiotherapy outperformed surgery, while among non-responders the position reversed and definitive chemoradiotherapy was associated with 0% 5-year disease-specific survival.</div>
 
 
@@ -5913,6 +6096,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5934,6 +6118,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5997,6 +6182,31 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Concurrent chemoradiotherapy after induction chemotherapy is the preferred definitive modality in patients achieving at least a partial response, with a 5-year disease-specific survival of 81% in that group.</div>
 
 
@@ -6018,6 +6228,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6082,6 +6293,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgery, with postoperative radiotherapy or chemoradiotherapy, is the better option for patients who do not respond to induction chemotherapy, in whom definitive chemoradiotherapy performed markedly worse.</div>
 
 
@@ -6103,6 +6339,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6188,6 +6425,31 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because the IDH2 R172 hotspot is present in the large majority of SNUCs and is a druggable neomorphic enzyme, mutant-IDH2 inhibition has been proposed as a targeted strategy. It has reached prospective testing: NCT06176989 is an open NCI phase II of enasidenib in IDH2-mutated sinonasal and skull-base tumors, SNUC among them. No efficacy results are yet reported, so what is curated here remains a mechanistic rationale drawn from the genomic series rather than a demonstrated benefit.</div>
 
 
@@ -6218,6 +6480,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6261,6 +6524,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6424,6 +6688,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6448,6 +6713,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6469,6 +6735,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6556,6 +6823,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6686,6 +6954,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6788,6 +7057,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6858,6 +7128,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6879,6 +7150,7 @@ This treatment uses enasidenib (CHEBI:145374). CHEBI:145374 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6972,6 +7244,7 @@ This clinical trial targets Paranasal sinus neoplasm (HP:0030072). HP:0030072 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7044,6 +7317,7 @@ This clinical trial targets Paranasal sinus neoplasm (HP:0030072). HP:0030072 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7133,6 +7407,8 @@ notes: &gt;-
   not assert.
 pathophysiology:
 - name: IDH2 R172 Neomorphic Hotspot Mutation
+  genetic_context:
+    variant_origin: SOMATIC
   biological_scale: MOLECULAR
   description: &gt;-
     A somatic hotspot substitution at IDH2 residue R172 (R172S, R172T, R172M,
@@ -8051,6 +8327,31 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review response: IHC sensitivity ceiling, KIT co-alteration, two open trials</strong> · 2026-08-28T20:22:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sinonasal_Undifferentiated_Carcinoma/2026-08-28T202226Z-claude-code-2031f9.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the CHANGES_REQUESTED review on PR #9766, which found that five reference caches the PR itself fetched were cited nowhere.
+
+Mito 2018 (DOI:10.1097/PAS.0000000000001064, n=193) now qualifies the &#34;Mutant-Specific IDH1/2 Immunohistochemistry&#34; diagnosis node. The node previously claimed IHC separates IDH2-mutant SNUC from wild-type mimics &#34;without sequencing&#34; on the strength of a 3/3-positive, 4/4-negative series. The larger cohort shows specificity is perfect against 132 mimics but sensitivity is 26/53 (49%), and the authors state the assay &#34;lacks sensitivity for the full range of IDH mutations&#34;. The node is recast as a rule-in test; the sensitivity item is supports: PARTIAL because it supports IHC&#39;s specificity while refuting the stronger no-sequencing reading. A node-level notes reconciles the two series: sensitivity is allele-dependent (strong staining tracked IDH2 R172S/G, weak staining R172T, and sequencing of IHC-negative cases recovered R172T and IDH1 R132C), so the small early series is a view of the strongly staining alleles rather than a contradiction.
+
+Added KIT to genetic: as a co-occurring somatic activating mutation (45% in the same cohort). The PI3K-pathway figure (36%) is recorded in that entry&#39;s notes rather than as a gene entry, because the paper reports it at pathway level and names no gene. No pathophysiology node is asserted for either co-alteration, since protein-level pathway activation is not shown - the same restraint already applied to the ethmoid entry&#39;s pathway-mutation node.
+
+Added a clinical_trials: section with NCT06176989 (NCI phase II enasidenib in IDH2-mutated sinonasal and skull-base tumors including SNUC) and NCT05925491 (phase II neoadjuvant pembrolizumab plus chemotherapy in SNUC), both PHASE_II / RECRUITING, both fetched with just fetch-reference. NCT06176989 contradicted prose already in the file: the IDH2-Targeted Therapy treatment said &#34;no controlled trial evidence in SNUC is cited here&#34;. That now reads that the rationale has reached prospective testing but no efficacy results are yet reported, which is the accurate weaker claim.
+
+Cited Agaimy 2022 (DOI:10.1007/s12105-022-01416-x) on the SMARCB1-deficient differential for the genotypic separation that differential rests on.
+
+Declined the reviewer&#39;s suggestion to add a 0.02/100,000 annual incidence to prevalence:. The figure traces to Thawani 2023, whose cached abstract does not contain it - the abstract carries only the all-sinonasal 0.5-1.0/100,000 rate, which the deep-research artifact itself flags as explicitly not SNUC-specific. Quoting it on a SNUC prevalence record would misattribute a class-level rate to one histology. The existing prevalence notes already record why no rate is given.
+
+Validation: just validate, just validate-terms, just check-duplicate-keys all pass. just count-verified-snippets reports 33/37 verified, 4 skipped by prefix; the 4 skipped are DOI: references, which the validator skips by configuration, and all four were checked by hand as exact whitespace-normalized substrings of their caches.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8467,7 +8768,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sinonasal Undifferentiated Carcinoma", "mondoId": "MONDO:0006411", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sinonasal_Undifferentiated_Carcinoma", "yamlRevision": "12acad79c8c6"};
+        const OS_CONFIG = {"diseaseName": "Sinonasal Undifferentiated Carcinoma", "mondoId": "MONDO:0006411", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sinonasal_Undifferentiated_Carcinoma", "yamlRevision": "678dbb984aff"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

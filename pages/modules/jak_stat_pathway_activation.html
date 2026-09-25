@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">jak_stat_pathway_activation</span>
-                <span class="badge badge-count">10 disorders</span>
+                <span class="badge badge-count">11 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -1895,7 +1947,7 @@ This is deliberately NOT an Xogenesis module: the terminal output is a dysregula
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
             
             <div class="crosslink-list">
@@ -1974,6 +2026,21 @@ This is deliberately NOT an Xogenesis module: the terminal output is a dysregula
                         
                         
                         JAK-STAT Pathway Hyperactivation → Constitutive STAT Activation and Nuclear Translocation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency.html">Mendelian Susceptibility To Mycobacterial Diseases Due To Complete ISG15 Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Sustained Type I Interferon Signalling and ISG Over-Amplification → Sustained STAT-Driven Target-Gene Transcription
                         
                         
                     </span>
@@ -2104,11 +2171,13 @@ This is deliberately NOT an Xogenesis module: the terminal output is a dysregula
             
             <div class="item-box anchor-target" id="module-pathophysiology-activating-lesion-or-sustained-ligand-drive-upstream-of-jak" data-dismech-node="Activating Lesion or Sustained Ligand Drive Upstream of JAK" data-dismech-type="pathophysiology">
                 <div class="item-name">Activating Lesion or Sustained Ligand Drive Upstream of JAK</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating event that commits the axis to constitutive signalling. Three non-exclusive routes converge here: a somatic or germline activating variant in a cytokine receptor (MPL W515 in the myeloproliferative neoplasms, CRLF2 rearrangement in B-lymphoblastic leukaemia), a rearrangement creating a constitutively dimerized kinase fusion, or sustained excess of a cytokine ligand acting on an intact receptor (IL-6 in idiopathic multicentric Castleman disease, IFN-gamma and IL-15 in alopecia areata). The routes are mechanistically distinct upstream but are indistinguishable from the JAK node downwards, which is why they are modelled as one trigger. Conforming disorder nodes substitute the specific receptor or ligand.</div>
                 
@@ -2172,11 +2241,13 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
             
             <div class="item-box anchor-target" id="module-pathophysiology-constitutive-jak-kinase-activation" data-dismech-node="Constitutive JAK Kinase Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive JAK Kinase Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Receptor-associated Janus kinases are held in a catalytically active state independent of, or hypersensitive to, ligand. In the physiological pathway ligand engagement activates the receptor-associated JAKs, which transphosphorylate each other and the receptor tail to create STAT docking sites; in disease that step becomes constitutive. The canonical lesion is JAK2 V617F in the JH2 pseudokinase domain, which releases autoinhibition of the adjacent kinase domain; activating JAK1 alleles produce the analogous state in immune dysregulatory disease. Four Janus kinases occupy this step (JAK1, JAK2, JAK3, TYK2) and pair selectively with different receptor chains, which is what gives JAK-selective inhibitors their differing clinical profiles. This node is the JAK-inhibitor drug target.</div>
                 
@@ -2261,11 +2332,13 @@ This pathophysiological event involves increased positive regulation of receptor
             
             <div class="item-box anchor-target" id="module-pathophysiology-constitutive-stat-activation-and-nuclear-translocation" data-dismech-node="Constitutive STAT Activation and Nuclear Translocation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive STAT Activation and Nuclear Translocation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node of the module and its key conformance target. STAT transcription factors are tyrosine-phosphorylated, dimerize, and translocate to the nucleus continuously rather than transiently. Every upstream route in this module converges here, and a gain-of-function STAT allele enters at this node directly, without any upstream receptor or kinase lesion. Seven mammalian STATs exist; the four listed here are those with established human gain-of-function disease (STAT1 in chronic mucocutaneous candidiasis, STAT3 in the GOF immune dysregulation syndrome, STAT5B in overgrowth, STAT6 in severe allergic disease). Conforming disorder nodes narrow to the paralog their own phospho-STAT or genetic evidence supports.</div>
                 
@@ -2406,11 +2479,13 @@ This pathophysiological event involves increased cell surface receptor signaling
             
             <div class="item-box anchor-target" id="module-pathophysiology-sustained-stat-driven-target-gene-transcription" data-dismech-node="Sustained STAT-Driven Target-Gene Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained STAT-Driven Target-Gene Transcription</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Continuously nuclear STAT dimers drive a sustained transcriptional program rather than a self-limiting one. STATs bind tens of thousands of genomic sites and regulate thousands of protein-coding genes plus microRNAs and long non-coding RNAs, and they reshape chromatin and enhancer landscapes, so the downstream output is a broad change of cell state rather than a small set of induced genes. In conforming entries this node is where the disorder-specific output program is named: an interferon-stimulated gene signature, a Th17-skewing program, or a proliferative and anti-apoptotic program.</div>
                 
@@ -2454,6 +2529,20 @@ This pathophysiological event involves increased regulation of transcription by 
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency.html">Mendelian Susceptibility To Mycobacterial Diseases Due To Complete ISG15 Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Sustained Type I Interferon Signalling and ISG Over-Amplification</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2474,11 +2563,13 @@ This pathophysiological event involves increased regulation of transcription by 
             
             <div class="item-box anchor-target" id="module-pathophysiology-cytokine-independent-proliferation-and-chronic-inflammation" data-dismech-node="Cytokine-Independent Proliferation and Chronic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Independent Proliferation and Chronic Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The terminal output of the module. Cells acquire growth-factor independence or hypersensitivity and proliferate without the normal cytokine requirement, while the same sustained transcriptional program maintains a chronic inflammatory state. Which arm dominates is disorder-specific: clonal myeloproliferation in the myeloproliferative neoplasms and lymphoid malignancies, chronic autoinflammation and tissue infiltration in the monogenic immune dysregulation syndromes, and organ-specific inflammatory disease in the autoimmune conformers. Conforming entries substitute their own proliferative or inflammatory endpoint.</div>
                 
@@ -2556,11 +2647,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-socs-mediated-negative-feedback" data-dismech-node="Loss of SOCS-Mediated Negative Feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of SOCS-Mediated Negative Feedback</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">modifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A parallel entry into constitutive signalling by failure of the brake rather than by a stuck accelerator. SOCS proteins are STAT-induced inhibitors of JAK-STAT signalling and form the pathway&#39;s principal negative-feedback loop: a normal cytokine response is terminated within hours largely through SOCS activity. Where that feedback is lost - by SOCS silencing or deletion, or by a lesion that renders the kinase insensitive to it - the same constitutive STAT activation results without any activating lesion in a JAK or STAT. This node is included because it is a mechanistically distinct route to the module&#39;s central effector, and because a disorder entry curating &#34;pathway is increased&#34; has usually not established which of the two routes it means.</div>
                 
@@ -2633,6 +2726,131 @@ This pathophysiological event involves decreased negative regulation of receptor
                         
                     </ul>
                 </div>
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Janus Kinase Inhibitor Therapy" data-dismech-type="treatment">
+                <div class="item-name">Janus Kinase Inhibitor Therapy</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        ruxolitinib
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:66919</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Small-molecule ATP-competitive inhibitors of the Janus kinases (ruxolitinib, baricitinib, tofacitinib, upadacitinib, fedratinib, and JAK-selective agents such as ritlecitinib and deuruxolitinib) block the catalytic step at the Constitutive JAK Kinase Activation node and thereby suppress the downstream STAT effector. This is the module&#39;s drug-target design pattern: a conforming disorder entry links its JAK inhibitor by target_mechanisms to the specific node the drug acts on, rather than to a downstream symptom. Because the four JAKs pair selectively with different receptor chains, agents differ in which cytokine families they suppress, and a conforming entry should name the inhibitor actually evidenced for that disease rather than inheriting this generic class entry.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-constitutive-jak-kinase-activation"><strong>Constitutive JAK Kinase Activation</strong></a>
+                        
+                        <span> — JAK inhibitors occupy the kinase ATP site, blocking JAK-mediated STAT tyrosine phosphorylation and collapsing the constitutive signal at its source rather than downstream of the transcriptional program.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 2</span>
+                </div>
+                
                 
             </div>
             

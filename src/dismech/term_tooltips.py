@@ -51,11 +51,15 @@ class Ontology:
 #: and mappings.
 ONTOLOGY_NAMES: dict[str, Ontology] = {
     "BFO": Ontology("BFO", "Basic Formal Ontology"),
-    "CHEBI": Ontology("CHEBI", "Chemical Entities of Biological Interest", definite=False),
+    "CHEBI": Ontology(
+        "CHEBI", "Chemical Entities of Biological Interest", definite=False
+    ),
     "CL": Ontology("CL", "Cell Ontology"),
     "DOID": Ontology("DOID", "Human Disease Ontology"),
     "ECO": Ontology("ECO", "Evidence and Conclusion Ontology"),
-    "ECTO": Ontology("ECTO", "Environmental Conditions, Treatments and Exposures Ontology"),
+    "ECTO": Ontology(
+        "ECTO", "Environmental Conditions, Treatments and Exposures Ontology"
+    ),
     "ENVO": Ontology("ENVO", "Environment Ontology"),
     "EXO": Ontology("ExO", "Exposure Ontology"),
     "FOODON": Ontology("FOODON", "FoodOn Food Ontology"),
@@ -65,7 +69,9 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "HP": Ontology("HP", "Human Phenotype Ontology"),
     "ICD10CM": Ontology("ICD10CM", "ICD-10 Clinical Modification", definite=False),
     "ICD11F": Ontology("icd11f", "ICD-11 Foundation"),
-    "LOINC": Ontology("LOINC", "Logical Observation Identifiers Names and Codes", definite=False),
+    "LOINC": Ontology(
+        "LOINC", "Logical Observation Identifiers Names and Codes", definite=False
+    ),
     "MGI": Ontology("MGI", "Mouse Genome Informatics", definite=False),
     "MONDO": Ontology("MONDO", "Mondo Disease Ontology"),
     "MP": Ontology("MP", "Mammalian Phenotype Ontology"),
@@ -107,7 +113,9 @@ TERM_ROLES: dict[str, TermRole] = {
     "pathophysiology.cell_types": TermRole(
         "This pathophysiological event", "involves", "cell type"
     ),
-    "pathophysiology.gene": TermRole("This pathophysiological event", "involves", "gene"),
+    "pathophysiology.gene": TermRole(
+        "This pathophysiological event", "involves", "gene"
+    ),
     "pathophysiology.protein_complexes": TermRole(
         "This pathophysiological event", "involves", "protein complex"
     ),
@@ -132,32 +140,48 @@ TERM_ROLES: dict[str, TermRole] = {
     "genetic_context.gene": TermRole("This genetic context", "concerns", "gene"),
     # Experimental models
     "model.organism": TermRole("This experimental model", "is built in", "organism"),
-    "model.tissue_term": TermRole("This experimental model", "uses", "anatomical location"),
+    "model.tissue_term": TermRole(
+        "This experimental model", "uses", "anatomical location"
+    ),
     "model.cell_types": TermRole("This experimental model", "uses", "cell type"),
     "model.genes": TermRole("This experimental model", "concerns", "gene"),
     # Perturbations applied within an experimental model
     "perturbation.gene": TermRole("This perturbation", "targets", "gene"),
-    "perturbation.chemical_entities": TermRole("This perturbation", "uses", "chemical entity"),
+    "perturbation.chemical_entities": TermRole(
+        "This perturbation", "uses", "chemical entity"
+    ),
     "perturbation.treatment_term": TermRole(
         "This perturbation", "applies", "clinical intervention"
     ),
     "perturbation.exposure_term": TermRole("This perturbation", "applies", "exposure"),
-    "perturbation.triggers": TermRole("This perturbation", "is triggered by", "exposure"),
+    "perturbation.triggers": TermRole(
+        "This perturbation", "is triggered by", "exposure"
+    ),
     "perturbation.biological_processes": TermRole(
         "This perturbation", "acts on", "biological process"
     ),
     # Readouts measured from an experimental model
     "readout.phenotype_term": TermRole("This readout", "measures", "phenotype"),
     "readout.biomarker_term": TermRole("This readout", "measures", "biomarker"),
-    "readout.biological_processes": TermRole("This readout", "reports on", "biological process"),
+    "readout.biological_processes": TermRole(
+        "This readout", "reports on", "biological process"
+    ),
     "readout.assays": TermRole("This readout", "is measured by", "assay"),
     # Experiments
-    "experiment.experiment_type": TermRole("This experiment", "is of type", "experiment type"),
+    "experiment.experiment_type": TermRole(
+        "This experiment", "is of type", "experiment type"
+    ),
     "experiment.assays": TermRole("This experiment", "uses", "assay"),
     # Treatments and regimens
-    "treatment.treatment_term": TermRole("This treatment", "is", "clinical intervention"),
-    "treatment.location": TermRole("This treatment", "is delivered to", "anatomical location"),
-    "regimen.treatment_term": TermRole("This regimen component", "is", "clinical intervention"),
+    "treatment.treatment_term": TermRole(
+        "This treatment", "is", "clinical intervention"
+    ),
+    "treatment.location": TermRole(
+        "This treatment", "is delivered to", "anatomical location"
+    ),
+    "regimen.treatment_term": TermRole(
+        "This regimen component", "is", "clinical intervention"
+    ),
     "regimen.location": TermRole(
         "This regimen component", "is delivered to", "anatomical location"
     ),
@@ -166,27 +190,51 @@ TERM_ROLES: dict[str, TermRole] = {
     # monoclonal antibody is not a chemical entity (nor is a drug *class* an
     # entity at all). "therapeutic agent" covers both bindings without
     # over-claiming.
-    "treatment.therapeutic_agent": TermRole("This treatment", "uses", "therapeutic agent"),
+    "treatment.therapeutic_agent": TermRole(
+        "This treatment", "uses", "therapeutic agent"
+    ),
     "treatment.food": TermRole("This dietary modification", "concerns", "food"),
     "treatment.target_phenotype": TermRole("This treatment", "targets", "phenotype"),
+    "treatment.target_gene": TermRole(
+        "This treatment", "base-pairs with the transcript of", "gene"
+    ),
+    # Delivery system: what carries the drug, and what that carrier is aimed at.
+    # The subject is the carrier rather than the treatment, because a targeting
+    # claim is about uptake of the formulation, not about the drug's mechanism --
+    # vutrisiran's GalNAc reaches ASGR1, while the siRNA itself acts on TTR.
+    "treatment.targeting_receptor": TermRole(
+        "This treatment's delivery system", "is taken up through", "receptor"
+    ),
+    "treatment.target_cell_types": TermRole(
+        "This treatment's delivery system", "is aimed at", "cell type"
+    ),
     # Environmental factors
-    "environment.exposure_term": TermRole("This environmental factor", "is", "exposure"),
+    "environment.exposure_term": TermRole(
+        "This environmental factor", "is", "exposure"
+    ),
     "environment.environment_context": TermRole(
         "This environmental factor", "occurs in", "environment"
     ),
-    "environment.food_source": TermRole("This environmental factor", "is carried by", "food"),
+    "environment.food_source": TermRole(
+        "This environmental factor", "is carried by", "food"
+    ),
     # Phenotypes and other clinical annotations
     "phenotype.phenotype_term": TermRole("This clinical feature", "is", "phenotype"),
     "effect.affected_cell_types": TermRole("This effect", "acts on", "cell type"),
     "subtype.gene": TermRole("This subtype", "is caused by variation in", "gene"),
     "variant.gene": TermRole("This variant", "is in", "gene"),
+    "variant.regulatory_target_gene": TermRole(
+        "This variant", "has a reported or proposed regulatory effect on", "gene"
+    ),
     "gene.gene_term": TermRole("This disease-associated gene", "is", "gene"),
     "trial.target_phenotypes": TermRole("This clinical trial", "targets", "phenotype"),
     # Comorbidities
     "comorbidity.phenotypes": TermRole("This comorbidity", "shares", "phenotype"),
     # A GO enrichment result may be a process, a function or a component, so the
     # noun stays at "term" rather than claiming one of the three.
-    "signal.go_enrichment": TermRole("This association signal", "is enriched for", "term"),
+    "signal.go_enrichment": TermRole(
+        "This association signal", "is enriched for", "term"
+    ),
     # Datasets
     # Sample types bind a tissue far more often than a cell type (UBERON 76,
     # CL 15), so "cell type" would misdescribe most of them.
@@ -476,7 +524,11 @@ def term_tooltip(descriptor: Any, role: str = "") -> str:
             # A preferred_term may be more specific than the ontology label
             # (see CLAUDE.md), so name both when they genuinely differ --
             # capitalisation alone is not a difference worth a clause.
-            differs = preferred and term_label and preferred.casefold() != term_label.casefold()
+            differs = (
+                preferred
+                and term_label
+                and preferred.casefold() != term_label.casefold()
+            )
             if differs:
                 sentence += f", annotated with {term_label} ({curie})"
             else:
@@ -489,9 +541,7 @@ def term_tooltip(descriptor: Any, role: str = "") -> str:
         ontology = ONTOLOGY_NAMES.get(curie_prefix(curie))
         if curie and ontology:
             source = f"the {ontology.name}" if ontology.definite else ontology.name
-            sentence += (
-                f" {curie} is {_article(term_role.kind)} {term_role.kind} from {source}."
-            )
+            sentence += f" {curie} is {_article(term_role.kind)} {term_role.kind} from {source}."
         lines.append(sentence)
 
     return "\n".join(lines)

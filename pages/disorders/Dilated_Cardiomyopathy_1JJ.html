@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4213,6 +4290,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4234,6 +4312,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4419,6 +4498,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4440,6 +4520,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4564,6 +4645,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4585,6 +4667,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4622,6 +4705,7 @@ THE GENE-DISEASE RELATIONSHIP IS NOT ESTABLISHED. The ClinGen Dilated Cardiomyop
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lama4-integrin-interacting-domain-variant" data-dismech-node="LAMA4 Integrin-Interacting-Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">LAMA4 Integrin-Interacting-Domain Variant</div>
+
 
                 <div class="item-desc">The two founding LAMA4 alleles, p.Pro943Leu and p.Arg1073X, were identified by candidate screening of severe dilated cardiomyopathy patients after a zebrafish forward-genetic screen placed laminin-alpha-4 upstream of integrin and integrin-linked kinase. Both fall in the integrin-interacting domain of the protein. A third reported allele, p.Gly218Arg, lies in a laminin EGF-like domain instead and is annotated as of uncertain significance in ClinVar, so this node does not claim a single shared structural class for all reported variants.</div>
 
@@ -4739,6 +4823,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4760,6 +4845,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4787,6 +4873,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4811,6 +4898,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-laminin-integrin-binding-at-the-cardiac-basement-membrane" data-dismech-node="Loss of Laminin-Integrin Binding at the Cardiac Basement Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Laminin-Integrin Binding at the Cardiac Basement Membrane</div>
+
 
                 <div class="item-desc">Laminin alpha-4 is a component of the laminin-8 and -9 heterotrimers of the cardiac extracellular matrix, where it serves both as a structural protein and as a signalling ligand. Losing its integrin-binding capacity degrades the cell-matrix link that normally couples a cardiomyocyte and a microvascular endothelial cell to the basement membrane, and it is upstream of integrin-linked kinase, the shared node the zebrafish screen identified. This is the disorder-specific substitution for the module&#39;s primary insult: a cell-matrix adhesion and outside-in signalling lesion rather than a sarcomere defect. The mouse data below place a boundary on how far the lesion extends — it does not destabilise the dystrophin-glycoprotein complex or the sarcolemmal integrin complex, and it does not by itself stop an isolated cardiomyocyte contracting.</div>
 
@@ -5028,6 +5116,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5049,6 +5138,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5076,6 +5166,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5100,6 +5191,7 @@ This pathophysiological event involves basement membrane (GO:0005604). GO:000560
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-microvascular-structural-defect" data-dismech-node="Cardiac Microvascular Structural Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Microvascular Structural Defect</div>
+
 
                 <div class="item-desc">Absence of the alpha-4 chain leaves malformed cardiac vessels with widened pericapillary extracellular-matrix spaces. This is the arm of the mechanism that has no counterpart in the sarcomeric dilated cardiomyopathies, and it is the reason a matrix protein that is not part of the contractile apparatus can produce a cardiomyopathy.</div>
 
@@ -5249,6 +5341,7 @@ This pathophysiological event occurs in capillary (UBERON:0001982). UBERON:00019
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5271,6 +5364,7 @@ This pathophysiological event occurs in capillary (UBERON:0001982). UBERON:00019
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-cell-loss-in-the-myocardium" data-dismech-node="Endothelial Cell Loss in the Myocardium" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Cell Loss in the Myocardium</div>
+
 
                 <div class="item-desc">Loss of myocardial endothelial cells was reported in affected patients and attributed to the mutant genes. It is curated as a separate node from the structural vascular defect because the human and mouse observations are different in kind — cell loss in patient material versus vessel malformation on mouse electron microscopy — and neither has been shown to precede the other.</div>
 
@@ -5358,6 +5452,7 @@ This pathophysiological event involves cardiac endothelial cell (CL:0010008). CL
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5379,6 +5474,7 @@ This pathophysiological event involves cardiac endothelial cell (CL:0010008). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5404,6 +5500,7 @@ This pathophysiological event involves cardiac endothelial cell (CL:0010008). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-ischemia-from-microcirculatory-insufficiency" data-dismech-node="Myocardial Ischemia from Microcirculatory Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Ischemia from Microcirculatory Insufficiency</div>
+
 
                 <div class="item-desc">Inadequate microcirculatory oxygen delivery to the myocardium. In the Lama4-null mouse this was inferred from a hypoxic transcriptional signature — elevated Hif1a and Vegfa transcripts — read together with foci of cardiomyocyte degeneration and fibrosis. This is the point at which a vascular lesion becomes a myocardial one.</div>
 
@@ -5506,6 +5603,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5528,6 +5626,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurohormonal-activation" data-dismech-node="Neurohormonal Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurohormonal Activation</div>
+
 
                 <div class="item-desc">As in any cardiomyopathy, falling contractile performance activates the renin-angiotensin-aldosterone and sympathetic axes, which are compensatory acutely and maladaptive chronically, driving hypertrophy, myocyte loss and fibrosis. This node carries no LAMA4-specific evidence and does not pretend to: it is the shared module step, and it is here because it is the axis that the only available therapy acts on.</div>
 
@@ -5619,6 +5718,7 @@ This pathophysiological event involves increased response to angiotensin (GO:199
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5641,6 +5741,7 @@ This pathophysiological event involves increased response to angiotensin (GO:199
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adverse-ventricular-remodeling" data-dismech-node="Adverse Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Adverse Ventricular Remodeling</div>
+
 
                 <div class="item-desc">Cardiomyocyte loss, cardiac fibroblast activation and interstitial matrix deposition remodel the ventricle. The Lama4-null mouse showed foci of cardiomyocyte degeneration and fibrosis, and — a point worth preserving rather than smoothing into the DCM narrative — the mouse phenotype was described as gradually developing cardiac hypertrophy with impaired function rather than as frank dilation. The human reports are of dilated cardiomyopathy. The two are not the same geometry, and this entry does not assume the mouse dilates.</div>
 
@@ -5851,6 +5952,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5872,6 +5974,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5897,6 +6000,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-dilation-and-systolic-dysfunction" data-dismech-node="Left Ventricular Dilation and Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Dilation and Systolic Dysfunction</div>
+
 
                 <div class="item-desc">Left ventricular enlargement with reduced contractility and impaired systolic function — the phenotype by which every reported LAMA4 proband came to attention. In the one reported multi-generation family it was accompanied by conduction system disease.</div>
 
@@ -6059,6 +6163,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6081,6 +6186,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-cardiac-impairment-and-heart-failure" data-dismech-node="Structural Cardiac Impairment and Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Cardiac Impairment and Heart Failure</div>
+
 
                 <div class="item-desc">The clinical endpoint: symptomatic heart failure from structural and functional cardiac impairment, managed as heart failure of any cause because no LAMA4-directed therapy exists. Severe disease at presentation was a feature of the founding cohort, who were ascertained as severe dilated cardiomyopathy patients.</div>
 
@@ -6172,6 +6278,7 @@ This pathophysiological event involves abnormal heart contraction (GO:0060047). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6193,6 +6300,7 @@ This pathophysiological event involves abnormal heart contraction (GO:0060047). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6287,6 +6395,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6301,6 +6412,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6325,6 +6437,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6379,6 +6492,9 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6393,6 +6509,7 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6447,6 +6564,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6461,6 +6581,7 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6515,6 +6636,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6529,6 +6653,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6603,6 +6728,9 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6617,6 +6745,7 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6644,6 +6773,7 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6665,6 +6795,7 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6701,6 +6832,12 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense variant in the integrin-interacting domain; measured integrin affinity Kd 5 +/- 3 micromol/L versus 440 +/- 20 nmol/L for wild type.</div>
 
 
@@ -6723,6 +6860,12 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
         p.Arg1073X
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense variant in the integrin-interacting domain; measured integrin affinity Kd 1 +/- 0.2 micromol/L versus 440 +/- 20 nmol/L for wild type.</div>
@@ -6749,6 +6892,12 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense variant in a laminin EGF-like domain, reported in a Chinese family with dilated cardiomyopathy and conduction system disease; classified as of uncertain significance in ClinVar, with the pathogenicity claim resting on bioinformatic prediction.</div>
 
 
@@ -6771,6 +6920,12 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
         p.Asp1309Asn
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant reported in an infantile dilated cardiomyopathy case that also carried the known MYH7 DCM mutation p.Glu924Lys; the authors proposed a synergistic or dose effect of the two variants rather than a LAMA4-only cause.</div>
@@ -6940,6 +7095,31 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard therapy for left ventricular systolic dysfunction, targeting the neurohormonal amplifier of adverse remodeling. There is no LAMA4-specific disease-modifying therapy and no trial has enrolled on the basis of LAMA4 genotype, so management is the generic dilated-cardiomyopathy regimen.</div>
 
 
@@ -6970,6 +7150,7 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7016,6 +7197,7 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7040,6 +7222,7 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7061,6 +7244,7 @@ This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7127,6 +7311,31 @@ This treatment is cardiac resynchronization therapy (NCIT:C80436). NCIT:C80436 i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Biventricular pacing for patients with systolic dysfunction and conduction delay. It is included here specifically because conduction system disease was reported alongside dilated cardiomyopathy in the one published LAMA4 family, which is the setting in which resynchronization becomes relevant — but the indication follows general heart-failure criteria, not genotype, and no LAMA4 patient has been reported to have received it.</div>
 
 
@@ -7157,6 +7366,7 @@ This treatment is cardiac resynchronization therapy (NCIT:C80436). NCIT:C80436 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7200,6 +7410,7 @@ This treatment is cardiac resynchronization therapy (NCIT:C80436). NCIT:C80436 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7266,6 +7477,31 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For disease refractory to medical and device therapy the remaining options are a left ventricular assist device and heart transplantation. This is curated as the endpoint of the generic dilated-cardiomyopathy pathway: no LAMA4 patient has been reported to have received either, and nothing about the proposed laminin mechanism predicts a different response, so no genotype-specific claim is made.</div>
 
 
@@ -7287,6 +7523,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7351,6 +7588,31 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Device therapy for prevention of sudden cardiac death, indicated by general cardiomyopathy and arrhythmia guidelines. It is noted here because conduction system disease was reported alongside dilated cardiomyopathy in one LAMA4 family; no LAMA4-specific risk-stratification rule exists.</div>
 
 
@@ -7372,6 +7634,7 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7436,6 +7699,31 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for families in whom a LAMA4 variant is reported must convey that the gene-disease relationship is classified as Limited and that variants in such genes should not be used to make or exclude a clinical diagnosis or to direct predictive testing of relatives. Cardiac surveillance of first-degree relatives is driven by the clinical phenotype in the family, not by LAMA4 carrier status.</div>
 
 
@@ -7460,6 +7748,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7481,6 +7770,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7589,6 +7879,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7610,6 +7901,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7700,6 +7992,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7724,6 +8017,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7745,6 +8039,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7835,6 +8130,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7859,6 +8155,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7880,6 +8177,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7956,6 +8254,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8120,6 +8419,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8159,6 +8459,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8238,6 +8539,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8277,6 +8579,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8356,6 +8659,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8415,6 +8719,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8454,6 +8759,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8591,6 +8897,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8630,6 +8937,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10522,6 +10830,129 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Dilated Cardiomyopathy 1JJ (LAMA4, MONDO:0014095) with the ClinGen Limited gene-disease dispute curated structurally</strong> · 2026-08-25T19:36:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dilated_Cardiomyopathy_1JJ/2026-08-25T193614Z-claude-code-6a61ed.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Dilated_Cardiomyopathy_1JJ.yaml for MONDO:0014095
+(OMIM #615235, LAMA4 / hgnc:6484).
+
+Entry-type decision: DISEASE. The MONDO record is a leaf (no descendants) with a single
+causal-gene relationship RO:0004003 -&gt; HGNC:6484 LAMA4 and a disease_series_by_gene
+definition, so it is a gene-anchored disorder rather than a grouping or a subtype of an
+existing entry.
+
+THE CENTRAL CURATION DECISION: the gene-disease relationship is NOT established, and the
+entry says so structurally rather than only in prose. The ClinGen Dilated Cardiomyopathy
+Gene Curation Expert Panel classified LAMA4-dilated cardiomyopathy as LIMITED on
+2024-11-15 under SOP10 (cached as
+CGGV:assertion_e937f98e-7577-48bd-a24a-361634ba0a8d-2024-11-15T170000.000Z). The dispute is
+carried in four places: the entry description, the genetic block
+(`relationship_type: DISPUTED`, `association: Limited`, with the ClinGen row cited as a
+REFUTE-typed evidence item against the implicit claim that LAMA4 is an established cause),
+a dedicated KNOWLEDGE_GAP discussion with two proposed experiments, and a treatment entry
+for genetic counseling that names the Limited classification explicitly. No node asserts
+that LAMA4 variation is a proven monogenic cause of human DCM. MONDO nonetheless models
+CMD1JJ as a concept, which is why the entry exists at all - the DISPUTED marker records the
+evidence state, it does not retire the concept.
+
+Deep research: `just research-disorder falcon Dilated_Cardiomyopathy_1JJ`, 6 references,
+0 confabulations, 5/6 on topic. `just preflight-dr &lt;report&gt; MONDO:0014095` -&gt; WARN with two
+notes: LAMA4 mentioned 43 times (dominant, as required), and &#34;Report cites OMIM 600133 but
+MONDO:0014095 xrefs OMIM 615235&#34;. That OMIM discrepancy was checked by hand and is BENIGN:
+600133 is the MIM number of the LAMA4 GENE, and the report labels it as such
+(&#34;gene MIM 600133&#34;), not as a rival disease. No rival disease entity is present. The report
+independently reached the same conclusion this entry curates - that LAMA4 is a
+minor/limited-evidence cardiomyopathy gene and a LAMA4 variant must not by itself drive
+predictive testing or ICD implantation - which is a useful cross-check rather than a source
+of new claims. The report cites no PMIDs (it uses internal citation keys), so nothing was
+curated from it directly; its one actionable lead, the Micolonghi 2024 minor-genes review,
+was resolved to PMID:39337275, fetched, read and cited from its own text.
+
+Pathograph (9 nodes, single connected component, all reachable from the trigger,
+MOLECULAR present at the root):
+LAMA4 integrin-interacting-domain variant (MOLECULAR, trigger) -&gt; loss of laminin-integrin
+binding at the cardiac basement membrane (MOLECULAR, central_effector) -&gt; branches to
+cardiac microvascular structural defect (TISSUE) and endothelial cell loss in the myocardium
+(CELLULAR), which converge on myocardial ischemia from microcirculatory insufficiency
+(TISSUE) -&gt; adverse ventricular remodeling (TISSUE) [also via neurohormonal activation
+(ORGANISM)] -&gt; left ventricular dilation and systolic dysfunction (ORGANISM) -&gt; structural
+cardiac impairment and heart failure (ORGANISM).
+
+The chain is deliberately routed through a MICROVASCULAR and CELL-MATRIX-ADHESION arm
+rather than through a primary contractile-protein lesion, because that is what the evidence
+says: in the Lama4-null mouse, isolated cardiomyocytes still contract and the sarcolemmal
+dystrophin-glycoprotein and integrin complexes are unaltered, while the vessels are
+malformed, the pericapillary matrix widened and the myocardium hypoxic. That negative
+result is curated STRUCTURALLY as a FAILS_TO_RECAPITULATE model link with two UNCHANGED
+readouts, not left as prose.
+
+Module conformance: five nodes conform to kb/modules/cardiomyopathy_maladaptive_remodeling
+(#Primary Cardiomyocyte Insult, #Neurohormonal Activation, #Ventricular Remodeling,
+#Progressive Contractile Dysfunction, #Structural Cardiac Impairment and Heart Failure).
+The disorder-specific microvascular/ischemic nodes sit BETWEEN the trigger and the module&#39;s
+remodeling step and deliberately declare no conformance, because the module has no
+microvascular node to conform to.
+
+Curated: 9 pathophysiology nodes, 3 phenotypes, 1 inheritance block, 1 genetic block with 4
+annotated variants, 1 prevalence record, 2 animal models (Lama4-null mouse with three
+mechanism links including the FAILS_TO_RECAPITULATE one; zebrafish lost-contact ilk mutant),
+3 treatments, 2 discussions, 60 evidence snippets over 9 references.
+
+Honesty caveats recorded in the entry:
+- A HUMAN_MODEL_MISMATCH discussion records two ways the mouse differs from the human
+  disease: the null mouse develops cardiac HYPERTROPHY while the human entity is DILATED
+  cardiomyopathy, and a constitutive null models absence of the chain rather than the
+  missense loss of integrin binding proposed for the human alleles. The Lama4 null also
+  develops chronic kidney disease, so it is not cardiac-restricted.
+- The remodeling node&#39;s mouse evidence is marked PARTIAL for exactly the geometry reason.
+- Ischemia in the mouse was inferred from Hif1a/Vegfa transcripts plus histology, not
+  measured as perfusion; the authors&#39; hedge (&#34;suggested&#34;) is quoted verbatim.
+- The conduction-system-disease phenotype rests on one family and is typed
+  INDIRECT_UNKNOWN_INTERMEDIATES with a description stating that no mechanism links the
+  laminin lesion to the conduction system.
+- The neurohormonal node openly carries class-level, non-LAMA4-specific evidence and says
+  so in its own description.
+- `frequency:` omitted from every phenotype; prevalence is UNKNOWN / NOT_YET_DOCUMENTED
+  because no LAMA4-specific rate can be derived while the relationship is Limited.
+- No `datasets:` block: no LAMA4-cardiomyopathy-specific accession was identified, and
+  searching the gene alone would surface whatever else LAMA4 is studied for - the Named
+  Entity Confusion hazard the dataset SOP warns about.
+- No ORPHA evidence asserted; `just refresh-orphadata` currently fails on a manifest
+  checksum mismatch.
+
+Snippet mechanics worth recording: two first-draft snippets failed and were repaired at
+source rather than worked around. The Knoll 2007 quote naming the two alleles contains
+square-bracketed protein changes ([Pro943Leu], [Arg1073X]) which are stripped before
+snippet matching, so it was split into two bracket-free quotes. A quote attributed to
+PMID:20035058 was a paraphrase of its title and was replaced with an exact sentence from
+its abstract.
+
+Validation actually run and read:
+- just validate -&gt; &#34;All validations passed&#34; / &#34;Snippets checked: 60/60 verified against
+  cached references&#34;
+- just validate-terms -&gt; &#34;Validation passed&#34;
+- just validate-disorders -&gt; see PR body
+- scripts/check_folded_hyphens.py -&gt; &#34;OK: no new folded-scalar hyphen splits&#34;
+- scripts/check_snippet_length.py --against-ref origin/main -&gt; &#34;OK: no new snippets under
+  5 words&#34;
+- just check-title-snippets -&gt; &#34;OK: no new title-quoting snippets&#34;
+- just check-duplicate-keys -&gt; &#34;OK: no duplicate mapping keys in 4362 YAML file(s)&#34;
+- just check-cache-order -&gt; &#34;OK&#34;
+- just check-term-cache-integrity -&gt; &#34;OK&#34;
+- pytest tests/test_data.py -k &#34;conforms_to or model_readout or failure_to_recap or unique
+  or subtype_foreign or hypothesis_based_definition&#34; -&gt; 14183 passed
+Cache rows added by this entry, and only these: MONDO:0014095 in cache/mondo/terms.csv and
+in the diseaseterm enum cache. hgnc:6484 was already cached. An incidental re-normalization
+of references_cache/PMID_25445411.md by the validator was reverted rather than committed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

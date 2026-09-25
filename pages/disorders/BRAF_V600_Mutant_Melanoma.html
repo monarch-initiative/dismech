@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4336,6 +4413,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4476,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4419,6 +4498,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4484,6 +4564,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4505,6 +4586,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4687,6 +4769,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4708,6 +4791,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4886,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4823,6 +4908,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4919,6 +5005,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5007,6 +5094,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5028,6 +5116,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5105,6 +5194,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5179,6 +5269,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5213,6 +5304,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-braf-codon-600-driver" data-dismech-node="Somatic BRAF Codon-600 Driver" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic BRAF Codon-600 Driver</div>
+
 
                 <div class="item-desc">A tumor-acquired missense substitution at BRAF codon 600 destabilizes the inactive kinase configuration. Codon-600 mutants constitute class-I BRAF: they are active without upstream RAS, signal as monomers, and differ mechanistically from class-II dimers and RAS-dependent class-III mutants.</div>
 
@@ -5405,6 +5497,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5426,6 +5519,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5451,6 +5545,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-mek-erk-signaling" data-dismech-node="Sustained MEK-ERK Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained MEK-ERK Signaling</div>
+
 
                 <div class="item-desc">Constitutive mutant-BRAF output maintains the RAF-MEK-ERK cascade, which controls proliferative and survival programs in the melanocytic lineage. The pathway remains pharmacologically actionable because inhibition at both BRAF and MEK reduces pathway output and delays, but does not eliminate, resistance.</div>
 
@@ -5584,6 +5679,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5606,6 +5702,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-dependent-melanocyte-proliferation-and-survival" data-dismech-node="MAPK-Dependent Melanocyte Proliferation and Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK-Dependent Melanocyte Proliferation and Survival</div>
+
 
                 <div class="item-desc">Persistent ERK signaling expands and sustains transformed melanocytes. This output is necessary but not always sufficient for invasive melanoma: experimental BRAF expression can stop at a benign hyperplasia, whereas additional survival and tumor-suppressor lesions permit progression.</div>
 
@@ -5808,6 +5905,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5830,6 +5928,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oncogene-induced-melanocytic-growth-arrest-barrier" data-dismech-node="Oncogene-Induced Melanocytic Growth-Arrest Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncogene-Induced Melanocytic Growth-Arrest Barrier</div>
+
 
                 <div class="item-desc">Strong oncogenic BRAF signaling can evoke a senescence-like arrest rather than continuous malignant growth. This helps explain why BRAF V600E is found in benign melanocytic proliferations and why additional genetic or cell-state changes are required for invasive cancer.</div>
 
@@ -5940,6 +6039,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5961,6 +6061,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5986,6 +6087,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-loss-and-pi3k-akt-mtor-cooperation" data-dismech-node="PTEN-Loss and PI3K-AKT-mTOR Cooperation" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN-Loss and PI3K-AKT-mTOR Cooperation</div>
+
 
                 <div class="item-desc">Loss of PTEN provides a cooperating survival pathway that permits BRAF-initiated melanocytes to escape the benign growth-arrest state and progress. This is a validated experimental route rather than a claim that PTEN loss is obligatory in every human BRAF V600 melanoma.</div>
 
@@ -6142,6 +6244,7 @@ This pathophysiological event involves increased intracellular signal transducti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6163,6 +6266,7 @@ This pathophysiological event involves increased intracellular signal transducti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6188,6 +6292,7 @@ This pathophysiological event involves increased intracellular signal transducti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasive-and-metastatic-melanoma-progression" data-dismech-node="Invasive and Metastatic Melanoma Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Invasive and Metastatic Melanoma Progression</div>
+
 
                 <div class="item-desc">Melanoma progression entails invasion, regional or distant dissemination, and survival in metastatic sites. BRAF V600 is a driver and treatment biomarker, but it does not by itself define the anatomic pattern or stage; co-alterations, immune context, and tumor-cell state modify progression.</div>
 
@@ -6287,6 +6392,7 @@ This pathophysiological event involves increased positive regulation of cell mig
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6309,6 +6415,7 @@ This pathophysiological event involves increased positive regulation of cell mig
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-checkpoint-mediated-evasion" data-dismech-node="Immune-Checkpoint-Mediated Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Checkpoint-Mediated Evasion</div>
+
 
                 <div class="item-desc">BRAF-mutant melanoma exists within an immune-responsive but suppressive microenvironment. BRAF inhibition can increase CD8-positive T-cell infiltration while also increasing PD-L1, creating a rationale for checkpoint blockade. Immune phenotype varies among tumors and is not determined by BRAF status alone.</div>
 
@@ -6419,6 +6526,7 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6440,6 +6548,7 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6465,6 +6574,7 @@ This pathophysiological event involves increased negative regulation of T cell m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquired-mapk-reactivation-and-adaptive-resistance" data-dismech-node="Acquired MAPK Reactivation and Adaptive Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired MAPK Reactivation and Adaptive Resistance</div>
+
 
                 <div class="item-desc">Under BRAF- or BRAF/MEK-inhibitor selection, progressing lesions can restore ERK signaling through secondary NRAS or MAP2K1 alterations and other MAPK routes. Parallel PI3K-AKT signaling and reversible transcriptional or metabolic adaptation can also sustain drug-tolerant states. Resistance is therefore mechanistically heterogeneous.</div>
 
@@ -6612,6 +6722,7 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6633,6 +6744,7 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6694,6 +6806,7 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6760,9 +6873,7 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6805,6 +6916,9 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6819,6 +6933,7 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6851,7 +6966,7 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-metastatic-disease" data-dismech-node="Progressive Metastatic Disease" data-dismech-type="phenotype">
@@ -6884,6 +6999,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6898,6 +7016,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6923,15 +7042,6 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brain-metastases" data-dismech-node="Brain Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6963,6 +7073,9 @@ This clinical feature is Brain metastasis, annotated with Brain neoplasm (HP:003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6977,6 +7090,7 @@ This clinical feature is Brain metastasis, annotated with Brain neoplasm (HP:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7079,6 +7193,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7093,6 +7210,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7117,6 +7235,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7178,6 +7297,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7192,6 +7314,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7339,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7277,6 +7401,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7291,6 +7418,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7315,6 +7443,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7376,6 +7505,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7390,6 +7522,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7475,6 +7608,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete excision with a stage-appropriate margin is the foundation for resectable primary disease. Sentinel-node biopsy is a staging procedure in selected tumors and should not be described as having a proven survival benefit. Subsequent adjuvant treatment depends on stage, BRAF allele, risk, and patient context.</div>
 
 
@@ -7518,6 +7676,7 @@ This treatment targets Cutaneous melanoma (HP:0012056). HP:0012056 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7623,6 +7782,31 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Twelve months of dabrafenib plus trametinib is an adjuvant option after complete resection of high-risk stage-III BRAF V600E/K melanoma. Final COMBI-AD follow-up showed durable relapse-free and distant-metastasis-free benefit; the overall-survival comparison did not meet conventional statistical significance in the full population.</div>
 
 
@@ -7653,6 +7837,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7703,6 +7888,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7743,6 +7929,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7848,6 +8035,31 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dual BRAF/MEK inhibition produces rapid responses in BRAF V600E/K unresectable or metastatic melanoma. Pooled COMBI-d/COMBI-v follow-up showed five-year survival in a subset, while COMBI-MB demonstrated intracranial activity with comparatively limited response duration.</div>
 
 
@@ -7878,6 +8090,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8141,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7971,6 +8185,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7992,6 +8207,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8097,6 +8313,31 @@ This treatment uses cobimetinib (CHEBI:90851). CHEBI:90851 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Vemurafenib plus cobimetinib is a combined BRAF/MEK option for BRAF V600 advanced melanoma. Five-year coBRIM follow-up confirmed longer median progression-free and overall survival than vemurafenib alone, with regimen-specific toxicity and patient factors informing selection.</div>
 
 
@@ -8127,6 +8368,7 @@ This treatment uses cobimetinib (CHEBI:90851). CHEBI:90851 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8177,6 +8419,7 @@ This treatment uses cobimetinib (CHEBI:90851). CHEBI:90851 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8217,6 +8460,7 @@ This treatment uses cobimetinib (CHEBI:90851). CHEBI:90851 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8322,6 +8566,31 @@ This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Encorafenib plus binimetinib is a combined BRAF/MEK option for locally advanced unresectable or metastatic BRAF V600E/K melanoma. The seven-year COLUMBUS analysis provides the longest phase-III follow-up among the represented targeted combinations.</div>
 
 
@@ -8352,6 +8621,7 @@ This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8402,6 +8672,7 @@ This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8442,6 +8713,7 @@ This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8547,6 +8819,31 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PD-1-based therapy, alone or in combination with CTLA-4 or LAG-3 blockade, is a major systemic option regardless of BRAF status. In treatment-naive metastatic BRAF V600 melanoma, DREAMseq and SECOMBIT support beginning with nivolumab plus ipilimumab for most trial-eligible patients, while urgent disease control, contraindications, prior adjuvant therapy, toxicity, and patient preference can alter individual sequencing.</div>
 
 
@@ -8577,6 +8874,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8623,6 +8921,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8647,6 +8946,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8668,6 +8968,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8756,6 +9057,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8777,6 +9079,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8828,6 +9131,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8896,6 +9200,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8917,6 +9222,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8969,6 +9275,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9018,6 +9325,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9039,6 +9347,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9110,6 +9419,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9131,6 +9441,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9225,6 +9536,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9246,6 +9558,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9307,6 +9620,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9360,6 +9674,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9428,6 +9743,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9475,6 +9791,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9528,6 +9845,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9575,6 +9893,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9645,6 +9964,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9694,6 +10014,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9740,6 +10061,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9835,6 +10157,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9900,6 +10223,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10002,6 +10326,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10047,6 +10372,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10115,6 +10441,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10165,6 +10492,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10221,6 +10549,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10271,6 +10600,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10327,6 +10657,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10377,6 +10708,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10518,6 +10850,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10573,6 +10906,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10613,6 +10947,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10801,6 +11136,7 @@ This experimental model concerns PTEN (hgnc:9588). hgnc:9588 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10970,6 +11306,7 @@ This experimental model concerns PTEN (hgnc:9588). hgnc:9588 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11145,6 +11482,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11286,6 +11624,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11347,6 +11686,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11386,6 +11726,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11435,6 +11776,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11456,6 +11798,7 @@ This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13911,6 +14254,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/BRAF_V600_Mutant_Melanoma-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

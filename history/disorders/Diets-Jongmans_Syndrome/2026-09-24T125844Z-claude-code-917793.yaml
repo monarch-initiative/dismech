@@ -1,0 +1,38 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Diets-Jongmans_Syndrome
+  path: kb/disorders/Diets-Jongmans_Syndrome.yaml
+session:
+  id: 2026-09-24T125844Z-claude-code-917793
+  timestamp: '2026-09-24T12:58:44Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+    agent_version: 2.1.280
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/12637
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - evidence
+  - phenotypes
+  - notes
+  summary: 'Fix merge-queue validation failure: re-cite founding-cohort claims away
+    from unreachable full text'
+  details: |
+    The merge-queue run of PR 12637 failed 'Validate changed disorder KB files' with 40 snippet errors, all against PMID:30929739. The entry did not change between the green PR run and the failure; the checker did. PR 12482 raised the linkml-reference-validator floor from 0.2.1 to 0.3.0rc1 on main, and 0.3.0rc1 treats a cache entry written without an extractor_version stamp as stale: it re-fetches, and where the refresh returns only an abstract it keeps the cached file but refuses to serve a stale full_text_html body as evidence ('it may be a repository landing page'). A stale full_text_xml body is still served, which is why sibling entries were unaffected. Reproduced locally by building a venv from main's uv.lock (0.3.0rc1) and re-running just validate-disorders: the same 40 errors, in the same locations.
+
+    The founding report cannot be re-fetched as full text by any route the validator has: Elsevier blocks PMC XML download for it, Europe PMC reports isOpenAccess N and returns HTTP 500 for fullTextXML, the only Unpaywall open location is a publisher PDF behind a Cloudflare challenge, and the PMC HTML fallback cannot find its article body because the current PMC page uses section.main-article-body rather than the div.article-body the provider looks for. So the full text is not quotable by CI, and no re-fetch would have fixed it.
+
+    Every claim that rested on that full text was re-cited or removed. Founding-cohort phenotype counts now quote Table 3 of PMID:41898828 (a 2026 case series and literature review whose cached body is XML and which tabulates each feature for the Diets cohort and for all 27 published individuals), graded quote_role REVIEW_SYNTHESIS; features named in the founding paper's own abstract are cited there. Counts were restated to Table 3's denominators, which are x/17 rather than the founding paper's per-feature assessed denominators, and two frequency bands moved with them (childhood hypotonia FREQUENT to OCCASIONAL at 22.2%). Five phenotypes with no reachable source were removed: nystagmus, strabismus, abnormality of refraction, aggressive behavior, hypospadias. Individual facial-feature counts and their frequency bands were dropped, since only the presence of each feature is quotable. Evidence items were deleted for the loss-of-heterozygosity exclusion in the leukemia, the inconclusive HEK293 H3K9 assay, the absence of a genotype-phenotype correlation, the founding authors' advice against malignancy screening, and the isolated growth-hormone-deficiency and microcephaly observations; the descriptions and both discussion rationales were rewritten so no surviving sentence depends on them. The entry notes now record which statements exist only in the unreachable full text, so the gap is visible rather than silent.
+
+    Twelve reference cache files were rewritten by the new validator during validation and are committed as it produced them; each now carries extractor_version, so CI reads them from disk instead of re-fetching.
+
+    Verified under the CI dependency set (linkml-reference-validator 0.3.0rc1, from main's lock): just validate-disorders passes with 84/84 snippets and 0 issues, twice in a row, in runs whose logs show every stale full_text_html entry being refused - that is the worst case the merge queue can present.

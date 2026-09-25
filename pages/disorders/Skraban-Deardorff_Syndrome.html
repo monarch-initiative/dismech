@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4081,6 +4158,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4127,6 +4205,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr26-haploinsufficiency" data-dismech-node="WDR26 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">WDR26 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Heterozygous nonsense, frameshift and splice-site variants, and 1q42.12 microdeletions, reduce the functional dosage of WDR26. Loss-of-function single-nucleotide variants trigger nonsense-mediated decay, reducing WDR26 RNA and protein levels; missense variants localise to highly conserved residues of the WD40-repeat protein. The single-gene dosage reduction is the core lesion.</div>
 
@@ -4231,6 +4310,7 @@ This pathophysiological event involves WDR26 (hgnc:21208). hgnc:21208 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4252,6 +4332,7 @@ This pathophysiological event involves WDR26 (hgnc:21208). hgnc:21208 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4277,6 +4358,7 @@ This pathophysiological event involves WDR26 (hgnc:21208). hgnc:21208 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ctlh-e3-ubiquitin-ligase-complex-function" data-dismech-node="Impaired CTLH E3 Ubiquitin Ligase Complex Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CTLH E3 Ubiquitin Ligase Complex Function</div>
+
 
                 <div class="item-desc">WDR26 is a structural scaffold and substrate-recognition subunit of the C-terminal to LisH (CTLH) E3 ubiquitin-ligase complex, which targets specific proteins for ubiquitin-proteasome degradation. Reduced WDR26 dosage impairs assembly and substrate targeting of the CTLH complex, lowering ubiquitination of its substrates.</div>
 
@@ -4406,6 +4488,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4427,6 +4510,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4452,6 +4536,13 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-runx1t1-stabilization" data-dismech-node="RUNX1T1 Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">RUNX1T1 Stabilization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In Wdr26+/- mice and Wdr26-knockdown neuronal cells, reduced CTLH-mediated ubiquitination impairs proteasomal degradation of RUNX1T1 and stabilises the protein. RUNX1T1 is a transcriptional coactivator critical for neuronal differentiation. This stabilisation is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.</div>
 
@@ -4543,6 +4634,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4565,6 +4657,13 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-differentiation-dysregulation" data-dismech-node="Neuronal Differentiation Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Differentiation Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Elevated RUNX1T1 raises MAP2, a regulator of dendritic architecture and synaptic plasticity, disrupting neuronal maturation. This WDR26/RUNX1T1/MAP2 axis is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.</div>
 
@@ -4656,6 +4755,7 @@ This pathophysiological event involves dysregulated neuron differentiation (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4678,6 +4778,7 @@ This pathophysiological event involves dysregulated neuron differentiation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-neurodevelopment" data-dismech-node="Abnormal Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Neurodevelopment</div>
+
 
                 <div class="item-desc">Disrupted neuronal differentiation and dendritic maturation in progenitors and neurons produces the neurodevelopmental phenotype. The Wdr26+/- mouse recapitulates core clinical features (learning/memory impairment, social dysfunction, heightened seizure susceptibility and motor deficits), supporting a causal path from WDR26 dosage to abnormal brain development.</div>
 
@@ -4887,6 +4988,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4909,6 +5011,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-craniofacial-and-skeletal-development" data-dismech-node="Abnormal Craniofacial and Skeletal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Craniofacial and Skeletal Development</div>
+
 
                 <div class="item-desc">In parallel with the neurodevelopmental arm, reduced WDR26 dosage disrupts craniofacial and skeletal morphogenesis. The Wdr26+/- mouse shows abnormal tooth growth and cranial misalignment, and reduced WDR26 expression is linked to craniofacial developmental abnormalities; RUNX1T1-mutation patients likewise show craniofacial defects, consistent with a shared developmental program. This node collects the recognisable facial gestalt, dental anomalies and minor skeletal anomalies of the syndrome.</div>
 
@@ -5010,6 +5113,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5055,7 +5159,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Craniofacial and Skeletal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the neurodevelopmental arm, reduced WDR26 dosage disrupts craniofacial and skeletal morphogenesis. The Wdr26+/- mouse shows abnormal tooth growth and cranial misalignment, and reduced WDR26 expression is linked to craniofacial developmental abnormalities; RUNX1T1-mutation patients likewise show craniofacial defects, consistent with a shared developmental program. This node collects the recognisable facial gestalt, dental anomalies and minor skeletal anomalies of the syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abnormal Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A characteristic wide-based, spastic and/or stiff-legged gait is present in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Abnormal Gums\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal gums are reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000168\"}}, {\"id\": \"Abnormal Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted neuronal differentiation and dendritic maturation in progenitors and neurons produces the neurodevelopmental phenotype. The Wdr26+/- mouse recapitulates core clinical features (learning/memory impairment, social dysfunction, heightened seizure susceptibility and motor deficits), supporting a causal path from WDR26 dosage to abnormal brain development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"animal_models\": [{\"name\": \"Wdr26 heterozygous-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr26+/- (heterozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wdr26+/- mice reproduce core neurodevelopmental features (learning and memory impairment, social dysfunction, heightened seizure susceptibility, and motor deficits) and show an enlarged ventricular area paralleling patient ventriculomegaly. The heterozygous genotype matches the heterozygous human loss-of-function state.\"}]}}, {\"id\": \"Anteverted Nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anteverted nares are reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic-like behaviour and social impairment are common and individuals are frequently given an autism diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip completes the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000455\"}}, {\"id\": \"Delayed Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is delayed or absent; expressive language is severely limited in most individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Depressed Nasal Root\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A depressed nasal root is reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties, often in infancy, are part of the clinical spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a defining feature, affecting motor and language milestones from infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is part of the recognised neurological phenotype of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WDR26 is a structural scaffold and substrate-recognition subunit of the C-terminal to LisH (CTLH) E3 ubiquitin-ligase complex, which targets specific proteins for ubiquitin-proteasome degradation. Reduced WDR26 dosage impairs assembly and substrate targeting of the CTLH complex, lowering ubiquitination of its substrates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein ubiquitination\"], \"molecular_functions\": [\"ubiquitin-protein transferase activity\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in all reported individuals and is accompanied by delayed or absent speech.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Minor Skeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor skeletal anomalies are part of the clinical spectrum of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011842\"}}, {\"id\": \"Neuronal Differentiation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated RUNX1T1 raises MAP2, a regulator of dendritic architecture and synaptic plasticity, disrupting neuronal maturation. This WDR26/RUNX1T1/MAP2 axis is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron differentiation\"]}}, {\"id\": \"Prominent Maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A prominent maxilla with an upper lip that readily reveals the upper gingiva is part of the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000326\"}}, {\"id\": \"RUNX1T1 Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Wdr26+/- mice and Wdr26-knockdown neuronal cells, reduced CTLH-mediated ubiquitination impairs proteasomal degradation of RUNX1T1 and stabilises the protein. RUNX1T1 is a transcriptional coactivator critical for neuronal differentiation. This stabilisation is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile and non-febrile seizures are characteristic; a majority of individuals have clinical seizures or electroencephalographic abnormalities.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spastic Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The spastic and/or stiff-legged component of the characteristic gait; captured separately from the wide-based component because the two facets map to distinct HPO terms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002064\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged cerebral ventricles are reported in patients and are recapitulated in the Wdr26+/- mouse.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"WDR26\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WDR26\"], \"gene_terms\": [{\"label\": \"WDR26\", \"id\": \"hgnc:21208\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"WDR26 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice-site variants, and 1q42.12 microdeletions, reduce the functional dosage of WDR26. Loss-of-function single-nucleotide variants trigger nonsense-mediated decay, reducing WDR26 RNA and protein levels; missense variants localise to highly conserved residues of the WD40-repeat protein. The single-gene dosage reduction is the core lesion.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WDR26\"], \"gene_terms\": [{\"label\": \"WDR26\", \"id\": \"hgnc:21208\"}]}}, {\"id\": \"Wdr26 heterozygous-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Heterozygous Wdr26-knockout mouse, matching the heterozygous loss-of-function genotype of human WDR26 haploinsufficiency, which recapitulates core neurodevelopmental features of Skraban-Deardorff syndrome.\"}, {\"id\": \"Widely Spaced Teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced teeth are a consistent component of the facial and dental gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000687\"}}], \"edges\": [{\"source\": \"WDR26 Haploinsufficiency\", \"target\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WDR26 protein depletes the scaffold/substrate-recognition subunit of the CTLH E3 ubiquitin-ligase complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"WDR26 Haploinsufficiency\", \"target\": \"Abnormal Craniofacial and Skeletal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In parallel with its neurodevelopmental effects, WDR26 haploinsufficiency disrupts craniofacial and skeletal morphogenesis, producing the recognisable facial gestalt, dental anomalies and minor skeletal anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"target\": \"RUNX1T1 Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CTLH-mediated ubiquitination stabilises the transcriptional coactivator RUNX1T1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RUNX1T1 Stabilization\", \"target\": \"Neuronal Differentiation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilised RUNX1T1 raises MAP2, a regulator of dendritic architecture and synaptic plasticity, dysregulating neuronal differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Differentiation Dysregulation\", \"target\": \"Abnormal Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RUNX1T1/MAP2 dysregulation disrupts neuronal differentiation and dendritic architecture in the developing brain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neuronal maturation underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment produces global delay of motor and language milestones.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Delayed Speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neuronal maturation underlies delayed or absent speech.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal dendritic architecture and network excitability underlie the seizure susceptibility.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Abnormal Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired motor development underlies the wide-based gait.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Spastic Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The spastic/stiff-legged component of the characteristic gait reflects corticospinal/motor involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypotonia is part of the neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Social dysfunction/autistic-like behaviour is a neurodevelopmental output.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oromotor/neurodevelopmental dysfunction underlies infant feeding difficulties.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlarged cerebral ventricles are a structural correlate of the abnormal brain development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Prominent Maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces the prominent maxilla revealing the upper gingiva.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Widely Spaced Teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial/dental dysmorphogenesis produces widely spaced teeth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Broad Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces the broad nasal tip.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Anteverted Nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces anteverted nares.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Depressed Nasal Root\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces a depressed nasal root.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Abnormal Gums\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial/gingival dysmorphogenesis produces abnormal gums.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Minor Skeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal dysmorphogenesis produces the minor skeletal anomalies of the disorder.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Wdr26 heterozygous-knockout mouse\", \"target\": \"Abnormal Neurodevelopment\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wdr26+/- mice reproduce core neurodevelopmental features (learning and memory impairment, social dysfunction, heightened seizure susceptibility, and motor deficits) and show an enlarged ventricular area paralleling patient ventriculomegaly. The heterozygous genotype matches the heterozygous human loss-of-function state.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Murine models cannot capture the human speech/language and higher-cognitive phenotype directly, and the craniofacial and dental abnormalities occur in only ~6% of heterozygous mice, far below their frequency in affected individuals.\"}, {\"source\": \"WDR26\", \"target\": \"WDR26 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Craniofacial and Skeletal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the neurodevelopmental arm, reduced WDR26 dosage disrupts craniofacial and skeletal morphogenesis. The Wdr26+/- mouse shows abnormal tooth growth and cranial misalignment, and reduced WDR26 expression is linked to craniofacial developmental abnormalities; RUNX1T1-mutation patients likewise show craniofacial defects, consistent with a shared developmental program. This node collects the recognisable facial gestalt, dental anomalies and minor skeletal anomalies of the syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abnormal Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A characteristic wide-based, spastic and/or stiff-legged gait is present in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Abnormal Gums\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal gums are reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000168\"}}, {\"id\": \"Abnormal Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted neuronal differentiation and dendritic maturation in progenitors and neurons produces the neurodevelopmental phenotype. The Wdr26+/- mouse recapitulates core clinical features (learning/memory impairment, social dysfunction, heightened seizure susceptibility and motor deficits), supporting a causal path from WDR26 dosage to abnormal brain development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"animal_models\": [{\"name\": \"Wdr26 heterozygous-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr26+/- (heterozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wdr26+/- mice reproduce core neurodevelopmental features (learning and memory impairment, social dysfunction, heightened seizure susceptibility, and motor deficits) and show an enlarged ventricular area paralleling patient ventriculomegaly. The heterozygous genotype matches the heterozygous human loss-of-function state.\"}]}}, {\"id\": \"Anteverted Nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anteverted nares are reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic-like behaviour and social impairment are common and individuals are frequently given an autism diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip completes the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000455\"}}, {\"id\": \"Delayed Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is delayed or absent; expressive language is severely limited in most individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Depressed Nasal Root\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A depressed nasal root is reported in more than half of individuals with the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties, often in infancy, are part of the clinical spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a defining feature, affecting motor and language milestones from infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is part of the recognised neurological phenotype of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WDR26 is a structural scaffold and substrate-recognition subunit of the C-terminal to LisH (CTLH) E3 ubiquitin-ligase complex, which targets specific proteins for ubiquitin-proteasome degradation. Reduced WDR26 dosage impairs assembly and substrate targeting of the CTLH complex, lowering ubiquitination of its substrates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein ubiquitination\"], \"molecular_functions\": [\"ubiquitin-protein transferase activity\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in all reported individuals and is accompanied by delayed or absent speech.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Minor Skeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor skeletal anomalies are part of the clinical spectrum of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011842\"}}, {\"id\": \"Neuronal Differentiation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated RUNX1T1 raises MAP2, a regulator of dendritic architecture and synaptic plasticity, disrupting neuronal maturation. This WDR26/RUNX1T1/MAP2 axis is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Prominent Maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A prominent maxilla with an upper lip that readily reveals the upper gingiva is part of the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000326\"}}, {\"id\": \"RUNX1T1 Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Wdr26+/- mice and Wdr26-knockdown neuronal cells, reduced CTLH-mediated ubiquitination impairs proteasomal degradation of RUNX1T1 and stabilises the protein. RUNX1T1 is a transcriptional coactivator critical for neuronal differentiation. This stabilisation is demonstrated in mouse and cell models and has not yet been confirmed in human patient tissue, so the node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile and non-febrile seizures are characteristic; a majority of individuals have clinical seizures or electroencephalographic abnormalities.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spastic Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The spastic and/or stiff-legged component of the characteristic gait; captured separately from the wide-based component because the two facets map to distinct HPO terms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002064\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged cerebral ventricles are reported in patients and are recapitulated in the Wdr26+/- mouse.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"WDR26\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WDR26\"], \"gene_terms\": [{\"label\": \"WDR26\", \"id\": \"hgnc:21208\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"WDR26 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice-site variants, and 1q42.12 microdeletions, reduce the functional dosage of WDR26. Loss-of-function single-nucleotide variants trigger nonsense-mediated decay, reducing WDR26 RNA and protein levels; missense variants localise to highly conserved residues of the WD40-repeat protein. The single-gene dosage reduction is the core lesion.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WDR26\"], \"gene_terms\": [{\"label\": \"WDR26\", \"id\": \"hgnc:21208\"}]}}, {\"id\": \"Wdr26 heterozygous-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Heterozygous Wdr26-knockout mouse, matching the heterozygous loss-of-function genotype of human WDR26 haploinsufficiency, which recapitulates core neurodevelopmental features of Skraban-Deardorff syndrome.\"}, {\"id\": \"Widely Spaced Teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced teeth are a consistent component of the facial and dental gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000687\"}}], \"edges\": [{\"source\": \"WDR26 Haploinsufficiency\", \"target\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WDR26 protein depletes the scaffold/substrate-recognition subunit of the CTLH E3 ubiquitin-ligase complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"WDR26 Haploinsufficiency\", \"target\": \"Abnormal Craniofacial and Skeletal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In parallel with its neurodevelopmental effects, WDR26 haploinsufficiency disrupts craniofacial and skeletal morphogenesis, producing the recognisable facial gestalt, dental anomalies and minor skeletal anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired CTLH E3 Ubiquitin Ligase Complex Function\", \"target\": \"RUNX1T1 Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CTLH-mediated ubiquitination stabilises the transcriptional coactivator RUNX1T1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RUNX1T1 Stabilization\", \"target\": \"Neuronal Differentiation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilised RUNX1T1 raises MAP2, a regulator of dendritic architecture and synaptic plasticity, dysregulating neuronal differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Differentiation Dysregulation\", \"target\": \"Abnormal Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RUNX1T1/MAP2 dysregulation disrupts neuronal differentiation and dendritic architecture in the developing brain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neuronal maturation underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment produces global delay of motor and language milestones.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Delayed Speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neuronal maturation underlies delayed or absent speech.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal dendritic architecture and network excitability underlie the seizure susceptibility.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Abnormal Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired motor development underlies the wide-based gait.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Spastic Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The spastic/stiff-legged component of the characteristic gait reflects corticospinal/motor involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypotonia is part of the neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Social dysfunction/autistic-like behaviour is a neurodevelopmental output.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oromotor/neurodevelopmental dysfunction underlies infant feeding difficulties.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Neurodevelopment\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlarged cerebral ventricles are a structural correlate of the abnormal brain development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Prominent Maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces the prominent maxilla revealing the upper gingiva.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Widely Spaced Teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial/dental dysmorphogenesis produces widely spaced teeth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Broad Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces the broad nasal tip.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Anteverted Nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces anteverted nares.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Depressed Nasal Root\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphogenesis produces a depressed nasal root.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Abnormal Gums\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial/gingival dysmorphogenesis produces abnormal gums.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Craniofacial and Skeletal Development\", \"target\": \"Minor Skeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal dysmorphogenesis produces the minor skeletal anomalies of the disorder.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Wdr26 heterozygous-knockout mouse\", \"target\": \"Abnormal Neurodevelopment\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wdr26+/- mice reproduce core neurodevelopmental features (learning and memory impairment, social dysfunction, heightened seizure susceptibility, and motor deficits) and show an enlarged ventricular area paralleling patient ventriculomegaly. The heterozygous genotype matches the heterozygous human loss-of-function state.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Murine models cannot capture the human speech/language and higher-cognitive phenotype directly, and the craniofacial and dental abnormalities occur in only ~6% of heterozygous mice, far below their frequency in affected individuals.\"}, {\"source\": \"WDR26\", \"target\": \"WDR26 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5076,13 +5180,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(6)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5123,6 +5225,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5137,6 +5242,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5169,12 +5275,12 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad Nasal Tip" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-maxilla" data-dismech-node="Prominent Maxilla" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Broad Nasal Tip
+                        Prominent Maxilla
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -5185,18 +5291,23 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Abnormal maxilla morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000455</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000326</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Prominent maxilla, annotated with Abnormal maxilla morphology (HP:0000326). HP:0000326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5216,6 +5327,155 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These subjects share a set of common facial features that include a prominent maxilla and upper lip that readily reveal the upper gingiva, widely spaced teeth, and a broad nasal tip."</div>
+
+
+                <div class="evidence-explanation">A prominent maxilla revealing the upper gingiva is part of the shared facial gestalt in the defining cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-widely-spaced-teeth" data-dismech-node="Widely Spaced Teeth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Widely Spaced Teeth
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000687" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000687</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Widely spaced teeth (HP:0000687). HP:0000687 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a prominent maxilla and upper lip that readily reveal the upper gingiva, widely spaced teeth, and a broad nasal tip."</div>
+
+
+                <div class="evidence-explanation">Widely spaced teeth are part of the shared facial gestalt in the defining cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad Nasal Tip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Broad Nasal Tip
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000455</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5258,15 +5518,18 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000463</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5286,6 +5549,7 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5330,15 +5594,18 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depressed nasal root, annotated with Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5358,6 +5625,7 @@ This clinical feature is Depressed nasal root, annotated with Depressed nasal br
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5402,15 +5670,18 @@ This clinical feature is Depressed nasal root, annotated with Depressed nasal br
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000168" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000168</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000168" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000168</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal gums, annotated with Abnormality of the gingiva (HP:0000168). HP:0000168 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5430,6 +5701,7 @@ This clinical feature is Abnormal gums, annotated with Abnormality of the gingiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,8 +5734,82 @@ This clinical feature is Abnormal gums, annotated with Abnormality of the gingiv
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-gait" data-dismech-node="Spastic Gait" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spastic Gait
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic and/or stiff-legged gait, annotated with Spastic gait (HP:0002064). HP:0002064 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a wide-based, spastic, and/or stiff-legged gait."</div>
+
+
+                <div class="evidence-explanation">The spastic/stiff-legged gait component was present in all individuals of the defining cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5479,15 +5825,18 @@ This clinical feature is Abnormal gums, annotated with Abnormality of the gingiv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5507,6 +5856,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5533,13 +5883,89 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-minor-skeletal-anomalies" data-dismech-node="Minor Skeletal Anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Minor Skeletal Anomalies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal skeletal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011842</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Minor skeletal anomalies, annotated with Abnormal skeletal morphology (HP:0011842). HP:0011842 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">The generic HP:0011842 (Abnormal skeletal morphology) is retained because the cited sources describe only unspecified &#34;minor skeletal anomalies&#34; and do not name a specific skeletal feature that would support a more specific HPO term.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33675273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33675273" target="_blank">PMID:33675273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"feeding difficulties, and minor skeletal anomalies."</div>
+
+
+                <div class="evidence-explanation">Lists minor skeletal anomalies among the defining clinical signs; frequency omitted as no numerator is given.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
@@ -5558,15 +5984,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5586,6 +6015,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5610,6 +6040,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5650,15 +6081,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5678,6 +6112,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5722,15 +6157,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5750,6 +6188,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5792,15 +6231,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5820,6 +6262,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,6 +6290,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5855,6 +6299,82 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">Pooled clinical literature figure (secondary citation within the mouse paper, not its own cohort) quantifying seizures/EEG abnormalities at 80%, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-gait" data-dismech-node="Abnormal Gait" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Gait
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Broad-based gait</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002136" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002136</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide-based, spastic, and/or stiff-legged gait, annotated with Broad-based gait (HP:0002136). HP:0002136 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a wide-based, spastic, and/or stiff-legged gait."</div>
+
+
+                <div class="evidence-explanation">A wide-based/spastic/stiff-legged gait was present in all individuals of the defining cohort.</div>
 
 
 
@@ -5886,15 +6406,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5914,6 +6437,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5954,15 +6478,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5985,6 +6512,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5993,371 +6521,6 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                 <div class="evidence-explanation">The mouse model shows an enlarged ventricular area paralleling patient ventriculomegaly; no patient numerator is reported, so frequency is omitted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-gait" data-dismech-node="Abnormal Gait" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Gait
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Broad-based gait</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002136" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002136</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Wide-based, spastic, and/or stiff-legged gait, annotated with Broad-based gait (HP:0002136). HP:0002136 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a wide-based, spastic, and/or stiff-legged gait."</div>
-
-
-                <div class="evidence-explanation">A wide-based/spastic/stiff-legged gait was present in all individuals of the defining cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-gait" data-dismech-node="Spastic Gait" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spastic Gait
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002064</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spastic and/or stiff-legged gait, annotated with Spastic gait (HP:0002064). HP:0002064 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a wide-based, spastic, and/or stiff-legged gait."</div>
-
-
-                <div class="evidence-explanation">The spastic/stiff-legged gait component was present in all individuals of the defining cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-maxilla" data-dismech-node="Prominent Maxilla" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prominent Maxilla
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal maxilla morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prominent maxilla, annotated with Abnormal maxilla morphology (HP:0000326). HP:0000326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These subjects share a set of common facial features that include a prominent maxilla and upper lip that readily reveal the upper gingiva, widely spaced teeth, and a broad nasal tip."</div>
-
-
-                <div class="evidence-explanation">A prominent maxilla revealing the upper gingiva is part of the shared facial gestalt in the defining cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-widely-spaced-teeth" data-dismech-node="Widely Spaced Teeth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Widely Spaced Teeth
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000687" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000687</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Widely spaced teeth (HP:0000687). HP:0000687 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28686853" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28686853" target="_blank">PMID:28686853</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a prominent maxilla and upper lip that readily reveal the upper gingiva, widely spaced teeth, and a broad nasal tip."</div>
-
-
-                <div class="evidence-explanation">Widely spaced teeth are part of the shared facial gestalt in the defining cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-minor-skeletal-anomalies" data-dismech-node="Minor Skeletal Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Minor Skeletal Anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal skeletal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011842</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Minor skeletal anomalies, annotated with Abnormal skeletal morphology (HP:0011842). HP:0011842 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">The generic HP:0011842 (Abnormal skeletal morphology) is retained because the cited sources describe only unspecified &#34;minor skeletal anomalies&#34; and do not name a specific skeletal feature that would support a more specific HPO term.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33675273" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33675273" target="_blank">PMID:33675273</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"feeding difficulties, and minor skeletal anomalies."</div>
-
-
-                <div class="evidence-explanation">Lists minor skeletal anomalies among the defining clinical signs; frequency omitted as no numerator is given.</div>
 
 
 
@@ -6449,6 +6612,9 @@ This disease-associated gene is WDR26 (hgnc:21208). hgnc:21208 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6463,6 +6629,7 @@ This disease-associated gene is WDR26 (hgnc:21208). hgnc:21208 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6487,6 +6654,7 @@ This disease-associated gene is WDR26 (hgnc:21208). hgnc:21208 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6591,6 +6759,31 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic pharmacological control of febrile and non-febrile seizures with antiseizure medication.</div>
 
 
@@ -6637,6 +6830,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6693,6 +6911,31 @@ This treatment is speech language therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech and language therapy, including augmentative and alternative communication, for delayed or absent speech.</div>
 
 
@@ -6739,6 +6982,31 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6814,6 +7082,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6978,6 +7247,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7017,6 +7287,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

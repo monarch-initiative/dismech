@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Multiple%20Synostoses%20Syndrome"
@@ -3930,7 +4007,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3946,7 +4035,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3967,7 +4056,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4122,6 +4211,183 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0008519" target="_blank" class="missing-ontology-link">MONDO:0008519</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">multiple synostoses syndrome 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0008519 (multiple synostoses syndrome 1, SYNS1) is MONDO&#39;s gene-stratified subtype for the NOG-caused form, already curated here under genetic[].name: NOG Mutations (SYNS1).</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012394" target="_blank" class="missing-ontology-link">MONDO:0012394</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">multiple synostoses syndrome 2</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0012394 (multiple synostoses syndrome 2, SYNS2) is MONDO&#39;s gene-stratified subtype for the GDF5-caused form, already curated here under genetic[].name: GDF5 Mutations (SYNS2).</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013064" target="_blank" class="missing-ontology-link">MONDO:0013064</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">multiple synostoses syndrome 3</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0013064 (multiple synostoses syndrome 3, SYNS3) is MONDO&#39;s gene-stratified subtype for the FGF9-caused form, already curated here under genetic[].name: FGF9.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0054752" target="_blank" class="missing-ontology-link">MONDO:0054752</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">multiple synostoses syndrome 4</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0054752 (multiple synostoses syndrome 4, SYNS4) is MONDO&#39;s gene-stratified subtype for the GDF6-caused form, already curated here under genetic[].name: GDF6 Mutations (SYNS4).</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -4168,6 +4434,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Multiple-synostosis syndrome is an autosomal dominant disorder characterized by progressive symphalangism, carpal/tarsal fusions, deafness, and mild facial dysmorphism."</div>
@@ -4207,13 +4474,14 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bmp-signaling-dysregulation" data-dismech-node="BMP Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">BMP Signaling Dysregulation</div>
 
-                <div class="item-desc">NOG mutations reduce noggin&#39;s ability to antagonize BMPs (particularly BMP2, BMP4, and GDF5), leading to excessive BMP signaling in developing joints. This causes progressive ossification and fusion of joints that would normally remain separate. GDF5 mutations cause gain-of-function changes that similarly enhance BMP pathway activity in joint development.
+
+                <div class="item-desc">NOG mutations reduce noggin&#39;s ability to antagonize BMPs (particularly BMP2, BMP4, and GDF5), leading to excessive BMP signaling in developing joints. This causes progressive ossification and fusion of joints that would normally remain separate. GDF5 mutations cause gain-of-function changes that similarly enhance BMP pathway activity in joint development, and the SYNS4 GDF6 p.Y444N variant raises BMP signaling by the same route, resisting noggin-mediated antagonism.
 </div>
 
 
@@ -4254,6 +4522,127 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NOG
+
+
+    <a href="https://bioregistry.io/hgnc:7866" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7866</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOG (hgnc:7866). hgnc:7866 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GDF5
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4220</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GDF6
+
+
+    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:4221</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF6 (hgnc:4221). hgnc:4221 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4269,11 +4658,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030509</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves BMP Signaling Pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4299,11 +4688,11 @@ This pathophysiological event involves BMP Signaling Pathway (GO:0030509). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060173</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060173</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Limb Development (GO:0060173). GO:0060173 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4329,11 +4718,11 @@ This pathophysiological event involves Limb Development (GO:0060173). GO:0060173
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Chondrocyte Differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4394,6 +4783,7 @@ This pathophysiological event involves Chondrocyte Differentiation (GO:0002062).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4418,6 +4808,7 @@ This pathophysiological event involves Chondrocyte Differentiation (GO:0002062).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4438,10 +4829,314 @@ This pathophysiological event involves Chondrocyte Differentiation (GO:0002062).
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf9-signaling-loss-in-the-joint-interzone" data-dismech-node="FGF9 Signaling Loss in the Joint Interzone" data-dismech-type="pathophysiology">
+                <div class="item-name">FGF9 Signaling Loss in the Joint Interzone</div>
+
+
+                <div class="item-desc">SYNS3 is caused by the FGF9 p.S99N substitution, which is secreted normally but binds FGFR poorly, so FGF signaling in the developing joint is reduced rather than increased. FGF9 normally restrains mesenchymal cells from differentiating into chondrocytes at the prospective joint site and sustains Gdf5 expression there; the mutant protein does neither, and the interzone fails to form. This is a separate route to the same synostoses from the BMP-side lesions in SYNS1, SYNS2 and SYNS4, and it converges on the same failure of joint separation.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Mesenchymal stem cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FGF9
+
+
+    <a href="https://bioregistry.io/hgnc:3687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3687</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGF9 (hgnc:3687). hgnc:3687 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        FGF receptor signaling in the joint interzone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0008543</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased FGF receptor signaling in the joint interzone, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Embryonic skeletal joint morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060272" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060272</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Embryonic skeletal joint morphogenesis (GO:0060272). GO:0060272 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Mesenchymal cell differentiation at the prospective joint
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048762" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0048762</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Mesenchymal cell differentiation at the prospective joint, annotated with mesenchymal cell differentiation (GO:0048762). GO:0048762 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal Joint Cavitation</span>
+
+	                            <span class="crosslink-desc">Failure of interzone formation removes the cell population from which the joint space would be carved, so cavitation never occurs.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19589401" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19589401" target="_blank">PMID:19589401</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Importantly, the binding of FGF9(S99N) to its receptor is severely impaired although the dimerization ability of mutant FGF9 itself or with wild-type FGF9 is not detectably affected, providing a basis for the defective FGFR signaling."</div>
+
+
+                <div class="evidence-explanation">Identifies impaired receptor binding, not impaired dimerization or secretion, as the molecular defect behind reduced FGF signaling in SYNS3.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28169396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28169396" target="_blank">PMID:28169396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Further study reveals that the S99N mutation in Fgf9 disrupts joint interzone formation by affecting the chondrogenic differentiation of mesenchymal cells at the early stage of joint development."</div>
+
+
+                <div class="evidence-explanation">Places the SYNS3 lesion at interzone formation in a mouse carrying the human allele, which is the step this node names.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28169396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28169396" target="_blank">PMID:28169396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We also show that Fgf9 is required for normal expression of Gdf5 in the prospective elbow and knee joints through its activation of Gdf5 promoter activity."</div>
+
+
+                <div class="evidence-explanation">Links the FGF9 lesion to the same GDF5-dependent joint program that the BMP-side subtypes disturb, supporting convergence on one cavitation defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-joint-cavitation" data-dismech-node="Abnormal Joint Cavitation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Joint Cavitation</div>
 
-                <div class="item-desc">Normal joint formation requires interzone specification and subsequent cavitation. Excess BMP signaling, due to loss of noggin antagonism, disrupts this process, leading to failure of joint space formation and progressive synostosis.
+
+                <div class="item-desc">Normal joint formation requires interzone specification and subsequent cavitation. Both routes above disrupt this process: excess BMP signaling from loss of noggin antagonism (SYNS1) or from noggin-resistant GDF5/GDF6 ligands (SYNS2, SYNS4), and loss of FGF9 receptor signaling at the prospective joint (SYNS3). Either way joint space formation fails and synostosis is progressive.
 </div>
 
 
@@ -4463,11 +5158,11 @@ This pathophysiological event involves Chondrocyte Differentiation (GO:0002062).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001503</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4584,6 +5279,7 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4605,6 +5301,7 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4653,7 +5350,7 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Joint Cavitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal joint formation requires interzone specification and subsequent cavitation. Excess BMP signaling, due to loss of noggin antagonism, disrupts this process, leading to failure of joint space formation and progressive synostosis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Ossification\"]}}, {\"id\": \"BMP Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NOG mutations reduce noggin\u0027s ability to antagonize BMPs (particularly BMP2, BMP4, and GDF5), leading to excessive BMP signaling in developing joints. This causes progressive ossification and fusion of joints that would normally remain separate. GDF5 mutations cause gain-of-function changes that similarly enhance BMP pathway activity in joint development.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"BMP Signaling Pathway\", \"Limb Development\", \"Chondrocyte Differentiation\"]}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits are part of the multiple synostoses limb phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Broad thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad thumbs are reported in the symphalangism-brachydactyly MSS spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Carpal and Tarsal Fusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fusion of carpal (wrist) and tarsal (ankle) bones.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009702\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss resulting from stapes fixation or fusion of the ossicular chain in the middle ear.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Humeroradial Synostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of the humerus and radius at the elbow, part of the broader multiple synostoses pattern.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003041\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive synostosis produces stiff joints and limited range of motion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Proximal Symphalangism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of proximal interphalangeal joints, causing inability to flex the fingers. One of the earliest and most consistent findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100264\"}}, {\"id\": \"Vertebral Fusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of vertebrae, particularly cervical, limiting neck mobility.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002948\"}}], \"edges\": [{\"source\": \"BMP Signaling Dysregulation\", \"target\": \"Abnormal Joint Cavitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess BMP signaling disrupts normal joint-space formation during skeletal development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Proximal Symphalangism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed joint separation produces proximal interphalangeal synostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Carpal and Tarsal Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cavitation and ossification extend to carpal and tarsal joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Humeroradial Synostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal skeletal joint separation can include humeroradial fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Vertebral Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal joint morphogenesis can involve cervical spine joint fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive synostosis limits joint range of motion and produces stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle-ear ossicular fixation in the synostosis spectrum produces conductive hearing impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BMP signaling in limb development contributes to shortened digits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Broad thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BMP signaling in limb development contributes to broad thumbs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Joint Cavitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal joint formation requires interzone specification and subsequent cavitation. Both routes above disrupt this process: excess BMP signaling from loss of noggin antagonism (SYNS1) or from noggin-resistant GDF5/GDF6 ligands (SYNS2, SYNS4), and loss of FGF9 receptor signaling at the prospective joint (SYNS3). Either way joint space formation fails and synostosis is progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Ossification\"]}}, {\"id\": \"BMP Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NOG mutations reduce noggin\u0027s ability to antagonize BMPs (particularly BMP2, BMP4, and GDF5), leading to excessive BMP signaling in developing joints. This causes progressive ossification and fusion of joints that would normally remain separate. GDF5 mutations cause gain-of-function changes that similarly enhance BMP pathway activity in joint development, and the SYNS4 GDF6 p.Y444N variant raises BMP signaling by the same route, resisting noggin-mediated antagonism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"BMP Signaling Pathway\", \"Limb Development\", \"Chondrocyte Differentiation\"], \"genes\": [\"NOG\", \"GDF5\", \"GDF6\"], \"gene_terms\": [{\"label\": \"NOG\", \"id\": \"hgnc:7866\"}, {\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}, {\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}]}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits are part of the multiple synostoses limb phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Broad thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad thumbs are reported in the symphalangism-brachydactyly MSS spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Carpal and Tarsal Fusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fusion of carpal (wrist) and tarsal (ankle) bones.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009702\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss resulting from stapes fixation or fusion of the ossicular chain in the middle ear.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"FGF9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF9\"], \"gene_terms\": [{\"label\": \"FGF9\", \"id\": \"hgnc:3687\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FGF9 Signaling Loss in the Joint Interzone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SYNS3 is caused by the FGF9 p.S99N substitution, which is secreted normally but binds FGFR poorly, so FGF signaling in the developing joint is reduced rather than increased. FGF9 normally restrains mesenchymal cells from differentiating into chondrocytes at the prospective joint site and sustains Gdf5 expression there; the mutant protein does neither, and the interzone fails to form. This is a separate route to the same synostoses from the BMP-side lesions in SYNS1, SYNS2 and SYNS4, and it converges on the same failure of joint separation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Mesenchymal stem cell\"], \"biological_processes\": [\"FGF receptor signaling in the joint interzone\", \"Embryonic skeletal joint morphogenesis\", \"Mesenchymal cell differentiation at the prospective joint\"], \"genes\": [\"FGF9\"], \"gene_terms\": [{\"label\": \"FGF9\", \"id\": \"hgnc:3687\"}]}}, {\"id\": \"GDF5 Mutations (SYNS2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"association\": \"Causative\"}}, {\"id\": \"GDF6 Mutations (SYNS4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GDF6\"], \"gene_terms\": [{\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}], \"association\": \"Causative\"}}, {\"id\": \"Humeroradial Synostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of the humerus and radius at the elbow, part of the broader multiple synostoses pattern.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003041\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive synostosis produces stiff joints and limited range of motion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"NOG Mutations (SYNS1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NOG\"], \"gene_terms\": [{\"label\": \"NOG\", \"id\": \"hgnc:7866\"}], \"association\": \"Causative\"}}, {\"id\": \"Proximal Symphalangism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of proximal interphalangeal joints, causing inability to flex the fingers. One of the earliest and most consistent findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100264\"}}, {\"id\": \"Vertebral Fusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fusion of vertebrae, particularly cervical, limiting neck mobility.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002948\"}}], \"edges\": [{\"source\": \"BMP Signaling Dysregulation\", \"target\": \"Abnormal Joint Cavitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess BMP signaling disrupts normal joint-space formation during skeletal development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FGF9 Signaling Loss in the Joint Interzone\", \"target\": \"Abnormal Joint Cavitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of interzone formation removes the cell population from which the joint space would be carved, so cavitation never occurs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Proximal Symphalangism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed joint separation produces proximal interphalangeal synostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Carpal and Tarsal Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cavitation and ossification extend to carpal and tarsal joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Humeroradial Synostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal skeletal joint separation can include humeroradial fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Vertebral Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal joint morphogenesis can involve cervical spine joint fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive synostosis limits joint range of motion and produces stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle-ear ossicular fixation in the synostosis spectrum produces conductive hearing impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BMP signaling in limb development contributes to shortened digits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Joint Cavitation\", \"target\": \"Broad thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BMP signaling in limb development contributes to broad thumbs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NOG Mutations (SYNS1)\", \"target\": \"BMP Signaling Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF5 Mutations (SYNS2)\", \"target\": \"BMP Signaling Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF6 Mutations (SYNS4)\", \"target\": \"BMP Signaling Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF9\", \"target\": \"FGF9 Signaling Loss in the Joint Interzone\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4674,11 +5371,9 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4707,15 +5402,18 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000405</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4738,6 +5436,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Multiple-synostosis syndrome is an autosomal dominant disorder characterized by progressive symphalangism, carpal/tarsal fusions, deafness, and mild facial dysmorphism."</div>
@@ -4757,6 +5456,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4789,7 +5489,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-carpal-and-tarsal-fusion" data-dismech-node="Carpal and Tarsal Fusion" data-dismech-type="phenotype">
@@ -4808,15 +5508,18 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0009702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009702</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4836,6 +5539,7 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4861,12 +5565,85 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"SYNS is characterized by progressive symphalangism, carpal/tarsal fusions, deafness and mild facial dysmorphism."</div>
 
 
                 <div class="evidence-explanation">Confirms carpal/tarsal fusions as a core feature of SYNS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-humeroradial-synostosis" data-dismech-node="Humeroradial Synostosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Humeroradial Synostosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003041</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3237" target="_blank">ORPHA:3237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multiple synostoses syndrome (MSS) is a rare developmental bone disorder characterized by proximal symphalangism of the fingers and/or toes often associated with fusion of carpal and tarsal, humeroradial, and cervical spine joints."</div>
+
+
+                <div class="evidence-explanation">Orphanet lists humeroradial joint fusion among the characteristic fusions in multiple synostoses syndrome.</div>
 
 
 
@@ -4896,15 +5673,18 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4924,6 +5704,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4964,15 +5745,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011304</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0011304</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4992,6 +5776,7 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5041,15 +5826,18 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100264</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100264</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5072,6 +5860,7 @@ This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a ph
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We have identified five dominant human NOG mutations in unrelated families segregating proximal symphalangism (SYM1; OMIM 185800)"</div>
@@ -5091,6 +5880,7 @@ This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5129,15 +5919,18 @@ This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002948</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002948</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5157,6 +5950,7 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5197,15 +5991,18 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5225,6 +6022,7 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5236,83 +6034,6 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                 <div class="evidence-explanation">Orphanet reports joint stiffness as a very frequent MSS phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-humeroradial-synostosis" data-dismech-node="Humeroradial Synostosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Humeroradial Synostosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003041</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3237" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3237" target="_blank">ORPHA:3237</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Multiple synostoses syndrome (MSS) is a rare developmental bone disorder characterized by proximal symphalangism of the fingers and/or toes often associated with fusion of carpal and tarsal, humeroradial, and cervical spine joints."</div>
-
-
-                <div class="evidence-explanation">Orphanet lists humeroradial joint fusion among the characteristic fusions in multiple synostoses syndrome.</div>
 
 
 
@@ -5375,6 +6096,31 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NOG
+
+
+    <a href="https://bioregistry.io/hgnc:7866" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7866</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOG (hgnc:7866). hgnc:7866 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -5392,6 +6138,7 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +6164,7 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"All seven NOG mutations alter evolutionarily conserved amino acid residues. The findings reported here confirm that NOG is essential for joint formation."</div>
@@ -5436,6 +6184,7 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5468,6 +6217,31 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GDF5
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:4220</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -5485,6 +6259,7 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5507,6 +6282,7 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,8 +6315,118 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
 
                 </div>
 
+                <div class="item-meta">
 
 
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GDF6
+
+
+    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:4221</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDF6 (hgnc:4221). hgnc:4221 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26643732" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26643732" target="_blank">PMID:26643732</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using genetic data obtained from a six-generation Chinese family, we identified a missense variant in GDF6 (NP_001001557.1; p.Y444N) that fully segregates with a novel autosomal dominant synostoses (SYNS) phenotype, which we designate as SYNS4."</div>
+
+
+                <div class="evidence-explanation">Establishes GDF6 as the SYNS4 locus by segregation in a large pedigree.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26643732" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26643732" target="_blank">PMID:26643732</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Further, we determine that the enhanced BMP activity exhibited by mutant GDF6 is attributable to resistance to NOG-mediated antagonism."</div>
+
+
+                <div class="evidence-explanation">Gives the mechanism by which the SYNS4 GDF6 variant raises BMP signaling, the same noggin-resistance route as the SYNS2 GDF5 variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34573339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573339" target="_blank">PMID:34573339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report a five-generation SYNS4 family with a reduction in GDF6 expression resulting from a chromosomal breakpoint 3&#39; of GDF6."</div>
+
+
+                <div class="evidence-explanation">Records a SYNS4 family in which GDF6 dosage is reduced rather than the ligand being hyperactive, so the allelic spectrum is not uniformly gain-of-function.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5564,10 +6450,10 @@ This clinical feature is Humeroradial synostosis (HP:0003041). HP:0003041 is a p
                         Gene: FGF9
 
 
-    <a href="https://bioregistry.io/hgnc:3687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:3687</a>
+    <a href="https://bioregistry.io/hgnc:3687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:3687</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5575,6 +6461,9 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5593,6 +6482,7 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5644,6 +6534,20 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hearing aids for conductive hearing loss from stapes fixation.
 </div>
 
@@ -5664,6 +6568,20 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical replacement of the fixed stapes to restore hearing.
 </div>
 
@@ -5679,6 +6597,20 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
                 <div class="item-name">
                     Orthopedic Management
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5760,6 +6692,7 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5781,6 +6714,7 @@ This disease-associated gene is FGF9 (hgnc:3687). hgnc:3687 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5864,6 +6798,44 @@ disease_term:
   term:
     id: MONDO:0017923
     label: multiple synostoses syndrome
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0008519
+      label: multiple synostoses syndrome 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0008519 (multiple synostoses syndrome 1, SYNS1) is MONDO&#39;s
+      gene-stratified subtype for the NOG-caused form, already curated here
+      under genetic[].name: NOG Mutations (SYNS1).
+  - term:
+      id: MONDO:0012394
+      label: multiple synostoses syndrome 2
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0012394 (multiple synostoses syndrome 2, SYNS2) is MONDO&#39;s
+      gene-stratified subtype for the GDF5-caused form, already curated here
+      under genetic[].name: GDF5 Mutations (SYNS2).
+  - term:
+      id: MONDO:0013064
+      label: multiple synostoses syndrome 3
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0013064 (multiple synostoses syndrome 3, SYNS3) is MONDO&#39;s
+      gene-stratified subtype for the FGF9-caused form, already curated here
+      under genetic[].name: FGF9.
+  - term:
+      id: MONDO:0054752
+      label: multiple synostoses syndrome 4
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0054752 (multiple synostoses syndrome 4, SYNS4) is MONDO&#39;s
+      gene-stratified subtype for the GDF6-caused form, already curated here
+      under genetic[].name: GDF6 Mutations (SYNS4).
 parents:
 - Joint Disorders
 inheritance:
@@ -5916,7 +6888,9 @@ pathophysiology:
     BMP4, and GDF5), leading to excessive BMP signaling in developing joints.
     This causes progressive ossification and fusion of joints that would normally
     remain separate. GDF5 mutations cause gain-of-function changes that similarly
-    enhance BMP pathway activity in joint development.
+    enhance BMP pathway activity in joint development, and the SYNS4 GDF6
+    p.Y444N variant raises BMP signaling by the same route, resisting
+    noggin-mediated antagonism.
   biological_processes:
   - preferred_term: BMP Signaling Pathway
     term:
@@ -5930,6 +6904,19 @@ pathophysiology:
     term:
       id: GO:0002062
       label: chondrocyte differentiation
+  genes:
+  - preferred_term: NOG
+    term:
+      id: hgnc:7866
+      label: NOG
+  - preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
+  - preferred_term: GDF6
+    term:
+      id: hgnc:4221
+      label: GDF6
   cell_types:
   - preferred_term: Chondrocyte
     term:
@@ -5962,12 +6949,90 @@ pathophysiology:
   - target: Abnormal Joint Cavitation
     description: Excess BMP signaling disrupts normal joint-space formation during skeletal development.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+- name: FGF9 Signaling Loss in the Joint Interzone
+  description: &gt;
+    SYNS3 is caused by the FGF9 p.S99N substitution, which is secreted normally
+    but binds FGFR poorly, so FGF signaling in the developing joint is reduced
+    rather than increased. FGF9 normally restrains mesenchymal cells from
+    differentiating into chondrocytes at the prospective joint site and
+    sustains Gdf5 expression there; the mutant protein does neither, and the
+    interzone fails to form. This is a separate route to the same synostoses
+    from the BMP-side lesions in SYNS1, SYNS2 and SYNS4, and it converges on
+    the same failure of joint separation.
+  biological_processes:
+  - preferred_term: FGF receptor signaling in the joint interzone
+    term:
+      id: GO:0008543
+      label: fibroblast growth factor receptor signaling pathway
+    modifier: DECREASED
+  - preferred_term: Embryonic skeletal joint morphogenesis
+    term:
+      id: GO:0060272
+      label: embryonic skeletal joint morphogenesis
+  - preferred_term: Mesenchymal cell differentiation at the prospective joint
+    term:
+      id: GO:0048762
+      label: mesenchymal cell differentiation
+  genes:
+  - preferred_term: FGF9
+    term:
+      id: hgnc:3687
+      label: FGF9
+  cell_types:
+  - preferred_term: Mesenchymal stem cell
+    term:
+      id: CL:0000134
+      label: mesenchymal stem cell
+  evidence:
+  - reference: PMID:19589401
+    reference_title: &#34;Multiple synostoses syndrome is due to a missense mutation in exon 2 of FGF9 gene.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Importantly, the binding of FGF9(S99N) to its receptor is severely
+      impaired although the dimerization ability of mutant FGF9 itself or with
+      wild-type FGF9 is not detectably affected, providing a basis for the
+      defective FGFR signaling.
+    explanation: &gt;-
+      Identifies impaired receptor binding, not impaired dimerization or
+      secretion, as the molecular defect behind reduced FGF signaling in SYNS3.
+  - reference: PMID:28169396
+    reference_title: &#34;A point mutation in Fgf9 impedes joint interzone formation leading to multiple synostoses syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Further study reveals that the S99N mutation in Fgf9 disrupts joint
+      interzone formation by affecting the chondrogenic differentiation of
+      mesenchymal cells at the early stage of joint development.
+    explanation: &gt;-
+      Places the SYNS3 lesion at interzone formation in a mouse carrying the
+      human allele, which is the step this node names.
+  - reference: PMID:28169396
+    reference_title: &#34;A point mutation in Fgf9 impedes joint interzone formation leading to multiple synostoses syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We also show that Fgf9 is required for normal expression of Gdf5 in the
+      prospective elbow and knee joints through its activation of Gdf5 promoter
+      activity.
+    explanation: &gt;-
+      Links the FGF9 lesion to the same GDF5-dependent joint program that the
+      BMP-side subtypes disturb, supporting convergence on one cavitation
+      defect.
+  downstream:
+  - target: Abnormal Joint Cavitation
+    description: &gt;-
+      Failure of interzone formation removes the cell population from which the
+      joint space would be carved, so cavitation never occurs.
+    causal_link_type: DIRECT
 - name: Abnormal Joint Cavitation
   description: &gt;
     Normal joint formation requires interzone specification and subsequent
-    cavitation. Excess BMP signaling, due to loss of noggin antagonism,
-    disrupts this process, leading to failure of joint space formation
-    and progressive synostosis.
+    cavitation. Both routes above disrupt this process: excess BMP signaling
+    from loss of noggin antagonism (SYNS1) or from noggin-resistant GDF5/GDF6
+    ligands (SYNS2, SYNS4), and loss of FGF9 receptor signaling at the
+    prospective joint (SYNS3). Either way joint space formation fails and
+    synostosis is progressive.
   biological_processes:
   - preferred_term: Ossification
     term:
@@ -6178,6 +7243,11 @@ phenotypes:
     explanation: Orphanet reports broad thumb as a frequent MSS phenotype.
 genetic:
 - name: NOG Mutations (SYNS1)
+  gene_term:
+    preferred_term: NOG
+    term:
+      id: hgnc:7866
+      label: NOG
   association: Causative
   notes: &gt;
     Heterozygous loss-of-function mutations in NOG encoding noggin,
@@ -6217,6 +7287,11 @@ genetic:
       reducing functional noggin dimer secretion.
     evidence_source: IN_VITRO
 - name: GDF5 Mutations (SYNS2)
+  gene_term:
+    preferred_term: GDF5
+    term:
+      id: hgnc:4220
+      label: GDF5
   association: Causative
   notes: &gt;
     Heterozygous gain-of-function mutations in GDF5 encoding growth
@@ -6246,10 +7321,54 @@ genetic:
       but gains function via noggin resistance in chondrogenic contexts.
     evidence_source: IN_VITRO
 - name: GDF6 Mutations (SYNS4)
+  gene_term:
+    preferred_term: GDF6
+    term:
+      id: hgnc:4221
+      label: GDF6
   association: Causative
   notes: &gt;
-    Mutations in GDF6, another BMP family member, have been identified
-    in some families with multiple synostoses.
+    GDF6 encodes growth/differentiation factor 6, a BMP-family ligand. The
+    SYNS4 subtype was defined by a GDF6 missense variant (p.Y444N) segregating
+    in a six-generation Chinese pedigree; the substitution lies in the region
+    that binds GDF6 receptors and the BMP antagonist noggin, and the mutant
+    ligand resists noggin antagonism and signals more strongly than wild-type
+    GDF6. A separate five-generation family with SYNS4 carries a chromosomal
+    breakpoint 3&#39; of GDF6 that reduces GDF6 expression rather than a coding
+    gain-of-function change.
+  evidence:
+  - reference: PMID:26643732
+    reference_title: &#34;A New Subtype of Multiple Synostoses Syndrome Is Caused by a Mutation in GDF6 That Decreases Its Sensitivity to Noggin and Enhances Its Potency as a BMP Signal.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Using genetic data obtained from a six-generation Chinese family, we
+      identified a missense variant in GDF6 (NP_001001557.1; p.Y444N) that fully
+      segregates with a novel autosomal dominant synostoses (SYNS) phenotype,
+      which we designate as SYNS4.
+    explanation: &gt;-
+      Establishes GDF6 as the SYNS4 locus by segregation in a large pedigree.
+  - reference: PMID:26643732
+    reference_title: &#34;A New Subtype of Multiple Synostoses Syndrome Is Caused by a Mutation in GDF6 That Decreases Its Sensitivity to Noggin and Enhances Its Potency as a BMP Signal.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Further, we determine that the enhanced BMP activity exhibited by mutant
+      GDF6 is attributable to resistance to NOG-mediated antagonism.
+    explanation: &gt;-
+      Gives the mechanism by which the SYNS4 GDF6 variant raises BMP signaling,
+      the same noggin-resistance route as the SYNS2 GDF5 variant.
+  - reference: PMID:34573339
+    reference_title: &#34;GDF6 Knockdown in a Family with Multiple Synostosis Syndrome and Speech Impairment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here we report a five-generation SYNS4 family with a reduction in GDF6
+      expression resulting from a chromosomal breakpoint 3&#39; of GDF6.
+    explanation: &gt;-
+      Records a SYNS4 family in which GDF6 dosage is reduced rather than the
+      ligand being hyperactive, so the allelic spectrum is not uniformly
+      gain-of-function.
 - name: FGF9
   gene_term:
     preferred_term: FGF9
@@ -6403,6 +7522,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6700,7 +7821,7 @@ Multiple synostoses syndromes comprise a genetically heterogeneous group charact
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Synostoses Syndrome", "mondoId": "MONDO:0017923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Synostoses_Syndrome", "yamlRevision": "592c889e09e8"};
+        const OS_CONFIG = {"diseaseName": "Multiple Synostoses Syndrome", "mondoId": "MONDO:0017923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Synostoses_Syndrome", "yamlRevision": "3cf23febe20e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

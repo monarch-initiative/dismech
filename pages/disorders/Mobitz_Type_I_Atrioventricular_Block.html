@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4037,6 +4114,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vagal-atrioventricular-nodal-suppression" data-dismech-node="Vagal Atrioventricular Nodal Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Vagal Atrioventricular Nodal Suppression</div>
 
+
                 <div class="item-desc">Vagal or parasympathetic surges can slow sinus rate and suppress atrioventricular nodal conduction, producing a generally nodal form of Wenckebach physiology.</div>
 
 
@@ -4161,6 +4239,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4182,6 +4261,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4207,6 +4287,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ischemic-atrioventricular-nodal-depression" data-dismech-node="Ischemic Atrioventricular Nodal Depression" data-dismech-type="pathophysiology">
                 <div class="item-name">Ischemic Atrioventricular Nodal Depression</div>
+
 
                 <div class="item-desc">Acute inferior myocardial infarction can produce ischemic atrioventricular nodal conduction depression with Wenckebach periodicity, converging on the progressive PR-prolongation cascade.</div>
 
@@ -4332,6 +4413,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4354,6 +4436,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-pr-interval-prolongation" data-dismech-node="Progressive PR Interval Prolongation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive PR Interval Prolongation</div>
+
 
                 <div class="item-desc">In Wenckebach periodicity, successive conducted beats show progressive PR interval lengthening before a nonconducted atrial impulse.</div>
 
@@ -4479,6 +4562,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4501,6 +4585,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nonconducted-p-wave" data-dismech-node="Nonconducted P Wave" data-dismech-type="pathophysiology">
                 <div class="item-name">Nonconducted P Wave</div>
+
 
                 <div class="item-desc">The Wenckebach cycle culminates in a nonconducted P wave and dropped ventricular beat, lowering the effective ventricular rate.</div>
 
@@ -4592,6 +4677,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4654,28 +4740,13 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mobitz-i-atrioventricular-block" data-dismech-node="Mobitz I Atrioventricular Block" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mobitz I Atrioventricular Block
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bradycardia" data-dismech-node="Bradycardia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bradycardia
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -4684,170 +4755,18 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011707" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0011707</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Syncope</span>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Lightheadedness</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39123144" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39123144" target="_blank">PMID:39123144</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Remifentanil is known to cause sinus bradycardia, however, because it has a direct negative chronotropic effect on the cardiac conduction system and there is an indirect negative chronotropic effect via the parasympathetic nervous system."</div>
-
-
-                <div class="evidence-explanation">Supports bradycardia as a conduction-system manifestation that can accompany AV nodal depression.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29493981" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29493981" target="_blank">PMID:29493981</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In general, patients with second degree AV block may have no symptoms or may experience symptoms like syncope and lightheadedness."</div>
-
-
-                <div class="evidence-explanation">Supports syncope as a possible symptom of second-degree atrioventricular block, including Mobitz I presentations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mobitz-i-atrioventricular-block" data-dismech-node="Mobitz I Atrioventricular Block" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mobitz I Atrioventricular Block
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011707" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011707</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Mobitz I atrioventricular block (HP:0011707). HP:0011707 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -4867,6 +4786,7 @@ This clinical feature is Mobitz I atrioventricular block (HP:0011707). HP:001170
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4894,6 +4814,7 @@ This clinical feature is Mobitz I atrioventricular block (HP:0011707). HP:001170
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4915,33 +4836,115 @@ This clinical feature is Mobitz I atrioventricular block (HP:0011707). HP:001170
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lightheadedness" data-dismech-node="Lightheadedness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lightheadedness
+            <div class="item-box phenotype-box anchor-target" id="phenotype-bradycardia" data-dismech-node="Bradycardia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Bradycardia
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Presyncope</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001662</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031972</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lightheadedness, annotated with Presyncope (HP:0031972). HP:0031972 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Syncope</span>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Lightheadedness</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39123144" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39123144" target="_blank">PMID:39123144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Remifentanil is known to cause sinus bradycardia, however, because it has a direct negative chronotropic effect on the cardiac conduction system and there is an indirect negative chronotropic effect via the parasympathetic nervous system."</div>
+
+
+                <div class="evidence-explanation">Supports bradycardia as a conduction-system manifestation that can accompany AV nodal depression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
 
 
 
@@ -4961,6 +4964,79 @@ This clinical feature is Lightheadedness, annotated with Presyncope (HP:0031972)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In general, patients with second degree AV block may have no symptoms or may experience symptoms like syncope and lightheadedness."</div>
+
+
+                <div class="evidence-explanation">Supports syncope as a possible symptom of second-degree atrioventricular block, including Mobitz I presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-lightheadedness" data-dismech-node="Lightheadedness" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Lightheadedness
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031972</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lightheadedness, annotated with Presyncope (HP:0031972). HP:0031972 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29493981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29493981" target="_blank">PMID:29493981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4985,34 +5061,8 @@ This clinical feature is Lightheadedness, annotated with Presyncope (HP:0031972)
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5097,6 +5147,20 @@ This treatment uses atropine (CHEBI:16684). CHEBI:16684 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Atropine may be used in acute vagally mediated or drug-associated AV nodal bradyarrhythmia while removing the reversible trigger; this is not evidence for chronic treatment of asymptomatic nodal Wenckebach.</div>
 
 
@@ -5161,6 +5225,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5217,6 +5282,20 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5300,6 +5379,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5410,6 +5490,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5512,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,6 +6050,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -498,11 +498,11 @@ window.searchData = [
   {
     "model_key": "Primary_Ciliary_Dyskinesia--computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities--0",
     "name": "CFD model of mucociliary clearance under ciliary abnormalities",
-    "description": "Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \u2014 the central mechanism of PCD.",
+    "description": "Three-dimensional computational study of mucus transport under varied ciliary density, beat pattern, frequency, coordination and missing-cilia regions. The institutional abstract reports stronger effects for density, pattern and frequency and weaker effects for some spatial arrangements. This general physiological model is not calibrated to PCD patient genotypes or proven clinical trajectories.",
     "model_type": "Physiological",
     "model_type_raw": "PHYSIOLOGICAL",
     "model_format": "Format not recorded",
-    "model_software": "in-house finite-difference / immersed-boundary solver",
+    "model_software": "Software not recorded",
     "base_model": "",
     "model_id": "",
     "repository_url": "",
@@ -528,12 +528,12 @@ window.searchData = [
     ],
     "num_mechanisms": 1,
     "findings": [
-      "A two-layer airway-surface-liquid CFD model with immersed-boundary cilia quantifies the effect of various ciliary abnormalities on mucociliary clearance."
+      "Published computational results identify cilia density, waveform and frequency as important determinants of transport in the modeled system; clinical PCD effect sizes are not established."
     ],
     "num_findings": 1,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "General CFD model of impaired mucociliary clearance rather than a genotype-specific PCD model; cited by DOI (no PubMed abstract available for snippet-level validation).",
+    "notes": "DOI metadata and the author institutional record (https://kth.diva-portal.org/smash/record.jsf?pid=diva2:1779672) identify the study. The sanctioned DOI cache lacks full text; solver implementation and quantitative validation were not independently verified, and no simulation was rerun.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Primary_Ciliary_Dyskinesia.html#computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities",
     "source_file": "kb/disorders/Primary_Ciliary_Dyskinesia.yaml"
@@ -593,6 +593,112 @@ window.searchData = [
     "creation_date": "2026-04-14T05:37:14Z",
     "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-cipa-ikr-dynamic-ord-proarrhythmia-model",
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
+  },
+  {
+    "model_key": "Heart_Failure--computational-model-circadapt-par-75-imaging-based-left-ventricular-digital-twin--0",
+    "name": "CircAdapt par-75 imaging-based left-ventricular digital twin",
+    "description": "A patient-specific closed-loop heart-and-circulation model calibrated to left-ventricular cavity volume, regional longitudinal strain, and strain-rate measurements. Sensitivity and identifiability analysis reduces the CircAdapt MultiPatch personalization problem to 75 reproducibly estimable parameters.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "MATLAB scripts and CircAdapt P-struct MAT files",
+    "model_software": "MATLAB; CircAdapt C++ model solver; dynamic multi-swarm particle swarm optimization",
+    "base_model": "",
+    "model_id": "GitHub:CircAdapt/Koopsen2024ParameterSubsetReduction@dc4fc2b69cbbd5f51ff4976b9ded20dedd9b7a51",
+    "repository_url": "https://github.com/CircAdapt/Koopsen2024ParameterSubsetReduction",
+    "repository_host": "GitHub",
+    "publication": "PMID:38741182",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Heart Failure",
+    "disease_id": "MONDO:0005252",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease"
+    ],
+    "variables": [
+      "Cardiac output",
+      "Global left-ventricular activation duration",
+      "Regional mechanical activation delay",
+      "Left-ventricular cavity volume",
+      "Regional longitudinal strain"
+    ],
+    "variable_ids": [
+      "q0",
+      "dT",
+      "DT",
+      "VLV",
+      "strain"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Myocardial Contractile Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Reducing the personalization problem from 270 to 75 parameters improved minimum parameter reproducibility from ICC 0.01 to 0.83 while retaining patient-resembling fits below a composite error of 2.2."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:38741182"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit dc4fc2b69cbbd5f51ff4976b9ded20dedd9b7a51 (2024-05-07). It contains the MATLAB sensitivity, Sobol, diaphony, and DMS-PSO scripts plus reference CircAdapt P-structs, but no license, automated tests, patient measurement files, or bundled CircAdapt solver. Execution was not attempted because neither MATLAB nor Octave is installed and the scripts require a separately placed CircAdapt C++ checkout and non-public patient data.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-par-75-imaging-based-left-ventricular-digital-twin",
+    "source_file": "kb/disorders/Heart_Failure.yaml"
+  },
+  {
+    "model_key": "Heart_Failure--computational-model-circadapt-virtual-pacing-crt-response-twin--1",
+    "name": "CircAdapt virtual-pacing CRT response twin",
+    "description": "Forty-five echocardiography-personalized CircAdapt models of patients with dyssynchronous HFrEF. Each twin simulates biventricular pacing using the patient's atrioventricular delay and lead location, then relates acute changes in regional myocardial work to six-month reverse remodeling.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Patient-specific simulation workflow curated from the publication",
+    "model_software": "CircAdapt cardiovascular mechanics model",
+    "base_model": "",
+    "model_id": "CircAdapt-CRT-45",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:38288616",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Heart Failure",
+    "disease_id": "MONDO:0005252",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease"
+    ],
+    "variables": [
+      "Septal-to-lateral myocardial work difference",
+      "Maximum left-ventricular pressure-rise rate"
+    ],
+    "variable_ids": [
+      "MWLW-S,DT",
+      "dP/dtmax,DT"
+    ],
+    "variable_terms": [],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Ventricular Remodeling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Virtual pacing-induced work redistribution correlated with real six-month LV end-systolic-volume change at r = 0.62, whereas simulated pressure-rise response correlated more weakly at r = -0.34."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:38288616"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated directly from the paper because no exact code deposit for the 45-patient virtual-pacing analysis was identified. The public Koopsen2024ParameterSubsetReduction repository above documents a closely related CircAdapt personalization framework from the same group, but it is not claimed as the implementation of this CRT study.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-virtual-pacing-crt-response-twin",
+    "source_file": "kb/disorders/Heart_Failure.yaml"
   },
   {
     "model_key": "Atrial_Fibrillation--computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model--0",
@@ -1192,6 +1298,50 @@ window.searchData = [
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Ulcerative_Colitis.html#computational-model-host-microbiome-multi-objective-optimization-model",
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
+  },
+  {
+    "model_key": "apparent_mineralocorticoid_excess--computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis--0",
+    "name": "HSD11B2 homology and molecular-dynamics variant analysis",
+    "description": "HSD17B1 templates were used to model HSD11B2 residues 81\u2013369, with cortisol docking and 500-ns monomer/dimer simulations. The authors proposed allele-specific effects on cofactor/substrate interactions, dimerization and structural stability. Template homology was limited and previously published activity data informed interpretation; the study did not newly assay all variants or validate an individual prenatal prognostic test.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "HSD17B1 structural templates 1IOL, 1JTV and 1FDV",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:29229831",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "apparent mineralocorticoid excess",
+    "disease_id": "MONDO:0009025",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Biallelic HSD11B2 Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Structural hypotheses are distinct from measured enzyme activity; the reported fetal cell-free-DNA diagnostic example concerns congenital adrenal hyperplasia, not a validated AME application."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:29229831"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-24T00:00:00Z",
+    "page_url": "../../pages/disorders/apparent_mineralocorticoid_excess.html#computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis",
+    "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
   },
   {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
@@ -2484,7 +2634,7 @@ window.searchData = [
     "num_findings": 2,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-caf-mediated-invasion-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
@@ -2492,7 +2642,7 @@ window.searchData = [
   {
     "model_key": "Pancreatic_Ductal_Adenocarcinoma--computational-model-pdac-immunotherapy-physicell-model--1",
     "name": "PDAC Immunotherapy PhysiCell Model",
-    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states and is a strong executable analogue of PDAC immune-excluded ecology.",
+    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states using explicit cell-state and interaction rules.",
     "model_type": "Agent Based",
     "model_type_raw": "AGENT_BASED",
     "model_format": "C++/XML/CSV",
@@ -2567,7 +2717,7 @@ window.searchData = [
     "num_findings": 3,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-immunotherapy-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
@@ -3410,6 +3560,52 @@ window.searchData = [
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-revised-per2-circadian-phosphoswitch-model",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
+    "model_key": "Rosacea--computational-model-rosacea-innate-immune-axis-boolean-model--0",
+    "name": "Rosacea Innate-Immune Axis Boolean Model",
+    "description": "A synchronous Boolean network of the cutaneous innate-immune arm of rosacea: barrier impairment and Demodex proliferation through pro-cathelicidin transcription, TLR2, KLK5/KLK7 and LL-37 to the inflammasome, mast-cell, Th1/Th17 and angiogenic branches, and on to the vascular and papulopustular phenotypes. Authored in this repository rather than curated from a publication, because no Boolean, logical or other dynamical model of rosacea has been published; PubMed returns nothing for rosacea combined with Boolean network, logical model, agent-based or mathematical model, and the computational rosacea literature is entirely network pharmacology and molecular docking. Every node maps to a pathophysiology, environmental, treatment or phenotype node in this entry, and every rule transcribes causal edges curated here, so the model asserts no biology of its own: it makes the curated chain executable, so that what the chain implies can be derived instead of argued. Nothing in it is fitted to data.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Boolean rule specification (YAML)",
+    "model_software": "Python (standard library and PyYAML)",
+    "base_model": "",
+    "model_id": "rosacea_innate_boolean",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Rosacea",
+    "disease_id": "MONDO:0006604",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Skin Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Papulopustular inflammation",
+      "Neurovascular vasodilation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "No combination of the interventions that can be grounded in this entry switches off the papulopustular phenotype in the model.",
+      "Removing mites alone clears only telangiectasia in the model, which overstates what an acaricide does to the cathelicidin axis.",
+      "The erythematotelangiectatic scenario produces papules and pustules, which is clinically wrong and exposes the absence of subtype gating in the curated graph."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Spec models/rosacea_innate_boolean.yaml, runner models/rosacea_innate_boolean.py, committed results models/rosacea_innate_boolean.results.json. Regenerate with `uv run python models/rosacea_innate_boolean.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean.config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
+    "creation_date": "2026-04-05T12:00:00Z",
+    "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
+    "source_file": "kb/disorders/Rosacea.yaml"
   },
   {
     "model_key": "Cystic_Fibrosis--computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis--1",
@@ -4854,10 +5050,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 103,
-  "total_source_entries": 40,
-  "total_model_types": 8,
+  "total_models": 107,
+  "total_source_entries": 43,
+  "total_model_types": 9,
   "total_runnable": 4,
-  "total_with_repository": 43
+  "total_with_repository": 44
 };
 window.dispatchEvent(new Event('searchDataReady'));
