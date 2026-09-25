@@ -1016,6 +1016,8 @@ def test_cli_fails_the_12166_report_shape(monkeypatch, tmp_path, capsys):
         "dismech.preflight_dr._default_rival_lookup",
         lambda adapter, use_hgnc: _imd97_lookup,
     )
+    # ``main`` opens MONDO first; without this the test needs a local mondo.db.
+    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
     report = tmp_path / "report.md"
     lines = ["OMIM 619802 and OMIM 604834."]
     for gene, n in IMD97_TBK1_COUNTS.items():
