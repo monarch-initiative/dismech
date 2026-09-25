@@ -402,6 +402,19 @@ Rules:
   `docs/reports/` for analysis reports, `docs/research/` for research provenance,
   `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
   should also be surfaced in the `mkdocs.yml` nav.
+- **Everything under `docs/` is written for a human reader, never for another
+  agent or a future session of yourself.** This holds even in
+  `docs/superpowers/`, whose *subject* is agent investigations — the audience
+  is still a person deciding whether to act on one, not the agent that wrote
+  it. Denser, technical language than a PR body is fine (see the
+  `github-communication` skill's scope note), but density is not license for a
+  diary entry: a title built as a metaphor, a sentence reminding your future
+  self of a rule you already broke once, or a section narrating your own
+  review-round count is process narration, not documentation, and does not
+  belong here even when every fact in it is correct. If a draft report turns
+  out to be mostly that, close the PR rather than merge it, and move anything
+  genuinely reusable into this file or a tracked issue instead. See #12535 and
+  #8908.
 - **Exception — deterministic script outputs may live in `research/`.** A handful
   of scripts write generated data here by design (e.g.
   `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
@@ -429,6 +442,39 @@ report predating a prompt edit is superseded by construction, so a gate would go
 red for the whole corpus on every edit. See
 [`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
 and issue #10183.
+
+### `docs/` and `notes:` Are Written For a Human Reader, Not the Agent That Wrote Them
+
+The denser register `docs/` and `notes:` are allowed (see the
+`github-communication` skill's scope note) is a licence for domain vocabulary,
+not a licence to skip having a reader in mind. A `docs/` file (outside
+`docs/superpowers/`, which is explicitly an agent-facing investigation/plan/spec
+log) or a `notes:` field should tell a curator something about the disease,
+the schema, the corpus, or a decision — not narrate the writing agent's own
+compliance with its own process rules.
+
+PR #12535 is the worked example. It added a "curation retrospective" to
+`docs/reports/` — dense, well-sourced, every figure independently
+re-verified by review — whose actual content was three sections of first-person
+reflection on the writing agent's own workflow ("Everything I intend to change
+has to go in one push, including the things I find on my own after the verdict
+lands") under a title, "Custody of a Claim", that told a reader nothing about
+what was inside. A maintainer closed it, reading it correctly as an agent
+writing itself a note that happened to be committed to the repository rather
+than kept in its own context. The one piece of the document with lasting value
+— a table of ontology identifiers written from memory and what they actually
+resolve to — was exactly the kind of fact this rule asks for, and belongs next
+to the *Every CURIE is read from a source in the same step it is written* rule
+above rather than buried in a retrospective essay.
+
+The test before committing prose to `docs/` or `notes:`: if a passage were
+deleted, would a curator who has never seen this session lose a fact about the
+subject matter — or only lose a reflection on how the writing agent did its
+job? The latter belongs in the PR or issue thread that already carries that
+conversation, under the `github-communication` skill's plain-language rules,
+where a human reviewer will actually see it once and it will not persist as
+permanent content. See issue #8908 for the related, broader problem of
+elliptical AI prose in PR/issue bodies themselves.
 
 ### Hypothesis Provider Data and Analysis Artifacts
 
@@ -1567,7 +1613,7 @@ epistasis sentence), separate from the general disease evidence.
 models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
 top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
 double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
-entries: `Alport_Syndrome`, `Usher_Syndrome`,
+entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
 `MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
@@ -1772,6 +1818,20 @@ Rules:
 For structured curation, review, and audit provenance, add append-only history
 records under `history/`, not inside the KB YAML and not beside KB files as
 `kb/**/*.history.yaml`.
+
+**"Not inside the KB YAML" means `notes:` is not a session log.** A recurring
+drift is writing the *curation session's own narrative* into an entry's
+`notes:` field instead: "Review round 1. The screening-yield rate is deleted,
+as above", "`just preflight-dr` returned SKIP", "Correction, review round 1.
+The first version of this entry said…". That content presumes a reader who
+already has the review thread open, describes what an agent did rather than a
+fact about the disease, and duplicates the `history/` record's job in a
+denser, more elliptical register — see #8908 and the discussion on #12535.
+`notes:` should read as a caveat or fact the entry's own claims need,
+checkable independent of who wrote it or when: why a term is bound this way,
+why a source is thin, what a search returned. If a sentence stops making
+sense once the review thread or PR it refers to is gone, it belongs in the
+`details` field of a `history/` record below — not in `notes:`.
 
 Path pattern:
 
@@ -2374,8 +2434,20 @@ or NCIT (for drug classes).
 
 **Ontology selection:**
 - **CHEBI**: preferred for specific small-molecule drugs (`CHEBI:36796` duloxetine, `CHEBI:46345` 5-fluorouracil)
+  and for chemical classes (`CHEBI:50858` corticosteroid)
 - **NCIT**: use for drug classes, or for biologics/newer drugs that lack a CHEBI term
-  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C2322` Corticosteroid, `NCIT:C65216` Adalimumab)
+  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C65216` Adalimumab)
+- **Not every NCIT drug class is admissible.** `therapeutic_agent` binds to the
+  `ChemicalEntityTerm` dynamic enum, whose NCIT root is `NCIT:C1909` (Pharmacologic
+  Substance). NCIT files some classes elsewhere, so they fail validation even though the
+  CURIE and label are correct: `NCIT:C2322` Corticosteroid sits under Hormone, and
+  `NCIT:C572` Immunoglobulin is outside the enum too (use `CHEBI:50858` and
+  `NCIT:C80829` Human Immunoglobulin G). A quick positive check is
+  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv)`, but the
+  enum cache only holds terms something in `kb/` has already bound, so a hit means
+  admissible and a miss means *unknown*, not excluded. The authoritative answer is
+  `just validate-terms <file>` after binding the term, which expands the enum from the
+  ontology (issue #10978; the wider reachability question is #7355).
 - Leave `therapeutic_agent` absent when the treatment is non-pharmacological
   (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
 
@@ -2541,7 +2613,7 @@ with no per-disease research needed, when that action term's own definition
 |---|---|
 | `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
 | `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
-| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech language therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
 | `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
 | `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
 | `NCIT:C15346` (vaccination) | `VACCINE` |
@@ -3460,6 +3532,13 @@ resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
 no build is involved. The test is whether the caller can do its job without the
 ontology.
 
+**When it cannot, the guard fails instead of degrading.**
+`preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
+`RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
+degradation path: an empty record would read as "MONDO records no causal gene"
+and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
+`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
+
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
 genuinely need real HPO ancestry — `HP:0002123` is-a `HP:0001250` is not
@@ -3546,10 +3625,13 @@ just check-case-collisions      # whole repo, <1s, offline
 
 It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written. The patched fetcher now reuses an existing
-`DOI_*.md` file whose name differs only in case, on both read and write
-(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
-second file; a DOI with no cache file yet is still saved as written. To fix a
+filename copies the DOI as written. `linkml-reference-validator` now reuses an
+existing `DOI_*.md` file whose name differs only in case, on both read and write
+(upstream LRV #87, for dismech#9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. That
+behaviour used to live here as a runtime patch over the validator's internals
+and no longer does — see the `dismech-references` skill on why a patch like that
+is always temporary. To fix a
 collision that gets past it, keep the path matching the publisher's
 capitalization and remove the other from the index with `git rm --cached <path>`,
 which works on a case-insensitive disk because it never touches the file itself.
@@ -3892,6 +3974,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
+| `analysis/classification/**` | NO | Corpus evaluation history belongs in `monarch-initiative/dismech-evals`; local `just jev-audit` checkpoints default to ignored `build/jev-assessments/` |
 | `pages/disorders/*.html` | NO | Derived — regenerated by downstream CI after merge |
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
