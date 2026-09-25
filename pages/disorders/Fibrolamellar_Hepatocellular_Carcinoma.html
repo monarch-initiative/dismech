@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4299,6 +4367,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosome-19-deletion-creating-the-dnajb1-prkaca-fusion" data-dismech-node="Chromosome 19 Deletion Creating the DNAJB1-PRKACA Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromosome 19 Deletion Creating the DNAJB1-PRKACA Fusion</div>
 
+
                 <div class="item-desc">A somatic heterozygous deletion of roughly 400 kb on chromosome 19 joins DNAJB1 in frame to PRKACA. The deletion is present in essentially every fibrolamellar carcinoma and in no adjacent normal liver, and whole-genome sequencing finds no recurrent second structural event alongside it.</div>
 
 
@@ -4433,6 +4502,7 @@ This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4454,6 +4524,7 @@ This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4481,6 +4552,7 @@ This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4503,6 +4575,7 @@ This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chimeric-dnaj-pkac-kinase-expression" data-dismech-node="Chimeric DNAJ-PKAc Kinase Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Chimeric DNAJ-PKAc Kinase Expression</div>
+
 
                 <div class="item-desc">The chimera carries the DNAJB1 amino-terminal chaperone-binding domain fused to the PRKACA catalytic domain. Its transcript is expressed about tenfold above wild-type PRKACA, so the tumour cell holds far more of the mutant kinase than of the normal one.</div>
 
@@ -4598,6 +4671,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4619,6 +4693,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4644,6 +4719,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-camp-stimulated-pka-activity" data-dismech-node="Elevated cAMP-Stimulated PKA Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated cAMP-Stimulated PKA Activity</div>
+
 
                 <div class="item-desc">Tumours show higher cAMP-stimulated PKA catalytic activity than normal liver. The mutant and wild-type kinases have similar Km values, so the excess activity is a consequence of how much mutant kinase is present rather than of a changed affinity for substrate.</div>
 
@@ -4701,6 +4777,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4723,6 +4800,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquired-hsp70-scaffolding-function" data-dismech-node="Acquired Hsp70 Scaffolding Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired Hsp70 Scaffolding Function</div>
+
 
                 <div class="item-desc">The retained DNAJ domain lets the fusion recruit Hsp70, a property wild-type PKA does not have. A-kinase anchoring protein Lbc, itself upregulated in these tumours, clusters the resulting DNAJ-PKAc/Hsp70 subcomplexes with a RAF-MEK-ERK module, so the fusion does not simply signal harder - it assembles a signalling complex the normal kinase never forms. This is the clearest evidence that the lesion is neomorphic rather than merely activating.</div>
 
@@ -4793,6 +4871,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4814,6 +4893,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4839,6 +4919,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erk-biased-mapk-signalling" data-dismech-node="ERK-Biased MAPK Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">ERK-Biased MAPK Signalling</div>
+
 
                 <div class="item-desc">Phosphoproteomic profiling shows the fusion shifts the cell&#39;s signalling landscape toward ERK activation and engages downstream kinase cascades.</div>
 
@@ -4928,6 +5009,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4950,6 +5032,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sik-inactivation" data-dismech-node="SIK Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">SIK Inactivation</div>
+
 
                 <div class="item-desc">The fusion kinase inactivates the salt-inducible kinases, which act as tumour suppressors in this setting. This is the phosphorylation event itself, separate from the transcriptional consequence it releases.</div>
 
@@ -5003,6 +5086,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5025,6 +5109,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crtc2-p300-transcriptional-reprogramming" data-dismech-node="CRTC2-p300 Transcriptional Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">CRTC2-p300 Transcriptional Reprogramming</div>
+
 
                 <div class="item-desc">With SIK activity lost, the CRTC2 coactivator and the p300 acetyltransferase drive a transcriptional program that supports tumour growth. This arm was defined in 2024 by combining model systems with human tumour specimens.</div>
 
@@ -5114,6 +5199,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5136,6 +5222,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aurka-gsk3-sub-network-activation" data-dismech-node="AURKA-GSK3 Sub-Network Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">AURKA-GSK3 Sub-Network Activation</div>
+
 
                 <div class="item-desc">Phosphoproteomics across PKA-activating lesions identifies an Aurora kinase A / GSK3 sub-network as one of two conserved signalling outputs downstream of the fusion. Aurora kinase A is also raised in human tumours by transcriptomics, and it is the target that took the first fusion-rationalised drug into a trial in this disease.</div>
 
@@ -5232,6 +5319,7 @@ This pathophysiological event involves AURKA (hgnc:11393). hgnc:11393 is a gene 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5253,6 +5341,7 @@ This pathophysiological event involves AURKA (hgnc:11393). hgnc:11393 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5369,7 @@ This pathophysiological event involves AURKA (hgnc:11393). hgnc:11393 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5302,6 +5392,7 @@ This pathophysiological event involves AURKA (hgnc:11393). hgnc:11393 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-protein-accumulation" data-dismech-node="MYC Protein Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">MYC Protein Accumulation</div>
+
 
                 <div class="item-desc">c-MYC protein rises in fibrolamellar carcinoma cells. The dominant route is translational rather than transcriptional: blocking translation initiation with an eIF4A inhibitor collapsed MYC expression and cell growth, which is the observation that separates this node from a transcriptional MYC amplification.</div>
 
@@ -5404,6 +5495,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5425,6 +5517,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5450,6 +5543,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-cooperation" data-dismech-node="Wnt/beta-Catenin Cooperation" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt/beta-Catenin Cooperation</div>
+
 
                 <div class="item-desc">The fusion kinase interacts with beta-catenin, and activating beta-catenin genetically markedly increases tumour formation in mouse models. Recurrent Wnt pathway mutations in human tumours support this as a real cooperating route. It is curated as cooperation, not as a second required driver - the fusion alone suffices.</div>
 
@@ -5559,6 +5653,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5581,6 +5676,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-transformation-and-clonal-proliferation" data-dismech-node="Hepatocyte Transformation and Clonal Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Transformation and Clonal Proliferation</div>
+
 
                 <div class="item-desc">The convergent consequence is transformation of hepatocytes in a liver with no underlying disease. The fusion is sufficient on its own: engineering it into adult mouse liver, with no other engineered alteration and no carcinogen exposure, produces tumours resembling human fibrolamellar carcinoma, while overexpressing wild-type PRKACA does not.</div>
 
@@ -5745,6 +5841,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5766,6 +5863,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5792,6 +5890,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lamellar-fibrous-stroma-formation" data-dismech-node="Lamellar Fibrous Stroma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lamellar Fibrous Stroma Formation</div>
 
+
                 <div class="item-desc">Parallel bands of collagen encircle nests of tumour cells, producing the architecture the disease is named for. This is a tumour-induced stroma distinct from cirrhotic fibrosis, and the tumour arises in a liver that is not otherwise fibrotic. The cellular route from transformed hepatocyte to lamellar collagen is not established, so it is modelled as an edge with unknown intermediates rather than asserted.</div>
 
 
@@ -5817,6 +5916,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-mass-in-a-non-cirrhotic-liver" data-dismech-node="Hepatic Mass in a Non-Cirrhotic Liver" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Mass in a Non-Cirrhotic Liver</div>
+
 
                 <div class="item-desc">A large liver mass in a patient with no cirrhosis and none of the risk factors that precede conventional hepatocellular carcinoma. Because the symptoms are nonspecific and the patients are young and otherwise well, a substantial fraction present with a large tumour burden and locally invasive or metastatic disease.</div>
 
@@ -5876,6 +5976,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5898,6 +5999,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ornithine-transcarbamylase-suppression" data-dismech-node="Ornithine Transcarbamylase Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Ornithine Transcarbamylase Suppression</div>
+
 
                 <div class="item-desc">Tumour tissue shows raised Aurora kinase A, c-MYC and ornithine decarboxylase with reduced ornithine transcarbamylase. Suppressing a urea cycle enzyme is how a liver tumour comes to phenocopy an inborn error of metabolism.</div>
 
@@ -6069,6 +6171,7 @@ This pathophysiological event involves decreased urea cycle (GO:0000050). GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6091,6 +6194,7 @@ This pathophysiological event involves decreased urea cycle (GO:0000050). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperammonemic-encephalopathy" data-dismech-node="Hyperammonemic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperammonemic Encephalopathy</div>
+
 
                 <div class="item-desc">A paraneoplastic encephalopathy driven by the tumour&#39;s own suppression of urea cycle capacity rather than by liver failure. It is the reason a fibrolamellar carcinoma patient can present looking like a urea cycle disorder while their non-tumour liver function is preserved.</div>
 
@@ -6164,6 +6268,7 @@ This pathophysiological event involves decreased urea cycle (GO:0000050). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6279,6 +6384,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6293,6 +6401,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6358,6 +6467,9 @@ This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6372,6 +6484,7 @@ This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6543,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-distension" data-dismech-node="Abdominal Distension" data-dismech-type="phenotype">
@@ -6462,6 +6578,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6476,6 +6595,7 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +6650,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6544,6 +6667,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6611,6 +6735,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-normal-serum-alpha-fetoprotein" data-dismech-node="Normal Serum Alpha-Fetoprotein" data-dismech-type="phenotype">
@@ -6643,6 +6770,9 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6657,6 +6787,7 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6720,6 +6851,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6734,6 +6868,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6801,6 +6936,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6835,6 +6973,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6920,6 +7061,9 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6934,6 +7078,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6958,6 +7103,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7043,6 +7189,9 @@ This treatment is Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7053,6 +7202,9 @@ This treatment is Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -7098,6 +7250,7 @@ This treatment is Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7317,9 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7174,6 +7330,9 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7204,6 +7363,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7225,6 +7385,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7330,6 +7491,9 @@ This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7340,6 +7504,9 @@ This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7388,6 +7555,7 @@ This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7412,6 +7580,7 @@ This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7433,6 +7602,7 @@ This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7501,6 +7671,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7511,6 +7684,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7559,6 +7735,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7580,6 +7757,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7646,6 +7824,9 @@ This treatment is Lymphadenectomy (NCIT:C15275). NCIT:C15275 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7656,6 +7837,9 @@ This treatment is Lymphadenectomy (NCIT:C15275). NCIT:C15275 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7686,6 +7870,7 @@ This treatment is Lymphadenectomy (NCIT:C15275). NCIT:C15275 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7707,6 +7892,7 @@ This treatment is Lymphadenectomy (NCIT:C15275). NCIT:C15275 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7773,6 +7959,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7783,6 +7972,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7831,6 +8023,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7852,6 +8045,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7921,6 +8115,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7942,6 +8137,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8011,6 +8207,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8035,6 +8232,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8056,6 +8254,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8113,6 +8312,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8137,6 +8337,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8158,6 +8359,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8215,6 +8417,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8239,6 +8442,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8260,6 +8464,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8330,6 +8535,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8377,6 +8583,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8430,6 +8637,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8454,6 +8662,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8475,6 +8684,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8551,6 +8761,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8612,6 +8823,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8633,6 +8845,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8715,6 +8928,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8767,6 +8981,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8825,6 +9040,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8846,6 +9062,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8917,6 +9134,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8967,6 +9185,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9023,6 +9242,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9073,6 +9293,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9199,6 +9420,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9330,6 +9552,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9458,6 +9681,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9570,6 +9794,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9679,6 +9904,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11327,6 +11553,115 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Fibrolamellar Hepatocellular Carcinoma</strong> · 2026-09-07T01:41:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Fibrolamellar_Hepatocellular_Carcinoma/2026-09-07T014102Z-claude-code-9eebac.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of kb/disorders/Fibrolamellar_Hepatocellular_Carcinoma.yaml
+for MONDO:0006210, promoting the disease from a five-line has_subtypes row
+on Hepatocellular_Carcinoma to its own entry. Claimed via issue #11279.
+
+DEEP RESEARCH AND THE PROVIDER FALLBACK
+No provider was named, so the skill default is falcon. No EDISON_API_KEY is
+configured in this environment. Rather than hand-substituting a provider and
+explaining it in prose here -- which the skill explicitly warns against,
+since six committed records already do that and the substitution is
+invisible to every query -- the run used
+`just dr_fallback=&#39;--fallback&#39; research-disorder falcon`. The report records
+the substitution itself: fell_back: true, requested_provider: falcon, and a
+provider_attempts entry with ProviderNotConfiguredError. It fell through to
+claude_code (19 web searches, 21 turns, 35 citations, 287s) and the file was
+renamed to -claude_code on completion.
+
+Both validation sections were retro-fitted. References: 35/35 resolved, 0
+unresolved, 0 off topic, 1/1 quoted claim verified. Terms: three flagged and
+none bound -- NCIT:C158 does not exist, GO:0016575 is obsolete (the same
+obsolete term the BPDCN report offered in the previous session, which
+suggests the template elicits it), and HP:0033834 is Malaise rather than the
+&#34;Fatigue-related&#34; the report called it.
+
+WHY THIS DISEASE EARNED ITS OWN ENTRY
+The promotion argument is the entry&#39;s spine and is evidenced rather than
+asserted. Whole-genome sequencing of ten tumours found the mutations,
+pathways and structural variants distinct from hepatocellular carcinoma and
+concluded it is &#34;a distinct carcinoma&#34;. The driver is absent from 25
+conventional HCCs, 25 cholangiocarcinomas, 25 adenomas and 5 hepatoblastomas
+tested alongside it. The patient population does not overlap. And the
+treatment path diverges: surgery is the only modality with a measurable
+effect.
+
+THE CAUSAL CHAIN
+13 nodes, no orphans. A ~400 kb chromosome 19 deletion fuses DNAJB1 to
+PRKACA; the chimera is expressed ~10-fold over wild-type PRKACA and raises
+cAMP-stimulated PKA activity with unchanged Km, so the excess is abundance
+rather than altered catalysis. From there the chain forks into four
+evidenced arms -- an acquired Hsp70/AKAP-Lbc scaffolding function feeding
+ERK-biased MAPK signalling, SIK inactivation releasing CRTC2-p300
+transcription, an AURKA/GSK3 route to MYC protein, and Wnt/beta-catenin
+cooperation -- converging on hepatocyte transformation.
+
+The node that carries the most weight is the neomorphic claim. Overexpressing
+wild-type PRKACA does not reproduce the fusion&#39;s oncogenic activity, and the
+fusion recruits Hsp70, which wild-type PKA cannot. Together those make this a
+structurally novel kinase rather than simply more PKA, and the entry says so
+on the evidence rather than by assertion.
+
+A separate arm reaches hyperammonemic encephalopathy: raised AURKA and c-MYC
+drive ornithine decarboxylase up and ornithine transcarbamylase down, so the
+tumour phenocopies a urea cycle disorder in a patient whose non-tumour liver
+is working. The source frames the c-Myc-to-ODC step as a proposal, and the
+edge evidence quotes it as a proposal rather than upgrading it.
+
+TWO NEGATIVE FINDINGS CURATED AS NEGATIVES
+- Normal alpha-fetoprotein is bound to HP:0006254, which names *elevated*
+  AFP, with supports: REFUTE. The discriminating observation in this disease
+  is that the value is normal; grading the evidence REFUTE against the term
+  records that, where omitting the phenotype would lose it and grading it
+  SUPPORT would invert it.
+- Cytotoxic chemotherapy carries a REFUTE item. It is given to roughly half
+  of SEER patients and does not affect outcome. A treatment that does not
+  work is worth curating as such.
+
+JUDGMENT CALLS
+- The parent&#39;s has_subtypes row was kept, not deleted, and rewritten to point
+  at the new entry. Deleting it would assert the WHO-5 separation more
+  strongly but leaves a reader at Hepatocellular_Carcinoma with no signal
+  that the entity exists.
+- `parents` follows MONDO (hepatocellular carcinoma) even though the curated
+  evidence argues for separation. The disagreement is recorded as an
+  INTERPRETATION discussion rather than resolved unilaterally: this entry
+  should not silently re-parent a MONDO term.
+- Two survival figures are kept apart. SEER gives 32.9% five-year
+  cause-specific across all stages; a 2024 review gives under 10% five-year
+  overall in advanced disease. Different populations, different endpoints;
+  curated as separate progression phases with the populations stated.
+- The lamellar stroma -- the feature the disease is named for -- is curated
+  with an INDIRECT_UNKNOWN_INTERMEDIATES edge and no evidence, because the
+  TGF-beta route in the literature is correlative. A KNOWLEDGE_GAP records
+  this rather than the edge implying more than is known.
+
+GENEREVIEWS
+Searched and absent (0 PubMed hits), as expected for a somatic neoplasm.
+
+VALIDATION
+- `just validate-disorders` over both changed files: passed, 40/40 snippets
+  on the new entry.
+- `just validate`: schema, term and reference validation all passed.
+- entity-ref, causal-target, duplicate-key, enum-value and qualifier-term
+  checks: all OK. 13 nodes, no orphans.
+- whole-KB title-snippet, snippet-grading, snippet-length, folded-hyphen and
+  environmental gates: no new violations, no baseline touched.
+- `just compliance`: 74.6%.
+- All 12 reference_title values were derived programmatically from
+  references_cache frontmatter, never typed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

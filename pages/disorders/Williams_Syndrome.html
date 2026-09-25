@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Williams%20Syndrome"
@@ -3987,7 +4055,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">26</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4053,7 +4121,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4140,6 +4208,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4164,6 +4233,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4185,6 +4255,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4289,6 +4360,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4493,6 +4565,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4514,6 +4587,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4605,6 +4679,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4629,6 +4704,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4650,6 +4726,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4694,7 +4771,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#phenotype-generalized-hypotonia">phenotypes#Generalized Hypotonia</a>
+    <a class="entity-ref-chip" href="#phenotype-hypotonia">phenotypes#Hypotonia</a>
 
 
 
@@ -4764,13 +4841,6 @@
 
 
 
-    <a class="entity-ref-chip" href="#phenotype-hoarse-voice">phenotypes#Hoarse Voice</a>
-
-
-
-
-
-
     <a class="entity-ref-chip" href="#phenotype-stellate-iris">phenotypes#Stellate Iris</a>
 
 
@@ -4829,6 +4899,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4941,6 +5012,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4975,6 +5047,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-low-copy-repeat-mediated-7q11-23-deletion" data-dismech-node="Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.</div>
 
@@ -5036,6 +5115,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5058,6 +5138,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eln-haploinsufficiency" data-dismech-node="ELN Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ELN Haploinsufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.</div>
 
@@ -5192,6 +5279,7 @@ This pathophysiological event involves decreased Elastic fiber assembly (GO:0048
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5213,6 +5301,7 @@ This pathophysiological event involves decreased Elastic fiber assembly (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5238,6 +5327,13 @@ This pathophysiological event involves decreased Elastic fiber assembly (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-elastic-fiber-architecture" data-dismech-node="Disrupted Elastic Fiber Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Elastic Fiber Architecture</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.</div>
 
@@ -5357,6 +5453,14 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hoarse Voice</span>
+
+	                            <span class="crosslink-desc">Abnormal vocal cord elastin producing mild vocal cord dysfunction is the proposed route from elastin deficiency to the characteristic hoarse voice; the intermediates have not been resolved beyond small case series.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5376,6 +5480,7 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5401,6 +5506,13 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-smooth-muscle-remodeling-and-arterial-narrowing" data-dismech-node="Vascular Smooth-Muscle Remodeling and Arterial Narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Smooth-Muscle Remodeling and Arterial Narrowing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.</div>
 
@@ -5554,6 +5666,7 @@ This pathophysiological event involves increased Smooth muscle cell proliferatio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5575,6 +5688,7 @@ This pathophysiological event involves increased Smooth muscle cell proliferatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5600,6 +5714,13 @@ This pathophysiological event involves increased Smooth muscle cell proliferatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-interval-gene-haploinsufficiency" data-dismech-node="Neurodevelopmental Interval-Gene Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Interval-Gene Haploinsufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.</div>
 
@@ -5784,6 +5905,7 @@ This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5806,6 +5928,13 @@ This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gtf2i-linked-myelination-and-social-behavior-circuit-dysfunction" data-dismech-node="GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.</div>
 
@@ -5940,6 +6069,7 @@ This pathophysiological event involves GTF2I (hgnc:4659). hgnc:4659 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5962,6 +6092,13 @@ This pathophysiological event involves GTF2I (hgnc:4659). hgnc:4659 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limk1-linked-dorsal-stream-dysfunction" data-dismech-node="LIMK1-Linked Dorsal-Stream Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">LIMK1-Linked Dorsal-Stream Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.</div>
 
@@ -6090,6 +6227,7 @@ This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6111,6 +6249,7 @@ This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6136,6 +6275,13 @@ This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability" data-dismech-node="Dosage-Sensitive Neuronal Maturation and Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Dosage-Sensitive Neuronal Maturation and Excitability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.</div>
 
@@ -6320,6 +6466,7 @@ This pathophysiological event involves abnormal Ribosome biogenesis (GO:0042254)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6341,6 +6488,7 @@ This pathophysiological event involves abnormal Ribosome biogenesis (GO:0042254)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6389,7 +6537,7 @@ This pathophysiological event involves abnormal Ribosome biogenesis (GO:0042254)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"]}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hoarse Voice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hoarse, harsh, or brassy voice was one of the most frequent phenotypes in a large pediatric cohort. Bilateral vocal cord abnormalities have been documented in affected children, and mild vocal cord dysfunction from abnormal vocal cord elastin is the proposed connective-tissue mechanism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001609\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Hoarse Voice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal vocal cord elastin producing mild vocal cord dysfunction is the proposed route from elastin deficiency to the characteristic hoarse voice; the intermediates have not been resolved beyond small case series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6471,6 +6619,9 @@ This clinical feature is Supravalvular aortic stenosis (HP:0004381). HP:0004381 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6485,6 +6636,7 @@ This clinical feature is Supravalvular aortic stenosis (HP:0004381). HP:0004381 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6509,6 +6661,7 @@ This clinical feature is Supravalvular aortic stenosis (HP:0004381). HP:0004381 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6563,6 +6716,9 @@ This clinical feature is Peripheral pulmonary artery stenosis (HP:0004969). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6577,6 +6733,7 @@ This clinical feature is Peripheral pulmonary artery stenosis (HP:0004969). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6631,6 +6788,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6645,6 +6805,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6699,6 +6860,9 @@ This clinical feature is Coronary artery stenosis (HP:0005145). HP:0005145 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6713,6 +6877,7 @@ This clinical feature is Coronary artery stenosis (HP:0005145). HP:0005145 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6767,6 +6932,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6781,6 +6949,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6835,6 +7004,9 @@ This clinical feature is Renal artery stenosis (HP:0001920). HP:0001920 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6849,6 +7021,7 @@ This clinical feature is Renal artery stenosis (HP:0001920). HP:0001920 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6905,6 +7078,9 @@ This clinical feature is Retinal arteriolar tortuosity (HP:0001136). HP:0001136 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6919,6 +7095,7 @@ This clinical feature is Retinal arteriolar tortuosity (HP:0001136). HP:0001136 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6984,6 +7161,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6998,6 +7178,7 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7052,6 +7233,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7066,6 +7250,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7122,6 +7307,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7136,6 +7324,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7199,6 +7388,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7405,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7267,6 +7460,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7281,6 +7477,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7344,6 +7541,9 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7358,6 +7558,7 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7412,6 +7613,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7426,6 +7630,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7491,6 +7696,9 @@ This clinical feature is Stellate iris (HP:0012775). HP:0012775 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7505,6 +7713,7 @@ This clinical feature is Stellate iris (HP:0012775). HP:0012775 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7529,6 +7738,7 @@ This clinical feature is Stellate iris (HP:0012775). HP:0012775 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +7802,9 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7606,6 +7819,7 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7660,6 +7874,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7674,6 +7891,7 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7739,6 +7957,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7753,6 +7974,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7807,6 +8029,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7821,6 +8046,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7875,6 +8101,9 @@ This clinical feature is Periorbital fullness (HP:0000629). HP:0000629 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7889,6 +8118,7 @@ This clinical feature is Periorbital fullness (HP:0000629). HP:0000629 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7943,6 +8173,9 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7957,6 +8190,7 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8020,6 +8254,9 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8034,6 +8271,7 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8058,6 +8296,7 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8112,6 +8351,9 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8126,6 +8368,7 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8161,9 +8404,9 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized Hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Generalized Hypotonia
+                        Hypotonia
 
 
 
@@ -8175,15 +8418,18 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001252</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8203,6 +8449,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8257,6 +8504,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8271,6 +8521,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8334,6 +8585,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8348,6 +8602,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8372,6 +8627,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8426,6 +8682,9 @@ This clinical feature is Impaired visuospatial constructive cognition (HP:001079
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8440,6 +8699,7 @@ This clinical feature is Impaired visuospatial constructive cognition (HP:001079
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8494,6 +8754,9 @@ This clinical feature is Overfriendliness (HP:0100025). HP:0100025 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8508,6 +8771,7 @@ This clinical feature is Overfriendliness (HP:0100025). HP:0100025 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8562,9 +8826,12 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8579,6 +8846,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8587,6 +8855,31 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                 <div class="evidence-explanation">GeneReviews identifies ADHD as a behavioral manifestation requiring individualized management in Williams syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this profile includes gregariousness and hypersociability (or ‘overfriendliness’), accompanied by attention problems (often meeting diagnostic criteria for Attention Deficit Hyperactivity Disorder or ADHD), social problems, anxiety and emotional overreactivity"</div>
+
+
+                <div class="evidence-explanation">The expert review states that attention problems in Williams syndrome often meet diagnostic criteria for ADHD, directly supporting the phenotype rather than only its management.</div>
 
 
 
@@ -8630,9 +8923,12 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8647,6 +8943,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8655,6 +8952,31 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                 <div class="evidence-explanation">GeneReviews identifies anxiety as a behavioral manifestation requiring individualized management in Williams syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, there is a characteristic personality profile that includes overfriendliness, shortened attention span and/or distractibility, nonsocial specific phobias and anxiety"</div>
+
+
+                <div class="evidence-explanation">The expert review places anxiety and nonsocial specific phobias within the characteristic Williams syndrome personality profile, directly supporting the phenotype claim.</div>
 
 
 
@@ -8698,6 +9020,9 @@ This clinical feature is Hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8712,6 +9037,7 @@ This clinical feature is Hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8766,6 +9092,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8780,6 +9109,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8834,6 +9164,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8848,6 +9181,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8913,9 +9247,12 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8930,6 +9267,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8938,6 +9276,31 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                 <div class="evidence-explanation">Hoarseness was present in 87.4% of 231 children with Williams syndrome, supporting a VERY_FREQUENT (80-100%) classification.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12784297" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12784297" target="_blank">PMID:12784297</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One of the most characteristic features of this disorder is a harsh, brassy, or hoarse voice but the etiology of the vocal characteristics are unknown."</div>
+
+
+                <div class="evidence-explanation">The vocal cord case series independently confirms the hoarse voice as a characteristic Williams syndrome feature and motivates the proposed elastin-based mechanism.</div>
 
 
 
@@ -8992,6 +9355,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9006,6 +9372,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9080,6 +9447,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9094,6 +9464,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9118,6 +9489,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9173,6 +9545,9 @@ This disease-associated gene is ELN (hgnc:3327). hgnc:3327 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9187,6 +9562,7 @@ This disease-associated gene is ELN (hgnc:3327). hgnc:3327 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9242,6 +9618,9 @@ This disease-associated gene is GTF2I (hgnc:4659). hgnc:4659 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9256,6 +9635,7 @@ This disease-associated gene is GTF2I (hgnc:4659). hgnc:4659 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9311,6 +9691,9 @@ This disease-associated gene is GTF2IRD1 (hgnc:4661). hgnc:4661 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9325,6 +9708,7 @@ This disease-associated gene is GTF2IRD1 (hgnc:4661). hgnc:4661 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9380,6 +9764,9 @@ This disease-associated gene is LIMK1 (hgnc:6613). hgnc:6613 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9394,6 +9781,7 @@ This disease-associated gene is LIMK1 (hgnc:6613). hgnc:6613 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9479,6 +9867,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9489,6 +9880,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9519,6 +9913,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9540,6 +9935,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9607,6 +10003,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9617,6 +10016,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9647,6 +10049,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9668,6 +10071,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9734,6 +10138,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9744,6 +10151,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9771,6 +10181,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9837,6 +10248,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9847,6 +10261,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9877,6 +10294,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9898,6 +10316,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9964,6 +10383,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9974,6 +10396,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -10001,6 +10426,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10068,6 +10494,9 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10078,6 +10507,9 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10105,6 +10537,7 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10171,6 +10604,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10181,6 +10617,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -10208,6 +10647,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10274,6 +10714,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10284,6 +10727,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10311,6 +10757,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10421,6 +10868,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10442,6 +10890,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10534,6 +10983,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10558,6 +11008,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10579,6 +11030,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10673,6 +11125,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10697,6 +11150,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10718,6 +11172,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10810,6 +11265,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10831,6 +11287,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10901,6 +11358,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10922,6 +11380,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10977,6 +11436,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10998,6 +11458,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11053,6 +11514,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11074,6 +11536,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11150,6 +11613,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11208,6 +11672,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11303,6 +11768,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11368,6 +11834,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11439,6 +11906,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11460,6 +11928,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11614,6 +12083,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11645,7 +12115,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
                 </div>
 
-                <div class="item-desc">Double-blind placebo-controlled trial assessing clemastine, a remyelination- promoting agent, for social, motor, and cognitive abnormalities in individuals with Williams syndrome.</div>
+                <div class="item-desc">Double-blind placebo-controlled trial assessing clemastine, a remyelination-promoting agent, for social, motor, and cognitive abnormalities in individuals with Williams syndrome.</div>
 
 
                 <div class="item-meta">
@@ -11686,6 +12156,7 @@ This clinical trial targets Intellectual disability (HP:0001249). HP:0001249 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11884,6 +12355,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11928,6 +12400,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12078,6 +12551,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12122,6 +12596,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12223,6 +12698,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12244,6 +12720,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12382,6 +12859,7 @@ This experimental model concerns ELN (hgnc:3327). hgnc:3327 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12515,6 +12993,7 @@ This experimental model concerns GTF2I (hgnc:4659). hgnc:4659 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12620,6 +13099,8 @@ references:
   title: &#34;A human neurodevelopmental model for Williams syndrome.&#34;
 - reference: PMID:31011227
   title: &#34;Neuronal deletion of Gtf2i, associated with Williams syndrome, causes behavioral and myelin alterations rescuable by a remyelinating drug.&#34;
+- reference: PMID:12784297
+  title: &#34;Vocal cord abnormalities in Williams syndrome: a further manifestation of elastin deficiency.&#34;
 inheritance:
 - name: Autosomal dominant inheritance
   description: &gt;-
@@ -13086,6 +13567,26 @@ pathophysiology:
       explanation: &gt;-
         The expert review labels the ELN-to-hernia relationship as a possible
         connective-tissue link, so the edge remains indirect and partial.
+  - target: Hoarse Voice
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Abnormal vocal cord elastin producing mild vocal cord dysfunction is the
+      proposed route from elastin deficiency to the characteristic hoarse
+      voice; the intermediates have not been resolved beyond small case series.
+    evidence:
+    - reference: PMID:12784297
+      reference_title: &#34;Vocal cord abnormalities in Williams syndrome: a further manifestation of elastin deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        We suggest that vocal cord abnormalities may be a far more common
+        feature of WS than has been previously suspected, and that mild vocal
+        cord dysfunction caused by abnormal vocal cord elastin may be the cause
+        of the hoarse voice in this condition.
+      explanation: &gt;-
+        Human vocal cord pathology in Williams syndrome patients directly
+        proposes abnormal vocal cord elastin as the cause of the hoarse voice,
+        supporting a proposed rather than established edge.
 - name: Vascular Smooth-Muscle Remodeling and Arterial Narrowing
   biological_scale: TISSUE
   mechanism_confidence: PROVISIONAL
@@ -13659,15 +14160,15 @@ phenotypes:
       The longitudinal dorsal-stream study directly identifies severe
       visuospatial-construction impairment as a characteristic phenotype.
 - category: Neurologic
-  name: Generalized Hypotonia
+  name: Hypotonia
   description: &gt;-
-    Infantile hypotonia is common and contributes to feeding difficulties and
-    motor delay in early childhood.
+    Infantile hypotonia is common and, together with joint hyperextensibility,
+    contributes to delayed attainment of motor milestones.
   phenotype_term:
-    preferred_term: Generalized hypotonia
+    preferred_term: Hypotonia
     term:
-      id: HP:0001290
-      label: Generalized hypotonia
+      id: HP:0001252
+      label: Hypotonia
   evidence:
   - reference: PMID:20301427
     reference_title: &#34;Williams Syndrome.&#34;
@@ -13723,6 +14224,19 @@ phenotypes:
     explanation: &gt;-
       GeneReviews identifies ADHD as a behavioral manifestation requiring
       individualized management in Williams syndrome.
+  - reference: url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/
+    reference_title: &#34;Williams syndrome - PMC&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      this profile includes gregariousness and hypersociability (or
+      ‘overfriendliness’), accompanied by attention problems (often meeting
+      diagnostic criteria for Attention Deficit Hyperactivity Disorder or
+      ADHD), social problems, anxiety and emotional overreactivity
+    explanation: &gt;-
+      The expert review states that attention problems in Williams syndrome
+      often meet diagnostic criteria for ADHD, directly supporting the
+      phenotype rather than only its management.
 - category: Behavioral
   name: Anxiety
   description: &gt;-
@@ -13744,6 +14258,18 @@ phenotypes:
     explanation: &gt;-
       GeneReviews identifies anxiety as a behavioral manifestation requiring
       individualized management in Williams syndrome.
+  - reference: url:https://pmc.ncbi.nlm.nih.gov/articles/PMC9437774/
+    reference_title: &#34;Williams syndrome - PMC&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, there is a characteristic personality profile that includes
+      overfriendliness, shortened attention span and/or distractibility,
+      nonsocial specific phobias and anxiety
+    explanation: &gt;-
+      The expert review places anxiety and nonsocial specific phobias within
+      the characteristic Williams syndrome personality profile, directly
+      supporting the phenotype claim.
 - category: Endocrine
   name: Hypercalcemia
   description: &gt;-
@@ -14055,9 +14581,10 @@ phenotypes:
 - category: Otolaryngologic
   name: Hoarse Voice
   description: &gt;-
-    A hoarse or low-pitched voice was one of the most frequent phenotypes in a
-    large pediatric cohort. A connective-tissue link has been proposed, but the
-    disease-specific mechanism remains unresolved.
+    A hoarse, harsh, or brassy voice was one of the most frequent phenotypes in
+    a large pediatric cohort. Bilateral vocal cord abnormalities have been
+    documented in affected children, and mild vocal cord dysfunction from
+    abnormal vocal cord elastin is the proposed connective-tissue mechanism.
   phenotype_term:
     preferred_term: Hoarse voice
     term:
@@ -14076,6 +14603,18 @@ phenotypes:
     explanation: &gt;-
       Hoarseness was present in 87.4% of 231 children with Williams syndrome,
       supporting a VERY_FREQUENT (80-100%) classification.
+  - reference: PMID:12784297
+    reference_title: &#34;Vocal cord abnormalities in Williams syndrome: a further manifestation of elastin deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      One of the most characteristic features of this disorder is a harsh,
+      brassy, or hoarse voice but the etiology of the vocal characteristics are
+      unknown.
+    explanation: &gt;-
+      The vocal cord case series independently confirms the hoarse voice as a
+      characteristic Williams syndrome feature and motivates the proposed
+      elastin-based mechanism.
 - category: Ophthalmologic
   name: Stellate Iris
   description: &gt;-
@@ -15098,7 +15637,7 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - phenotypes#Generalized Hypotonia
+  - phenotypes#Hypotonia
   - phenotypes#Attention Deficit Hyperactivity Disorder
   - phenotypes#Feeding Difficulties
   - phenotypes#Constipation
@@ -15108,7 +15647,6 @@ discussions:
   - phenotypes#Hyperacusis
   - phenotypes#Dental Malocclusion
   - phenotypes#Short Stature
-  - phenotypes#Hoarse Voice
   - phenotypes#Stellate Iris
   - phenotypes#Global Developmental Delay
   - phenotypes#Hearing Impairment
@@ -15198,8 +15736,8 @@ clinical_trials:
   phase: PHASE_II
   status: ACTIVE_NOT_RECRUITING
   description: &gt;-
-    Double-blind placebo-controlled trial assessing clemastine, a remyelination-
-    promoting agent, for social, motor, and cognitive abnormalities in
+    Double-blind placebo-controlled trial assessing clemastine, a remyelination-promoting
+    agent, for social, motor, and cognitive abnormalities in
     individuals with Williams syndrome.
   target_phenotypes:
   - preferred_term: Intellectual disability
@@ -15241,7 +15779,7 @@ datasets:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">17</span>
+                    <span class="card-count">18</span>
                 </div>
 
                 <div class="reference-entry">
@@ -15533,6 +16071,23 @@ datasets:
 
                 </div>
 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/12784297" target="_blank">PMID:12784297</a>
+                            </div>
+
+                            <div class="reference-title">Vocal cord abnormalities in Williams syndrome: a further manifestation of elastin deficiency.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -15541,6 +16096,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16053,7 +16610,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Williams Syndrome", "mondoId": "MONDO:0008678", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Williams_Syndrome", "yamlRevision": "8da479399e5d"};
+        const OS_CONFIG = {"diseaseName": "Williams Syndrome", "mondoId": "MONDO:0008678", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Williams_Syndrome", "yamlRevision": "6a7c380e96f7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

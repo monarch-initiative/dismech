@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Spinocerebellar%20Ataxia%2C%20Autosomal%20Recessive%2031"
@@ -3989,7 +4057,7 @@ Two findings complicate the simple &#34;autophagy-null&#34; reading of this diso
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4098,6 +4166,7 @@ Two findings complicate the simple &#34;autophagy-null&#34; reading of this diso
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4326,6 +4395,7 @@ Two findings complicate the simple &#34;autophagy-null&#34; reading of this diso
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4360,6 +4430,7 @@ Two findings complicate the simple &#34;autophagy-null&#34; reading of this diso
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-atg7-e1-like-activating-enzyme-function" data-dismech-node="Loss of ATG7 E1-Like Activating Enzyme Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ATG7 E1-Like Activating Enzyme Function</div>
+
 
                 <div class="item-desc">Biallelic deleterious ATG7 variants diminish or abolish the ATG7 protein. ATG7 is the E1-like activating enzyme at the head of both ubiquitin-like conjugation systems that build the autophagosome, and it has no known functional paralogue, so its loss is not buffered.
 </div>
@@ -4414,6 +4485,8 @@ This genetic context concerns ATG7 (hgnc:16935). hgnc:16935 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4424,6 +4497,9 @@ This genetic context concerns ATG7 (hgnc:16935). hgnc:16935 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Zygosity is deliberately left unset. The reported families carry distinct biallelic ATG7 variants spanning homozygous and compound-heterozygous configurations, and ZygosityEnum has no BIALLELIC value, so recording a single value would misstate the cohort.</div>
@@ -4509,6 +4585,7 @@ This pathophysiological event involves ubiquitin-like modifier activating enzyme
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4531,6 +4608,7 @@ This pathophysiological event involves ubiquitin-like modifier activating enzyme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-atg12-atg5-conjugation-and-lc3-lipidation" data-dismech-node="Failure of ATG12-ATG5 Conjugation and LC3 Lipidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ATG12-ATG5 Conjugation and LC3 Lipidation</div>
+
 
                 <div class="item-desc">ATG7 activates ATG12 before its conjugation to ATG5, which promotes expansion of the preautophagosomal phagophore, and it facilitates lipidation of LC3-I with phosphatidylethanolamine to generate LC3-II. LC3-II sits on the inner and outer autophagosomal membranes and recruits cytoplasmic cargo directly or through selective adaptor proteins. Without ATG7 both conjugation systems fail, so the phagophore cannot expand and cargo cannot be marked for capture.
 </div>
@@ -4621,6 +4699,7 @@ This pathophysiological event involves decreased protein lipidation involved in 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4643,6 +4722,7 @@ This pathophysiological event involves decreased protein lipidation involved in 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagosome-formation-and-autophagic-flux" data-dismech-node="Impaired Autophagosome Formation and Autophagic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagosome Formation and Autophagic Flux</div>
+
 
                 <div class="item-desc">Patient cells show impaired autophagic flux and markedly reduced autophagic sequestration. Importantly this is a severe reduction, not a complete abolition: evidence of basal autophagy was readily identified in patient fibroblasts and skeletal muscle despite loss of ATG7. This residual activity is the likely explanation for human survival and is curated as an open question rather than asserted as a mechanism.
 </div>
@@ -4849,6 +4929,7 @@ This pathophysiological event involves decreased autophagosome assembly (GO:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4870,6 +4951,7 @@ This pathophysiological event involves decreased autophagosome assembly (GO:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4895,6 +4977,7 @@ This pathophysiological event involves decreased autophagosome assembly (GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-callosal-maldevelopment" data-dismech-node="Cerebellar and Callosal Maldevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and Callosal Maldevelopment</div>
+
 
                 <div class="item-desc">The neurodevelopmental consequence. Every patient with available MRI had cerebellar hypoplasia and corpus callosum abnormality, most characteristically a thin posterior corpus callosum; in some the effect on brain development was more diffuse, with diffuse brain volume loss. Additional structural findings included bilateral optochiasmatic atrophy.
 </div>
@@ -4967,6 +5050,7 @@ This pathophysiological event involves decreased autophagosome assembly (GO:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4989,6 +5073,7 @@ This pathophysiological event involves decreased autophagosome assembly (GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p62-sqstm1-cargo-receptor-accumulation" data-dismech-node="p62/SQSTM1 Cargo Receptor Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">p62/SQSTM1 Cargo Receptor Accumulation</div>
+
 
                 <div class="item-desc">p62 (SQSTM1) is the classical autophagy cargo receptor: it recruits cytoplasmic cargo to autophagosomes through interaction with LC3-II and is itself degraded after autolysosome formation. When LC3-II cannot be generated, p62 is neither consumed nor able to deliver cargo, and it accumulates. This is the cardinal cellular readout that failed lipidation has actually blocked cargo degradation, and it is the practical diagnostic biomarker alongside the LC3-II immunoblot.
 </div>
@@ -5100,6 +5185,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5122,6 +5208,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-dysfunction" data-dismech-node="Skeletal Muscle Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Dysfunction</div>
+
 
                 <div class="item-desc">Muscle biopsy showed mild myopathic changes, and patients had proximal muscle weakness and hypotonia. Notably the changes are mild: no vacuoles or internalized nuclei were present and electron microscopy showed normal muscle-fibre organization, so this is not a vacuolar myopathy.
 </div>
@@ -5212,6 +5299,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5234,6 +5322,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-dysfunction" data-dismech-node="Endocrine Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocrine Dysfunction</div>
+
 
                 <div class="item-desc">Endocrine involvement included late-onset or absent puberty and, in one patient, hypogonadotropic hypogonadism with gynecomastia, suggesting a role for ATG7 in human endocrine development.
 </div>
@@ -5324,6 +5413,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5346,6 +5436,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ataxia-and-neurodevelopmental-impairment" data-dismech-node="Ataxia and Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Ataxia and Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">The clinical syndrome: mild-to-moderate intellectual disability, motor and language developmental delay, ataxia and tremor as common features across families, with axial hypotonia and spastic diplegia in some patients and psychiatric involvement in others.
 </div>
@@ -5382,6 +5473,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5430,7 +5522,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical syndrome: mild-to-moderate intellectual disability, motor and language developmental delay, ataxia and tremor as common features across families, with axial hypotonia and spastic diplegia in some patients and psychiatric involvement in others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cerebellar and Callosal Maldevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurodevelopmental consequence. Every patient with available MRI had cerebellar hypoplasia and corpus callosum abnormality, most characteristically a thin posterior corpus callosum; in some the effect on brain development was more diffuse, with diffuse brain volume loss. Additional structural findings included bilateral optochiasmatic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Conditional tissue-specific Atg7-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tissue-specific conditional Atg7 ablation (nerve, muscle)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Conditional Atg7 knockout reproduces the brain abnormalities and the hypotonia and muscle weakness seen in patients.\"}]}}, {\"id\": \"Conditional tissue-specific Atg7-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional Atg7 ablation in nerve and muscle produces ataxia and myopathy respectively, and the conditional knockouts reproduce several of the human clinical features. Systemic Atg7-null mice, by contrast, die within 24 hours of birth.\\n\"}, {\"id\": \"Endocrine Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endocrine involvement included late-onset or absent puberty and, in one patient, hypogonadotropic hypogonadism with gynecomastia, suggesting a role for ATG7 in human endocrine development.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"macroautophagy\"]}}, {\"id\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATG7 activates ATG12 before its conjugation to ATG5, which promotes expansion of the preautophagosomal phagophore, and it facilitates lipidation of LC3-I with phosphatidylethanolamine to generate LC3-II. LC3-II sits on the inner and outer autophagosomal membranes and recruits cytoplasmic cargo directly or through selective adaptor proteins. Without ATG7 both conjugation systems fail, so the phagophore cannot expand and cargo cannot be marked for capture.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein lipidation involved in autophagosome assembly\"]}}, {\"id\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells show impaired autophagic flux and markedly reduced autophagic sequestration. Importantly this is a severe reduction, not a complete abolition: evidence of basal autophagy was readily identified in patient fibroblasts and skeletal muscle despite loss of ATG7. This residual activity is the likely explanation for human survival and is curated as an open question rather than asserted as a mechanism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"myoblast\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome assembly\"]}}, {\"id\": \"Loss of ATG7 E1-Like Activating Enzyme Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic deleterious ATG7 variants diminish or abolish the ATG7 protein. ATG7 is the E1-like activating enzyme at the head of both ubiquitin-like conjugation systems that build the autophagosome, and it has no known functional paralogue, so its loss is not buffered.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ubiquitin-like modifier activating enzyme activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ATG7\", \"id\": \"hgnc:16935\"}]}}}, {\"id\": \"Skeletal Muscle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle biopsy showed mild myopathic changes, and patients had proximal muscle weakness and hypotonia. Notably the changes are mild: no vacuoles or internalized nuclei were present and electron microscopy showed normal muscle-fibre organization, so this is not a vacuolar myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"macroautophagy\"]}}, {\"id\": \"p62/SQSTM1 Cargo Receptor Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p62 (SQSTM1) is the classical autophagy cargo receptor: it recruits cytoplasmic cargo to autophagosomes through interaction with LC3-II and is itself degraded after autolysosome formation. When LC3-II cannot be generated, p62 is neither consumed nor able to deliver cargo, and it accumulates. This is the cardinal cellular readout that failed lipidation has actually blocked cargo degradation, and it is the practical diagnostic biomarker alongside the LC3-II immunoblot.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myoblast\"], \"biological_processes\": [\"macroautophagy\"]}}], \"edges\": [{\"source\": \"Loss of ATG7 E1-Like Activating Enzyme Function\", \"target\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"target\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"p62/SQSTM1 Cargo Receptor Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Cerebellar and Callosal Maldevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Skeletal Muscle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Endocrine Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar and Callosal Maldevelopment\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Muscle Dysfunction\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Dysfunction\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Conditional tissue-specific Atg7-knockout mouse\", \"target\": \"Cerebellar and Callosal Maldevelopment\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Conditional Atg7 knockout reproduces the brain abnormalities and the hypotonia and muscle weakness seen in patients.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Systemic Atg7-null mice die within 24 hours of birth whereas the patients survive into adulthood, so the model does not reproduce the natural history or viability of the human disorder. The conditional design also bypasses the developmental context in which the human phenotype arises.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATG7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATG7\"], \"gene_terms\": [{\"label\": \"ATG7\", \"id\": \"hgnc:16935\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Ataxia and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical syndrome: mild-to-moderate intellectual disability, motor and language developmental delay, ataxia and tremor as common features across families, with axial hypotonia and spastic diplegia in some patients and psychiatric involvement in others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cerebellar and Callosal Maldevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurodevelopmental consequence. Every patient with available MRI had cerebellar hypoplasia and corpus callosum abnormality, most characteristically a thin posterior corpus callosum; in some the effect on brain development was more diffuse, with diffuse brain volume loss. Additional structural findings included bilateral optochiasmatic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Conditional tissue-specific Atg7-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tissue-specific conditional Atg7 ablation (nerve, muscle)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Conditional Atg7 knockout reproduces the brain abnormalities and the hypotonia and muscle weakness seen in patients.\"}]}}, {\"id\": \"Conditional tissue-specific Atg7-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional Atg7 ablation in nerve and muscle produces ataxia and myopathy respectively, and the conditional knockouts reproduce several of the human clinical features. Systemic Atg7-null mice, by contrast, die within 24 hours of birth.\\n\"}, {\"id\": \"Endocrine Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endocrine involvement included late-onset or absent puberty and, in one patient, hypogonadotropic hypogonadism with gynecomastia, suggesting a role for ATG7 in human endocrine development.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"macroautophagy\"]}}, {\"id\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATG7 activates ATG12 before its conjugation to ATG5, which promotes expansion of the preautophagosomal phagophore, and it facilitates lipidation of LC3-I with phosphatidylethanolamine to generate LC3-II. LC3-II sits on the inner and outer autophagosomal membranes and recruits cytoplasmic cargo directly or through selective adaptor proteins. Without ATG7 both conjugation systems fail, so the phagophore cannot expand and cargo cannot be marked for capture.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein lipidation involved in autophagosome assembly\"]}}, {\"id\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells show impaired autophagic flux and markedly reduced autophagic sequestration. Importantly this is a severe reduction, not a complete abolition: evidence of basal autophagy was readily identified in patient fibroblasts and skeletal muscle despite loss of ATG7. This residual activity is the likely explanation for human survival and is curated as an open question rather than asserted as a mechanism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"myoblast\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome assembly\"]}}, {\"id\": \"Loss of ATG7 E1-Like Activating Enzyme Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic deleterious ATG7 variants diminish or abolish the ATG7 protein. ATG7 is the E1-like activating enzyme at the head of both ubiquitin-like conjugation systems that build the autophagosome, and it has no known functional paralogue, so its loss is not buffered.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ubiquitin-like modifier activating enzyme activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ATG7\", \"id\": \"hgnc:16935\"}]}}}, {\"id\": \"Skeletal Muscle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle biopsy showed mild myopathic changes, and patients had proximal muscle weakness and hypotonia. Notably the changes are mild: no vacuoles or internalized nuclei were present and electron microscopy showed normal muscle-fibre organization, so this is not a vacuolar myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"macroautophagy\"]}}, {\"id\": \"p62/SQSTM1 Cargo Receptor Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p62 (SQSTM1) is the classical autophagy cargo receptor: it recruits cytoplasmic cargo to autophagosomes through interaction with LC3-II and is itself degraded after autolysosome formation. When LC3-II cannot be generated, p62 is neither consumed nor able to deliver cargo, and it accumulates. This is the cardinal cellular readout that failed lipidation has actually blocked cargo degradation, and it is the practical diagnostic biomarker alongside the LC3-II immunoblot.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myoblast\"], \"biological_processes\": [\"macroautophagy\"]}}], \"edges\": [{\"source\": \"Loss of ATG7 E1-Like Activating Enzyme Function\", \"target\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of ATG12-ATG5 Conjugation and LC3 Lipidation\", \"target\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"p62/SQSTM1 Cargo Receptor Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Cerebellar and Callosal Maldevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Skeletal Muscle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagosome Formation and Autophagic Flux\", \"target\": \"Endocrine Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar and Callosal Maldevelopment\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Muscle Dysfunction\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Dysfunction\", \"target\": \"Ataxia and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Conditional tissue-specific Atg7-knockout mouse\", \"target\": \"Cerebellar and Callosal Maldevelopment\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Conditional Atg7 knockout reproduces the brain abnormalities and the hypotonia and muscle weakness seen in patients.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Systemic Atg7-null mice die within 24 hours of birth whereas the patients survive into adulthood, so the model does not reproduce the natural history or viability of the human disorder. The conditional design also bypasses the developmental context in which the human phenotype arises.\"}, {\"source\": \"ATG7\", \"target\": \"Loss of ATG7 E1-Like Activating Enzyme Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5504,6 +5596,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5518,6 +5613,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5583,6 +5679,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5597,6 +5696,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5660,6 +5760,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5674,6 +5777,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5737,6 +5841,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5751,6 +5858,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5816,6 +5924,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5830,6 +5941,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5893,6 +6005,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5907,6 +6022,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5961,6 +6077,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5975,6 +6094,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6029,6 +6149,9 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6043,6 +6166,7 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6106,6 +6230,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6120,6 +6247,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6174,6 +6302,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6188,6 +6319,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6244,6 +6376,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6258,6 +6393,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6312,6 +6448,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6326,6 +6465,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6380,6 +6520,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6394,6 +6537,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6448,6 +6592,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6462,6 +6609,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6520,6 +6668,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6534,6 +6685,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +6786,9 @@ This disease-associated gene is ATG7 (hgnc:16935). hgnc:16935 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6648,6 +6803,7 @@ This disease-associated gene is ATG7 (hgnc:16935). hgnc:16935 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6672,6 +6828,7 @@ This disease-associated gene is ATG7 (hgnc:16935). hgnc:16935 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6843,6 +7000,7 @@ This disease-associated gene is ATG7 (hgnc:16935). hgnc:16935 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7710,6 +7868,55 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response: disabled_macroautophagy conformance, p62 node, node split, 4 phenotypes</strong> · 2026-08-23T08:10:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Autosomal_Recessive_31/2026-08-23T081036Z-claude-code-7b01ba.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer REQUEST_CHANGES review on PR #9287. No CRITICAL findings; eight IMPORTANT items, all verified against the cached full text and all correct.
+
+Module conformance (finding 1). The reviewer was right that kb/modules/disabled_macroautophagy.yaml existed and was never considered - a genuine miss. On reading it, conformance is now declared on the autophagic-flux node to disabled_macroautophagy#Failure of Cytoplasmic Quality Control, whose description defines it as &#39;the central effector state that disease-specific autophagy lesions converge upon&#39; and whose module description explicitly invites an ATG-pathway mutation as the substituted lesion. Conformance is deliberately NOT declared to that module&#39;s trigger node, Autophagy Machinery Decline, which is framed as capacity declining &#39;during normal and pathological aging&#39;; ATG7 deficiency is a congenital enzymatic loss, not an age-associated decline. The reasoning is recorded in notes alongside the two previously rejected modules.
+
+Unevidenced cell-type bindings (findings 2 and 3). Removed the neuron CL:0000540 binding from the autophagic-flux node and replaced it with fibroblast and myoblast, the cell types actually assayed. Removed the Purkinje cell CL:0000121 binding from the cerebellar node - the reviewer correctly noted it contradicted this entry&#39;s own stated reason for declining cerebellar_purkinje_degeneration conformance.
+
+Bundled node (finding 4). Split Skeletal Muscle and Endocrine Dysfunction into two atomic nodes and gave the muscle arm its own evidence, which also bounds severity: mild myopathic changes with no vacuoles or internalized nuclei and normal fibre organization on EM, so this is not a vacuolar myopathy.
+
+p62/SQSTM1 (finding 7). Added a dedicated pathophysiology node for p62/SQSTM1 cargo-receptor accumulation - the cardinal cellular readout that failed LC3 lipidation has actually blocked cargo degradation, and the practical diagnostic biomarker.
+
+Phenotypes (findings 5, 6 and suggestions). Added optic atrophy (HP:0000648), spastic paraplegia (HP:0001258), bilateral tonic-clonic seizure (HP:0002069) and sensorineural hearing impairment (HP:0000407). Removed severity: MILD from intellectual disability, which understated the source&#39;s mild-to-moderate.
+
+HUMAN_MODEL_MISMATCH (finding 8). Strengthened with the paper&#39;s own quantitative statement that patients can approach population life expectancy, with Family 4 members reaching 68 and 71 years, despite severe attenuation of autophagic flux - a much sharper contrast with neonatally lethal Atg7-null mice than the two adults previously cited. Added as an evidence item on the discussion.
+
+A Perplexity deep-research artifact was added in a separate commit, addressing the reviewer&#39;s process finding.
+
+Validation after changes: linkml-validate clean; term validation passed; reference snippet audit 29/29 verified; all five ungated CI gates clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Spinocerebellar Ataxia, Autosomal Recessive 31 (ATG7 deficiency)</strong> · 2026-08-23T07:09:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Autosomal_Recessive_31/2026-08-23T070917Z-claude-code-893a46.yaml">View source</a></p>
+                        <p class="research-review-text">Created the dismech entry for spinocerebellar ataxia, autosomal recessive 31 (MONDO:0030323), biallelic ATG7 deficiency — the first described human disorder of the core macroautophagy conjugation machinery.
+
+Source: PMID:34161705 (Collier et al., N Engl J Med 2021), the defining report of 12 patients from 5 families. This remains the primary source for the disorder; no deep-research provider was used, and all content was curated directly from the fetched primary literature.
+
+Curated a six-node pathograph: loss of ATG7 E1-like activating enzyme function -&gt; failure of ATG12-ATG5 conjugation and LC3 lipidation -&gt; impaired autophagosome formation and autophagic flux -&gt; cerebellar and callosal maldevelopment / skeletal muscle and endocrine dysfunction -&gt; ataxia and neurodevelopmental impairment.
+
+Two nuances were curated as discussions rather than flattened into the graph. A KNOWLEDGE_GAP records that autophagic sequestration was markedly reduced but NOT abolished — basal autophagy was readily identified in patient fibroblasts and skeletal muscle — so this must not be annotated as a complete autophagy-null state. A HUMAN_MODEL_MISMATCH records that Atg7-null mice die within 24 hours of birth while patients survive into adulthood, so mouse lethality must not be imported as a prognostic claim; the conditional knockout is curated as PARTIALLY_RECAPITULATES with that limitation stated.
+
+Module conformance was considered and deliberately NOT declared. loss_of_proteostasis is framed as age-associated proteostatic collapse with misfolded-protein aggregation downstream, and no aggregation is reported in these patients. cerebellar_purkinje_degeneration derives its output-loss node from Purkinje degeneration, whereas the finding here is developmental cerebellar hypoplasia. Declaring either edge would assert an unevidenced mechanism and corrupt CONFORMS_TO_MODULE grouping evaluation. The reasoning is recorded in the entry notes.
+
+Zygosity is left unset on the genetic_context because the reported families span homozygous and compound-heterozygous configurations and ZygosityEnum has no BIALLELIC value.
+
+Deliberate omissions: no prevalence, progression, or treatments sections — 12 patients reported, no disease-specific therapy exists.
+
+Validation: linkml-validate clean; term validation passed first pass (all terms looked up via OAK before drafting); reference snippet audit 22/22 verified; duplicate-key, folded-hyphen, snippet-length, title-snippet and environmental-evidence gates clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

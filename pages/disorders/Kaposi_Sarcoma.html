@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3805,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Kaposi%20Sarcoma"
@@ -3836,7 +3904,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant- associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.
+                Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant-associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.
             </p>
 
         </header>
@@ -3944,7 +4012,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3973,7 +4041,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4323,11 +4391,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hhv-8-latent-infection-of-endothelial-cells" data-dismech-node="HHV-8 Latent Infection of Endothelial Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">HHV-8 Latent Infection of Endothelial Cells</div>
+
 
                 <div class="item-desc">HHV-8 infects endothelial cells and establishes latent infection with expression of latency-associated nuclear antigen (LANA), vFLIP, and vCyclin. LANA maintains the viral episome and inhibits p53 and Rb tumor suppressor function. Latently infected cells undergo spindle cell transformation characteristic of KS.</div>
 
@@ -4443,6 +4512,14 @@ This pathophysiological event involves viral transcription (GO:0019083). GO:0019
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">HHV-8 Lytic Reactivation in Endothelial Cells</span>
+
+	                            <span class="crosslink-desc">The latently infected endothelial reservoir is the substrate that re-enters the lytic cycle once immune control is lost</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4465,6 +4542,7 @@ This pathophysiological event involves viral transcription (GO:0019083). GO:0019
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"KSHV/HHV-8 is present in the flat endothelial cells lining vascular spaces of KS lesions as well as in typical KS spindle cells."</div>
@@ -4483,8 +4561,368 @@ This pathophysiological event involves viral transcription (GO:0019083). GO:0019
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunosuppression-mediated-loss-of-cd8-t-cell-control-of-hhv-8" data-dismech-node="Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8" data-dismech-type="pathophysiology">
+                <div class="item-name">Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8</div>
+
+
+                <div class="item-desc">In solid-organ transplant recipients, chronic immunosuppressive therapy impairs the CD8+ T-cell and NK-cell surveillance that maintains HHV-8 latency in the immunocompetent host. The cited review names calcineurin inhibitors, corticosteroids and T-cell-depleting agents as the agent classes that impair that control.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        CD8-positive T cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000625</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        natural killer cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000623</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        negative regulation of viral genome replication
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045071</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of viral genome replication (GO:0045071). GO:0045071 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">HHV-8 Lytic Reactivation in Endothelial Cells</span>
+
+	                            <span class="crosslink-desc">Loss of cytotoxic lymphocyte surveillance removes the constraint that holds the virus in latency, permitting re-entry into the lytic cycle.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549899" target="_blank">PMID:42549899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In immunocompetent hosts, CD8+ T‐cells and NK cells maintain viral latency, but chronic immunosuppression particularly with calcineurin inhibitors, corticosteroids, or T‐cell–depleting agents impairs this control, allowing viral reactivation or donor‐derived primary infection"</div>
+
+
+                <div class="evidence-explanation">Names both the effector populations that maintain latency and the three agent classes whose use impairs that control, which is what this node asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hhv-8-lytic-reactivation-in-endothelial-cells" data-dismech-node="HHV-8 Lytic Reactivation in Endothelial Cells" data-dismech-type="pathophysiology">
+                <div class="item-name">HHV-8 Lytic Reactivation in Endothelial Cells</div>
+
+
+                <div class="item-desc">With immune control lost, HHV-8 in the infected endothelial lineage switches from the latent programme to lytic replication. Lytic gene products, vGPCR and vIL-6 among them, drive cytokine release and angiogenic signalling, which is the route by which reactivation accelerates Kaposi sarcoma progression in transplant recipients.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000115</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        release from viral latency
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019046" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0019046</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased release from viral latency (GO:0019046). GO:0019046 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">vGPCR-Mediated Angiogenic Signaling</span>
+
+	                            <span class="crosslink-desc">Lytic replication raises vGPCR expression, amplifying the angiogenic signalling arm of the lesion.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549899" target="_blank">PMID:42549899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The virus infects endothelial, monocyte and B‐cell lineages, alternating between latency and lytic replication"</div>
+
+
+                <div class="evidence-explanation">Establishes that the endothelial lineage this node is bound to is one of the lineages that alternates between latency and lytic replication.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549899" target="_blank">PMID:42549899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Latent proteins (LANA‐1, vCyclin, vFLIP) promote cell survival, whereas lytic proteins (vIL‐6, vGPCR) drive cytokine release and angiogenesis through IL‐6, IL‐10, VEGF, and PDGF"</div>
+
+
+                <div class="evidence-explanation">Identifies vGPCR as a lytic rather than latent product and names the angiogenic and cytokine output that the downstream edge carries.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vflip-mediated-nf-kappab-activation" data-dismech-node="vFLIP-Mediated NF-kappaB Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">vFLIP-Mediated NF-kappaB Activation</div>
+
 
                 <div class="item-desc">Viral FLICE inhibitory protein (vFLIP) constitutively activates NF-kappaB signaling by interacting with IKK complex. This promotes cell survival, inflammation, and cytokine production. vFLIP also inhibits caspase-8-mediated apoptosis, providing resistance to death receptor-induced cell death.</div>
 
@@ -4507,11 +4945,11 @@ This pathophysiological event involves viral transcription (GO:0019083). GO:0019
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043123</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased positive regulation of NF-kappaB transcription factor activity, annotated with positive regulation of canonical NF-kappaB signal transduction (GO:0043123). GO:0043123 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4565,6 +5003,7 @@ This pathophysiological event involves increased positive regulation of NF-kappa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vcyclin-mediated-cell-cycle-dysregulation" data-dismech-node="vCyclin-Mediated Cell Cycle Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">vCyclin-Mediated Cell Cycle Dysregulation</div>
 
+
                 <div class="item-desc">Viral cyclin (vCyclin) forms active complexes with CDK6 that are resistant to inhibition by p16INK4A, p21, and p27. This drives cells through G1/S checkpoint regardless of normal growth regulatory signals, contributing to uncontrolled proliferation.</div>
 
 
@@ -4586,11 +5025,11 @@ This pathophysiological event involves increased positive regulation of NF-kappa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0000082</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4644,6 +5083,7 @@ This pathophysiological event involves abnormal G1/S transition of mitotic cell 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vgpcr-mediated-angiogenic-signaling" data-dismech-node="vGPCR-Mediated Angiogenic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">vGPCR-Mediated Angiogenic Signaling</div>
 
+
                 <div class="item-desc">The viral G protein-coupled receptor (vGPCR) is expressed during lytic reactivation and activates multiple signaling pathways in a ligand-independent manner, including VEGF production and MAPK activation. vGPCR is highly oncogenic and promotes the angiogenic, inflammatory microenvironment characteristic of KS lesions.</div>
 
 
@@ -4665,11 +5105,11 @@ This pathophysiological event involves abnormal G1/S transition of mitotic cell 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007165</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4723,6 +5163,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptosis-resistance-and-cell-survival" data-dismech-node="Apoptosis Resistance and Cell Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptosis Resistance and Cell Survival</div>
 
+
                 <div class="item-desc">Multiple viral genes cooperate to prevent apoptosis: vFLIP inhibits caspase-8 and activates NF-kappaB; LANA inhibits p53; vBCL-2 mimics cellular BCL-2. This multi-layered apoptosis resistance enables survival and accumulation of infected cells.</div>
 
 
@@ -4744,11 +5185,11 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4787,6 +5228,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-cell-proliferation" data-dismech-node="Uncontrolled Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Cell Proliferation</div>
 
+
                 <div class="item-desc">Combined effects of vCyclin, LANA-mediated Rb inhibition, and growth factor signaling drive spindle cell proliferation, forming the characteristic KS lesions.</div>
 
 
@@ -4808,11 +5250,11 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4851,6 +5293,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenic-proliferation" data-dismech-node="Angiogenic Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiogenic Proliferation</div>
 
+
                 <div class="item-desc">KS lesions are highly vascular due to vGPCR-induced VEGF and inflammatory cytokine production. The aberrant angiogenesis creates the characteristic red-purple appearance and contributes to edema and hemorrhage.</div>
 
 
@@ -4865,11 +5308,11 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4906,11 +5349,11 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001525</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4957,6 +5400,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5021,6 +5465,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Spindle cells represent the main cell type of the advanced final nodular stage"</div>
@@ -5061,7 +5506,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KS lesions are highly vascular due to vGPCR-induced VEGF and inflammatory cytokine production. The aberrant angiogenesis creates the characteristic red-purple appearance and contributes to edema and hemorrhage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Apoptosis Resistance and Cell Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple viral genes cooperate to prevent apoptosis: vFLIP inhibits caspase-8 and activates NF-kappaB; LANA inhibits p53; vBCL-2 mimics cellular BCL-2. This multi-layered apoptosis resistance enables survival and accumulation of infected cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HHV-8 Latent Infection of Endothelial Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HHV-8 infects endothelial cells and establishes latent infection with expression of latency-associated nuclear antigen (LANA), vFLIP, and vCyclin. LANA maintains the viral episome and inhibits p53 and Rb tumor suppressor function. Latently infected cells undergo spindle cell transformation characteristic of KS.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"viral transcription\"]}}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of vCyclin, LANA-mediated Rb inhibition, and growth factor signaling drive spindle cell proliferation, forming the characteristic KS lesions.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral cyclin (vCyclin) forms active complexes with CDK6 that are resistant to inhibition by p16INK4A, p21, and p27. This drives cells through G1/S checkpoint regardless of normal growth regulatory signals, contributing to uncontrolled proliferation.\", \"meta\": {\"biological_processes\": [\"G1/S transition of mitotic cell cycle\"]}}, {\"id\": \"vFLIP-Mediated NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral FLICE inhibitory protein (vFLIP) constitutively activates NF-kappaB signaling by interacting with IKK complex. This promotes cell survival, inflammation, and cytokine production. vFLIP also inhibits caspase-8-mediated apoptosis, providing resistance to death receptor-induced cell death.\", \"meta\": {\"biological_processes\": [\"positive regulation of NF-kappaB transcription factor activity\"]}}, {\"id\": \"vGPCR-Mediated Angiogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The viral G protein-coupled receptor (vGPCR) is expressed during lytic reactivation and activates multiple signaling pathways in a ligand-independent manner, including VEGF production and MAPK activation. vGPCR is highly oncogenic and promotes the angiogenic, inflammatory microenvironment characteristic of KS lesions.\", \"meta\": {\"biological_processes\": [\"signal transduction\"]}}], \"edges\": [{\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vFLIP-Mediated NF-kappaB Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive vFLIP expression activates survival signaling\"}, {\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral cyclin drives cell cycle progression\"}, {\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vGPCR-Mediated Angiogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lytic gene expression promotes angiogenesis\"}, {\"source\": \"vFLIP-Mediated NF-kappaB Activation\", \"target\": \"Apoptosis Resistance and Cell Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB activates anti-apoptotic genes\"}, {\"source\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell cycle checkpoint bypass leads to proliferation\"}, {\"source\": \"vGPCR-Mediated Angiogenic Signaling\", \"target\": \"Angiogenic Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF and inflammatory cytokines drive vascular proliferation\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KS lesions are highly vascular due to vGPCR-induced VEGF and inflammatory cytokine production. The aberrant angiogenesis creates the characteristic red-purple appearance and contributes to edema and hemorrhage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Apoptosis Resistance and Cell Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple viral genes cooperate to prevent apoptosis: vFLIP inhibits caspase-8 and activates NF-kappaB; LANA inhibits p53; vBCL-2 mimics cellular BCL-2. This multi-layered apoptosis resistance enables survival and accumulation of infected cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HHV-8 Latent Infection of Endothelial Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HHV-8 infects endothelial cells and establishes latent infection with expression of latency-associated nuclear antigen (LANA), vFLIP, and vCyclin. LANA maintains the viral episome and inhibits p53 and Rb tumor suppressor function. Latently infected cells undergo spindle cell transformation characteristic of KS.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"viral transcription\"]}}, {\"id\": \"HHV-8 Lytic Reactivation in Endothelial Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With immune control lost, HHV-8 in the infected endothelial lineage switches from the latent programme to lytic replication. Lytic gene products, vGPCR and vIL-6 among them, drive cytokine release and angiogenic signalling, which is the route by which reactivation accelerates Kaposi sarcoma progression in transplant recipients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"release from viral latency\"]}}, {\"id\": \"Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In solid-organ transplant recipients, chronic immunosuppressive therapy impairs the CD8+ T-cell and NK-cell surveillance that maintains HHV-8 latency in the immunocompetent host. The cited review names calcineurin inhibitors, corticosteroids and T-cell-depleting agents as the agent classes that impair that control.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive T cell\", \"natural killer cell\"], \"biological_processes\": [\"negative regulation of viral genome replication\"]}}, {\"id\": \"Reduction of Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For iatrogenic KS in transplant recipients, reduction or modification of immunosuppressive therapy may lead to regression. Switching to sirolimus (mTOR inhibitor) may have anti-tumor effects in addition to immunosuppression.\"}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of vCyclin, LANA-mediated Rb inhibition, and growth factor signaling drive spindle cell proliferation, forming the characteristic KS lesions.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral cyclin (vCyclin) forms active complexes with CDK6 that are resistant to inhibition by p16INK4A, p21, and p27. This drives cells through G1/S checkpoint regardless of normal growth regulatory signals, contributing to uncontrolled proliferation.\", \"meta\": {\"biological_processes\": [\"G1/S transition of mitotic cell cycle\"]}}, {\"id\": \"vFLIP-Mediated NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral FLICE inhibitory protein (vFLIP) constitutively activates NF-kappaB signaling by interacting with IKK complex. This promotes cell survival, inflammation, and cytokine production. vFLIP also inhibits caspase-8-mediated apoptosis, providing resistance to death receptor-induced cell death.\", \"meta\": {\"biological_processes\": [\"positive regulation of NF-kappaB transcription factor activity\"]}}, {\"id\": \"vGPCR-Mediated Angiogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The viral G protein-coupled receptor (vGPCR) is expressed during lytic reactivation and activates multiple signaling pathways in a ligand-independent manner, including VEGF production and MAPK activation. vGPCR is highly oncogenic and promotes the angiogenic, inflammatory microenvironment characteristic of KS lesions.\", \"meta\": {\"biological_processes\": [\"signal transduction\"]}}], \"edges\": [{\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vFLIP-Mediated NF-kappaB Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive vFLIP expression activates survival signaling\"}, {\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral cyclin drives cell cycle progression\"}, {\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"vGPCR-Mediated Angiogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lytic gene expression promotes angiogenesis\"}, {\"source\": \"HHV-8 Latent Infection of Endothelial Cells\", \"target\": \"HHV-8 Lytic Reactivation in Endothelial Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The latently infected endothelial reservoir is the substrate that re-enters the lytic cycle once immune control is lost\"}, {\"source\": \"Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8\", \"target\": \"HHV-8 Lytic Reactivation in Endothelial Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cytotoxic lymphocyte surveillance removes the constraint that holds the virus in latency, permitting re-entry into the lytic cycle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HHV-8 Lytic Reactivation in Endothelial Cells\", \"target\": \"vGPCR-Mediated Angiogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lytic replication raises vGPCR expression, amplifying the angiogenic signalling arm of the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"vFLIP-Mediated NF-kappaB Activation\", \"target\": \"Apoptosis Resistance and Cell Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB activates anti-apoptotic genes\"}, {\"source\": \"vCyclin-Mediated Cell Cycle Dysregulation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell cycle checkpoint bypass leads to proliferation\"}, {\"source\": \"vGPCR-Mediated Angiogenic Signaling\", \"target\": \"Angiogenic Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF and inflammatory cytokines drive vascular proliferation\"}, {\"source\": \"Reduction of Immunosuppression\", \"target\": \"Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5117,15 +5562,18 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5145,6 +5593,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5198,15 +5647,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011024</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011024</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5226,6 +5678,7 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5279,15 +5732,18 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011355</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011355</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5307,6 +5763,7 @@ This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5358,15 +5815,18 @@ This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001004</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5386,6 +5846,7 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5439,15 +5900,18 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002088</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002088</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5467,6 +5931,7 @@ This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5545,6 +6010,9 @@ This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a 
 
 
 
+
+
+
             </div>
 
         </div>
@@ -5568,231 +6036,6 @@ This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a 
             <div class="item-box treatment-box anchor-target" id="treatment-antiretroviral-therapy" data-dismech-node="Antiretroviral Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiretroviral Therapy
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-                <div class="item-desc">For AIDS-associated KS, initiation or optimization of antiretroviral therapy (ART) is the most important intervention. Immune reconstitution leads to regression in many cases without KS-specific treatment.</div>
-
-
-
-
-
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-chemotherapy" data-dismech-node="Chemotherapy" data-dismech-type="treatment">
-                <div class="item-name">
-                    Chemotherapy
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-
-
-
-                    <span class="tag tag-treatment">
-                        doxorubicin
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:28748</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-
-
-                    <span class="tag tag-treatment">
-                        paclitaxel
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:45863</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-
-                <div class="item-desc">For advanced or rapidly progressive disease, liposomal doxorubicin or paclitaxel are first-line systemic chemotherapies. Reserved for patients with visceral involvement or disease not controlled by ART.</div>
-
-
-
-
-
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-local-therapy" data-dismech-node="Local Therapy" data-dismech-type="treatment">
-                <div class="item-name">
-                    Local Therapy
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-
-
-
-    <div class="item-meta">
-        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
-
-        <span class="tag tag-treatment">Radiotherapy</span>
-
-
-
-
-
-    </div>
-
-
-
-
-
-
-                <div class="item-desc">Localized lesions may be treated with radiation, intralesional chemotherapy, cryotherapy, or surgical excision for palliation or cosmesis.</div>
-
-
-
-
-
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-reduction-of-immunosuppression" data-dismech-node="Reduction of Immunosuppression" data-dismech-type="treatment">
-                <div class="item-name">
-                    Reduction of Immunosuppression
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -5838,8 +6081,312 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+                <div class="item-desc">For AIDS-associated KS, initiation or optimization of antiretroviral therapy (ART) is the most important intervention. Immune reconstitution leads to regression in many cases without KS-specific treatment.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-chemotherapy" data-dismech-node="Chemotherapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Chemotherapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        doxorubicin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:28748</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        paclitaxel
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:45863</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">For advanced or rapidly progressive disease, liposomal doxorubicin or paclitaxel are first-line systemic chemotherapies. Reserved for patients with visceral involvement or disease not controlled by ART.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-local-therapy" data-dismech-node="Local Therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Local Therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Localized lesions may be treated with radiation, intralesional chemotherapy, cryotherapy, or surgical excision for palliation or cosmesis.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-reduction-of-immunosuppression" data-dismech-node="Reduction of Immunosuppression" data-dismech-type="treatment">
+                <div class="item-name">
+                    Reduction of Immunosuppression
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For iatrogenic KS in transplant recipients, reduction or modification of immunosuppressive therapy may lead to regression. Switching to sirolimus (mTOR inhibitor) may have anti-tumor effects in addition to immunosuppression.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Withdrawing or tapering the immunosuppressive agents restores the cytotoxic lymphocyte control this node loses, which is why reduction alone can produce remission without cytotoxic therapy.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549899" target="_blank">PMID:42549899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"withdrawal or reduction in immunosuppression alone results in complete remission in 47.8% of patients with PT‐KS"</div>
+
+
+                <div class="evidence-explanation">Quantifies the response to reversing the mechanism this edge targets, with no other modality involved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5922,7 +6469,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
             <div class="item-box anchor-target" id="infectious-agent-human-herpesvirus-8-hhv-8-kshv">
                 <div class="item-name">Human Herpesvirus 8 (HHV-8/KSHV)</div>
 
-                <div class="item-desc">HHV-8 (KSHV) is the causative agent of all forms of Kaposi sarcoma. The virus encodes multiple oncoproteins that drive transformation: vGPCR (viral G protein- coupled receptor) activates angiogenic signaling; vFLIP activates NF-kappaB for cell survival; vCyclin drives cell cycle progression; LANA maintains viral latency and inhibits p53 and Rb tumor suppressors. The virus establishes latent infection in endothelial cells, with lytic reactivation contributing to paracrine signaling and tumor progression.</div>
+                <div class="item-desc">HHV-8 (KSHV) is the causative agent of all forms of Kaposi sarcoma. The virus encodes multiple oncoproteins that drive transformation: vGPCR (viral G protein-coupled receptor) activates angiogenic signaling; vFLIP activates NF-kappaB for cell survival; vCyclin drives cell cycle progression; LANA maintains viral latency and inhibits p53 and Rb tumor suppressors. The virus establishes latent infection in endothelial cells, with lytic reactivation contributing to paracrine signaling and tumor progression.</div>
 
 
 
@@ -5938,11 +6485,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         Human gammaherpesvirus 8
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_37296" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-21">NCBITaxon:37296</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_37296" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-26">NCBITaxon:37296</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -5978,6 +6525,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6043,8 +6591,8 @@ description: &gt;-
   Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8),
   also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from
   infected endothelial cells that acquire a spindle cell morphology. Four clinical
-  variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant-
-  associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including
+  variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant-associated),
+  and epidemic (AIDS-associated). HHV-8 viral oncoproteins including
   vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB,
   PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal
   red-purple vascular lesions of skin and viscera.
@@ -6085,8 +6633,8 @@ infectious_agent:
       label: Human gammaherpesvirus 8
   description: &gt;-
     HHV-8 (KSHV) is the causative agent of all forms of Kaposi sarcoma. The virus
-    encodes multiple oncoproteins that drive transformation: vGPCR (viral G protein-
-    coupled receptor) activates angiogenic signaling; vFLIP activates NF-kappaB
+    encodes multiple oncoproteins that drive transformation: vGPCR (viral G protein-coupled
+    receptor) activates angiogenic signaling; vFLIP activates NF-kappaB
     for cell survival; vCyclin drives cell cycle progression; LANA maintains viral
     latency and inhibits p53 and Rb tumor suppressors. The virus establishes latent
     infection in endothelial cells, with lytic reactivation contributing to
@@ -6127,6 +6675,108 @@ pathophysiology:
     description: Viral cyclin drives cell cycle progression
   - target: vGPCR-Mediated Angiogenic Signaling
     description: Lytic gene expression promotes angiogenesis
+  - target: HHV-8 Lytic Reactivation in Endothelial Cells
+    description: The latently infected endothelial reservoir is the substrate that
+      re-enters the lytic cycle once immune control is lost
+- name: Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8
+  description: &gt;-
+    In solid-organ transplant recipients, chronic immunosuppressive therapy impairs
+    the CD8+ T-cell and NK-cell surveillance that maintains HHV-8 latency in the
+    immunocompetent host. The cited review names calcineurin inhibitors,
+    corticosteroids and T-cell-depleting agents as the agent classes that impair
+    that control.
+  notes: &gt;-
+    mTOR inhibitors are deliberately absent from the agent list. The same review
+    describes them as exerting antiproliferative and antiangiogenic effects that
+    may counter these mechanisms, and recommends conversion to sirolimus or
+    everolimus as treatment for post-transplant Kaposi sarcoma - so they belong
+    with this entry&#39;s Reduction of Immunosuppression treatment, not with the
+    agents that drive reactivation.
+  evidence:
+  - reference: PMID:42549899
+    reference_title: &#34;HHV-8 Infection in Solid-Organ Transplant-Pathogenesis, Epidemiology, Clinical Manifestations and Management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In immunocompetent hosts, CD8+ T‐cells and NK cells maintain viral latency, but chronic immunosuppression particularly with calcineurin inhibitors, corticosteroids, or T‐cell–depleting agents impairs this control, allowing viral reactivation or donor‐derived primary infection&#34;
+    explanation: Names both the effector populations that maintain latency and the
+      three agent classes whose use impairs that control, which is what this node
+      asserts.
+  cell_types:
+  - preferred_term: CD8-positive T cell
+    term:
+      id: CL:0000625
+      label: CD8-positive, alpha-beta T cell
+  - preferred_term: natural killer cell
+    term:
+      id: CL:0000623
+      label: natural killer cell
+  biological_processes:
+  - preferred_term: negative regulation of viral genome replication
+    modifier: DECREASED
+    term:
+      id: GO:0045071
+      label: negative regulation of viral genome replication
+  downstream:
+  - target: HHV-8 Lytic Reactivation in Endothelial Cells
+    causal_link_type: DIRECT
+    description: Loss of cytotoxic lymphocyte surveillance removes the constraint
+      that holds the virus in latency, permitting re-entry into the lytic cycle.
+    evidence:
+    - reference: PMID:42549899
+      reference_title: &#34;HHV-8 Infection in Solid-Organ Transplant-Pathogenesis, Epidemiology, Clinical Manifestations and Management.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Loss of immune control under maintenance immunosuppression or antirejection therapy leads to viral activation of latent HHV‐8.&#34;
+      explanation: States the causal step this edge draws - loss of immune control
+        under maintenance immunosuppression activating the latent virus.
+- name: HHV-8 Lytic Reactivation in Endothelial Cells
+  description: &gt;-
+    With immune control lost, HHV-8 in the infected endothelial lineage switches
+    from the latent programme to lytic replication. Lytic gene products, vGPCR and
+    vIL-6 among them, drive cytokine release and angiogenic signalling, which is
+    the route by which reactivation accelerates Kaposi sarcoma progression in
+    transplant recipients.
+  notes: &gt;-
+    No downstream edge is drawn to vFLIP-Mediated NF-kappaB Activation. The cited
+    review classifies vFLIP with LANA-1 and vCyclin as a latent protein and vGPCR
+    with vIL-6 as lytic, and this entry&#39;s own HHV-8 Latent Infection of Endothelial
+    Cells node expresses vFLIP latently, so a claim that lytic reactivation raises
+    vFLIP abundance would contradict both.
+  evidence:
+  - reference: PMID:42549899
+    reference_title: &#34;HHV-8 Infection in Solid-Organ Transplant-Pathogenesis, Epidemiology, Clinical Manifestations and Management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;The virus infects endothelial, monocyte and B‐cell lineages, alternating between latency and lytic replication&#34;
+    explanation: Establishes that the endothelial lineage this node is bound to is
+      one of the lineages that alternates between latency and lytic replication.
+  - reference: PMID:42549899
+    reference_title: &#34;HHV-8 Infection in Solid-Organ Transplant-Pathogenesis, Epidemiology, Clinical Manifestations and Management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Latent proteins (LANA‐1, vCyclin, vFLIP) promote cell survival, whereas lytic proteins (vIL‐6, vGPCR) drive cytokine release and angiogenesis through IL‐6, IL‐10, VEGF, and PDGF&#34;
+    explanation: Identifies vGPCR as a lytic rather than latent product and names
+      the angiogenic and cytokine output that the downstream edge carries.
+  cell_types:
+  - preferred_term: endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  biological_processes:
+  - preferred_term: release from viral latency
+    modifier: INCREASED
+    term:
+      id: GO:0019046
+      label: release from viral latency
+  downstream:
+  - target: vGPCR-Mediated Angiogenic Signaling
+    causal_link_type: DIRECT
+    description: Lytic replication raises vGPCR expression, amplifying the angiogenic
+      signalling arm of the lesion.
 - name: vFLIP-Mediated NF-kappaB Activation
   description: &gt;-
     Viral FLICE inhibitory protein (vFLIP) constitutively activates NF-kappaB
@@ -6420,6 +7070,22 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+  target_mechanisms:
+  - target: Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8
+    treatment_effect: RESTORES
+    description: &gt;-
+      Withdrawing or tapering the immunosuppressive agents restores the cytotoxic
+      lymphocyte control this node loses, which is why reduction alone can produce
+      remission without cytotoxic therapy.
+    evidence:
+    - reference: PMID:42549899
+      reference_title: &#34;HHV-8 Infection in Solid-Organ Transplant-Pathogenesis, Epidemiology, Clinical Manifestations and Management.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;withdrawal or reduction in immunosuppression alone results in complete remission in 47.8% of patients with PT‐KS&#34;
+      explanation: Quantifies the response to reversing the mechanism this edge
+        targets, with no other modality involved.
 disease_term:
   preferred_term: Kaposi sarcoma
   term:
@@ -6667,6 +7333,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6735,6 +7402,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6809,6 +7477,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6880,6 +7549,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6948,6 +7618,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7059,6 +7730,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7127,6 +7799,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7201,6 +7874,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7272,6 +7946,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7768,7 +8444,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Kaposi Sarcoma", "mondoId": "MONDO:0005055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kaposi_Sarcoma", "yamlRevision": "00f3357007bf"};
+        const OS_CONFIG = {"diseaseName": "Kaposi Sarcoma", "mondoId": "MONDO:0005055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kaposi_Sarcoma", "yamlRevision": "04e3486ce4fa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

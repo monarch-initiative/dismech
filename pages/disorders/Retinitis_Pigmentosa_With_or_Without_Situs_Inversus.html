@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4125,6 +4193,7 @@ Penetrance and expressivity pull apart by organ, which is why they are recorded 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4149,6 +4218,7 @@ Penetrance and expressivity pull apart by organ, which is why they are recorded 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4170,6 +4240,7 @@ Penetrance and expressivity pull apart by organ, which is why they are recorded 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4266,6 +4337,7 @@ Penetrance and expressivity pull apart by organ, which is why they are recorded 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4484,6 +4556,7 @@ Penetrance and expressivity pull apart by organ, which is why they are recorded 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-arl2bp-loss-of-function" data-dismech-node="Biallelic ARL2BP Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ARL2BP Loss of Function</div>
 
+
                 <div class="item-desc">Reported alleles are homozygous and heterogeneous in class: a splice acceptor variant that alters pre-mRNA splicing demonstrably in blood RNA, a frameshift, and a missense substitution (p.Met45Arg) that reduces ARL2 binding. All converge on loss of ARL2BP function at the ciliary base.</div>
 
 
@@ -4539,6 +4612,8 @@ This genetic context concerns ARL2BP (hgnc:17146). hgnc:17146 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
 
 
@@ -4546,6 +4621,9 @@ This genetic context concerns ARL2BP (hgnc:17146). hgnc:17146 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4593,6 +4671,7 @@ This genetic context concerns ARL2BP (hgnc:17146). hgnc:17146 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4614,6 +4693,7 @@ This genetic context concerns ARL2BP (hgnc:17146). hgnc:17146 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4639,6 +4719,7 @@ This genetic context concerns ARL2BP (hgnc:17146). hgnc:17146 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-arl2bp-from-the-photoreceptor-basal-body-and-connecting-cilium" data-dismech-node="Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium</div>
+
 
                 <div class="item-desc">ARL2BP normally localises to the basal body, the cilium-associated centriole and the periciliary extension of the photoreceptor inner segment. ARL2, not ARL3, is what recruits or anchors it there: depleting ARL2 displaces ARL2BP from the basal body while depleting ARL3 does not. That asymmetry is the reason this node names ARL2 specifically.</div>
 
@@ -4758,6 +4839,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4779,6 +4861,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4804,6 +4887,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ciliary-axoneme-and-doublet-microtubule-assembly" data-dismech-node="Defective Ciliary Axoneme and Doublet Microtubule Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Ciliary Axoneme and Doublet Microtubule Assembly</div>
+
 
                 <div class="item-desc">The structural lesion. Depleting ARL2BP shortens cilia. In the knockout mouse retina, photoreceptor axonemes are shortened and the ciliary doublet microtubules are malformed, with open B-tubules and loss of the singlet microtubules. This is a defect in building the ciliary skeleton, not merely in cargo delivery along it.</div>
 
@@ -4940,6 +5024,7 @@ This pathophysiological event involves decreased axoneme assembly (GO:0035082). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4961,6 +5046,7 @@ This pathophysiological event involves decreased axoneme assembly (GO:0035082). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4988,6 +5074,7 @@ This pathophysiological event involves decreased axoneme assembly (GO:0035082). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5010,6 +5097,7 @@ This pathophysiological event involves decreased axoneme assembly (GO:0035082). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-outer-segment-disorganization" data-dismech-node="Photoreceptor Outer Segment Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Outer Segment Disorganization</div>
+
 
                 <div class="item-desc">Outer segment disks are vertically aligned rather than stacked normally, and this is present before any photoreceptor is lost. Structure fails first; degeneration follows.</div>
 
@@ -5097,6 +5185,7 @@ This pathophysiological event involves Retinal rod cell (CL:0000604). CL:0000604
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5119,6 +5208,7 @@ This pathophysiological event involves Retinal rod cell (CL:0000604). CL:0000604
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-rod-and-cone-photoreceptor-degeneration" data-dismech-node="Progressive Rod and Cone Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Rod and Cone Photoreceptor Degeneration</div>
+
 
                 <div class="item-desc">Progressive loss of rods and then cones, producing the classic retinitis pigmentosa sequence of night blindness, peripheral field loss and finally central acuity loss. Progression can be slow: one patient retained useful residual vision at 63.</div>
 
@@ -5242,6 +5332,7 @@ This pathophysiological event involves Photoreceptor cell (CL:0000210). CL:00002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5263,6 +5354,7 @@ This pathophysiological event involves Photoreceptor cell (CL:0000210). CL:00002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5288,6 +5380,7 @@ This pathophysiological event involves Photoreceptor cell (CL:0000210). CL:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motile-cilia-and-flagellar-dysfunction" data-dismech-node="Motile Cilia and Flagellar Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Motile Cilia and Flagellar Dysfunction</div>
+
 
                 <div class="item-desc">The extra-ocular arm. The same axonemal requirement applies to the motile cilia of the embryonic node, which establish left-right asymmetry, and to the sperm flagellum. Unlike the retinal arm, these features are variable between patients, which is what the disease name records.</div>
 
@@ -5395,6 +5488,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5416,6 +5510,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5464,7 +5559,7 @@ This pathophysiological event involves abnormal determination of left/right symm
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARL2BP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 5}}, {\"id\": \"ARL2BP patient dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from the patient with the RP, situs inversus and oligozoospermia triad. Valuable because they demonstrate the ciliary lesion in the patient\u0027s own cells rather than by knockdown or in mouse.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36507858\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal sperm motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asthenozoospermia, reported in a second patient. Bound to the motility parent term because HPO has no separate asthenozoospermia class.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012206\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in one patient, and framed cautiously by the reporting authors as a susceptibility rather than an established feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000458\"}}, {\"id\": \"Arl2bp knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Arl2bp knockout generated specifically to ask how a ciliary protein contributes to outer segment formation. It gives the structural detail that human tissue cannot: axoneme length, disk orientation, and doublet microtubule architecture.\"}, {\"id\": \"Biallelic ARL2BP Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reported alleles are homozygous and heterogeneous in class: a splice acceptor variant that alters pre-mRNA splicing demonstrably in blood RNA, a frameshift, and a missense substitution (p.Met45Arg) that reduces ARL2 binding. All converge on loss of ARL2BP function at the ciliary base.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}]}}}, {\"id\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural lesion. Depleting ARL2BP shortens cilia. In the knockout mouse retina, photoreceptor axonemes are shortened and the ciliary doublet microtubules are malformed, with open B-tubules and loss of the singlet microtubules. This is a defect in building the ciliary skeleton, not merely in cargo delivery along it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"axoneme assembly\"], \"experimental_models\": [{\"name\": \"ARL2BP patient dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient fibroblasts show reduced ciliary length, the human cellular counterpart of the mouse axonemal defect.\"}], \"animal_models\": [{\"name\": \"Arl2bp knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Arl2bp knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The model is where the axonemal and doublet-microtubule lesion was characterised at all; the human evidence for this node is limited to shortened cilia in cultured cells.\"}]}}, {\"id\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARL2BP normally localises to the basal body, the cilium-associated centriole and the periciliary extension of the photoreceptor inner segment. ARL2, not ARL3, is what recruits or anchors it there: depleting ARL2 displaces ARL2BP from the basal body while depleting ARL3 does not. That asymmetry is the reason this node names ARL2 specifically.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Photoreceptor cell\", \"Retinal cone cell\"]}}, {\"id\": \"Motile Cilia and Flagellar Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The extra-ocular arm. The same axonemal requirement applies to the motile cilia of the embryonic node, which establish left-right asymmetry, and to the sperm flagellum. Unlike the retinal arm, these features are variable between patients, which is what the disease name records.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"determination of left/right symmetry\"]}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night blindness. Note the reported order of symptoms is not always the classic one: in the long-followed case, photophobia came first at 20 and nyctalopia ten years later.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000662\"}}, {\"id\": \"Oligozoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000798\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Outer Segment Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Outer segment disks are vertically aligned rather than stacked normally, and this is present before any photoreceptor is lost. Structure fails first; degeneration follows.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal rod cell\"]}}, {\"id\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of rods and then cones, producing the classic retinitis pigmentosa sequence of night blindness, peripheral field loss and finally central acuity loss. Progression can be slow: one patient retained useful residual vision at 63.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Photoreceptor cell\"], \"animal_models\": [{\"name\": \"Arl2bp knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Arl2bp knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse shows early and progressive loss of visual response, reproducing the human degeneration.\"}]}}, {\"id\": \"Rod-cone dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa, present in every reported patient. Tagged OBLIGATE because it is the one feature the disease definition requires; the disease name makes everything else optional.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000510\"}}, {\"id\": \"Situs inversus totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete mirror-image reversal of thoracic and abdominal viscera, from failed left-right determination at the embryonic node. Present in some patients and absent in others, which is the variability the disease name records.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001696\"}}, {\"id\": \"c.100+1G\u003eT (splice donor)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel splice-donor allele from a consanguineous Pakistani family, absent from gnomAD and ClinVar, with SpliceAI supporting loss of both the acceptor and the donor site.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.101-1G\u003eC (splice acceptor)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous splice-acceptor variant in the founding RP-plus-situs-inversus family, shown to alter pre-mRNA splicing in blood RNA.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.134T\u003eG (p.Met45Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The one missense allele, and the only one with a published mechanism at protein level: it reduces ARL2 binding and abolishes basal-body localisation, which is what ties the missense class to the same mislocalisation mechanism as the truncating alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.22_23delAG (p.S8Lfs*10)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift allele in a Chinese consanguineous family, reported with the RP, situs inversus and male-infertility triad.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.294-1G\u003eC (splice acceptor, intron 4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-acceptor allele in the case with the longest published follow-up, and the one that added renal agenesis and microcysts to the phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic ARL2BP Loss of Function\", \"target\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARL2 anchors ARL2BP at the ciliary base; without binding, ARL2BP is not recruited.\"}, {\"source\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARL2BP at the ciliary base is required for normal axoneme structure and elongation.\"}, {\"source\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"target\": \"Photoreceptor Outer Segment Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A shortened, malformed axoneme cannot template a normal outer segment.\"}, {\"source\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"target\": \"Motile Cilia and Flagellar Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same axonemal requirement applies to motile cilia at the embryonic node and to the sperm flagellum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Outer Segment Disorganization\", \"target\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A photoreceptor that cannot maintain its outer segment does not survive.\"}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Rod-cone dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Situs inversus totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Oligozoospermia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Abnormal sperm motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ARL2BP patient dermal fibroblasts\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show reduced ciliary length, the human cellular counterpart of the mouse axonemal defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblast primary cilia are not photoreceptor connecting cilia, so ciliary length in this system is a proxy for, not a measurement of, the retinal lesion. Reduced proliferation was measured in the same cells and could confound a length measurement made across a cycling population.\"}, {\"source\": \"Arl2bp knockout mouse\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is where the axonemal and doublet-microtubule lesion was characterised at all; the human evidence for this node is limited to shortened cilia in cultured cells.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive knockout, whereas the reported human alleles include a missense substitution that reduces rather than abolishes ARL2 binding, so the mouse likely models the severe end of the allelic spectrum. The mouse is also not reported here to show situs inversus or infertility, so it speaks only to the retinal arm.\"}, {\"source\": \"Arl2bp knockout mouse\", \"target\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse shows early and progressive loss of visual response, reproducing the human degeneration.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rate and endpoint are not comparable: the mouse declines early, whereas one human patient retained useful residual vision at 63. Mouse retina also lacks a macula, so the central-acuity loss that dominates late human disease has no counterpart.\"}, {\"source\": \"c.101-1G\u003eC (splice acceptor)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.134T\u003eG (p.Met45Arg)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.22_23delAG (p.S8Lfs*10)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.294-1G\u003eC (splice acceptor, intron 4)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.100+1G\u003eT (splice donor)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARL2BP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 5}}, {\"id\": \"ARL2BP patient dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from the patient with the RP, situs inversus and oligozoospermia triad. Valuable because they demonstrate the ciliary lesion in the patient\u0027s own cells rather than by knockdown or in mouse.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36507858\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal sperm motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asthenozoospermia, reported in a second patient. Bound to the motility parent term because HPO has no separate asthenozoospermia class.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012206\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in one patient, and framed cautiously by the reporting authors as a susceptibility rather than an established feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000458\"}}, {\"id\": \"Arl2bp knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Arl2bp knockout generated specifically to ask how a ciliary protein contributes to outer segment formation. It gives the structural detail that human tissue cannot: axoneme length, disk orientation, and doublet microtubule architecture.\"}, {\"id\": \"Biallelic ARL2BP Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reported alleles are homozygous and heterogeneous in class: a splice acceptor variant that alters pre-mRNA splicing demonstrably in blood RNA, a frameshift, and a missense substitution (p.Met45Arg) that reduces ARL2 binding. All converge on loss of ARL2BP function at the ciliary base.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}]}}}, {\"id\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural lesion. Depleting ARL2BP shortens cilia. In the knockout mouse retina, photoreceptor axonemes are shortened and the ciliary doublet microtubules are malformed, with open B-tubules and loss of the singlet microtubules. This is a defect in building the ciliary skeleton, not merely in cargo delivery along it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"axoneme assembly\"], \"experimental_models\": [{\"name\": \"ARL2BP patient dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient fibroblasts show reduced ciliary length, the human cellular counterpart of the mouse axonemal defect.\"}], \"animal_models\": [{\"name\": \"Arl2bp knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Arl2bp knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The model is where the axonemal and doublet-microtubule lesion was characterised at all; the human evidence for this node is limited to shortened cilia in cultured cells.\"}]}}, {\"id\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARL2BP normally localises to the basal body, the cilium-associated centriole and the periciliary extension of the photoreceptor inner segment. ARL2, not ARL3, is what recruits or anchors it there: depleting ARL2 displaces ARL2BP from the basal body while depleting ARL3 does not. That asymmetry is the reason this node names ARL2 specifically.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Photoreceptor cell\", \"Retinal cone cell\"]}}, {\"id\": \"Motile Cilia and Flagellar Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The extra-ocular arm. The same axonemal requirement applies to the motile cilia of the embryonic node, which establish left-right asymmetry, and to the sperm flagellum. Unlike the retinal arm, these features are variable between patients, which is what the disease name records.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"determination of left/right symmetry\"]}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night blindness. Note the reported order of symptoms is not always the classic one: in the long-followed case, photophobia came first at 20 and nyctalopia ten years later.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000662\"}}, {\"id\": \"Oligozoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000798\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Outer Segment Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Outer segment disks are vertically aligned rather than stacked normally, and this is present before any photoreceptor is lost. Structure fails first; degeneration follows.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal rod cell\"]}}, {\"id\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of rods and then cones, producing the classic retinitis pigmentosa sequence of night blindness, peripheral field loss and finally central acuity loss. Progression can be slow: one patient retained useful residual vision at 63.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Photoreceptor cell\"], \"animal_models\": [{\"name\": \"Arl2bp knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Arl2bp knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse shows early and progressive loss of visual response, reproducing the human degeneration.\"}]}}, {\"id\": \"Rod-cone dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa, present in every reported patient. Tagged OBLIGATE because it is the one feature the disease definition requires; the disease name makes everything else optional.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000510\"}}, {\"id\": \"Situs inversus totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete mirror-image reversal of thoracic and abdominal viscera, from failed left-right determination at the embryonic node. Present in some patients and absent in others, which is the variability the disease name records.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001696\"}}, {\"id\": \"c.100+1G\u003eT (splice donor)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel splice-donor allele from a consanguineous Pakistani family, absent from gnomAD and ClinVar, with SpliceAI supporting loss of both the acceptor and the donor site.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.101-1G\u003eC (splice acceptor)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous splice-acceptor variant in the founding RP-plus-situs-inversus family, shown to alter pre-mRNA splicing in blood RNA.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.134T\u003eG (p.Met45Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The one missense allele, and the only one with a published mechanism at protein level: it reduces ARL2 binding and abolishes basal-body localisation, which is what ties the missense class to the same mislocalisation mechanism as the truncating alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.22_23delAG (p.S8Lfs*10)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift allele in a Chinese consanguineous family, reported with the RP, situs inversus and male-infertility triad.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.294-1G\u003eC (splice acceptor, intron 4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-acceptor allele in the case with the longest published follow-up, and the one that added renal agenesis and microcysts to the phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL2BP\"], \"gene_terms\": [{\"label\": \"ARL2BP\", \"id\": \"hgnc:17146\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic ARL2BP Loss of Function\", \"target\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARL2 anchors ARL2BP at the ciliary base; without binding, ARL2BP is not recruited.\"}, {\"source\": \"Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARL2BP at the ciliary base is required for normal axoneme structure and elongation.\"}, {\"source\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"target\": \"Photoreceptor Outer Segment Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A shortened, malformed axoneme cannot template a normal outer segment.\"}, {\"source\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"target\": \"Motile Cilia and Flagellar Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same axonemal requirement applies to motile cilia at the embryonic node and to the sperm flagellum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Outer Segment Disorganization\", \"target\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A photoreceptor that cannot maintain its outer segment does not survive.\"}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Rod-cone dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Situs inversus totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Oligozoospermia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Abnormal sperm motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motile Cilia and Flagellar Dysfunction\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ARL2BP patient dermal fibroblasts\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show reduced ciliary length, the human cellular counterpart of the mouse axonemal defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblast primary cilia are not photoreceptor connecting cilia, so ciliary length in this system is a proxy for, not a measurement of, the retinal lesion. Reduced proliferation was measured in the same cells and could confound a length measurement made across a cycling population.\"}, {\"source\": \"Arl2bp knockout mouse\", \"target\": \"Defective Ciliary Axoneme and Doublet Microtubule Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is where the axonemal and doublet-microtubule lesion was characterised at all; the human evidence for this node is limited to shortened cilia in cultured cells.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive knockout, whereas the reported human alleles include a missense substitution that reduces rather than abolishes ARL2 binding, so the mouse likely models the severe end of the allelic spectrum. The mouse is also not reported here to show situs inversus or infertility, so it speaks only to the retinal arm.\"}, {\"source\": \"Arl2bp knockout mouse\", \"target\": \"Progressive Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse shows early and progressive loss of visual response, reproducing the human degeneration.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rate and endpoint are not comparable: the mouse declines early, whereas one human patient retained useful residual vision at 63. Mouse retina also lacks a macula, so the central-acuity loss that dominates late human disease has no counterpart.\"}, {\"source\": \"ARL2BP\", \"target\": \"Biallelic ARL2BP Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.101-1G\u003eC (splice acceptor)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.134T\u003eG (p.Met45Arg)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.22_23delAG (p.S8Lfs*10)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.294-1G\u003eC (splice acceptor, intron 4)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.100+1G\u003eT (splice donor)\", \"target\": \"ARL2BP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5530,6 +5625,9 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5544,6 +5642,7 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5667,7 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5651,6 +5751,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5665,6 +5768,7 @@ This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5689,6 +5793,7 @@ This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5761,6 +5866,9 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133), q
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5775,6 +5883,7 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133), q
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5799,6 +5908,7 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133), q
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5853,6 +5963,9 @@ This clinical feature is Spicular pigmentation of the retina (HP:0007737). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5867,6 +5980,7 @@ This clinical feature is Spicular pigmentation of the retina (HP:0007737). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5891,6 +6005,7 @@ This clinical feature is Spicular pigmentation of the retina (HP:0007737). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5945,6 +6060,9 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5959,6 +6077,7 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6013,6 +6132,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6027,6 +6149,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6081,6 +6204,9 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6095,6 +6221,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6158,6 +6285,9 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6172,6 +6302,7 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6226,6 +6357,9 @@ This clinical feature is asthenozoospermia, annotated with Abnormal sperm motili
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6240,6 +6374,7 @@ This clinical feature is asthenozoospermia, annotated with Abnormal sperm motili
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6294,6 +6429,9 @@ This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6308,6 +6446,7 @@ This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6501,9 @@ This clinical feature is renal microcysts, annotated with Renal cyst (HP:0000107
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6376,6 +6518,7 @@ This clinical feature is renal microcysts, annotated with Renal cyst (HP:0000107
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6573,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6444,6 +6590,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6507,6 +6654,9 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6524,6 +6674,7 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6621,6 +6772,9 @@ This disease-associated gene is ARL2BP (hgnc:17146). hgnc:17146 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6635,6 +6789,7 @@ This disease-associated gene is ARL2BP (hgnc:17146). hgnc:17146 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,6 +6814,7 @@ This disease-associated gene is ARL2BP (hgnc:17146). hgnc:17146 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6694,6 +6850,7 @@ This disease-associated gene is ARL2BP (hgnc:17146). hgnc:17146 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6715,7 +6872,13 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous splice-acceptor variant in the founding RP-plus-situs-inversus family, shown to alter pre-mRNA splicing in blood RNA.</div>
@@ -6742,6 +6905,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6777,6 +6941,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6798,7 +6963,13 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The one missense allele, and the only one with a published mechanism at protein level: it reduces ARL2 binding and abolishes basal-body localisation, which is what ties the missense class to the same mislocalisation mechanism as the truncating alleles.</div>
@@ -6828,6 +6999,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6849,6 +7021,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6884,6 +7057,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6905,7 +7079,13 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift allele in a Chinese consanguineous family, reported with the RP, situs inversus and male-infertility triad.</div>
@@ -6932,6 +7112,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7148,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6988,7 +7170,13 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Splice-acceptor allele in the case with the longest published follow-up, and the one that added renal agenesis and microcysts to the phenotype.</div>
@@ -7015,6 +7203,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7050,6 +7239,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7071,7 +7261,13 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel splice-donor allele from a consanguineous Pakistani family, absent from gnomAD and ClinVar, with SpliceAI supporting loss of both the acceptor and the donor site.</div>
@@ -7101,6 +7297,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7122,6 +7319,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7414,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7292,6 +7491,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7313,6 +7513,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7383,6 +7584,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7435,6 +7637,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7484,6 +7687,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7552,6 +7756,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7634,6 +7839,7 @@ This variant is in ARL2BP (hgnc:17146). hgnc:17146 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7833,6 +8039,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7872,6 +8079,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8025,6 +8233,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8064,6 +8273,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8140,6 +8350,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9409,6 +9620,36 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">On the deep-research report. An openscientist report was generated and used as leads. `just preflight-dr` returned WARN on two counts, both of which changed what was curated.
+First, ARL2 is mentioned 19 times against 61 for ARL2BP. Much of the ARL2/ARL3 photoreceptor-trafficking literature the report draws on concerns a different disease: PMID:25422369, which the report cites, is about RP2 and X-linked retinitis pigmentosa 2, not this disorder. It is not cited here and not committed.
+Second, the report gives `HGNC:702` as the ARL2BP identifier. That is wrong: the correct one is `hgnc:17146`, which is what this entry binds. The report&#39;s own Term Validation section did not flag it, so it was caught by checking the CURIE rather than by trusting the report.
+A correction to an earlier version of this note. It previously claimed the report confused the ARL2BP gene MIM (615407) with the RP66 phenotype MIM (615434), and gave that as the reason for carrying no OMIM assertion. That was wrong, and review caught it: the report distinguishes the two correctly in three places, including its header line and a table with separate &#34;OMIM (phenotype)&#34; 615434 and &#34;OMIM (gene)&#34; 615407 rows. The entry now carries the phenotype MIM as an `external_assertions` record, cited to PMID:38649918 rather than to the report, because that paper states both identifiers with their roles in a single sentence.
+Every PMID used from the report was verified against PubMed before citation.
+On two source typographies reproduced rather than corrected. PMID:23849777 writes &#34;ARLBP2&#34; for ARL2BP in the abstract sentence quoted on the loss-of-function node. Snippets are exact quotes, so it stands, and the explanation says so.
+Not curated, and why. No `treatments:` - no proven disease-modifying therapy exists for retinitis pigmentosa of any genotype, and the supportive measures the report lists (low-vision rehabilitation, assisted reproduction) are generic to retinal dystrophy and male infertility rather than evidenced for RP66. That absence is recorded as a KNOWLEDGE_GAP discussion attached to `treatments#`, carrying the Cochrane review&#39;s statement at `directness: INDIRECT`, rather than left as an uncited sentence in `description`. No `datasets:` or `clinical_trials:` - no verified accession or registration. No `environmental:` - no exposure implicated. `directness` is set on four items only, where it was actually assessed.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address REQUEST_CHANGES on PR #11266</strong> · 2026-09-07T10:43:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Retinitis_Pigmentosa_With_or_Without_Situs_Inversus/2026-09-07T104317Z-claude-code-27dacb.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed all three blocking items from the automated review plus every optional suggestion. IMPORTANT 1: added HP:0001133 Constriction of peripheral visual field and HP:0007737 Spicular pigmentation of the retina, both quoted from the full text of PMID:38649918 already committed in this PR. IMPORTANT 2: added five variants to genetic.variants (c.101-1G&gt;C; c.134T&gt;G p.Met45Arg; c.22_23delAG p.S8Lfs*10; c.294-1G&gt;C; and c.100+1G&gt;T, which was found by following the reviewer&#39;s prevalence lead and is absent from the deep-research report&#39;s variant table), each with a verified quote from a cached source, and added penetrance COMPLETE with expressivity VARIABLE to the inheritance record, evidenced by two biallelic sisters who had no situs inversus. IMPORTANT 3: the reviewer was correct that the notes misrepresented the deep-research report, which does distinguish gene MIM 615407 from phenotype MIM 615434 in three places; the note is corrected and an external_assertions record carries OMIM:615434 cited to PMID:38649918 rather than to the report. Suggestions taken: a three-phase progression section from the long-followed case; the prevalence evidence replaced, having quoted a variant report rather than an occurrence measure, with the 1 in 72 cohort figure from PMID:40384762; the absent treatments section recorded as a KNOWLEDGE_GAP discussion attached to treatments# carrying the Cochrane statement at directness INDIRECT, with the description softened to match; motile-cilia node biological_scale changed from ORGANISM to CELLULAR; CL:0000573 retinal cone cell added. Two reference caches added (PMID:32573764, PMID:40384762). Two self-inflicted defects were caught and fixed during the round: a reference title written from memory rather than from the cache, caught by the reference validator; and a scripted replacement that silently deleted the disease_term, synonyms, parents, references and inheritance sections, which every gate accepted because all five slots are optional and which was caught only by a structural diff against HEAD. All sections were restored and a structural comparison confirms nothing lost or shrunk. Validated: just validate-disorders (55/55 snippets verified), validate-terms, check-entity-refs, check-causal-targets, check-enum-values, check-duplicate-keys, check-qualifier-terms, check-qualifier-terms-online.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Retinitis Pigmentosa With or Without Situs Inversus</strong> · 2026-09-06T19:51:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Retinitis_Pigmentosa_With_or_Without_Situs_Inversus/2026-09-06T195138Z-claude-code-e87eec.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of RP66 / ARL2BP-related rod-cone dystrophy (MONDO:0014186). An openscientist deep-research report was generated and used as leads; preflight returned WARN on two counts that both changed the curation. ARL2 is mentioned 19 times against 61 for ARL2BP and the report cites PMID:25422369, which is about RP2 and X-linked RP2 rather than this disease; it is not cited here. The report also gives OMIM 615407, the ARL2BP gene MIM, where MONDO xrefs the RP66 phenotype MIM 615434, so no OMIM external_assertion is recorded. Six pathophysiology nodes branch one ciliary axoneme defect into an obligate retinal arm and a variable motile-cilia arm (situs inversus, sperm, olfactory), with a KNOWLEDGE_GAP on why the retinal arm is obligate and the other is not. Arl2bp knockout mouse and patient fibroblasts are both linked via modeled_mechanisms with scale and limitations. Validated: just validate (38/38 snippets verified), validate-terms, check-entity-refs, check-causal-targets, check-enum-values, check-duplicate-keys all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

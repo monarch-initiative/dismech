@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Fuhrmann%20Syndrome"
@@ -3983,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4102,6 +4170,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4189,7 +4258,7 @@
             </div>
 
             <div class="item-box discussion-box anchor-target" id="fuhrmann_femoral_bowing_unexplained">
-                <div class="item-name">What mechanism produces the femoral bowing in Fuhrmann syndrome, given that neither the WNT7A-LMX1 dorsalization branch nor the WNT7A-SHH posterior branch accounts for a proximal long-bone deformity?</div>
+                <div class="item-name">What mechanism produces the femoral bowing and pelvic hypoplasia in Fuhrmann syndrome, given that neither the WNT7A-LMX1 dorsalization branch nor the WNT7A-SHH posterior branch accounts for a proximal long-bone or girdle deformity?</div>
                 <div class="item-meta">
 
                     <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
@@ -4211,11 +4280,18 @@
 
 
 
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-pelvic-hypoplasia">phenotypes#Pelvic Hypoplasia</a>
+
+
+
                     </div>
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">Femoral bowing is in the disorder&#39;s own alternative name and is reported as one of its most frequent features, yet it is the one phenotype in this entry with no upstream pathophysiology node. Both curated mechanism branches explain distal and posterior structures. Either a third WNT7A-dependent process acts on proximal long-bone morphogenesis, or the bowing is secondary to the fibular deficiency and abnormal loading rather than primary. Neither is established.</div>
+                <div class="item-desc" style="margin-top: 10px;">Femoral bowing is in the disorder&#39;s own alternative name and is reported as one of its most frequent features, yet it is one of two phenotypes in this entry with no upstream pathophysiology node — pelvic hypoplasia, the proximal girdle, is unreached for the same reason. Both curated mechanism branches explain distal and posterior structures. Either a third WNT7A-dependent process acts on proximal long-bone and girdle morphogenesis, or the two findings are secondary to the fibular deficiency and abnormal loading rather than primary. A third possibility is locus heterogeneity: PMID:21716096, the sole source for the pelvic (and ulnar) features here, reports them in a patient in whom WNT7A mutations were excluded, so a WNT7A-independent cause cannot be ruled out for at least that finding. None of the three is established.</div>
 
 
 
@@ -4317,6 +4393,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-loss-of-wnt7a-function" data-dismech-node="Partial Loss of WNT7A Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Loss of WNT7A Function</div>
 
+
                 <div class="item-desc">Homozygous missense WNT7A variants reduce, but do not abolish, the activity of the secreted dorsal-ectoderm signal. The residual activity is what separates Fuhrmann syndrome from AARRS: null alleles of the same gene produce the much more severe phocomelia phenotype.</div>
 
 
@@ -4368,6 +4445,8 @@ This genetic context concerns WNT7A (hgnc:12786). hgnc:12786 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4381,6 +4460,9 @@ This genetic context concerns WNT7A (hgnc:12786). hgnc:12786 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4436,6 +4518,7 @@ This genetic context concerns WNT7A (hgnc:12786). hgnc:12786 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4458,6 +4541,7 @@ This genetic context concerns WNT7A (hgnc:12786). hgnc:12786 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dorsoventral-patterning-of-the-limb" data-dismech-node="Impaired Dorsoventral Patterning of the Limb" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dorsoventral Patterning of the Limb</div>
+
 
                 <div class="item-desc">WNT7A from the dorsal ectoderm induces and maintains the LIM homeodomain transcription factor LMX1 in dorsal limb mesenchyme, which specifies dorsal identity. Weakened induction produces the dorsal-structure defects, including nail hypoplasia.</div>
 
@@ -4549,6 +4633,7 @@ This pathophysiological event involves decreased Dorsal/ventral pattern formatio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4571,6 +4656,7 @@ This pathophysiological event involves decreased Dorsal/ventral pattern formatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-maintain-shh-expression" data-dismech-node="Failure to Maintain SHH Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Maintain SHH Expression</div>
+
 
                 <div class="item-desc">Dorsal ectoderm, through WNT7a, is required together with FGF4 to maintain Shh expression in the posterior mesenchyme. Removing that signal causes loss of posterior skeletal elements. This is the link from a dorsoventral signalling defect to the postaxial limb deficiencies seen clinically.</div>
 
@@ -4696,6 +4782,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4717,6 +4804,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4743,7 +4831,8 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postaxial-limb-deficiency" data-dismech-node="Postaxial Limb Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Postaxial Limb Deficiency</div>
 
-                <div class="item-desc">Absence or hypoplasia of the fibula with oligodactyly — the posterior skeletal elements this branch accounts for. Femoral bowing is deliberately not included: it is a proximal long-bone deformity, not a posterior element, and this branch does not explain it.</div>
+
+                <div class="item-desc">Absence or hypoplasia of the fibula with oligodactyly — the posterior skeletal elements this branch accounts for. The ulna, the postaxial forearm element and serial homolog of the fibula, fits the same branch by the same logic, but the only source naming it, PMID:21716096, is a case report titled &#34;Hypoplasia/aplasia of pelvis, femora, fibulae, ulna, digits and nails: Fuhrmann syndrome without WNT7A mutations&#34; — it names the ulna and pelvis outright, but in a WNT7A-negative patient, so attributing the ulnar phenotype to this branch is a serial-homology inference, not an observation in a WNT7A-mutant patient. Femoral bowing is deliberately not included: it is a proximal long-bone deformity, not a posterior element, and this branch does not explain it.</div>
 
 
 
@@ -4780,6 +4869,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4802,6 +4892,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nail-hypoplasia" data-dismech-node="Nail Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Nail Hypoplasia</div>
+
 
                 <div class="item-desc">Hypoplastic nails, the dorsal-appendage consequence of impaired dorsalization.</div>
 
@@ -4837,6 +4928,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4885,7 +4977,7 @@ This pathophysiological event involves decreased Smoothened signaling pathway (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure to Maintain SHH Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dorsal ectoderm, through WNT7a, is required together with FGF4 to maintain Shh expression in the posterior mesenchyme. Removing that signal causes loss of posterior skeletal elements. This is the link from a dorsoventral signalling defect to the postaxial limb deficiencies seen clinically.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"anterior/posterior pattern specification\", \"Smoothened signaling pathway\"]}}, {\"id\": \"Impaired Dorsoventral Patterning of the Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WNT7A from the dorsal ectoderm induces and maintains the LIM homeodomain transcription factor LMX1 in dorsal limb mesenchyme, which specifies dorsal identity. Weakened induction produces the dorsal-structure defects, including nail hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Dorsal/ventral pattern formation\"]}}, {\"id\": \"Nail Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic or absent nails, reflecting the dorsalization defect.\", \"meta\": {\"term_id\": \"HP:0008386\"}}, {\"id\": \"Partial Loss of WNT7A Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense WNT7A variants reduce, but do not abolish, the activity of the secreted dorsal-ectoderm signal. The residual activity is what separates Fuhrmann syndrome from AARRS: null alleles of the same gene produce the much more severe phocomelia phenotype.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"missense\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"WNT7A\", \"id\": \"hgnc:12786\"}]}}}, {\"id\": \"Postaxial Limb Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence or hypoplasia of the fibula with oligodactyly \\u2014 the posterior skeletal elements this branch accounts for. Femoral bowing is deliberately not included: it is a proximal long-bone deformity, not a posterior element, and this branch does not explain it.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Partial Loss of WNT7A Function\", \"target\": \"Impaired Dorsoventral Patterning of the Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WNT7A signalling from dorsal ectoderm weakens induction of the dorsal mesenchymal programme.\"}, {\"source\": \"Partial Loss of WNT7A Function\", \"target\": \"Failure to Maintain SHH Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT7A is required to sustain Shh in the posterior mesenchyme, so partial loss compromises anteroposterior patterning as well.\"}, {\"source\": \"Impaired Dorsoventral Patterning of the Limb\", \"target\": \"Nail Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nails are dorsal appendages; loss of dorsal identity leaves them hypoplastic.\"}, {\"source\": \"Failure to Maintain SHH Expression\", \"target\": \"Postaxial Limb Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of posterior skeletal elements manifests as fibular aplasia and oligodactyly.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure to Maintain SHH Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dorsal ectoderm, through WNT7a, is required together with FGF4 to maintain Shh expression in the posterior mesenchyme. Removing that signal causes loss of posterior skeletal elements. This is the link from a dorsoventral signalling defect to the postaxial limb deficiencies seen clinically.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"anterior/posterior pattern specification\", \"Smoothened signaling pathway\"]}}, {\"id\": \"Impaired Dorsoventral Patterning of the Limb\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WNT7A from the dorsal ectoderm induces and maintains the LIM homeodomain transcription factor LMX1 in dorsal limb mesenchyme, which specifies dorsal identity. Weakened induction produces the dorsal-structure defects, including nail hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Dorsal/ventral pattern formation\"]}}, {\"id\": \"Nail Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic or absent nails, reflecting the dorsalization defect.\", \"meta\": {\"term_id\": \"HP:0008386\"}}, {\"id\": \"Partial Loss of WNT7A Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense WNT7A variants reduce, but do not abolish, the activity of the secreted dorsal-ectoderm signal. The residual activity is what separates Fuhrmann syndrome from AARRS: null alleles of the same gene produce the much more severe phocomelia phenotype.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"missense\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"WNT7A\", \"id\": \"hgnc:12786\"}]}}}, {\"id\": \"Postaxial Limb Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence or hypoplasia of the fibula with oligodactyly \\u2014 the posterior skeletal elements this branch accounts for. The ulna, the postaxial forearm element and serial homolog of the fibula, fits the same branch by the same logic, but the only source naming it, PMID:21716096, is a case report titled \\\"Hypoplasia/aplasia of pelvis, femora, fibulae, ulna, digits and nails: Fuhrmann syndrome without WNT7A mutations\\\" \\u2014 it names the ulna and pelvis outright, but in a WNT7A-negative patient, so attributing the ulnar phenotype to this branch is a serial-homology inference, not an observation in a WNT7A-mutant patient. Femoral bowing is deliberately not included: it is a proximal long-bone deformity, not a posterior element, and this branch does not explain it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"WNT7A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT7A\"], \"gene_terms\": [{\"label\": \"WNT7A\", \"id\": \"hgnc:12786\"}], \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Partial Loss of WNT7A Function\", \"target\": \"Impaired Dorsoventral Patterning of the Limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WNT7A signalling from dorsal ectoderm weakens induction of the dorsal mesenchymal programme.\"}, {\"source\": \"Partial Loss of WNT7A Function\", \"target\": \"Failure to Maintain SHH Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT7A is required to sustain Shh in the posterior mesenchyme, so partial loss compromises anteroposterior patterning as well.\"}, {\"source\": \"Impaired Dorsoventral Patterning of the Limb\", \"target\": \"Nail Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nails are dorsal appendages; loss of dorsal identity leaves them hypoplastic.\"}, {\"source\": \"Failure to Maintain SHH Expression\", \"target\": \"Postaxial Limb Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of posterior skeletal elements manifests as fibular aplasia and oligodactyly.\"}, {\"source\": \"WNT7A\", \"target\": \"Partial Loss of WNT7A Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4955,6 +5047,9 @@ This clinical feature is Aplasia/Hypoplasia of the nails (HP:0008386). HP:000838
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -4996,6 +5091,9 @@ This clinical feature is Aplasia/Hypoplasia of the fibula (HP:0006492). HP:00064
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5010,6 +5108,7 @@ This clinical feature is Aplasia/Hypoplasia of the fibula (HP:0006492). HP:00064
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5064,6 +5163,9 @@ This clinical feature is Oligodactyly (HP:0012165). HP:0012165 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5078,6 +5180,7 @@ This clinical feature is Oligodactyly (HP:0012165). HP:0012165 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5136,6 +5239,9 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-syndactyly" data-dismech-node="Syndactyly" data-dismech-type="phenotype">
@@ -5161,6 +5267,9 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5204,6 +5313,9 @@ This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ulnar-aplasia-or-hypoplasia" data-dismech-node="Ulnar Aplasia or Hypoplasia" data-dismech-type="phenotype">
@@ -5231,6 +5343,9 @@ This clinical feature is Aplasia/Hypoplasia of the ulna (HP:0006495). HP:0006495
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5281,6 +5396,9 @@ This clinical feature is Abnormal joint morphology (HP:0001367). HP:0001367 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5295,6 +5413,7 @@ This clinical feature is Abnormal joint morphology (HP:0001367). HP:0001367 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5346,6 +5465,9 @@ This clinical feature is Abnormal pelvic girdle bone morphology (HP:0002644). HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5429,6 +5551,9 @@ This disease-associated gene is WNT7A (hgnc:12786). hgnc:12786 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5443,6 +5568,7 @@ This disease-associated gene is WNT7A (hgnc:12786). hgnc:12786 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5467,6 +5593,7 @@ This disease-associated gene is WNT7A (hgnc:12786). hgnc:12786 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5626,6 +5753,7 @@ This disease-associated gene is WNT7A (hgnc:12786). hgnc:12786 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,9 +5975,16 @@ pathophysiology:
   biological_scale: ORGANISM
   description: &gt;-
     Absence or hypoplasia of the fibula with oligodactyly — the posterior
-    skeletal elements this branch accounts for. Femoral bowing is deliberately
-    not included: it is a proximal long-bone deformity, not a posterior
-    element, and this branch does not explain it.
+    skeletal elements this branch accounts for. The ulna, the postaxial
+    forearm element and serial homolog of the fibula, fits the same branch by
+    the same logic, but the only source naming it, PMID:21716096, is a case
+    report titled &#34;Hypoplasia/aplasia of pelvis, femora, fibulae, ulna, digits
+    and nails: Fuhrmann syndrome without WNT7A mutations&#34; — it names the ulna
+    and pelvis outright, but in a WNT7A-negative patient, so attributing the
+    ulnar phenotype to this branch is a serial-homology inference, not an
+    observation in a WNT7A-mutant patient. Femoral bowing is
+    deliberately not included: it is a proximal long-bone deformity, not a
+    posterior element, and this branch does not explain it.
   evidence:
   - reference: PMID:16826533
     reference_title: &#34;Mutations in WNT7A cause a range of limb malformations, including Fuhrmann syndrome and Al-Awadi/Raas-Rothschild/Schinzel phocomelia syndrome.&#34;
@@ -6068,18 +6203,25 @@ discussions:
   kind: KNOWLEDGE_GAP
   attaches_to:
   - phenotypes#Femoral Bowing
+  - phenotypes#Pelvic Hypoplasia
   prompt: &gt;-
-    What mechanism produces the femoral bowing in Fuhrmann syndrome, given that
-    neither the WNT7A-LMX1 dorsalization branch nor the WNT7A-SHH posterior
-    branch accounts for a proximal long-bone deformity?
+    What mechanism produces the femoral bowing and pelvic hypoplasia in
+    Fuhrmann syndrome, given that neither the WNT7A-LMX1 dorsalization branch
+    nor the WNT7A-SHH posterior branch accounts for a proximal long-bone or
+    girdle deformity?
   rationale: &gt;-
     Femoral bowing is in the disorder&#39;s own alternative name and is reported as
-    one of its most frequent features, yet it is the one phenotype in this entry
-    with no upstream pathophysiology node. Both curated mechanism branches
-    explain distal and posterior structures. Either a third WNT7A-dependent
-    process acts on proximal long-bone morphogenesis, or the bowing is secondary
-    to the fibular deficiency and abnormal loading rather than primary. Neither
-    is established.
+    one of its most frequent features, yet it is one of two phenotypes in this
+    entry with no upstream pathophysiology node — pelvic hypoplasia, the
+    proximal girdle, is unreached for the same reason. Both curated mechanism
+    branches explain distal and posterior structures. Either a third
+    WNT7A-dependent process acts on proximal long-bone and girdle morphogenesis,
+    or the two findings are secondary to the fibular deficiency and abnormal
+    loading rather than primary. A third possibility is locus heterogeneity:
+    PMID:21716096, the sole source for the pelvic (and ulnar) features here,
+    reports them in a patient in whom WNT7A mutations were excluded, so a
+    WNT7A-independent cause cannot be ruled out for at least that finding.
+    None of the three is established.
 - discussion_id: fuhrmann_genotype_phenotype_correlation
   kind: KNOWLEDGE_GAP
   attaches_to:
@@ -6133,8 +6275,8 @@ notes: &gt;-
   None of the six is citable, because neither a disease name, a clinical
   definition, nor a paper title is a source for a finding — a title in
   particular is what check-title-snippets exists to keep out of snippet fields.
-  Two routes to real evidence were tried and both closed. Orphanet, which is the right
-  source for HPO-term-plus-frequency rows and which dismech uses for 7,418
+  Two routes to real evidence were tried and both closed. Orphanet, which is the
+  right source for HPO-term-plus-frequency rows and which dismech uses for 7,418
   evidence items, is currently unbuildable: `just refresh-orphadata` fails
   because data/orphadata/MANIFEST.yaml pins the 2025-12-09 snapshot while
   Orphadata serves a 2026-06-23 release at the same URLs, and bumping that pin
@@ -6236,6 +6378,35 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Fuhrmann syndrome is very rare and the entry is deliberately thin. No prevalence, treatment, natural history, or clinical trial data were found, so those sections are absent rather than populated from the broader limb malformation literature.
+Six phenotypes carry no evidence item: femoral bowing, polydactyly, syndactyly, nail hypoplasia, ulnar aplasia/hypoplasia and pelvic hypoplasia. The inclusion rule is that a feature is curated without evidence when it is attested in the disorder&#39;s own alternative title (&#34;fibular aplasia or hypoplasia, femoral bowing and poly-, syn-, and oligodactyly&#34;), in its clinical definition, or in the title of PMID:21716096 (&#34;Hypoplasia/aplasia of pelvis, femora, fibulae, ulna, digits and nails: Fuhrmann syndrome without WNT7A mutations&#34;). An earlier version of this entry curated only the first four, which made the cut arbitrary: the pelvic and ulnar features are attested at exactly the same level as the four that were included, so excluding them was inconsistent rather than conservative. Hip involvement is not curated, because unlike these six it appears only in disease-registry pages via the deep-research report and not in any title or definition.
+None of the six is citable, because neither a disease name, a clinical definition, nor a paper title is a source for a finding — a title in particular is what check-title-snippets exists to keep out of snippet fields. Two routes to real evidence were tried and both closed. Orphanet, which is the right source for HPO-term-plus-frequency rows and which dismech uses for 7,418 evidence items, is currently unbuildable: `just refresh-orphadata` fails because data/orphadata/MANIFEST.yaml pins the 2025-12-09 snapshot while Orphadata serves a 2026-06-23 release at the same URLs, and bumping that pin rebuilds all 345 committed ORPHA cache files (filed separately). And PMID:21716096 — &#34;Hypoplasia/aplasia of pelvis, femora, fibulae, ulna, digits and nails: Fuhrmann syndrome without WNT7A mutations&#34;, by title the single most on-point clinical source for exactly these features — has content_type: unavailable in PubMed, so there is no abstract text to quote. It is recorded in references: for provenance. These phenotypes should pick up evidence once the Orphanet pin is fixed.
+PMID:21716096 also reports a Fuhrmann phenotype with no WNT7A mutation found, which would bear on whether the disorder is genetically homogeneous. That claim is not curated, for the same reason: no quotable text.
+Evidence grading here is worth reading carefully. The human genetic claim is HUMAN_CLINICAL; every mechanism node is MODEL_ORGANISM, because the WNT7a developmental biology is chick and mouse work. Several phenotype items are graded PARTIAL because the cited abstract describes limb aplasia/hypoplasia generically without naming the specific structure.
+The deep-research report asserted several of the unevidenced phenotypes above, but its own citations for them were disease-registry web pages rather than literature.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Fuhrmann Syndrome</strong> · 2026-08-27T14:58:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Fuhrmann_Syndrome/2026-08-27T145853Z-claude-code-a9fa17.yaml">View source</a></p>
+                        <p class="research-review-text">Curated MONDO:0009232 as a Disease entry from a Perplexity deep-research report plus three primary references (PMID:16826533 human WNT7A genetics, PMID:7585966 WNT7a-Lmx1 dorsalization, PMID:7697724 WNT7a-Shh maintenance). Five-node pathograph running partial WNT7A loss to two parallel developmental branches (dorsoventral patterning; SHH maintenance) to the postaxial limb deficiency and nail hypoplasia.
+
+Evidence grading is the notable part of this entry. Only the genetic claim is HUMAN_CLINICAL; every mechanism node is MODEL_ORGANISM because the WNT7a developmental biology is chick and mouse. Several phenotype items are graded PARTIAL because the cited abstract describes limb aplasia/hypoplasia generically without naming the specific structure. Femoral bowing and nail hypoplasia deliberately carry no evidence item: they are in the syndrome definition but no abstract available to this curation states them quotably, and the deep-research report&#39;s citations for those features were disease-registry web pages rather than literature.
+
+A HUMAN_MODEL_MISMATCH discussion records that both mechanism nodes rest on avian embryology whose translational validity to the human limb is untested, which is the accurate kind for evidence that exists in a model but is unconfirmed in humans.
+
+11/11 snippets verified; term validation passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6608,7 +6779,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fuhrmann Syndrome", "mondoId": "MONDO:0009232", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fuhrmann_Syndrome", "yamlRevision": "d27c65354b05"};
+        const OS_CONFIG = {"diseaseName": "Fuhrmann Syndrome", "mondoId": "MONDO:0009232", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fuhrmann_Syndrome", "yamlRevision": "a6b72a713016"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
