@@ -1,0 +1,272 @@
+# Agent-based model of microtubule-dependent radial neuronal migration.
+#
+# THIS IS NOT A PUBLISHED MODEL. It is authored in this repository, like the
+# rosacea innate-immune Boolean model and the minimal urate-homeostasis and
+# HPT-feedback ODE models, and it is not wired to dismech-perturb: that runner
+# is tellurium/SBML (ODE) only and cannot execute an agent-based simulation.
+# Run it with models/neuronal_migration_abm.py.
+#
+# Every rule maps to a node or causal edge in
+# kb/modules/microtubule_dependent_neuronal_migration_failure.yaml (`provenance:`
+# on each rule names it), with one exception that is labelled as such: the
+# inside-out settling rule is the null model of normal cortical lamination that
+# the module's failure claims presuppose, and no curated edge states it. The
+# model adds no biology of its own: it makes the curated trigger -> motility
+# failure -> dyslamination chain executable, so that what the chain implies
+# (which parameter regimes give delayed lamination, diffuse ectopia, or a
+# heterotopic band) can be derived instead of argued.
+#
+# Nothing here is fitted to data. Every number below is a placeholder chosen so
+# that the wild-type scenario completes migration inside the developmental
+# window; the results are therefore qualitative orderings, never quantities.
+#
+# Scope: the radial-migration branch only (Microtubule Apparatus Perturbation ->
+# Microtubule-Based Neuronal Motility Failure -> Cortical Dyslamination and
+# Neuronal Ectopia). Deliberately excluded, because it is a separate curated
+# branch the module marks optional: Axon Guidance and Projection Wiring
+# Defects. Radial glia are the migration axis, not agents.
+
+model_id: neuronal_migration_abm
+name: Microtubule-Dependent Radial Neuronal Migration Agent-Based Model
+formalism: discrete-time, one-dimensional, stochastic agent-based model (seeded)
+source_entry: kb/modules/microtubule_dependent_neuronal_migration_failure.yaml
+runner: models/neuronal_migration_abm.py
+results: models/neuronal_migration_abm.results.json
+seed: 20260925
+
+# ---------------------------------------------------------------------------
+# Domain: the radial axis of one cortical column, in dimensionless depth units.
+# Neurons are born at the ventricular surface and move toward the pia. Zone
+# boundaries are placeholders; only their order matters to the results.
+# ---------------------------------------------------------------------------
+domain:
+  ventricular_zone_top: 10      # [0, 10) is the ventricular/subventricular zone
+  cortical_plate_floor: 60      # [10, 60) is the intermediate zone
+  pia: 100
+  step_length: 1.0              # displacement per successful nucleokinesis step
+  settled_cell_thickness: 0.02  # how much each settled neuron raises the plate top
+  birth_position: 5.0
+
+# ---------------------------------------------------------------------------
+# Agents. One agent class; radial glia are the axis the agents move along and
+# are not modelled (see BOUNDARY_OMISSION on the module record).
+# ---------------------------------------------------------------------------
+agents:
+  migrating_neuron:
+    maps_to: pathophysiology#Microtubule-Based Neuronal Motility Failure
+    cell_type: CL:0000540 neuron (curated preferred_term "migrating cortical neuron")
+    states: [migrating, arrested, settled]
+    attributes:
+      cohort: birth cohort, 0 = earliest-born (deep layer) to n-1 = latest-born (superficial)
+      affected: whether this neuron carries the apparatus perturbation (cell-autonomous)
+
+cohorts:
+  count: 6
+  size: 100
+  birth_interval: 20            # steps between successive cohort births
+  migration_window: 140         # steps allowed after the last birth before scoring
+
+# ---------------------------------------------------------------------------
+# Inputs: the quantities a scenario sets. `perturbation` is the module's
+# trigger node; the rest are unfitted rates that turn the trigger into
+# per-agent behaviour.
+# ---------------------------------------------------------------------------
+inputs:
+  perturbation:
+    maps_to: pathophysiology#Microtubule Apparatus Perturbation
+    range: [0, 1]
+    description: >-
+      Degree of microtubule-apparatus disruption in an affected neuron, 0 =
+      wild type. The module curates this node qualitatively (DYSREGULATED
+      microtubule cytoskeleton organization, GO:0000226); the scalar is the
+      model's way of asking how much of it is needed, not a measured quantity.
+  affected_fraction:
+    range: [0, 1]
+    description: >-
+      Fraction of neurons that carry the perturbation. 1 for a constitutional
+      variant present in every neuron; below 1 for a defect present in only
+      some neurons. This is representable because the curated evidence states
+      the migration defect is cell-autonomous (PMID:9697693), so an unaffected
+      neuron next to an affected one migrates normally.
+  base_motility:
+    default: 0.8
+    description: Per-step probability that an unperturbed neuron completes a nucleokinesis step. Unfitted.
+  arrest_rate:
+    default: 0.0
+    description: >-
+      Per-step probability, scaled by the effective perturbation, that an
+      affected neuron in the intermediate zone arrests permanently. Kept
+      separate from slowing so the two curated failure modes ("delayed
+      migration" and "arrested cells") can be told apart in the sweeps.
+  rescue:
+    default: 0.0
+    range: [0, 1]
+    description: >-
+      Fraction of the perturbation removed by the curated intervention (see
+      interventions). 0 = no intervention.
+
+# ---------------------------------------------------------------------------
+# Interventions. Only what the module curates with a target_mechanisms edge is
+# encoded; the magnitude of rescue is a swept parameter, not a measurement.
+# ---------------------------------------------------------------------------
+interventions:
+  CRISPRa_isotype_compensation:
+    acts_on: perturbation
+    effect: multiplies the effective perturbation of every affected neuron by (1 - rescue)
+    maps_to: treatments#CRISPRa beta-tubulin isotype compensation
+    provenance: curated_edge
+    detail: >-
+      treatments#CRISPRa beta-tubulin isotype compensation carries a curated
+      target_mechanisms link, treatment_effect RESTORES, onto Microtubule
+      Apparatus Perturbation. The cited work (PMID:42589608) reports
+      restoration of the microtubule network in cells; it reports nothing about
+      migration, so the model's rescue of migration is an implication of the
+      curated edge, not a reported result. It is preclinical and cell-based and
+      must not be read as an available therapy.
+
+# ---------------------------------------------------------------------------
+# Rules. Each is applied per agent per step in the order listed. `provenance`
+# names the curated node or edge the rule transcribes; `decision` records
+# where turning a qualitative edge into a per-agent rule forced a choice the
+# curated text does not itself make.
+# ---------------------------------------------------------------------------
+rules:
+  effective_perturbation:
+    rule: e = perturbation * (1 - rescue) if affected else 0
+    maps_to: pathophysiology#Microtubule Apparatus Perturbation
+    provenance:
+      - pathophysiology#Microtubule Apparatus Perturbation (role trigger)
+      - treatments#CRISPRa beta-tubulin isotype compensation -RESTORES-> Microtubule Apparatus Perturbation
+    decision: >-
+      Cell-autonomous: an agent's perturbation depends only on its own
+      `affected` flag. Grounded in the PMID:9697693 snippet on the motility
+      node ("delayed neuronal migration by a cell-autonomous" mechanism).
+
+  arrest:
+    rule: if migrating and in intermediate zone and random() < arrest_rate * e, state <- arrested (permanent)
+    maps_to: pathophysiology#Microtubule-Based Neuronal Motility Failure
+    provenance:
+      - Microtubule Apparatus Perturbation -> Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)
+    decision: >-
+      The motility node describes both "delayed migration" and "arrested cells
+      in intermediate/subventricular regions". Arrest is encoded as a separate
+      absorbing event rather than as the limit of slowing, so the two can be
+      swept independently. Arrest is confined to the intermediate zone because
+      that is where the curated text places arrested cells.
+
+  slowed_nucleokinesis:
+    rule: if migrating and random() < base_motility * (1 - e), position <- position + step_length
+    maps_to: pathophysiology#Microtubule-Based Neuronal Motility Failure
+    provenance:
+      - Microtubule Apparatus Perturbation -> Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)
+      - pathophysiology#Microtubule-Based Neuronal Motility Failure, biological_processes neuron migration (GO:0001764) DECREASED
+    decision: >-
+      Linear in e. The module says migration is decreased and does not say by
+      what function of the apparatus defect; linear is the least-committed
+      monotone choice and the sweeps report where its consequences change
+      qualitatively.
+
+  inside_out_settling:
+    rule: if migrating and position >= plate_top, state <- settled; settle_rank <- n_settled; plate_top <- plate_top + settled_cell_thickness
+    maps_to: pathophysiology#Cortical Dyslamination and Neuronal Ectopia
+    provenance: background_assumption
+    decision: >-
+      NOT a curated edge. Normal inside-out lamination (each arriving neuron
+      passes the neurons already settled and stops beneath the marginal zone)
+      is the null model the module's "abnormal lamination" claim is measured
+      against, and the module presupposes it without stating it. It is the one
+      rule in this file with no `provenance` inside the module.
+
+  end_of_window:
+    rule: at t = last_birth + migration_window, score every agent; settled = in cortical plate, otherwise ectopic
+    maps_to: pathophysiology#Cortical Dyslamination and Neuronal Ectopia
+    provenance:
+      - Microtubule-Based Neuronal Motility Failure -> Cortical Dyslamination and Neuronal Ectopia (hypothesis_groups microtubule_migration_model)
+    decision: >-
+      The module says the outcome depends on "the gene and developmental
+      window". The window is a fixed, unfitted length; a neuron still migrating
+      when it closes is ectopic in the score, and the results distinguish
+      those (in_transit) from arrested neurons so a reader can see which kind
+      of ectopia a scenario produces.
+
+# ---------------------------------------------------------------------------
+# Readouts computed at the end of the window.
+# ---------------------------------------------------------------------------
+readouts:
+  cortical_plate_fraction: fraction of all neurons settled in the cortical plate
+  ectopic_fraction: >-
+    fraction not settled, split into arrested and in_transit and by zone. An
+    in_transit neuron scored in the cortical_plate zone is one caught beneath
+    earlier-born settled neurons when the window closed.
+  lamination_fidelity: >-
+    fraction of settled neuron pairs from different cohorts whose settle order
+    matches birth order (later-born above earlier-born). 1.0 is perfect
+    inside-out lamination; 0.5 is no relation between birth order and depth.
+  mean_arrival_delay: mean steps from birth to settling, over settled neurons
+  cortical_plate_thickness: settled_cell_thickness * number settled
+  affected_vs_unaffected: the plate fraction for each subpopulation separately
+  band_score: >-
+    for arrested affected neurons, the fraction lying within +/- 5 depth units
+    of their median depth; high when the arrested population forms a band
+    rather than a diffuse scatter. Neurons still in transit are excluded: a
+    delayed neuron is not a heterotopion.
+  pattern: >-
+    a label derived from the readouts by the fixed thresholds in the runner
+    (normal, delayed_lamination, diffuse_ectopia, band_heterotopia,
+    migration_failure); the thresholds are stated in the results file
+
+# ---------------------------------------------------------------------------
+# Scenarios. Named for the mechanism regime they set, never for a gene: the
+# model has no parameter that is a measured property of any gene.
+# ---------------------------------------------------------------------------
+scenarios:
+  wild_type:
+    perturbation: 0.0
+    affected_fraction: 0.0
+    description: No apparatus perturbation. Must lay the cortex down inside-out or the wiring is wrong.
+  delayed_migration:
+    perturbation: 0.5
+    affected_fraction: 1.0
+    description: Every neuron carries a moderate perturbation that slows but never arrests it.
+  arrest_dominant:
+    perturbation: 0.5
+    affected_fraction: 1.0
+    arrest_rate: 0.01
+    description: The same slowing plus a per-step chance of permanent arrest in the intermediate zone.
+  severe_constitutional:
+    perturbation: 0.85
+    affected_fraction: 1.0
+    arrest_rate: 0.01
+    description: A severe perturbation in every neuron.
+  mosaic_severe:
+    perturbation: 0.85
+    affected_fraction: 0.5
+    arrest_rate: 0.01
+    description: >-
+      The severe perturbation in half the neurons and none in the other half.
+      This is the regime in which a heterotopic band beneath a normally
+      laminated cortex could emerge from the curated cell-autonomous edge.
+  severe_constitutional_rescued:
+    perturbation: 0.85
+    affected_fraction: 1.0
+    arrest_rate: 0.01
+    rescue: 0.6
+    description: severe_constitutional with the curated intervention removing 60% of the perturbation (a swept value, not a measurement).
+
+sweeps:
+  perturbation_no_arrest:
+    vary: perturbation
+    values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    fixed: {affected_fraction: 1.0, arrest_rate: 0.0}
+  perturbation_with_arrest:
+    vary: perturbation
+    values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    fixed: {affected_fraction: 1.0, arrest_rate: 0.01}
+  affected_fraction_severe:
+    vary: affected_fraction
+    values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    fixed: {perturbation: 0.85, arrest_rate: 0.01}
+  rescue_severe:
+    vary: rescue
+    values: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    fixed: {perturbation: 0.85, affected_fraction: 1.0, arrest_rate: 0.01}
