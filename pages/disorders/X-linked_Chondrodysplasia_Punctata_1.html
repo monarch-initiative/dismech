@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=X-linked%20Chondrodysplasia%20Punctata%201"
@@ -4026,7 +4065,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4609,6 +4648,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arsl-arylsulfatase-deficiency" data-dismech-node="ARSL Arylsulfatase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ARSL Arylsulfatase Deficiency</div>
 
+
                 <div class="item-desc">Hemizygous loss-of-function variants in ARSL (formerly ARSE) abolish a heat-labile arylsulfatase activity localized to Xp22.3. The gene was found by positional cloning of the CDPX region, and the enzyme deficiency was demonstrated directly in patients carrying deletions spanning that region - so the enzymatic lesion is established even though what the enzyme normally does is not.</div>
 
 
@@ -4661,6 +4701,8 @@ This genetic context concerns ARSL (hgnc:719). hgnc:719 is a gene from the HUGO 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4673,6 +4715,9 @@ This genetic context concerns ARSL (hgnc:719). hgnc:719 is a gene from the HUGO 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous germline point mutations, and in about a quarter of molecularly solved cases Xp deletions or rearrangements. Heterozygous females are carriers and have not so far been reported as affected.</div>
 
@@ -4809,6 +4854,7 @@ This pathophysiological event involves arylsulfatase activity (GO:0004065), qual
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unidentified-sulfated-substrate-accumulates-or-fails-to-be-processed" data-dismech-node="Unidentified Sulfated Substrate Accumulates or Fails to Be Processed" data-dismech-type="pathophysiology">
                 <div class="item-name">Unidentified Sulfated Substrate Accumulates or Fails to Be Processed</div>
 
+
                 <div class="item-desc">An explicitly unresolved node. ARSL&#39;s physiological substrate has not been identified, so the step between the enzyme deficiency and the cartilage phenotype is empty. It is modelled rather than omitted because the shape of the gap matters: the warfarin sensitivity of the enzyme and the vitamin-K-deficiency phenocopies both point towards a vitamin-K-dependent process, and that is the leading hypothesis for what should occupy this node.</div>
 
 
@@ -4885,6 +4931,7 @@ This pathophysiological event involves arylsulfatase activity (GO:0004065), qual
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-warfarin-sensitive-enzyme-activity" data-dismech-node="Warfarin-Sensitive Enzyme Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Warfarin-Sensitive Enzyme Activity</div>
 
+
                 <div class="item-desc">Recombinant ARSL expressed in COS cells yields an arylsulfatase activity that is inhibited by warfarin. This is not a feature of the disease so much as the bridge between the genetic disorder and its most important phenocopy: a coumarin taken by the mother during a critical window can pharmacologically produce the same enzyme deficiency the mutation produces genetically. It is modelled as its own node because it is the mechanistic claim that unifies CDPX1 with warfarin embryopathy and, more speculatively, with the vitamin-K-deficiency phenocopies.</div>
 
 
@@ -4960,6 +5007,7 @@ This pathophysiological event involves arylsulfatase activity (GO:0004065), qual
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cartilage-calcification-and-endochondral-ossification" data-dismech-node="Abnormal Cartilage Calcification and Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cartilage Calcification and Endochondral Ossification</div>
+
 
                 <div class="item-desc">Punctate calcification appears in epiphyseal and other cartilage, with a distribution that in this disorder is weighted towards the nasal cartilage and the distal phalanges rather than towards the proximal long bones. That regional weighting is what separates the brachytelephalangic pattern from the rhizomelic one radiographically, and it is unexplained.</div>
 
@@ -5197,6 +5245,7 @@ This pathophysiological event involves abnormal endochondral ossification (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nasomaxillary-hypoplasia" data-dismech-node="Nasomaxillary Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Nasomaxillary Hypoplasia</div>
 
+
                 <div class="item-desc">Severe underdevelopment of the nasal cartilage with maxillary hypoplasia, producing the flat midface and depressed nasal bridge that are the clinical signature of the brachytelephalangic pattern. In the newborn it is also a mechanical airway problem.</div>
 
 
@@ -5311,7 +5360,7 @@ This pathophysiological event involves abnormal endochondral ossification (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARSL Arylsulfatase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss-of-function variants in ARSL (formerly ARSE) abolish a heat-labile arylsulfatase activity localized to Xp22.3. The gene was found by positional cloning of the CDPX region, and the enzyme deficiency was demonstrated directly in patients carrying deletions spanning that region - so the enzymatic lesion is established even though what the enzyme normally does is not.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"arylsulfatase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous germline point mutations, and in about a quarter of molecularly solved cases Xp deletions or rearrangements. Heterozygous females are carriers and have not so far been reported as affected.\", \"gene_terms\": [{\"label\": \"ARSL\", \"id\": \"hgnc:719\"}]}}}, {\"id\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Punctate calcification appears in epiphyseal and other cartilage, with a distribution that in this disorder is weighted towards the nasal cartilage and the distal phalanges rather than towards the proximal long bones. That regional weighting is what separates the brachytelephalangic pattern from the rhizomelic one radiographically, and it is unexplained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\", \"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"bone mineralization\", \"endochondral ossification\"]}}, {\"id\": \"Airway management in infancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nasal stents and supplemental oxygen for respiratory difficulty from nasal hypoplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Brachytelephalangy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges of the fingers, giving the disorder its descriptive name.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006118\"}}, {\"id\": \"Cervical Spine Stenosis and Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing and instability of the cervical canal - the one CDPX1 finding that does not improve with growth and that carries a risk of cord injury. It drives interval flexion-extension imaging, activity restriction, and pre-anaesthetic assessment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010646\"}}, {\"id\": \"Cervical spine surveillance, immobilization, and decompression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Flexion-extension radiographs every six to twelve months until growth is complete; a cervical collar or spinal fusion for instability; decompression for stenosis. Neck extension, neck flexion, and contact sports are to be avoided in an affected individual with instability, and the cervical spine should be imaged before general anaesthesia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flat nasal bridge and midface, following underdevelopment of the nasal cartilage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate epiphyseal calcification, present in infancy and resolving with skeletal maturation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010655\"}}, {\"id\": \"Hearing aids and pressure equalization tubes\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard management of the mixed conductive and sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoplasia of the Maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Maxillary hypoplasia, part of the nasomaxillary underdevelopment; may progress to retrognathia requiring reconstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000327\"}}, {\"id\": \"Maxillofacial reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reconstructive surgery for severe maxillary hypoplasia or retrognathia in older individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mixed conductive and sensorineural hearing loss, common enough that it can be the presenting complaint - in one reported case hearing loss brought the patient to genetics before any skeletal diagnosis was suspected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000410\"}}, {\"id\": \"Nasomaxillary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe underdevelopment of the nasal cartilage with maxillary hypoplasia, producing the flat midface and depressed nasal bridge that are the clinical signature of the brachytelephalangic pattern. In the newborn it is also a mechanical airway problem.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory involvement in infancy, largely from nasal-airway compromise, sometimes requiring nasal stents and oxygen.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002098\"}}, {\"id\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An explicitly unresolved node. ARSL\u0027s physiological substrate has not been identified, so the step between the enzyme deficiency and the cartilage phenotype is empty. It is modelled rather than omitted because the shape of the gap matters: the warfarin sensitivity of the enzyme and the vitamin-K-deficiency phenocopies both point towards a vitamin-K-dependent process, and that is the leading hypothesis for what should occupy this node.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Warfarin-Sensitive Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recombinant ARSL expressed in COS cells yields an arylsulfatase activity that is inhibited by warfarin. This is not a feature of the disease so much as the bridge between the genetic disorder and its most important phenocopy: a coumarin taken by the mother during a critical window can pharmacologically produce the same enzyme deficiency the mutation produces genetically. It is modelled as its own node because it is the mechanistic claim that unifies CDPX1 with warfarin embryopathy and, more speculatively, with the vitamin-K-deficiency phenocopies.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ARSL Arylsulfatase Deficiency\", \"target\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The immediate biochemical consequence of losing a sulfatase is that its substrate is not desulfated. In this case that substrate has never been identified, so the node is a placeholder for a real but uncharacterized step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"target\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the missing step is, its endpoint is disordered mineralization of developing bone and cartilage - the feature by which the disorder was originally characterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Warfarin-Sensitive Enzyme Activity\", \"target\": \"ARSL Arylsulfatase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pharmacological inhibition reaches the same molecular endpoint as the genetic lesion. The authors advance this as the mechanism of warfarin embryopathy, in which a fetus with an intact ARSL gene nonetheless has deficient enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Punctate calcification of epiphyseal cartilage is the defining radiographic finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Nasomaxillary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underdevelopment of the nasal cartilage and maxilla, the craniofacial expression of the same cartilage lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Brachytelephalangy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Cervical Spine Stenosis and Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cervical spine is the site where the dysplasia has its most dangerous consequence, and unlike the other skeletal findings it does not improve with age.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Disordered ossification of the cervical vertebrae and their ligamentous attachments.\"]}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Hypoplasia of the Maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The maxillary component of the midface hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The flat nasal bridge is the surface expression of the underdeveloped nasal cartilage named in this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nasal-airway compromise in infancy, the reason nasal stents and supplemental oxygen appear in the management recommendations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nasal airway narrowing in an obligate nasal breather.\"]}, {\"source\": \"Cervical spine surveillance, immobilization, and decompression\", \"target\": \"Cervical Spine Stenosis and Instability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway management in infancy\", \"target\": \"Respiratory Distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aids and pressure equalization tubes\", \"target\": \"Mixed Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maxillofacial reconstruction\", \"target\": \"Hypoplasia of the Maxilla\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARSL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARSL\"], \"gene_terms\": [{\"label\": \"ARSL\", \"id\": \"hgnc:719\"}], \"presence\": \"Present\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ARSL Arylsulfatase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss-of-function variants in ARSL (formerly ARSE) abolish a heat-labile arylsulfatase activity localized to Xp22.3. The gene was found by positional cloning of the CDPX region, and the enzyme deficiency was demonstrated directly in patients carrying deletions spanning that region - so the enzymatic lesion is established even though what the enzyme normally does is not.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"arylsulfatase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous germline point mutations, and in about a quarter of molecularly solved cases Xp deletions or rearrangements. Heterozygous females are carriers and have not so far been reported as affected.\", \"gene_terms\": [{\"label\": \"ARSL\", \"id\": \"hgnc:719\"}]}}}, {\"id\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Punctate calcification appears in epiphyseal and other cartilage, with a distribution that in this disorder is weighted towards the nasal cartilage and the distal phalanges rather than towards the proximal long bones. That regional weighting is what separates the brachytelephalangic pattern from the rhizomelic one radiographically, and it is unexplained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\", \"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"bone mineralization\", \"endochondral ossification\"]}}, {\"id\": \"Airway management in infancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nasal stents and supplemental oxygen for respiratory difficulty from nasal hypoplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Brachytelephalangy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges of the fingers, giving the disorder its descriptive name.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006118\"}}, {\"id\": \"Cervical Spine Stenosis and Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing and instability of the cervical canal - the one CDPX1 finding that does not improve with growth and that carries a risk of cord injury. It drives interval flexion-extension imaging, activity restriction, and pre-anaesthetic assessment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010646\"}}, {\"id\": \"Cervical spine surveillance, immobilization, and decompression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Flexion-extension radiographs every six to twelve months until growth is complete; a cervical collar or spinal fusion for instability; decompression for stenosis. Neck extension, neck flexion, and contact sports are to be avoided in an affected individual with instability, and the cervical spine should be imaged before general anaesthesia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flat nasal bridge and midface, following underdevelopment of the nasal cartilage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate epiphyseal calcification, present in infancy and resolving with skeletal maturation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010655\"}}, {\"id\": \"Hearing aids and pressure equalization tubes\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard management of the mixed conductive and sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoplasia of the Maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Maxillary hypoplasia, part of the nasomaxillary underdevelopment; may progress to retrognathia requiring reconstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000327\"}}, {\"id\": \"Maxillofacial reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reconstructive surgery for severe maxillary hypoplasia or retrognathia in older individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mixed conductive and sensorineural hearing loss, common enough that it can be the presenting complaint - in one reported case hearing loss brought the patient to genetics before any skeletal diagnosis was suspected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000410\"}}, {\"id\": \"Nasomaxillary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe underdevelopment of the nasal cartilage with maxillary hypoplasia, producing the flat midface and depressed nasal bridge that are the clinical signature of the brachytelephalangic pattern. In the newborn it is also a mechanical airway problem.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory involvement in infancy, largely from nasal-airway compromise, sometimes requiring nasal stents and oxygen.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002098\"}}, {\"id\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An explicitly unresolved node. ARSL\u0027s physiological substrate has not been identified, so the step between the enzyme deficiency and the cartilage phenotype is empty. It is modelled rather than omitted because the shape of the gap matters: the warfarin sensitivity of the enzyme and the vitamin-K-deficiency phenocopies both point towards a vitamin-K-dependent process, and that is the leading hypothesis for what should occupy this node.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Warfarin-Sensitive Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recombinant ARSL expressed in COS cells yields an arylsulfatase activity that is inhibited by warfarin. This is not a feature of the disease so much as the bridge between the genetic disorder and its most important phenocopy: a coumarin taken by the mother during a critical window can pharmacologically produce the same enzyme deficiency the mutation produces genetically. It is modelled as its own node because it is the mechanistic claim that unifies CDPX1 with warfarin embryopathy and, more speculatively, with the vitamin-K-deficiency phenocopies.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ARSL Arylsulfatase Deficiency\", \"target\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The immediate biochemical consequence of losing a sulfatase is that its substrate is not desulfated. In this case that substrate has never been identified, so the node is a placeholder for a real but uncharacterized step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unidentified Sulfated Substrate Accumulates or Fails to Be Processed\", \"target\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the missing step is, its endpoint is disordered mineralization of developing bone and cartilage - the feature by which the disorder was originally characterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Warfarin-Sensitive Enzyme Activity\", \"target\": \"ARSL Arylsulfatase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pharmacological inhibition reaches the same molecular endpoint as the genetic lesion. The authors advance this as the mechanism of warfarin embryopathy, in which a fetus with an intact ARSL gene nonetheless has deficient enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Punctate calcification of epiphyseal cartilage is the defining radiographic finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Nasomaxillary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underdevelopment of the nasal cartilage and maxilla, the craniofacial expression of the same cartilage lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Brachytelephalangy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification and Endochondral Ossification\", \"target\": \"Cervical Spine Stenosis and Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cervical spine is the site where the dysplasia has its most dangerous consequence, and unlike the other skeletal findings it does not improve with age.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Disordered ossification of the cervical vertebrae and their ligamentous attachments.\"]}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Hypoplasia of the Maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The maxillary component of the midface hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The flat nasal bridge is the surface expression of the underdeveloped nasal cartilage named in this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nasomaxillary Hypoplasia\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nasal-airway compromise in infancy, the reason nasal stents and supplemental oxygen appear in the management recommendations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nasal airway narrowing in an obligate nasal breather.\"]}, {\"source\": \"Cervical spine surveillance, immobilization, and decompression\", \"target\": \"Cervical Spine Stenosis and Instability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway management in infancy\", \"target\": \"Respiratory Distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aids and pressure equalization tubes\", \"target\": \"Mixed Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maxillofacial reconstruction\", \"target\": \"Hypoplasia of the Maxilla\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ARSL\", \"target\": \"ARSL Arylsulfatase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6089,6 +6138,9 @@ This disease-associated gene is ARSL (hgnc:719). hgnc:719 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
 

@@ -83,6 +83,10 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
+It reads the local MONDO build and exits 2 when that is absent rather than
+downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
+first. `--no-hgnc` also keeps it off the HGNC build.
+
 Interpret the result as follows:
 
 - `PASS`: proceed to normal source, snippet, and term verification.
@@ -115,6 +119,10 @@ just fetch-reference PMID:12345678
 Use the actual identifier for other supported reference types. Read the fetched
 record and confirm its identity, topic, and quoted passage. A successful fetch
 does not prove that the source supports the claim.
+
+"Successfully cached" also does not mean the record has text to quote. If the
+fetch printed a `WARNING: ... cached with no quotable text`, read
+[Empty caches](#empty-caches-content_type-unavailable) before going further.
 
 ### 3. Run the fast edit loop
 
@@ -192,6 +200,60 @@ Never add literature prefixes to `skip_prefixes`, downgrade an unverified
 reference to a warning, or relax quote matching to make CI pass. Changes that
 weaken an evidence constraint require explicit approval from `cmungall`
 (issue #11921).
+
+## Typography: a snippet need not be byte-identical
+
+"Exact substring" means exact **after normalization, on both sides**.
+`SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
+reused by `just count-verified-snippets`) spells out Greek letters, lowercases,
+replaces every non-word non-space character with a space, then collapses runs of
+whitespace with `re.sub(r"\s+", " ", ...)`. Python's `\s` on `str` patterns
+matches Unicode whitespace, so most publisher typography folds away on both
+sides:
+
+| In the source | Write in the snippet |
+|---|---|
+| U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
+| U+00A0 no-break space | an ordinary space |
+| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
+| U+00D7 multiplication sign | see the traps below |
+
+So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
+`AUC<U+2009>=<U+2009>0.933`, and `"(3.97-6.38)"` matches `(3.97–6.38)`. In the
+#9308 tranche, **8 of 15 snippets were not byte-exact and all 15 verified**.
+
+This is worth knowing because the alternative is silently worse curation. During
+#9308 both the curator and the reviewer independently concluded that a figure in
+a Nature paper could not be quoted, because the source puts thin spaces around
+every `=`. Neither checked, and it cost a curated entry — recovered only
+mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
+into `explanation` prose or drops the claim, and nothing goes red.
+
+**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
+for the next curator, and it buys nothing, since the source's typography folds
+anyway. Existing snippets that copied the source's thin spaces and en dashes
+verbatim are equally valid and need no repair; several hundred `kb/disorders`
+snippets do exactly that.
+
+**The traps — characters that do *not* vanish.** Each of these survives
+normalization on one side only, so the comparison fails:
+
+- **`x` for `×`.** `x` is a word character and survives, while U+00D7 becomes a
+  space, so `"7.03 x 10-48"` does *not* match `7.03 × 10−48`. Include the
+  literal `×`, or end the quote before the scientific-notation clause.
+- **Mid-word invisibles.** U+00AD soft hyphen and U+200B zero-width space
+  normalize to a *space*, splitting the word: cached `diffi<U+00AD>culties`
+  becomes `diffi culties` and never matches `difficulties`.
+- **Ligatures.** U+FB01 `ﬁ` is a word character and survives unchanged, so
+  cached `speciﬁc` does not match `specific`. Note the asymmetry: `just
+  count-verified-snippets` folds ligatures in its relaxed cache-defect pass
+  (#8048, `normalize_relaxed` in `src/dismech/reference_snippet_audit.py`) but
+  the gating `linkml-reference-validator` does not — so such a snippet can pass
+  the fast check and fail the pre-PR sweep.
+- **Micro sign.** U+00B5 `µ` survives, since only U+03BC `μ` is in `greek_map`.
+
+If a quote you copied verbatim still fails, run `just count-verified-snippets` —
+it names the span it could not find rather than leaving you guessing.
 
 ## Titles and brackets
 
@@ -364,6 +426,54 @@ source adds a prefix. Regenerate it with
 `ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
 trusting these counts.
 
+## Empty caches (`content_type: unavailable`)
+
+The fetcher writes `content_type: unavailable` into a cache file's frontmatter
+when it found the record but retrieved no text a snippet could quote: no
+abstract and no full text. The file still has a title, authors and journal, and
+the fetch still reports "Successfully cached". A real abstract is
+`abstract_only`; full texts are `full_text_xml`, `full_text_pdf` and similar.
+Go by that field, not by how short the body looks: structured caches (ORPHA,
+ClinGen) and records with no `## Content` heading, such as `PMID:31909928`, are
+short and fully quotable.
+
+**An empty cache describes one fetch, not the paper.** `PMID:33054089` came back
+`unavailable` and was refetched an hour later as `full_text_xml` from PMC. So
+the first step is a retry, especially for an open-access paper:
+
+```bash
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
+```
+
+`just fetch-reference` prints a warning to stderr when the file it leaves behind
+is `unavailable`. The warning is advisory: the file is kept and the exit code is
+unchanged. When you write a note about such a paper, say that no quotable text
+was retrieved on the fetches you made, not that the record cannot be quoted; the
+next curator's fetch may succeed.
+
+**If it stays empty, nothing in it can be a snippet.** A title is not a finding,
+and a sentence recalled from the paper is not a quote from the cache. Say in
+`notes` why it is not cited as evidence, and optionally also list it as a
+top-level `references:` entry with no snippet. The worked
+example is the "Not cited, and why." paragraph in the `notes` of
+`kb/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_9.yaml`: two papers on a
+further WARS1 family that cache with no abstract text are named there as leads
+for a curator with full-text access, and no evidence item cites them.
+
+To see the whole backlog:
+
+```bash
+just list-empty-reference-caches                # summary by identifier prefix
+just list-empty-reference-caches --format tsv   # one row per record
+just list-empty-reference-caches --no-kb        # skip the kb/ citation lookup
+```
+
+It splits records by `full_text_attempted: true` (the full-text route was tried
+and found nothing) versus no such marker (never retried under that route, so a
+`--force` refetch is the obvious first move), counts how many are cited anywhere
+in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
+count should be zero. The recipe is a read-only triage view and always exits 0.
+
 ## Reference-cache integrity
 
 Check the derived cache structure with:
@@ -374,3 +484,47 @@ just check-reference-cache-frontmatter
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+## Never patch the validator from inside dismech
+
+`linkml-reference-validator` (LRV) is used as a library, as-is. dismech applies **two**
+patches over its internals, and both exist in order to be deleted.
+`_wrap_url_fetch` strips scripts and page attributes out of the raw HTML
+`URLSource` caches, because this repository commits its cache to a public git
+repository (linkml/linkml-reference-validator#92). `_wrap_jstage_pdf_title`
+recovers a title for a PDF URL, which `URLSource` otherwise leaves set to the URL
+itself (linkml/linkml-reference-validator#93).
+`tests/test_upstream_validator_behaviours.py` enforces the budget: a patch must
+be one of those two, and must name its upstream issue.
+
+This is worth stating because the repository spent months doing the opposite.
+`src/dismech/patch_reference_validator.py` grew to 650 lines that replaced nine
+private LRV methods at import time — how the fetcher named cache files, parsed
+JATS tables, quoted YAML, coerced authors. Every one of those was a real bug with
+a correct fix, and the patch made each of them invisible to the only project that
+could fix it properly. The costs compounded:
+
+- **The fix never reached anyone else.** Nine defects were fixed for dismech and
+  for nobody else using LRV.
+- **It broke on contact with an upgrade.** Patching a private method means
+  depending on its signature. When LRV changed one, `just validate-kb-references`
+  died at import with `AttributeError: 'function' object has no attribute
+  '__func__'` — the gate, not a test.
+- **It hid the upstream problem from tests.** dismech's suite tested the patch,
+  so it stayed green while the thing it was patching was still broken.
+
+Ten of the twelve are now fixed in LRV (#66-74, #85, #87, #88) and deleted here.
+The two that remain are real upstream gaps rather than workarounds, so they were
+filed rather than quietly kept. Both arrived the same way the others did -- a
+curation PR adding a patch as a side effect of curating a disease -- which is
+what the budget test now catches.
+
+**If you genuinely must patch, the patch is temporary and the issue is filed
+first.** Open the upstream issue before writing the patch, name that issue in a
+comment at the patch site, and test the *behaviour* you need rather than the
+patch itself — a behaviour test keeps passing when the fix lands upstream and the
+patch comes out, which is exactly when you want to find out it is redundant.
+`tests/test_upstream_validator_behaviours.py` is the worked example: each test
+names the upstream issue it pins, and none of them reference a patch.
+
+A bug worth working around is a bug worth reporting.

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4389,6 +4428,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-truncating-kdm1a-variant" data-dismech-node="Germline Truncating KDM1A Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline Truncating KDM1A Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a germline heterozygous truncating variant in KDM1A at chromosome 1p36.12. The allelic series reported to date is dominated by nonsense and frameshift alleles rather than missense, which is what would be expected if the disease mechanism is loss of the protein rather than alteration of its activity. Heterozygosity alone is not sufficient to produce a nodule; it establishes the predisposed background on which the somatic second hit acts.</div>
 
 
@@ -4533,6 +4579,13 @@ This pathophysiological event involves KDM1A (hgnc:29079). hgnc:29079 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-loss-of-the-kdm1a-wild-type-allele-on-1p" data-dismech-node="Somatic Loss of the KDM1A Wild-Type Allele on 1p" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Loss of the KDM1A Wild-Type Allele on 1p</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Within adrenal lesions, a recurrent somatic deletion of the short arm of chromosome 1 removes the wild-type KDM1A allele. This is the second hit, and it is what converts a heterozygous carrier into a locally KDM1A-null tissue. Its presence in lesions and absence in control adrenal tissue is the specific observation that places KDM1A in the tumour-suppressor category rather than treating the germline variant as a simple dominant.</div>
 
 
@@ -4676,6 +4729,13 @@ This pathophysiological event involves KDM1A (hgnc:29079). hgnc:29079 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-kdm1a-h3k4-demethylase-activity-in-adrenocortical-cells" data-dismech-node="Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">KDM1A (LSD1) is a flavin-dependent amine oxidase that demethylates mono- and di-methylated histone H3 lysine 4, a mark associated with active transcription; removing it represses target genes. Concomitant inactivation of both alleles abolishes KDM1A protein in the lesion, and the transcriptional repression it normally imposes is lifted. Note that the enzymatic interpretation is inferred from KDM1A&#39;s well-established biochemistry rather than measured directly on patient chromatin - what was measured in patients is loss of KDM1A expression at mRNA and protein level, and the downstream transcriptional consequence.</div>
 
@@ -4906,6 +4966,13 @@ This pathophysiological event involves histone H3K4 demethylase activity (GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-gip-receptor-expression-in-adrenocortical-cells" data-dismech-node="Ectopic GIP Receptor Expression in Adrenocortical Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic GIP Receptor Expression in Adrenocortical Cells</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The defining lesion of the disease. Adrenocortical cells that have lost KDM1A express the glucose-dependent insulinotropic polypeptide receptor (GIPR), a receptor they normally do not carry. This was seen as a very large upregulation of GIPR transcript in patient lesions relative to controls, and - critically for causality - was reproduced prospectively in human adrenocortical H295R cells by inhibiting or CRISPR-inactivating KDM1A. That experiment is what upgrades the relationship from association to mechanism.</div>
 
 
@@ -5111,6 +5178,13 @@ This pathophysiological event involves GIPR (hgnc:4271). hgnc:4271 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meal-triggered-adenylate-cyclase-activation-and-cortisol-synthesis" data-dismech-node="Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">GIP is an incretin secreted by intestinal K cells in response to nutrient intake. Once GIPR is present on adrenocortical cells, each meal delivers a Gs-coupled stimulus that raises cAMP and activates protein kinase A - the same second-messenger route ACTH normally uses - and drives cortisol biosynthesis. The physiological absurdity of the disease is that a normal, healthy gut hormone becomes the adrenal secretagogue.</div>
 
 
@@ -5301,6 +5375,13 @@ This pathophysiological event involves increased cortisol biosynthetic process (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inverted-diurnal-cortisol-rhythm" data-dismech-node="Inverted Diurnal Cortisol Rhythm" data-dismech-type="pathophysiology">
                 <div class="item-name">Inverted Diurnal Cortisol Rhythm</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical signature, and the reason these patients were historically missed. Cortisol is measured in the fasting morning state by convention; in AIMAH3 that is precisely the trough. Morning fasting cortisol is subnormal while midnight cortisol - after the evening meal - is high. The ratio of the two separates FDCS from other PBMAH with reported complete discrimination in the derivation cohort.</div>
 
 
@@ -5376,6 +5457,13 @@ This pathophysiological event involves increased cortisol biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilateral-macronodular-adrenocortical-hyperplasia" data-dismech-node="Bilateral Macronodular Adrenocortical Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Bilateral Macronodular Adrenocortical Hyperplasia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sustained receptor-driven stimulation of both adrenal cortices produces the bilateral macronodular enlargement that names the disease. Bilaterality is itself a mechanistic clue: it was the observation that prompted the search for a germline predisposition rather than a sporadic somatic driver, since two independent unilateral events would be improbable.</div>
 
@@ -5487,6 +5575,13 @@ This pathophysiological event involves adrenocortical cell, annotated with corti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acth-independent-hypercortisolism" data-dismech-node="ACTH-Independent Hypercortisolism" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTH-Independent Hypercortisolism</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Autonomous adrenal cortisol production suppresses pituitary corticotrophs, so plasma ACTH is low or undetectable - the feature that classifies the syndrome as ACTH-independent and distinguishes it from Cushing disease. Twenty-four-hour urinary free cortisol, which integrates across meals and so is not fooled by the inverted rhythm, is markedly raised, and is higher in KDM1A carriers than in either ARMC5-mutant or genetically unexplained PBMAH.</div>
 
 
@@ -5562,6 +5657,13 @@ This pathophysiological event involves adrenocortical cell, annotated with corti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glucocorticoid-excess-tissue-injury" data-dismech-node="Glucocorticoid Excess Tissue Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Glucocorticoid Excess Tissue Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The downstream consequences are those of any chronic cortisol excess and are not specific to the KDM1A mechanism: central fat redistribution, insulin resistance and diabetes, hypertension, proximal myopathy, osteoporosis, thin skin with striae and easy bruising. They are modelled as a single terminal node rather than as separate mechanistic branches because the disease-specific biology ends upstream of them - everything distinctive about AIMAH3 is in how the cortisol comes to be secreted, not in what it then does.</div>
 
@@ -5646,7 +5748,7 @@ This pathophysiological event involves adrenocortical cell, annotated with corti
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTH-Independent Hypercortisolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autonomous adrenal cortisol production suppresses pituitary corticotrophs, so plasma ACTH is low or undetectable - the feature that classifies the syndrome as ACTH-independent and distinguishes it from Cushing disease. Twenty-four-hour urinary free cortisol, which integrates across meals and so is not fooled by the inverted rhythm, is markedly raised, and is higher in KDM1A carriers than in either ARMC5-mutant or genetically unexplained PBMAH.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Adrenalectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of adrenal tissue is the definitive treatment for the hypercortisolism. In bilateral macronodular disease the choice between bilateral adrenalectomy, unilateral adrenalectomy and adrenal-sparing partial resection is a trade-off between remission and lifelong adrenal insufficiency. A long-term BMAD follow-up series reported markedly better remission with adrenal-sparing surgery than with unilateral adrenalectomy - but that series contained no KDM1A-variant patients, so it is evidence about the parent entity and not about this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained receptor-driven stimulation of both adrenal cortices produces the bilateral macronodular enlargement that names the disease. Bilaterality is itself a mechanistic clue: it was the observation that prompted the search for a germline predisposition rather than a sporadic somatic driver, since two independent unilateral events would be improbable.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenocortical cell\"]}}, {\"id\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion of the disease. Adrenocortical cells that have lost KDM1A express the glucose-dependent insulinotropic polypeptide receptor (GIPR), a receptor they normally do not carry. This was seen as a very large upregulation of GIPR transcript in patient lesions relative to controls, and - critically for causality - was reproduced prospectively in human adrenocortical H295R cells by inhibiting or CRISPR-inactivating KDM1A. That experiment is what upgrades the relationship from association to mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"adrenocortical cell\"], \"genes\": [\"GIPR\"], \"gene_terms\": [{\"label\": \"GIPR\", \"id\": \"hgnc:4271\"}]}}, {\"id\": \"Germline Truncating KDM1A Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a germline heterozygous truncating variant in KDM1A at chromosome 1p36.12. The allelic series reported to date is dominated by nonsense and frameshift alleles rather than missense, which is what would be expected if the disease mechanism is loss of the protein rather than alteration of its activity. Heterozygosity alone is not sufficient to produce a nodule; it establishes the predisposed background on which the somatic second hit acts.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}]}}, {\"id\": \"Glucocorticoid Excess Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The downstream consequences are those of any chronic cortisol excess and are not specific to the KDM1A mechanism: central fat redistribution, insulin resistance and diabetes, hypertension, proximal myopathy, osteoporosis, thin skin with striae and easy bruising. They are modelled as a single terminal node rather than as separate mechanistic branches because the disease-specific biology ends upstream of them - everything distinctive about AIMAH3 is in how the cortisol comes to be secreted, not in what it then does.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Inverted Diurnal Cortisol Rhythm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical signature, and the reason these patients were historically missed. Cortisol is measured in the fasting morning state by convention; in AIMAH3 that is precisely the trough. Morning fasting cortisol is subnormal while midnight cortisol - after the evening meal - is high. The ratio of the two separates FDCS from other PBMAH with reported complete discrimination in the derivation cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KDM1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM1A (LSD1) is a flavin-dependent amine oxidase that demethylates mono- and di-methylated histone H3 lysine 4, a mark associated with active transcription; removing it represses target genes. Concomitant inactivation of both alleles abolishes KDM1A protein in the lesion, and the transcriptional repression it normally imposes is lifted. Note that the enzymatic interpretation is inferred from KDM1A\u0027s well-established biochemistry rather than measured directly on patient chromatin - what was measured in patients is loss of KDM1A expression at mRNA and protein level, and the downstream transcriptional consequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenocortical cell\"], \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"histone H3K4 demethylase activity\"], \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}]}}, {\"id\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GIP is an incretin secreted by intestinal K cells in response to nutrient intake. Once GIPR is present on adrenocortical cells, each meal delivers a Gs-coupled stimulus that raises cAMP and activates protein kinase A - the same second-messenger route ACTH normally uses - and drives cortisol biosynthesis. The physiological absurdity of the disease is that a normal, healthy gut hormone becomes the adrenal secretagogue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glucocorticoid secreting cell\"], \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\", \"cortisol biosynthetic process\"]}}, {\"id\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within adrenal lesions, a recurrent somatic deletion of the short arm of chromosome 1 removes the wild-type KDM1A allele. This is the second hit, and it is what converts a heterozygous carrier into a locally KDM1A-null tissue. Its presence in lesions and absence in control adrenal tissue is the specific observation that places KDM1A in the tumour-suppressor category rather than treating the germline variant as a simple dominant.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}]}}, {\"id\": \"Somatostatin Analogue Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The obvious mechanism-directed drug idea, and it does not work. Somatostatin analogues suppress GIP release from intestinal K cells, so they should in principle cut off the stimulus driving cortisol secretion. In the one detailed published trial - a single patient given octreotide for six months and then pasireotide for three - both drugs did acutely suppress the postprandial cortisol response, but the effect escaped, and neither improved the clinical or metabolic features. The patient proceeded to bilateral adrenalectomy. The authors concluded the failure was independent of somatostatin receptor subtype affinity, which matters because it removes the natural next move of trying a broader-spectrum analogue.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"octreotide\", \"pasireotide\"]}}], \"edges\": [{\"source\": \"Germline Truncating KDM1A Variant\", \"target\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele is the first hit; the nodule arises where a somatic deletion removes the remaining wild-type copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"target\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic inactivation abolishes KDM1A expression in the lesion, so the enzyme\u0027s repressive chromatin activity is lost locally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"target\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GIPR is one of the genes KDM1A represses in adrenocortical cells; losing KDM1A derepresses it. The causal direction was tested experimentally rather than only inferred from correlation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"target\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GIPR is a Gs-coupled receptor, so its ectopic presence hands postprandial GIP direct control of the adrenocortical cAMP/PKA steroidogenic pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"target\": \"Inverted Diurnal Cortisol Rhythm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because secretion follows meals rather than the circadian ACTH drive, the normal morning-high/midnight-low pattern reverses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"target\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic trophic cAMP signalling in the adrenal cortex drives the nodular hyperplasia that gives the disease its name.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inverted Diurnal Cortisol Rhythm\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Total daily cortisol output is raised despite the low morning value, which is what produces clinical Cushing syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded steroidogenic tissue mass amplifies the cortisol output produced by each postprandial stimulus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ACTH-Independent Hypercortisolism\", \"target\": \"Glucocorticoid Excess Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained glucocorticoid exposure produces the systemic Cushingoid phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenalectomy\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin Analogue Therapy\", \"target\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Germline Truncating KDM1A Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTH-Independent Hypercortisolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autonomous adrenal cortisol production suppresses pituitary corticotrophs, so plasma ACTH is low or undetectable - the feature that classifies the syndrome as ACTH-independent and distinguishes it from Cushing disease. Twenty-four-hour urinary free cortisol, which integrates across meals and so is not fooled by the inverted rhythm, is markedly raised, and is higher in KDM1A carriers than in either ARMC5-mutant or genetically unexplained PBMAH.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Adrenalectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of adrenal tissue is the definitive treatment for the hypercortisolism. In bilateral macronodular disease the choice between bilateral adrenalectomy, unilateral adrenalectomy and adrenal-sparing partial resection is a trade-off between remission and lifelong adrenal insufficiency. A long-term BMAD follow-up series reported markedly better remission with adrenal-sparing surgery than with unilateral adrenalectomy - but that series contained no KDM1A-variant patients, so it is evidence about the parent entity and not about this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained receptor-driven stimulation of both adrenal cortices produces the bilateral macronodular enlargement that names the disease. Bilaterality is itself a mechanistic clue: it was the observation that prompted the search for a germline predisposition rather than a sporadic somatic driver, since two independent unilateral events would be improbable.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenocortical cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion of the disease. Adrenocortical cells that have lost KDM1A express the glucose-dependent insulinotropic polypeptide receptor (GIPR), a receptor they normally do not carry. This was seen as a very large upregulation of GIPR transcript in patient lesions relative to controls, and - critically for causality - was reproduced prospectively in human adrenocortical H295R cells by inhibiting or CRISPR-inactivating KDM1A. That experiment is what upgrades the relationship from association to mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"adrenocortical cell\"], \"genes\": [\"GIPR\"], \"gene_terms\": [{\"label\": \"GIPR\", \"id\": \"hgnc:4271\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Germline Truncating KDM1A Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a germline heterozygous truncating variant in KDM1A at chromosome 1p36.12. The allelic series reported to date is dominated by nonsense and frameshift alleles rather than missense, which is what would be expected if the disease mechanism is loss of the protein rather than alteration of its activity. Heterozygosity alone is not sufficient to produce a nodule; it establishes the predisposed background on which the somatic second hit acts.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Glucocorticoid Excess Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The downstream consequences are those of any chronic cortisol excess and are not specific to the KDM1A mechanism: central fat redistribution, insulin resistance and diabetes, hypertension, proximal myopathy, osteoporosis, thin skin with striae and easy bruising. They are modelled as a single terminal node rather than as separate mechanistic branches because the disease-specific biology ends upstream of them - everything distinctive about AIMAH3 is in how the cortisol comes to be secreted, not in what it then does.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Inverted Diurnal Cortisol Rhythm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical signature, and the reason these patients were historically missed. Cortisol is measured in the fasting morning state by convention; in AIMAH3 that is precisely the trough. Morning fasting cortisol is subnormal while midnight cortisol - after the evening meal - is high. The ratio of the two separates FDCS from other PBMAH with reported complete discrimination in the derivation cohort.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"KDM1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM1A (LSD1) is a flavin-dependent amine oxidase that demethylates mono- and di-methylated histone H3 lysine 4, a mark associated with active transcription; removing it represses target genes. Concomitant inactivation of both alleles abolishes KDM1A protein in the lesion, and the transcriptional repression it normally imposes is lifted. Note that the enzymatic interpretation is inferred from KDM1A\u0027s well-established biochemistry rather than measured directly on patient chromatin - what was measured in patients is loss of KDM1A expression at mRNA and protein level, and the downstream transcriptional consequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenocortical cell\"], \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"histone H3K4 demethylase activity\"], \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GIP is an incretin secreted by intestinal K cells in response to nutrient intake. Once GIPR is present on adrenocortical cells, each meal delivers a Gs-coupled stimulus that raises cAMP and activates protein kinase A - the same second-messenger route ACTH normally uses - and drives cortisol biosynthesis. The physiological absurdity of the disease is that a normal, healthy gut hormone becomes the adrenal secretagogue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glucocorticoid secreting cell\"], \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\", \"cortisol biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within adrenal lesions, a recurrent somatic deletion of the short arm of chromosome 1 removes the wild-type KDM1A allele. This is the second hit, and it is what converts a heterozygous carrier into a locally KDM1A-null tissue. Its presence in lesions and absence in control adrenal tissue is the specific observation that places KDM1A in the tumour-suppressor category rather than treating the germline variant as a simple dominant.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM1A\"], \"gene_terms\": [{\"label\": \"KDM1A\", \"id\": \"hgnc:29079\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Somatostatin Analogue Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The obvious mechanism-directed drug idea, and it does not work. Somatostatin analogues suppress GIP release from intestinal K cells, so they should in principle cut off the stimulus driving cortisol secretion. In the one detailed published trial - a single patient given octreotide for six months and then pasireotide for three - both drugs did acutely suppress the postprandial cortisol response, but the effect escaped, and neither improved the clinical or metabolic features. The patient proceeded to bilateral adrenalectomy. The authors concluded the failure was independent of somatostatin receptor subtype affinity, which matters because it removes the natural next move of trying a broader-spectrum analogue.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"octreotide\", \"pasireotide\"]}}], \"edges\": [{\"source\": \"Germline Truncating KDM1A Variant\", \"target\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele is the first hit; the nodule arises where a somatic deletion removes the remaining wild-type copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"target\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic inactivation abolishes KDM1A expression in the lesion, so the enzyme\u0027s repressive chromatin activity is lost locally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"target\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GIPR is one of the genes KDM1A represses in adrenocortical cells; losing KDM1A derepresses it. The causal direction was tested experimentally rather than only inferred from correlation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic GIP Receptor Expression in Adrenocortical Cells\", \"target\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GIPR is a Gs-coupled receptor, so its ectopic presence hands postprandial GIP direct control of the adrenocortical cAMP/PKA steroidogenic pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"target\": \"Inverted Diurnal Cortisol Rhythm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because secretion follows meals rather than the circadian ACTH drive, the normal morning-high/midnight-low pattern reverses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"target\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic trophic cAMP signalling in the adrenal cortex drives the nodular hyperplasia that gives the disease its name.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inverted Diurnal Cortisol Rhythm\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Total daily cortisol output is raised despite the low morning value, which is what produces clinical Cushing syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bilateral Macronodular Adrenocortical Hyperplasia\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded steroidogenic tissue mass amplifies the cortisol output produced by each postprandial stimulus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ACTH-Independent Hypercortisolism\", \"target\": \"Glucocorticoid Excess Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained glucocorticoid exposure produces the systemic Cushingoid phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenalectomy\", \"target\": \"ACTH-Independent Hypercortisolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin Analogue Therapy\", \"target\": \"Meal-Triggered Adenylate Cyclase Activation and Cortisol Synthesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Germline Truncating KDM1A Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Loss of KDM1A H3K4 Demethylase Activity in Adrenocortical Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM1A\", \"target\": \"Somatic Loss of the KDM1A Wild-Type Allele on 1p\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5669,13 +5771,15 @@ This pathophysiological event involves adrenocortical cell, annotated with corti
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Neoplasm<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5814,7 +5918,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-food-dependent-hypercortisolism" data-dismech-node="Food-Dependent Hypercortisolism" data-dismech-type="phenotype">
@@ -5893,107 +5997,6 @@ This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-urinary-free-cortisol" data-dismech-node="Increased Urinary Free Cortisol" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Urinary Free Cortisol
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased urinary cortisol level</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012030</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased urinary cortisol level (HP:0012030). HP:0012030 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">No `frequency:` is asserted. The 3.0-fold figure is a group MEAN in a ten-patient cohort, not a count of how many patients had a raised value, and the schema&#39;s FrequencyEnum bands are frequency claims. Deriving a band from a mean would be an arithmetic error dressed as an annotation. The reported normal-UFC case below is the direct counterexample.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39921449" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39921449" target="_blank">PMID:39921449</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"KDM1A patients had a higher 24-h urinary free cortisol (3.0-fold upper limit of normal vs 1.36 for ARMC5 patients and 0.66 for wild-type patients, respectively, P = .0001)."</div>
-
-
-                <div class="evidence-explanation">Quantifies the cortisol excess against the two comparison groups. This is a group mean, not a per-patient frequency, which is why no frequency band is asserted on this phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21264796" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21264796" target="_blank">PMID:21264796</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Urinary free cortisol excretion was within normal limits, but an unusual diurnal cortisol rhythm was observed with low morning and high postprandial levels"</div>
-
-
-                <div class="evidence-explanation">The counterexample, cited deliberately. A GIP-dependent patient with normal UFC whose disease was nonetheless apparent from the rhythm - so a normal UFC does not exclude the diagnosis, and the phenotype is not obligate.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-low-morning-fasting-cortisol" data-dismech-node="Low Morning Fasting Cortisol" data-dismech-type="phenotype">
                     <div class="item-name">
                         Low Morning Fasting Cortisol
@@ -6010,10 +6013,10 @@ This clinical feature is Increased urinary cortisol level (HP:0012030). HP:00120
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008163" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008163</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008163" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008163</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating cortisol level (HP:0008163), qualified as temporality diurnal. HP:0008163 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6129,10 +6132,10 @@ This clinical feature is Decreased circulating cortisol level (HP:0008163), qual
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002920" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002920</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002920" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002920</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating ACTH concentration (HP:0002920). HP:0002920 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6256,10 +6259,10 @@ One nuance the entry does not smooth over: a 2026 review notes intra-adrenal ACT
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008221</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008221</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Adrenal hyperplasia (HP:0008221). HP:0008221 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6328,10 +6331,10 @@ This clinical feature is Adrenal hyperplasia (HP:0008221). HP:0008221 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000819</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000819</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6356,6 +6359,116 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-urinary-free-cortisol" data-dismech-node="Increased Urinary Free Cortisol" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Urinary Free Cortisol
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased urinary cortisol level</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012030</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased urinary cortisol level (HP:0012030). HP:0012030 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No `frequency:` is asserted. The 3.0-fold figure is a group MEAN in a ten-patient cohort, not a count of how many patients had a raised value, and the schema&#39;s FrequencyEnum bands are frequency claims. Deriving a band from a mean would be an arithmetic error dressed as an annotation. The reported normal-UFC case below is the direct counterexample.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39921449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39921449" target="_blank">PMID:39921449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KDM1A patients had a higher 24-h urinary free cortisol (3.0-fold upper limit of normal vs 1.36 for ARMC5 patients and 0.66 for wild-type patients, respectively, P = .0001)."</div>
+
+
+                <div class="evidence-explanation">Quantifies the cortisol excess against the two comparison groups. This is a group mean, not a per-patient frequency, which is why no frequency band is asserted on this phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21264796" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21264796" target="_blank">PMID:21264796</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Urinary free cortisol excretion was within normal limits, but an unusual diurnal cortisol rhythm was observed with low morning and high postprandial levels"</div>
+
+
+                <div class="evidence-explanation">The counterexample, cited deliberately. A GIP-dependent patient with normal UFC whose disease was nonetheless apparent from the rhythm - so a normal UFC does not exclude the diagnosis, and the phenotype is not obligate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6403,7 +6516,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6451,7 +6564,7 @@ This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
@@ -6696,6 +6809,9 @@ This disease-associated gene is KDM1A (hgnc:29079). hgnc:29079 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6789,6 +6905,9 @@ This disease-associated gene is ARMC5 (hgnc:25781). hgnc:25781 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

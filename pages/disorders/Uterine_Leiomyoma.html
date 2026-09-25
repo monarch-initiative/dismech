@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5029,6 +5068,7 @@ This subtype is caused by variation in FH (hgnc:3700). hgnc:3700 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-driver-mutation-initiated-clonal-transformation" data-dismech-node="Driver Mutation-Initiated Clonal Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Driver Mutation-Initiated Clonal Transformation</div>
 
+
                 <div class="item-desc">Uterine leiomyomas (fibroids) originate as monoclonal tumors from a single myometrial smooth muscle cell (or a myometrial stem cell acquiring tumor-initiating features) that acquires a recurrent somatic driver mutation. The most common driver is a MED12 exon-2 mutation (~70-77%), followed by HMGA2/HMGA1 overexpression or chromosomal rearrangement (~10%, 12q14-15), biallelic FH (fumarate hydratase) loss defining the FH-deficient subtype (also seen in hereditary leiomyomatosis and renal cell cancer, HLRCC), with rarer collagen IV (COL4A5/COL4A6) deletions also reported. Heterozygous MED12 mutations disrupt the CDK8/CDK19 kinase module of the Mediator complex, altering the chromatin landscape, enhancer engagement, genomic stability, and progesterone responsiveness.
 Scoping decision, recorded so it is not mistaken for an oversight: COL4A5/COL4A6 deletion and the SRCAP-complex class are named here but are deliberately not given has_subtypes entries. Both are recurrent but rare relative to the three modelled classes, neither has a distinct pathophysiology arm this entry could populate beyond the shared ECM output, and neither changes management. A curator with a collagen-IV-specific mechanism or frequency source should add the subtype then.
 </div>
@@ -5203,6 +5243,8 @@ This pathophysiological event involves FH (hgnc:3700). hgnc:3700 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5213,6 +5255,9 @@ This pathophysiological event involves FH (hgnc:3700). hgnc:3700 is a gene from 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">This block describes the MED12 arm only, which is the majority route and the one the node&#39;s evidence characterizes. It does not describe FH, whose lesion is biallelic loss of a tumor suppressor (LOSS_OF_FUNCTION) and is germline in roughly half of FH-deficient tumors - see the separate FH node and the FH-deficient subtype. It does not describe HMGA2 rearrangement either, which is a structural event rather than a point-mutation gain of function. The slots are single-valued, so restricting them to one arm and saying so is more accurate than picking a value that is wrong for two of the three genes.</div>
@@ -5410,6 +5455,7 @@ the most common and observed in 50-80% of UFs."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hormone-driven-myometrial-smooth-muscle-proliferation" data-dismech-node="Hormone-Driven Myometrial Smooth Muscle Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hormone-Driven Myometrial Smooth Muscle Proliferation</div>
+
 
                 <div class="item-desc">Estradiol and progesterone are essential for fibroid growth. During each ovulatory cycle the myometrium proliferates under ovarian steroid stimulation. Progesterone, acting through its nuclear receptor (PGR) in differentiated fibroid cells, activates paracrine secretion of WNT ligands, cytokines, and growth factors that drive a small stem cell population to proliferate. Fibroids rarely arise before menarche and frequently regress after menopause, underscoring steroid hormone dependence. The excessive matrix these proliferating cells and the adjacent tumor-associated fibroblasts lay down is modelled as the separate downstream node &#34;Excessive Extracellular Matrix Deposition and Tissue Stiffening&#34;; this node is the cell-population expansion alone.
 </div>
@@ -5712,6 +5758,7 @@ identified in MED12-UFs."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fumarate-accumulation-in-fh-deficient-leiomyoma" data-dismech-node="Fumarate Accumulation in FH-Deficient Leiomyoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Fumarate Accumulation in FH-Deficient Leiomyoma</div>
 
+
                 <div class="item-desc">In the fumarate-hydratase-deficient subtype, biallelic FH loss blocks the tricarboxylic-acid cycle at the fumarate-to-malate step, so fumarate accumulates and non-enzymatically succinates protein cysteine residues, forming the S-(2-succino)-cysteine adduct that immunohistochemistry detects. This node is the accumulation step alone; what the accumulated fumarate then does is the downstream pseudohypoxia node, matching the way the module it conforms to separates the two. The subtype is defined by the same chemistry whether the first FH hit is germline or somatic, and the germline case is hereditary leiomyomatosis and renal cell cancer, curated separately as Hereditary_Leiomyomatosis_and_Renal_Cell_Cancer.
 </div>
 
@@ -5967,6 +6014,7 @@ This pathophysiological event involves decreased fumarate hydratase activity (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudohypoxic-hif-stabilization-in-fh-deficient-leiomyoma" data-dismech-node="Pseudohypoxic HIF Stabilization in FH-Deficient Leiomyoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudohypoxic HIF Stabilization in FH-Deficient Leiomyoma</div>
 
+
                 <div class="item-desc">With the HIF prolyl hydroxylases inhibited by fumarate, HIF-alpha escapes degradation and a hypoxia transcriptional programme runs in a normoxic cell. This is the FH subtype&#39;s distinctive route to the tumor&#39;s distorted, staghorn vasculature.
 Read this alongside the angiogenesis node, which records HIF-1-alpha as absent from uterine fibroids. The two are not in conflict but the boundary matters: that observation comes from unselected fibroids, which are overwhelmingly MED12- or HMGA2-driven, and it is what establishes that the common fibroid does NOT use the hypoxia/VEGF route. Pseudohypoxia is specific to the uncommon FH-deficient subtype, where it is driven by a metabolite rather than by low oxygen. A reader who took the pseudohypoxia claim to apply to fibroids generally would have it backwards.
 </div>
@@ -6078,6 +6126,7 @@ This pathophysiological event involves myometrial smooth muscle cell, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-extracellular-matrix-deposition-and-tissue-stiffening" data-dismech-node="Excessive Extracellular Matrix Deposition and Tissue Stiffening" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Extracellular Matrix Deposition and Tissue Stiffening</div>
+
 
                 <div class="item-desc">The defining feature of a fibroid is not its cell count but its matrix: the mutated smooth muscle cells and the adjacent tumor-associated fibroblasts deposit disproportionate quantities of collagen, fibronectin and proteoglycans, which constitute a substantial fraction of tumor volume. The accumulated matrix is not inert. It stiffens the tissue, and it binds and prolongs the activity of the growth factors (TGF-beta chief among them) that drove its own deposition, so the matrix becomes a self-reinforcing feed-forward arm of the mechanism rather than the end of it. Matrix metalloproteinase activity is dysregulated in parallel, so remodeling as well as deposition is abnormal. This is the node on which the disease&#39;s name rests and the one that distinguishes a fibroid from a simple hyperplasia.
 </div>
@@ -6409,6 +6458,7 @@ This pathophysiological event involves increased TGF-beta receptor signaling, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-pseudocapsule-angiogenesis-and-venous-ectasia" data-dismech-node="Aberrant Pseudocapsule Angiogenesis and Venous Ectasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Pseudocapsule Angiogenesis and Venous Ectasia</div>
 
+
                 <div class="item-desc">Fibroid vasculature is organized differently from that of a malignant solid tumor. The fibroid mass itself is poorly vascularized and is instead supplied by a highly vascularized pseudocapsule that develops in response to its growth and appears as a peripheral &#34;ring of fire&#34; on Doppler ultrasound. The angiogenic drive is attributed principally to the insulin-like growth factor system rather than to the HIF-1-alpha/VEGF axis of hypoxic tumors, and HIF-1-alpha has been reported absent from fibroids where it is readily demonstrable in leiomyosarcoma - which is what establishes that the common fibroid does not use the hypoxia route, and is not contradicted by the pseudohypoxia node, whose HIF stabilization is metabolite-driven and confined to the uncommon FH-deficient subtype. Separately, the growing mass raises interstitial pressure and obstructs venous drainage, enlarging the endometrial and myometrial venous lakes. Both the structurally deficient pseudocapsule vessels and the dilated venous lakes are proposed sources of the heavy bleeding, and which of them dominates is unsettled.
 One correction the source makes about its own history is worth keeping: the interstitial-pressure explanation for the enlarged venous lakes was later challenged, with growth factors rather than mechanical pressure held largely responsible for enlarging the veins. The pressure account is recorded here because the microradiographic observation of enlarged lakes stands; its mechanical explanation does not.
 </div>
@@ -6583,6 +6633,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endometrial-hemostatic-failure-and-impaired-vessel-closure" data-dismech-node="Endometrial Hemostatic Failure and Impaired Vessel Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Endometrial Hemostatic Failure and Impaired Vessel Closure</div>
+
 
                 <div class="item-desc">Fibroids do not bleed only by mechanics. Fibroid tissue secretes TGF-beta-3 in response to ovarian steroids, and TGF-beta-3 acts on the overlying endometrium to downregulate BMP receptor 2 (which the source says is likely to cause defective decidualization) and to reduce expression of plasminogen activator inhibitor 1, antithrombin III and thrombomodulin, which the source says likely contributes to the bleeding. Both steps are hedged in the source and are hedged here. Note also that two of those three regulators are anticoagulants, so the net direction is an interpretation of the hemostatic outcome the source draws rather than a reading of each protein in isolation - the DECREASED modifier on the blood-coagulation process below records that net outcome, not a per-protein reading. The endometrium is therefore both less able to decidualize and less able to form and hold a hemostatic plug. This node is where the reproductive and the bleeding phenotypes share a mechanism.
 Scope note: the purely physical contributions to the bleeding - increased endometrial surface area, disordered myometrial contractility, and venous ectasia from compression - are real and are cited below, but they are properties of the tumor mass and belong to the Tumor Growth and Bulk Compression nodes. This node is the endometrial signalling arm, which is why it is tagged TISSUE.
@@ -6826,6 +6877,7 @@ This pathophysiological event involves decreased endometrial decidualization, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-growth-and-clinical-manifestations" data-dismech-node="Tumor Growth and Clinical Manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Growth and Clinical Manifestations</div>
 
+
                 <div class="item-desc">Progressive growth of the leiomyoma produces a benign smooth muscle tumor of the uterus. Submucosal and intramural tumors distort the endometrial cavity and impair hemostasis, causing heavy menstrual bleeding and consequent iron deficiency anemia. Bulk from larger tumors compresses adjacent pelvic organs (bladder, rectum), causing pressure symptoms, while distortion of the cavity and tubal ostia contributes to reproductive morbidity. Most affected women are asymptomatic: fibroids cause clinically significant disease in roughly a quarter of reproductive-age women overall, and affect quality of life in approximately 30% of cases.
 </div>
 
@@ -7007,6 +7059,7 @@ common complaints, along with iron deficiency (ID) and ID anemia."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bulk-compression-of-adjacent-pelvic-organs" data-dismech-node="Bulk Compression of Adjacent Pelvic Organs" data-dismech-type="pathophysiology">
                 <div class="item-name">Bulk Compression of Adjacent Pelvic Organs</div>
+
 
                 <div class="item-desc">A fibroid large enough to enlarge and deform the uterus displaces the structures around it. Anterior and fundal tumors press on the bladder, producing urinary frequency and, when the ureters are involved, hydronephrosis; posterior tumors press on the rectum, producing constipation; a large fibroid can go further and cause urinary obstruction or, rarely, hydronephrosis. This is the one arm of the mechanism that is purely a consequence of volume and position: severity correlates with fibroid size, number and anatomical placement rather than with driver genotype, and the treatments that shrink or remove the tumor relieve it while the treatments that only control bleeding do not.
 </div>
@@ -8540,6 +8593,9 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8665,6 +8721,9 @@ This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8735,6 +8794,9 @@ This disease-associated gene is FH (hgnc:3700). hgnc:3700 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE_AND_SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -11620,10 +11682,10 @@ This environmental factor is parity.</span>
 
                 </div>
 
-                <div class="evidence-snippet">"This structure can be seen as a “ring of fire” in ultrasound Doppler imaging, and it is separated from the myometrium by a clear cleft"</div>
+                <div class="evidence-snippet">"While the fibroid mass itself is poorly vascularised, it can be surrounded by a highly vascularised pseudocapsule in intramural fibroids, a specialized layer of tissue between the tumor and the surrounding myometrium that contains the blood vessels needed to sustain the fibroid (81), which..."</div>
 
 
-                <div class="evidence-explanation">Names the Doppler appearance and attributes it to the pseudocapsule.</div>
+                <div class="evidence-explanation">Restores the intramural-fibroid pseudocapsule and its vascular supply before the Doppler ring sign, preserving the contrast with the poorly vascularized fibroid mass.</div>
 
 
 
@@ -12154,10 +12216,10 @@ Black women being affected at a disproportionate rate."</div>
 
                 </div>
 
-                <div class="evidence-snippet">"Between 1990 and 2021, the global ASIR of UF rose from 234.36 (95%UI: 171.06, 309.92) to 250.93 (183.44, 330.94) per 100,000 [EAPC 0.24 (0.23, 0.25)]."</div>
+                <div class="evidence-snippet">"Uterine fibroids (UF) are the most common benign tumors of the female reproductive system, imposing a significant health burden. ... Data on the incidence, prevalence, and disability-adjusted life years (DALYs) of UF from 1990 to 2021 were extracted from the Global Burden of Disease (GBD) 2021..."</div>
 
 
-                <div class="evidence-explanation">Gives the age-standardized incidence rate and interval for 2021 recorded here, plus the direction of travel since 1990.</div>
+                <div class="evidence-explanation">GBD 2021 estimates the global age-standardized uterine-fibroid incidence at 250.93 per 100,000 in 2021 (uncertainty interval 183.44–330.94), with modeled annual incident counts across 204 countries and territories.</div>
 
 
 
@@ -14749,10 +14811,16 @@ imaging_findings:
     reference_title: Uterine Fibroids (Leiomyomata) and Heavy Menstrual Bleeding.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This structure can be seen as a \u201cring of fire\u201d in ultrasound Doppler imaging, and it is separated from the myometrium by a clear cleft&#34;
+    snippet: &gt;-
+      While the fibroid mass itself is poorly vascularised, it can be surrounded by a highly
+      vascularised pseudocapsule in intramural fibroids, a specialized layer of tissue between the
+      tumor and the surrounding myometrium that contains the blood vessels needed to sustain the
+      fibroid (81), which develops in response to the fibroid growth (82). This structure can be
+      seen as a “ring of fire” in ultrasound Doppler imaging, and it is separated from the
+      myometrium by a clear cleft, as observed in histological images.
     explanation: &gt;-
-      Names the Doppler appearance and attributes it to the pseudocapsule.
-
+      Restores the intramural-fibroid pseudocapsule and its vascular supply before the Doppler ring
+      sign, preserving the contrast with the poorly vascularized fibroid mass.
 - name: Multiplanar MRI characterization for surgical planning
   modality: MRI
   description: &gt;
@@ -15480,11 +15548,20 @@ prevalence:
     reference_title: &#34;The epidemiology of uterine fibroids: global disease burden from 1990 to 2021 and future trend predictions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Between 1990 and 2021, the global ASIR of UF rose from 234.36 (95%UI: 171.06, 309.92) to 250.93 (183.44, 330.94) per 100,000 [EAPC 0.24 (0.23, 0.25)].&#34;
+    snippet: &gt;-
+      Uterine fibroids (UF) are the most common benign tumors of the female reproductive system,
+      imposing a significant health burden. ... Data on the incidence, prevalence, and
+      disability-adjusted life years (DALYs) of UF from 1990 to 2021 were extracted from the Global
+      Burden of Disease (GBD) 2021 study, covering 204 countries and territories. ... Between 1990
+      and 2021, the global ASIR of UF rose from 234.36 (95%UI: 171.06, 309.92) to 250.93 (183.44,
+      330.94) per 100,000 [EAPC 0.24 (0.23, 0.25)]. ... Globally, the number of new cases of UF
+      increased from 6,009,553 (95%UI: 4,390,470–8,011,360) in 1990 to 10,100,271
+      (7,350,444–13,285,677) in 2021.The ASIR for UF increased from 234.36 (171.06–309.92) per
+      100,000 in 1990 to 250.93 (183.44–330.94) per 100,000 in 2021.
     explanation: &gt;-
-      Gives the age-standardized incidence rate and interval for 2021 recorded here,
-      plus the direction of travel since 1990.
-
+      GBD 2021 estimates the global age-standardized uterine-fibroid incidence at 250.93 per 100,000
+      in 2021 (uncertainty interval 183.44–330.94), with modeled annual incident counts across 204
+      countries and territories.
 progression:
 - phase: Premenarchal
   age_range: birth to menarche
@@ -19341,7 +19418,7 @@ Also exhibit spontaneous leiomyomas, though less extensively characterized (wu20
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Uterine Leiomyoma", "mondoId": "MONDO:0007886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uterine_Leiomyoma", "yamlRevision": "89e5fb009b0a"};
+        const OS_CONFIG = {"diseaseName": "Uterine Leiomyoma", "mondoId": "MONDO:0007886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uterine_Leiomyoma", "yamlRevision": "a9eaddfb5811"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

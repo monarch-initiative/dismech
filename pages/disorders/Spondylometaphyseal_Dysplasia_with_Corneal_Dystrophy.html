@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4687,6 +4726,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homozygous-plcb3-p-ala878ser" data-dismech-node="Homozygous PLCB3 p.Ala878Ser" data-dismech-type="pathophysiology">
                 <div class="item-name">Homozygous PLCB3 p.Ala878Ser</div>
 
+
                 <div class="item-desc">A conserved alanine in the Ha2&#39; element of the proximal C-terminal domain is replaced by serine. The Ha2&#39; element normally docks onto the catalytic core; the substitution disrupts that interaction.</div>
 
 
@@ -4806,6 +4846,7 @@ This pathophysiological event involves PLCB3 (hgnc:9056). hgnc:9056 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilised-phospholipase-c-beta-3-with-reduced-activity" data-dismech-node="Destabilised Phospholipase C Beta 3 with Reduced Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilised Phospholipase C Beta 3 with Reduced Activity</div>
 
+
                 <div class="item-desc">PLCB3 catalyses production of diacylglycerol and inositol 1,4,5-trisphosphate from phosphatidylinositol 4,5-bisphosphate, and is activated by G-protein alpha-q and alpha-11 subunits and by beta-gamma subunits. The p.A878S protein is destabilised and hypomorphic, so signalling downstream of Gq-coupled receptors is attenuated and the substrate is not consumed.</div>
 
 
@@ -4920,6 +4961,7 @@ This pathophysiological event involves decreased phospholipase C activity, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-phosphatidylinositol-4-5-bisphosphate" data-dismech-node="Accumulation of Phosphatidylinositol 4,5-Bisphosphate" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Phosphatidylinositol 4,5-Bisphosphate</div>
 
+
                 <div class="item-desc">PIP2 is elevated in patient fibroblasts. PIP2 is not merely a signalling precursor but a direct regulator of actin-binding proteins at the plasma membrane, which is the route by which a signalling-enzyme defect becomes a structural cytoskeletal defect.</div>
 
 
@@ -5033,6 +5075,7 @@ This pathophysiological event involves decreased phosphatidylinositol-mediated s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-f-actin-cytoskeletal-disorganisation" data-dismech-node="F-Actin Cytoskeletal Disorganisation" data-dismech-type="pathophysiology">
                 <div class="item-name">F-Actin Cytoskeletal Disorganisation</div>
+
 
                 <div class="item-desc">Patient fibroblasts are significantly larger than controls, with a weaker F-actin network and a more punctate appearance, scored blind to genotype using an established four-pattern classification of stress-fibre number and length. How this cellular phenotype produces a growth-plate lesion, a corneal opacity, and developmental delay is not established.</div>
 
@@ -5252,6 +5295,7 @@ This pathophysiological event involves actin filament (GO:0005884). GO:0005884 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spondylometaphyseal-skeletal-dysplasia" data-dismech-node="Spondylometaphyseal Skeletal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Spondylometaphyseal Skeletal Dysplasia</div>
 
+
                 <div class="item-desc">Profound limb shortening involving both proximal and distal segments, with short fingers and toes and a narrow chest. Radiographs show short long bones with wide metaphyses and coarse metaphyseal trabeculae, cupping of the distal radius and ulna, uncalcified distal femoral and proximal tibial epiphyses in the neonate, short ribs with a wide anterior aspect, anterior beaking of the lumbar and thoracic vertebrae with wide intervertebral spaces, and almost square, short iliac bones with medial projections. The iliac shape was close enough to Schneckenbecken dysplasia that SLC35D1 was sequenced and excluded before the locus was mapped.</div>
 
 
@@ -5400,6 +5444,7 @@ This pathophysiological event involves actin filament (GO:0005884). GO:0005884 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-dystrophy" data-dismech-node="Corneal Dystrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal Dystrophy</div>
+
 
                 <div class="item-desc">Bilateral corneal clouding evident within the first days of life. In the second cousin the corneas showed vascularised opacities with central thickened white cream-coloured tissue and a thinner greyish periphery over an epithelialised surface. Both children underwent corneal grafting; one experienced graft rejection. Screening for a storage disease — white cell inclusions, urine mucopolysaccharides and oligosaccharides — was negative, which is the standard first differential for neonatal corneal clouding.</div>
 
@@ -6561,6 +6606,9 @@ This disease-associated gene is PLCB3 (hgnc:9056). hgnc:9056 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

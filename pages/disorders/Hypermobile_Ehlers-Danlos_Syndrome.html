@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4351,6 +4390,23 @@
 
 
                         <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Panic_Disorder.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Panic Disorder</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">A_BEFORE_B</span>
 
 
                         <span class="tag tag-mechanistic">CANDIDATE</span>
@@ -6317,6 +6373,13 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-candidate-extracellular-matrix-remodeling-abnormalities" data-dismech-node="Candidate extracellular matrix remodeling abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Candidate extracellular matrix remodeling abnormalities</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Cultured hEDS/HSD dermal fibroblasts show collagen/fibronectin matrix disorganization and altered matrix-receptor organization. Excessive matrix remodeling is a candidate cellular mechanism. The upstream etiology and causal contribution of these culture findings to joint instability or other clinical manifestations remain unresolved.</div>
 
 
@@ -6516,6 +6579,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-joint-instability-and-recurrent-soft-tissue-injury" data-dismech-node="Joint instability and recurrent soft-tissue injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Joint instability and recurrent soft-tissue injury</div>
 
+
                 <div class="item-desc">Joint instability permits subluxations, dislocations, and recurrent joint or soft-tissue injury. Mechanical injury contributes to acute joint pain and chronic musculoskeletal pain, but does not account for every neuropathic or widespread pain presentation.</div>
 
 
@@ -6637,6 +6701,13 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myofibroblast-like-fibroblast-transition" data-dismech-node="Myofibroblast-like fibroblast transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Myofibroblast-like fibroblast transition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">hEDS/HSD patient fibroblasts can acquire a migrating myofibroblast-like phenotype with alpha-smooth muscle actin stress fibers, cadherin-11, MMP9, and inflammatory mediator changes through alpha-v-beta-3 integrin/ILK/Snail1 signaling. This remains model evidence rather than a validated diagnostic biomarker.
 </div>
@@ -6847,7 +6918,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a very frequent musculoskeletal manifestation in hEDS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Candidate extracellular matrix remodeling abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cultured hEDS/HSD dermal fibroblasts show collagen/fibronectin matrix disorganization and altered matrix-receptor organization. Excessive matrix remodeling is a candidate cellular mechanism. The upstream etiology and causal contribution of these culture findings to joint instability or other clinical manifestations remain unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Chronic pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pain is common and may be distinct from acute injury pain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012532\"}}, {\"id\": \"Joint dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint instability can cause recurrent subluxations or dislocations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility is the central diagnostic musculoskeletal feature of hEDS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002761\"}}, {\"id\": \"Joint instability and recurrent soft-tissue injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Joint instability permits subluxations, dislocations, and recurrent joint or soft-tissue injury. Mechanical injury contributes to acute joint pain and chronic musculoskeletal pain, but does not account for every neuropathic or widespread pain presentation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myofibroblast-like fibroblast transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hEDS/HSD patient fibroblasts can acquire a migrating myofibroblast-like phenotype with alpha-smooth muscle actin stress fibers, cadherin-11, MMP9, and inflammatory mediator changes through alpha-v-beta-3 integrin/ILK/Snail1 signaling. This remains model evidence rather than a validated diagnostic biomarker.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disorders, including apnea, can occur as part of the hEDS multisystem phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Candidate extracellular matrix remodeling abnormalities\", \"target\": \"Myofibroblast-like fibroblast transition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In cultured hEDS/HSD dermal fibroblasts, fibronectin-matrix disassembly and altered integrin recruitment promote the \\u03b1v\\u03b23\\u2013ILK\\u2013Snail1 transition pathway. The initiating extracellular ligands and some intracellular intermediates remain unresolved; this model-level relation does not establish a route to clinical joint instability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Joint dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint instability predisposes to recurrent subluxations and dislocations.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Chronic pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated joint and soft-tissue injury contributes to chronic pain beyond acute injury pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"repeated soft-tissue injury\"]}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint instability and repeated injury produce joint pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"recurrent subluxation or soft-tissue injury\"]}, {\"source\": \"Joint hypermobility\", \"target\": \"Joint instability and recurrent soft-tissue injury\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Generalized joint laxity can be accompanied by instability and increases susceptibility to joint and soft-tissue injury; instability is not inevitable in every hypermobile joint.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic pain\", \"target\": \"Sleep disturbance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Pain can disrupt sleep; this link concerns sleep disruption and does not assert that pain causes obstructive sleep apnea.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a very frequent musculoskeletal manifestation in hEDS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Candidate extracellular matrix remodeling abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cultured hEDS/HSD dermal fibroblasts show collagen/fibronectin matrix disorganization and altered matrix-receptor organization. Excessive matrix remodeling is a candidate cellular mechanism. The upstream etiology and causal contribution of these culture findings to joint instability or other clinical manifestations remain unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Chronic pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pain is common and may be distinct from acute injury pain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012532\"}}, {\"id\": \"Joint dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint instability can cause recurrent subluxations or dislocations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility is the central diagnostic musculoskeletal feature of hEDS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002761\"}}, {\"id\": \"Joint instability and recurrent soft-tissue injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Joint instability permits subluxations, dislocations, and recurrent joint or soft-tissue injury. Mechanical injury contributes to acute joint pain and chronic musculoskeletal pain, but does not account for every neuropathic or widespread pain presentation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myofibroblast-like fibroblast transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hEDS/HSD patient fibroblasts can acquire a migrating myofibroblast-like phenotype with alpha-smooth muscle actin stress fibers, cadherin-11, MMP9, and inflammatory mediator changes through alpha-v-beta-3 integrin/ILK/Snail1 signaling. This remains model evidence rather than a validated diagnostic biomarker.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disorders, including apnea, can occur as part of the hEDS multisystem phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Candidate extracellular matrix remodeling abnormalities\", \"target\": \"Myofibroblast-like fibroblast transition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In cultured hEDS/HSD dermal fibroblasts, fibronectin-matrix disassembly and altered integrin recruitment promote the \\u03b1v\\u03b23\\u2013ILK\\u2013Snail1 transition pathway. The initiating extracellular ligands and some intracellular intermediates remain unresolved; this model-level relation does not establish a route to clinical joint instability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Joint dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint instability predisposes to recurrent subluxations and dislocations.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Chronic pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated joint and soft-tissue injury contributes to chronic pain beyond acute injury pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"repeated soft-tissue injury\"]}, {\"source\": \"Joint instability and recurrent soft-tissue injury\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint instability and repeated injury produce joint pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"recurrent subluxation or soft-tissue injury\"]}, {\"source\": \"Joint hypermobility\", \"target\": \"Joint instability and recurrent soft-tissue injury\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Generalized joint laxity can be accompanied by instability and increases susceptibility to joint and soft-tissue injury; instability is not inevitable in every hypermobile joint.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic pain\", \"target\": \"Sleep disturbance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Pain can disrupt sleep; this link concerns sleep disruption and does not assert that pain causes obstructive sleep apnea.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6870,17 +6941,19 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(7)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Constitutional<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7181,7 +7254,7 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-dysmotility" data-dismech-node="Gastrointestinal dysmotility" data-dismech-type="phenotype">
@@ -7353,78 +7426,6 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-organ-prolapse" data-dismech-node="Pelvic organ prolapse" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pelvic organ prolapse
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031607</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301456" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hypermobile Ehlers-Danlos syndrome (hEDS) is characterized by generalized joint hypermobility, joint instability, pain, soft and hyperextensible skin with atrophic scars and easy bruising, dental crowding, abdominal hernias, pelvic organ prolapse, marfanoid body habitus, mitral valve prolapse,..."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists pelvic organ prolapse among hEDS clinical characteristics.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-wall-hernia" data-dismech-node="Abdominal wall hernia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal wall hernia
@@ -7441,10 +7442,10 @@ This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004299" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004299</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004299" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004299</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal wall hernia, annotated with Hernia of the abdominal wall (HP:0004299). HP:0004299 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7513,10 +7514,10 @@ This clinical feature is Abdominal wall hernia, annotated with Hernia of the abd
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7587,10 +7588,10 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7650,6 +7651,87 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-organ-prolapse" data-dismech-node="Pelvic organ prolapse" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pelvic organ prolapse
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0031607</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypermobile Ehlers-Danlos syndrome (hEDS) is characterized by generalized joint hypermobility, joint instability, pain, soft and hyperextensible skin with atrophic scars and easy bruising, dental crowding, abdominal hernias, pelvic organ prolapse, marfanoid body habitus, mitral valve prolapse,..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists pelvic organ prolapse among hEDS clinical characteristics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -7829,7 +7911,7 @@ This clinical feature is High, narrow palate (HP:0002705). HP:0002705 is a pheno
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -8227,7 +8309,7 @@ This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotyp
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -8389,7 +8471,7 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -8931,7 +9013,7 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional

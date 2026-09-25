@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4308,6 +4347,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-otud6b-loss-of-function-variants" data-dismech-node="Biallelic OTUD6B Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic OTUD6B Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">The disorder is initiated by inheritance of two damaging OTUD6B alleles. The reported allelic spectrum includes nonsense alleles, canonical splice-donor alleles that abolish normal splicing and trigger nonsense-mediated decay, frameshift alleles, and rare missense alleles within the catalytic OTU domain.</div>
 
 
@@ -4459,6 +4499,7 @@ This pathophysiological event involves OTUD6B (hgnc:24281). hgnc:24281 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-otud6b-deubiquitinase-activity" data-dismech-node="Loss of OTUD6B Deubiquitinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of OTUD6B Deubiquitinase Activity</div>
+
 
                 <div class="item-desc">OTUD6B encodes a member of the ovarian tumor (OTU) domain subfamily of deubiquitinating enzymes, which remove ubiquitin from substrate proteins and thereby counterbalance E1/E2/E3 ubiquitin conjugation. Loss of this activity removes a node of control over ubiquitin-dependent protein turnover, trafficking, and signaling.</div>
 
@@ -4645,6 +4686,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-allele-dependent-residual-otud6b-function" data-dismech-node="Allele-Dependent Residual OTUD6B Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Allele-Dependent Residual OTUD6B Function</div>
 
+
                 <div class="item-desc">The severity of the clinical phenotype tracks the predicted functional severity of the specific OTUD6B alleles. Truncating and splice alleles that trigger nonsense-mediated decay give little or no product, whereas some missense alleles only locally destabilize the protein and others distort the overall fold. Molecular dynamics modeling of two OTU-domain missense alleles predicted localized destabilization for the allele found in a mildly affected individual and gross fold distortion for the allele found in a severely affected individual. In one replication family, residual wild-type splicing of under one percent, together with alleles that spare the short OTUD6B-2 isoform, was proposed to explain an unusually mild presentation.</div>
 
 
@@ -4770,6 +4812,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-26s-proteasome-assembly" data-dismech-node="Impaired 26S Proteasome Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired 26S Proteasome Assembly</div>
+
 
                 <div class="item-desc">Peripheral blood mononuclear cells from an affected individual show reduced incorporation of 19S regulatory-particle subunits into 26S proteasomes. The mature 26S holoenzyme is formed by capping the 20S catalytic core with the 19S regulatory particle, so defective 19S incorporation reduces the pool of assembly-competent, ubiquitin-receptive proteasomes.</div>
 
@@ -4940,6 +4983,7 @@ This pathophysiological event involves proteasome accessory complex (19S regulat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-proteasomal-chymotrypsin-like-activity" data-dismech-node="Reduced Proteasomal Chymotrypsin-Like Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Proteasomal Chymotrypsin-Like Activity</div>
 
+
                 <div class="item-desc">Chymotrypsin-like peptidase activity, the rate-limiting catalytic activity of the 20S core, is decreased in patient peripheral blood mononuclear cells, indicating functionally reduced proteolytic throughput and not merely an assembly stoichiometry change.</div>
 
 
@@ -5074,6 +5118,7 @@ This pathophysiological event involves proteasome complex (GO:0000502). GO:00005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-ubiquitin-protein-conjugates" data-dismech-node="Accumulation of Ubiquitin-Protein Conjugates" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Ubiquitin-Protein Conjugates</div>
+
 
                 <div class="item-desc">Polyubiquitinated proteins accumulate in patient cells, the expected consequence of a reduced-capacity ubiquitin-proteasome system. This is the proteostatic lesion that the developing organism must tolerate.</div>
 
@@ -5214,6 +5259,7 @@ This pathophysiological event involves decreased ubiquitin-dependent protein cat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-mtorc1-linked-translation-initiation" data-dismech-node="Dysregulated mTORC1-Linked Translation Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated mTORC1-Linked Translation Initiation</div>
 
+
                 <div class="item-desc">Independently of the proteasome arm, OTUD6B regulates protein synthesis downstream of mTORC1. It associates with the protein synthesis initiation complex and modifies components of the 48S preinitiation complex, and its two main splicing isoforms act in opposing directions, with the long OTUD6B-1 isoform inhibitory and the short OTUD6B-2 isoform stimulatory. This work was performed in non-small cell lung cancer cell lines rather than in neural tissue, so its relevance to the human developmental phenotype is inferential.</div>
 
 
@@ -5352,6 +5398,7 @@ This pathophysiological event involves abnormal regulation of translation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cell-growth-and-proliferation" data-dismech-node="Impaired Cell Growth and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cell Growth and Proliferation</div>
+
 
                 <div class="item-desc">Both the proteostatic arm and the translational arm converge on reduced growth and proliferative capacity. In cell models the two OTUD6B isoforms have opposing effects on DNA synthesis, so loss of the balanced isoform pair perturbs proliferation control rather than simply slowing it.</div>
 
@@ -5500,6 +5547,7 @@ This pathophysiological event involves decreased growth (GO:0040007). GO:0040007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-embryonic-organogenesis-and-growth" data-dismech-node="Disrupted Embryonic Organogenesis and Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Embryonic Organogenesis and Growth</div>
+
 
                 <div class="item-desc">The organism-level convergence node. Reduced proliferative and biosynthetic capacity during embryogenesis produces prenatal-onset growth restriction, microcephaly and structural brain malformation, congenital heart defects, and the distal limb and craniofacial patterning anomalies that define the syndrome. Homozygous Otud6b knockout mice recapitulate the severe end of this spectrum, being subviable and small with congenital heart defects.</div>
 
@@ -8646,6 +8694,9 @@ This disease-associated gene is OTUD6B (hgnc:24281). hgnc:24281 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

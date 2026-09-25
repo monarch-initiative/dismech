@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Immunodeficiency%2069"
@@ -4017,7 +4056,7 @@ Because the lesion is in the ligand rather than in its receptor or in the downst
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4441,6 +4480,7 @@ Because the lesion is in the ligand rather than in its receptor or in the downst
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complete-loss-of-ifn-gamma-production" data-dismech-node="Complete Loss of IFN-gamma Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Complete Loss of IFN-gamma Production</div>
 
+
                 <div class="item-desc">The homozygous IFNG frameshift allele is a loss-of-expression, loss-of-function allele, so no functional interferon gamma is made. This is the initiating lesion: every downstream step follows from the absence of the cytokine, not from any defect in its receptor or in downstream signal transduction.
 </div>
 
@@ -4522,6 +4562,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
+
+
         <span class="tag tag-classification">allele_type: FRAMESHIFT</span>
 
 
@@ -4537,6 +4579,9 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4643,6 +4688,7 @@ This pathophysiological event involves type II interferon activity, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-t-and-nk-cell-ifn-gamma-secretion" data-dismech-node="Failure of T and NK Cell IFN-gamma Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of T and NK Cell IFN-gamma Secretion</div>
+
 
                 <div class="item-desc">T lymphocytes and natural killer cells are the physiological sources of IFN-gamma in the IL-12/IFN-gamma circuit. In these patients both compartments fail to produce or secrete detectable IFN-gamma, so the effector limb of the circuit is silent even though IL-12 production and IL-12 receptor signalling are intact.
 </div>
@@ -4820,6 +4866,7 @@ This pathophysiological event involves decreased type II interferon production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ifn-gamma-dependent-macrophage-activation" data-dismech-node="Defective IFN-gamma-Dependent Macrophage Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective IFN-gamma-Dependent Macrophage Activation</div>
+
 
                 <div class="item-desc">IFN-gamma is the principal macrophage-activating cytokine. Without it, the IFN-gamma receptor on mononuclear phagocytes is never engaged, the JAK1/JAK2-STAT1 cascade is not triggered, and the antimicrobial programme that allows macrophages to restrict intracellular mycobacteria is not induced. The receptor and its signalling machinery are structurally intact here, which is what distinguishes this etiology from the IFN-gamma receptor deficiencies and makes it pharmacologically addressable with the recombinant cytokine.
 </div>
@@ -5002,6 +5049,7 @@ This pathophysiological event involves decreased macrophage activation (GO:00421
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-intramacrophagic-mycobacterial-replication" data-dismech-node="Uncontrolled Intramacrophagic Mycobacterial Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Intramacrophagic Mycobacterial Replication</div>
 
+
                 <div class="item-desc">Weakly virulent mycobacteria — BCG vaccine strains and environmental non-tuberculous mycobacteria — persist and replicate inside macrophages that cannot be activated. Containment fails at the level of the granuloma, permitting local and then disseminated infection with organisms that immunocompetent hosts control without clinical disease.
 </div>
 
@@ -5149,6 +5197,7 @@ This pathophysiological event involves decreased defense response to bacterium (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mycobacterial-and-salmonella-disease" data-dismech-node="Mycobacterial and Salmonella Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Mycobacterial and Salmonella Disease</div>
 
+
                 <div class="item-desc">The clinical phenotype. Disease ranges from localized BCG-itis at the vaccination site to disseminated BCG-osis and infection with environmental mycobacteria, and extends beyond mycobacteria: roughly half of MSMD patients also suffer clinical disease caused by non-typhoidal Salmonella, and milder chronic mucocutaneous candidiasis and other intramacrophagic infections are reported. One of the two reported IFN-gamma-deficient patients was diagnosed with BCG-osis after lymph node biopsy confirmed acid-fast bacilli.
 </div>
 
@@ -5205,6 +5254,93 @@ This pathophysiological event involves decreased response to bacterium (GO:00096
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Disseminated BCG Infection</span>
+
+	                            <span class="crosslink-desc">The presenting illness in both reported patients: live attenuated BCG, harmless in an IFN-gamma-competent host, disseminates because the macrophage cannot be activated to contain it.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Regional Lymphadenitis</span>
+
+	                            <span class="crosslink-desc">Inflammation of the vaccination-draining node, the first and most local sign of the failure to contain BCG.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">BCG Injection-Site Ulceration</span>
+
+	                            <span class="crosslink-desc">Breakdown at the inoculation site itself, the other local manifestation of uncontained live vaccine organism.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Environmental Mycobacterial Infection</span>
+
+	                            <span class="crosslink-desc">Non-tuberculous environmental mycobacteria are controlled by the same IFN-gamma-dependent macrophage program, so susceptibility extends beyond the vaccine strain.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Susceptibility to Tuberculosis</span>
+
+	                            <span class="crosslink-desc">The same defect admits M. tuberculosis. Drawn as susceptibility rather than as disease because the reported patients were identified through BCG rather than through tuberculosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Non-Typhoidal Salmonellosis</span>
+
+	                            <span class="crosslink-desc">The non-mycobacterial half of the MSMD phenotype: intramacrophagic Salmonella depends on the same activation step, which is why these two organism classes travel together in this disease and in few others.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">HLH-Like Hyperinflammatory Syndrome</span>
+
+	                            <span class="crosslink-desc">One of the two patients developed a hyperinflammatory episode fourteen months after the BCG-osis diagnosis. Drawn downstream of the mycobacterial disease rather than as an independent arm, because persistent uncleared intramacrophagic organism is the antigenic drive. One patient, and the link type records the uncertainty.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to Thrive</span>
+
+	                            <span class="crosslink-desc">Constitutional consequence of chronic uncontrolled infection.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Leukocytosis</span>
+
+	                            <span class="crosslink-desc">Raised white cell count on routine testing during the initial BCG-osis presentation.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thrombocytosis</span>
+
+	                            <span class="crosslink-desc">Raised platelet count during the same presentation, the expected acute-phase response to sustained infection.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5296,7 +5432,7 @@ This pathophysiological event involves decreased response to bacterium (GO:00096
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Routine BCG immunisation is the sentinel environmental exposure in this disorder. The attenuated Mycobacterium bovis BCG strain is harmless to immunocompetent infants but disseminates in patients who cannot mount IFN-gamma-dependent macrophage activation, which is how MSMD patients typically come to attention.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Complete Loss of IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The homozygous IFNG frameshift allele is a loss-of-expression, loss-of-function allele, so no functional interferon gamma is made. This is the initiating lesion: every downstream step follows from the absence of the cytokine, not from any defect in its receptor or in downstream signal transduction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"molecular_functions\": [\"type II interferon activity\"], \"genetic_context\": {\"allele_type\": \"FRAMESHIFT\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IFN-gamma is the principal macrophage-activating cytokine. Without it, the IFN-gamma receptor on mononuclear phagocytes is never engaged, the JAK1/JAK2-STAT1 cascade is not triggered, and the antimicrobial programme that allows macrophages to restrict intracellular mycobacteria is not induced. The receptor and its signalling machinery are structurally intact here, which is what distinguishes this etiology from the IFN-gamma receptor deficiencies and makes it pharmacologically addressable with the recombinant cytokine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"cellular response to type II interferon\", \"macrophage activation\"]}}, {\"id\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T lymphocytes and natural killer cells are the physiological sources of IFN-gamma in the IL-12/IFN-gamma circuit. In these patients both compartments fail to produce or secrete detectable IFN-gamma, so the effector limb of the circuit is silent even though IL-12 production and IL-12 receptor signalling are intact.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"biological_processes\": [\"type II interferon production\"]}}, {\"id\": \"Mycobacterial and Salmonella Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype. Disease ranges from localized BCG-itis at the vaccination site to disseminated BCG-osis and infection with environmental mycobacteria, and extends beyond mycobacteria: roughly half of MSMD patients also suffer clinical disease caused by non-typhoidal Salmonella, and milder chronic mucocutaneous candidiasis and other intramacrophagic infections are reported. One of the two reported IFN-gamma-deficient patients was diagnosed with BCG-osis after lymph node biopsy confirmed acid-fast bacilli.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Recombinant Interferon Gamma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subcutaneous recombinant IFN-gamma is the mechanistically rational therapy for this specific MSMD etiology. Because the defect is in the cytokine and not in its receptor or in the downstream JAK-STAT1 machinery, exogenous IFN-gamma can engage an intact receptor and restore macrophage activation. This is the therapeutic distinction between IFNG deficiency and complete IFN-gamma receptor deficiency, in which the cytokine cannot act. Recombinant IFN-gamma has already proven useful in other MSMD etiologies with impaired IFN-gamma production, such as IL-12Rbeta1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weakly virulent mycobacteria \\u2014 BCG vaccine strains and environmental non-tuberculous mycobacteria \\u2014 persist and replicate inside macrophages that cannot be activated. Containment fails at the level of the granuloma, permitting local and then disseminated infection with organisms that immunocompetent hosts control without clinical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to bacterium\"]}}], \"edges\": [{\"source\": \"Complete Loss of IFN-gamma Production\", \"target\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"target\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"target\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"target\": \"Mycobacterial and Salmonella Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"target\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"BCG vaccination introduces the live attenuated mycobacterium that then replicates unchecked in macrophages that cannot be activated without IFN-gamma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Interferon Gamma\", \"target\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent IFN-gamma Production by Lymphocytes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining laboratory abnormality: blood T and NK lymphocytes produce and secrete no detectable IFN-gamma on stimulation, in the presence of otherwise normal routine haematological and immunological findings.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The assay measurement of that node, and the test that makes this diagnosis. Recorded as an observational readout rather than a causal edge: stimulated lymphocytes failing to secrete IFN-gamma is the node being measured, not a consequence of it.\"}], \"term_id\": \"HP:0033253\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia on routine laboratory testing during patient 1\u0027s initial BCG-osis presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"BCG Injection-Site Ulceration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ulcerated lesion at the BCG vaccination injection site, reported in patient 2 at presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Routine BCG immunisation is the sentinel environmental exposure in this disorder. The attenuated Mycobacterium bovis BCG strain is harmless to immunocompetent infants but disseminates in patients who cannot mount IFN-gamma-dependent macrophage activation, which is how MSMD patients typically come to attention.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cerebral White Matter Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A white-matter lesion with enhancing nodules found on brain MRI during patient 1\u0027s CNS relapse of the HLH-like syndrome, two weeks after completing the HLH-04 protocol.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Complete Loss of IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The homozygous IFNG frameshift allele is a loss-of-expression, loss-of-function allele, so no functional interferon gamma is made. This is the initiating lesion: every downstream step follows from the absence of the cytokine, not from any defect in its receptor or in downstream signal transduction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"molecular_functions\": [\"type II interferon activity\"], \"genetic_context\": {\"allele_type\": \"FRAMESHIFT\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IFN-gamma is the principal macrophage-activating cytokine. Without it, the IFN-gamma receptor on mononuclear phagocytes is never engaged, the JAK1/JAK2-STAT1 cascade is not triggered, and the antimicrobial programme that allows macrophages to restrict intracellular mycobacteria is not induced. The receptor and its signalling machinery are structurally intact here, which is what distinguishes this etiology from the IFN-gamma receptor deficiencies and makes it pharmacologically addressable with the recombinant cytokine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"cellular response to type II interferon\", \"macrophage activation\"]}}, {\"id\": \"Disseminated BCG Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated disease caused by the attenuated Mycobacterium bovis BCG vaccine strain following routine immunization. This is the sentinel presentation of MSMD in BCG-vaccinating countries and was the diagnosis in one of the two reported patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0020087\"}}, {\"id\": \"Elevated Liver Enzymes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated liver enzymes on routine laboratory testing during patient 1\u0027s initial BCG-osis presentation, distinct from the transient hepatotoxicity that patient 2 later developed on antimycobacterial therapy (see `Antimycobacterial Therapy` treatment notes).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002910\"}}, {\"id\": \"Environmental Mycobacterial Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infection with weakly virulent non-tuberculous environmental mycobacteria, which immunocompetent hosts contain without clinical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032283\"}}, {\"id\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T lymphocytes and natural killer cells are the physiological sources of IFN-gamma in the IL-12/IFN-gamma circuit. In these patients both compartments fail to produce or secrete detectable IFN-gamma, so the effector limb of the circuit is silent even though IL-12 production and IL-12 receptor signalling are intact.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"biological_processes\": [\"type II interferon production\"]}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive in infancy during the initial BCG-osis illness.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever at BCG-osis presentation in both reported patients, three weeks after BCG vaccination in patient 1 and six weeks after it in patient 2, in each case accompanying the draining-node swelling. Patient 1 later had prolonged, unremitting high fever at the HLH-like relapse fourteen months after the BCG-osis diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001945\"}}, {\"id\": \"HLH-Like Hyperinflammatory Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the two reported patients developed a hyperinflammatory episode fourteen months after the diagnosis of BCG-osis: prolonged unremitting high fever, splenomegaly, pancytopenia, very high ferritin and high fasting triglycerides. Hemophagocytic lymphohistiocytosis was suspected and treated as such, and it later relapsed with CNS involvement, prompting transplantation. No infectious cause was found and no mutation in a known HLH gene was identified.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatosplenomegaly in patient 1 at the BCG-osis presentation, alongside maculopapular rash, diarrhoea and failure to thrive. Splenomegaly also recurred as part of the later hyperinflammatory episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hyperferritinaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Very high ferritin levels during the hyperinflammatory episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003281\"}}, {\"id\": \"Hypertriglyceridaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High fasting triglyceride levels during the hyperinflammatory episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002155\"}}, {\"id\": \"Leptomeningeal Enhancement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leptomeningeal enhancement found on brain MRI during patient 1\u0027s CNS relapse of the HLH-like syndrome, alongside the white-matter lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032070\"}}, {\"id\": \"Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukocytosis on routine laboratory testing during patient 1\u0027s initial BCG-osis presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Mycobacterial and Salmonella Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype. Disease ranges from localized BCG-itis at the vaccination site to disseminated BCG-osis and infection with environmental mycobacteria, and extends beyond mycobacteria: roughly half of MSMD patients also suffer clinical disease caused by non-typhoidal Salmonella, and milder chronic mucocutaneous candidiasis and other intramacrophagic infections are reported. One of the two reported IFN-gamma-deficient patients was diagnosed with BCG-osis after lymph node biopsy confirmed acid-fast bacilli.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Non-Typhoidal Salmonellosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical disease caused by non-typhoidal Salmonella, reported in approximately half of MSMD patients across etiologies. Salmonella is likewise an intramacrophagic organism whose control depends on IFN-gamma-activated macrophages.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancytopenia during the hyperinflammatory episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Recombinant Interferon Gamma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subcutaneous recombinant IFN-gamma is the mechanistically rational therapy for this specific MSMD etiology. Because the defect is in the cytokine and not in its receptor or in the downstream JAK-STAT1 machinery, exogenous IFN-gamma can engage an intact receptor and restore macrophage activation. This is the therapeutic distinction between IFNG deficiency and complete IFN-gamma receptor deficiency, in which the cytokine cannot act. Recombinant IFN-gamma has already proven useful in other MSMD etiologies with impaired IFN-gamma production, such as IL-12Rbeta1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Regional Lymphadenitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional lymphadenitis of the BCG vaccination-draining node at presentation, in both patients. Patient 1 had a large (8 \\u00d7 8 cm) left axillary mass that was erythematous and tender; patient 2 had a smaller (4 \\u00d7 5 cm) axillary swelling that was erythematous but explicitly not tender. Tenderness therefore varies between the two reported patients and is not a constant feature.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002840\"}}, {\"id\": \"Susceptibility to Tuberculosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with inborn errors of IFN-gamma immunity are also vulnerable to the more virulent Mycobacterium tuberculosis, not only to weakly virulent mycobacteria.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytosis on routine laboratory testing during patient 1\u0027s initial BCG-osis presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001894\"}}, {\"id\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weakly virulent mycobacteria \\u2014 BCG vaccine strains and environmental non-tuberculous mycobacteria \\u2014 persist and replicate inside macrophages that cannot be activated. Containment fails at the level of the granuloma, permitting local and then disseminated infection with organisms that immunocompetent hosts control without clinical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to bacterium\"]}}], \"edges\": [{\"source\": \"Complete Loss of IFN-gamma Production\", \"target\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"target\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"target\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"target\": \"Mycobacterial and Salmonella Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Disseminated BCG Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The presenting illness in both reported patients: live attenuated BCG, harmless in an IFN-gamma-competent host, disseminates because the macrophage cannot be activated to contain it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Regional Lymphadenitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation of the vaccination-draining node, the first and most local sign of the failure to contain BCG.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"BCG Injection-Site Ulceration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breakdown at the inoculation site itself, the other local manifestation of uncontained live vaccine organism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Environmental Mycobacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-tuberculous environmental mycobacteria are controlled by the same IFN-gamma-dependent macrophage program, so susceptibility extends beyond the vaccine strain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Susceptibility to Tuberculosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same defect admits M. tuberculosis. Drawn as susceptibility rather than as disease because the reported patients were identified through BCG rather than through tuberculosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Non-Typhoidal Salmonellosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The non-mycobacterial half of the MSMD phenotype: intramacrophagic Salmonella depends on the same activation step, which is why these two organism classes travel together in this disease and in few others.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"HLH-Like Hyperinflammatory Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the two patients developed a hyperinflammatory episode fourteen months after the BCG-osis diagnosis. Drawn downstream of the mycobacterial disease rather than as an independent arm, because persistent uncleared intramacrophagic organism is the antigenic drive. One patient, and the link type records the uncertainty.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutional consequence of chronic uncontrolled infection.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised white cell count on routine testing during the initial BCG-osis presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mycobacterial and Salmonella Disease\", \"target\": \"Thrombocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised platelet count during the same presentation, the expected acute-phase response to sustained infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Fever\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Prolonged unremitting high fever, the opening feature of the episode and one of the HLH-2004 criteria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Organomegaly from infiltration by activated macrophages and lymphocytes; an HLH-2004 criterion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Pancytopenia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Marrow suppression by the cytokine excess, compounded by haemophagocytosis; an HLH-2004 criterion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Hyperferritinaemia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Very high ferritin, the most specific laboratory marker of the episode and an HLH-2004 criterion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Hypertriglyceridaemia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Raised triglycerides, an HLH-2004 criterion reflecting cytokine-driven lipolysis and suppressed lipoprotein lipase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Elevated Liver Enzymes\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Transaminase rise from hepatic involvement during the episode.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Anemia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Anaemia within the pancytopenia of the episode, curated separately because it was recorded as its own finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Cerebral White Matter Lesion\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"CNS relapse of the syndrome two weeks after completion of the HLH-04 protocol, seen on brain MRI as a white-matter lesion with enhancing nodules.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HLH-Like Hyperinflammatory Syndrome\", \"target\": \"Leptomeningeal Enhancement\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The other MRI finding of that CNS relapse.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bacille Calmette-Guerin (BCG) vaccination\", \"target\": \"Uncontrolled Intramacrophagic Mycobacterial Replication\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"BCG vaccination introduces the live attenuated mycobacterium that then replicates unchecked in macrophages that cannot be activated without IFN-gamma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Interferon Gamma\", \"target\": \"Defective IFN-gamma-Dependent Macrophage Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Failure of T and NK Cell IFN-gamma Secretion\", \"target\": \"Absent IFN-gamma Production by Lymphocytes\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The assay measurement of that node, and the test that makes this diagnosis. Recorded as an observational readout rather than a causal edge: stimulated lymphocytes failing to secrete IFN-gamma is the node being measured, not a consequence of it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6825,6 +6961,29 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <div class="item-desc">Deliberately left without a `term:` binding. HPO has no hemophagocytic lymphohistiocytosis class (searched via OAK), and HP:0012156 Hemophagocytosis would be positively wrong here: the source states explicitly that HLH was suspected but that no evidence of hemophagocytosis was found in the bone marrow. The evidenced component features are curated as separate phenotypes below.</div>
 
 
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Fever</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Hepatosplenomegaly</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Pancytopenia</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Hyperferritinaemia</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Hypertriglyceridaemia</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Elevated Liver Enzymes</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Anemia</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Cerebral White Matter Lesion</span>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Leptomeningeal Enhancement</span>
+
+                    </div>
+
 
 
     <details class="evidence-details">
@@ -6938,6 +7097,9 @@ This disease-associated gene is IFNG (hgnc:5438). hgnc:5438 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8323,6 +8485,47 @@ pathophysiology:
     explanation: &gt;-
       A second, independent MSMD review corroborating that the clinical syndrome
       modelled by this node is defined by inborn errors of IFN-gamma immunity.
+  downstream:
+  - target: Disseminated BCG Infection
+    causal_link_type: DIRECT
+    description: &gt;-
+      The presenting illness in both reported patients: live attenuated BCG, harmless in an IFN-gamma-competent host, disseminates because the macrophage cannot be activated to contain it.
+  - target: Regional Lymphadenitis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Inflammation of the vaccination-draining node, the first and most local sign of the failure to contain BCG.
+  - target: BCG Injection-Site Ulceration
+    causal_link_type: DIRECT
+    description: &gt;-
+      Breakdown at the inoculation site itself, the other local manifestation of uncontained live vaccine organism.
+  - target: Environmental Mycobacterial Infection
+    causal_link_type: DIRECT
+    description: &gt;-
+      Non-tuberculous environmental mycobacteria are controlled by the same IFN-gamma-dependent macrophage program, so susceptibility extends beyond the vaccine strain.
+  - target: Susceptibility to Tuberculosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The same defect admits M. tuberculosis. Drawn as susceptibility rather than as disease because the reported patients were identified through BCG rather than through tuberculosis.
+  - target: Non-Typhoidal Salmonellosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The non-mycobacterial half of the MSMD phenotype: intramacrophagic Salmonella depends on the same activation step, which is why these two organism classes travel together in this disease and in few others.
+  - target: HLH-Like Hyperinflammatory Syndrome
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      One of the two patients developed a hyperinflammatory episode fourteen months after the BCG-osis diagnosis. Drawn downstream of the mycobacterial disease rather than as an independent arm, because persistent uncleared intramacrophagic organism is the antigenic drive. One patient, and the link type records the uncertainty.
+  - target: Failure to Thrive
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Constitutional consequence of chronic uncontrolled infection.
+  - target: Leukocytosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Raised white cell count on routine testing during the initial BCG-osis presentation.
+  - target: Thrombocytosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Raised platelet count during the same presentation, the expected acute-phase response to sustained infection.
 phenotypes:
 - category: Immunological
   name: Disseminated BCG Infection
@@ -8444,6 +8647,16 @@ phenotypes:
     explanation: &gt;-
       Directly reports the absent IFN-gamma production that defines the cellular
       diagnosis.
+  reports_on:
+  - target: Failure of T and NK Cell IFN-gamma Secretion
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The assay measurement of that node, and the test that makes this
+      diagnosis. Recorded as an observational readout rather than a causal
+      edge: stimulated lymphocytes failing to secrete IFN-gamma is the node
+      being measured, not a consequence of it.
 - category: Immunological
   name: HLH-Like Hyperinflammatory Syndrome
   description: &gt;
@@ -8472,6 +8685,43 @@ phenotypes:
     explanation: &gt;-
       Supports an HLH-like syndrome while explicitly refuting demonstrated
       hemophagocytosis; recorded as PARTIAL for that reason.
+  sequelae:
+  - target: Fever
+    causal_link_type: DIRECT
+    description: &gt;-
+      Prolonged unremitting high fever, the opening feature of the episode and one of the HLH-2004 criteria.
+  - target: Hepatosplenomegaly
+    causal_link_type: DIRECT
+    description: &gt;-
+      Organomegaly from infiltration by activated macrophages and lymphocytes; an HLH-2004 criterion.
+  - target: Pancytopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Marrow suppression by the cytokine excess, compounded by haemophagocytosis; an HLH-2004 criterion.
+  - target: Hyperferritinaemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Very high ferritin, the most specific laboratory marker of the episode and an HLH-2004 criterion.
+  - target: Hypertriglyceridaemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Raised triglycerides, an HLH-2004 criterion reflecting cytokine-driven lipolysis and suppressed lipoprotein lipase.
+  - target: Elevated Liver Enzymes
+    causal_link_type: DIRECT
+    description: &gt;-
+      Transaminase rise from hepatic involvement during the episode.
+  - target: Anemia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Anaemia within the pancytopenia of the episode, curated separately because it was recorded as its own finding.
+  - target: Cerebral White Matter Lesion
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      CNS relapse of the syndrome two weeks after completion of the HLH-04 protocol, seen on brain MRI as a white-matter lesion with enhancing nodules.
+  - target: Leptomeningeal Enhancement
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The other MRI finding of that CNS relapse.
 - category: Gastrointestinal
   name: Hepatosplenomegaly
   description: &gt;
@@ -9556,7 +9806,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 69", "mondoId": "MONDO:0033541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_69", "yamlRevision": "a2c352c94ce3"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 69", "mondoId": "MONDO:0033541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_69", "yamlRevision": "3d1083f936c6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

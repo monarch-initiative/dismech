@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4670,6 +4709,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trpv4-ankyrin-repeat-domain-missense-variants" data-dismech-node="TRPV4 Ankyrin Repeat Domain Missense Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">TRPV4 Ankyrin Repeat Domain Missense Variants</div>
 
+
                 <div class="item-desc">FDAB is caused by heterozygous missense substitutions clustered in the intracellular ankyrin-repeat domain of TRPV4 at residues 270-273 (p.Gly270Val, p.Arg271Pro, p.Phe273Leu). This is a different part of the protein from the pore-region and C-terminal residues carrying the recurrent skeletal-dysplasia hotspots, and the restriction of FDAB to the digital joints tracks with that positional difference.</div>
 
 
@@ -4721,6 +4761,8 @@ This genetic context concerns TRPV4 (hgnc:18083). hgnc:18083 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4736,6 +4778,9 @@ This genetic context concerns TRPV4 (hgnc:18083). hgnc:18083 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Graded as loss of function on the strength of the only study that assayed the FDAB alleles themselves, which reported poor cell-surface localization and reduced agonist-evoked calcium influx for all three. This grading is contested: later structure-function work treats pathogenic TRPV4 variants as a class that gains channel function and is cytotoxic. See the discussion disc_fdab_channel_direction.</div>
 
@@ -4842,6 +4887,7 @@ This pathophysiological event involves TRPV4 calcium channel activity, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-trpv4-cell-surface-trafficking" data-dismech-node="Impaired TRPV4 Cell-Surface Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TRPV4 Cell-Surface Trafficking</div>
+
 
                 <div class="item-desc">In HEK-293 cells the three FDAB mutant proteins reach the cell surface poorly, so less functional channel is available at the plasma membrane where TRPV4 does its osmo- and mechanosensory work.</div>
 
@@ -4956,6 +5002,7 @@ This pathophysiological event involves decreased protein localization to plasma 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-trpv4-channel-responsiveness" data-dismech-node="Reduced TRPV4 Channel Responsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced TRPV4 Channel Responsiveness</div>
+
 
                 <div class="item-desc">Agonist-evoked calcium influx through the FDAB mutant channels is significantly reduced and the channels do not respond to hypotonic stress, so the osmomechanical calcium signal TRPV4 normally supplies is blunted. Cartilage is the tissue that fails because the chondrocyte is where this channel&#39;s osmomechanical signalling matters; note that the functional measurement below was made in a heterologous expression system, and the chondrocyte-level work available for the FDAB alleles specifically is the follistatin experiment, which is a negative result.</div>
 
@@ -5164,6 +5211,7 @@ This pathophysiological event involves decreased response to osmotic stress (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-articular-cartilage-homeostasis" data-dismech-node="Loss of Articular Cartilage Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Articular Cartilage Homeostasis</div>
 
+
                 <div class="item-desc">Articular cartilage of the digital joints fails to maintain itself. This is where FDAB diverges mechanistically from the TRPV4 skeletal dysplasias: those act on growth-plate chondrocytes through calcium-dependent follistatin upregulation and inhibition of endochondral ossification, whereas an FDAB (arthropathy) allele tested in the same chondrocyte assay left follistatin unchanged.</div>
 
 
@@ -5358,6 +5406,7 @@ This pathophysiological event occurs in articular cartilage of the digital joint
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subchondral-destruction-of-the-phalangeal-metacarpal-and-metatarsal-heads" data-dismech-node="Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads" data-dismech-type="pathophysiology">
                 <div class="item-name">Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads</div>
 
+
                 <div class="item-desc">Destructive change centred on the subchondral bone of the heads of the phalanges, metacarpals, and metatarsals. In the hand the distal joints are affected first and the middle phalangeal heads are the primary site of change. This is the shared origin of both the joint disease and the digital shortening.</div>
 
 
@@ -5504,6 +5553,7 @@ This pathophysiological event occurs in phalanx of the hand and foot, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-destructive-osteoarthropathy-of-the-digital-joints" data-dismech-node="Progressive Destructive Osteoarthropathy of the Digital Joints" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Destructive Osteoarthropathy of the Digital Joints</div>
+
 
                 <div class="item-desc">Aggressive, non-inflammatory osteoarthropathy of the joints of the fingers and toes. It is restricted to the hands and feet; the rest of the skeleton is spared, which is what separates FDAB from the other TRPV4 skeletal phenotypes.</div>
 
@@ -5662,6 +5712,7 @@ This pathophysiological event occurs in interphalangeal joint of the hand and fo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-shortening-of-the-middle-and-distal-phalanges" data-dismech-node="Secondary Shortening of the Middle and Distal Phalanges" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Shortening of the Middle and Distal Phalanges</div>
+
 
                 <div class="item-desc">Progressive loss of length in the middle and distal phalanges of fingers and toes as the bone ends are destroyed. Because the shortening is secondary to subchondral and epiphyseal destruction rather than to a primary growth-plate lesion, stature and the remainder of the skeleton are normal.</div>
 
@@ -5823,7 +5874,7 @@ This pathophysiological event occurs in phalanx of the hand and foot, annotated 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Annual Evaluation for Joint Pain\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews recommends annual evaluation for joint pain across the TRPV4 skeletal phenotypes. That item transfers to FDAB directly, since progressive digital joint pain is the presenting problem and the reason supportive care is offered at all. The other surveillance items in the same recommendation do not transfer: scoliosis and odontoid hypoplasia are axial findings in a disease that spares the axial skeleton, and hearing assessment belongs to the neuromuscular and dysplasia phenotypes rather than to this one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the digits, secondary to destruction of the phalangeal bone ends rather than to a primary growth-plate lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Digital Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain in the affected finger and toe joints, accumulating with the deformity into adult life. Pain is a leading reason for presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Distal Interphalangeal Joint Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In the hand the distal joints are involved first, with the middle phalangeal heads as the primary site of radiographic change. This distal preponderance is one of the features separating FDAB from Thiemann disease, which starts at the proximal interphalangeal joints.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006233\"}}, {\"id\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In HEK-293 cells the three FDAB mutant proteins reach the cell surface poorly, so less functional channel is available at the plasma membrane where TRPV4 does its osmo- and mechanosensory work.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein localization to plasma membrane\"]}}, {\"id\": \"Loss of Articular Cartilage Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage of the digital joints fails to maintain itself. This is where FDAB diverges mechanistically from the TRPV4 skeletal dysplasias: those act on growth-plate chondrocytes through calcium-dependent follistatin upregulation and inhibition of endochondral ossification, whereas an FDAB (arthropathy) allele tested in the same chondrocyte assay left follistatin unchanged.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"articular chondrocyte\"], \"biological_processes\": [\"cartilage homeostasis\"], \"locations\": [\"articular cartilage of the digital joints\"]}}, {\"id\": \"Non-Inflammatory Digital Arthropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A non-inflammatory arthropathy of the joints of the hands and feet. The absence of an inflammatory component matters diagnostically, because FDAB is otherwise readily mistaken for juvenile inflammatory arthritis in an adolescent presenting with painful, deformed finger joints.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003040\"}}, {\"id\": \"Osteoarthritis of the Small Joints of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive degenerative change in the small joints of the hand.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004268\"}}, {\"id\": \"Premature Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Degenerative joint disease of the digits beginning in the first decade, decades earlier than idiopathic hand osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggressive, non-inflammatory osteoarthropathy of the joints of the fingers and toes. It is restricted to the hands and feet; the rest of the skeleton is spared, which is what separates FDAB from the other TRPV4 skeletal phenotypes.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"interphalangeal joint of the hand and foot\"]}}, {\"id\": \"Radial Deviation of the Fingers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radial angulation of the fingers. Among the non-inflammatory digital arthropathies compared in the literature this has been described only in FDAB, so it carries discriminating value against Thiemann disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009466\"}}, {\"id\": \"Reduced TRPV4 Channel Responsiveness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Agonist-evoked calcium influx through the FDAB mutant channels is significantly reduced and the channels do not respond to hypotonic stress, so the osmomechanical calcium signal TRPV4 normally supplies is blunted. Cartilage is the tissue that fails because the chondrocyte is where this channel\u0027s osmomechanical signalling matters; note that the functional measurement below was made in a heterologous expression system, and the chondrocyte-level work available for the FDAB alleles specifically is the follistatin experiment, which is a negative result.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"articular chondrocyte\"], \"biological_processes\": [\"calcium ion transmembrane transport\", \"response to osmotic stress\"]}}, {\"id\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of length in the middle and distal phalanges of fingers and toes as the bone ends are destroyed. Because the shortening is secondary to subchondral and epiphyseal destruction rather than to a primary growth-plate lesion, stature and the remainder of the skeleton are normal.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"phalanx of the hand and foot\"]}}, {\"id\": \"Short Distal Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges of the fingers, progressive with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009882\"}}, {\"id\": \"Short Middle Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle phalanges of the fingers, progressive with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005819\"}}, {\"id\": \"Short Middle Phalanx of Toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feet are involved on the same pattern as the hands, with shortening of the middle and distal phalanges of the toes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003795\"}}, {\"id\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive change centred on the subchondral bone of the heads of the phalanges, metacarpals, and metatarsals. In the hand the distal joints are affected first and the middle phalangeal heads are the primary site of change. This is the shared origin of both the joint disease and the digital shortening.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"interphalangeal joint of the hand and foot\", \"phalanx of the hand and foot\"]}}, {\"id\": \"TRPV4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"association\": \"Causative\", \"variant_count\": 4}}, {\"id\": \"TRPV4 Ankyrin Repeat Domain Missense Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FDAB is caused by heterozygous missense substitutions clustered in the intracellular ankyrin-repeat domain of TRPV4 at residues 270-273 (p.Gly270Val, p.Arg271Pro, p.Phe273Leu). This is a different part of the protein from the pore-region and C-terminal residues carrying the recurrent skeletal-dysplasia hotspots, and the restriction of FDAB to the digital joints tracks with that positional difference.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"TRPV4 calcium channel activity\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Graded as loss of function on the strength of the only study that assayed the FDAB alleles themselves, which reported poor cell-surface localization and reduced agonist-evoked calcium influx for all three. This grading is contested: later structure-function work treats pathogenic TRPV4 variants as a class that gains channel function and is cytotoxic. See the discussion disc_fdab_channel_direction.\", \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}]}}}, {\"id\": \"c.809G\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A heterozygous TRPV4 coding variant found in a father and son referred with a diagnosis of Thiemann disease. The reporting authors state the identical variant had previously been reported to cause FDAB; its protein-level identity with one of the three ankyrin-repeat-domain alleles is not asserted here beyond what that report says.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg271Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study. Arg271 is a charged residue, which is relevant to the unresolved question of whether the FDAB alleles gain or lose channel function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly270Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Phe273Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"TRPV4 Ankyrin Repeat Domain Missense Variants\", \"target\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant channel proteins are poorly delivered to the plasma membrane in a heterologous expression system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"target\": \"Reduced TRPV4 Channel Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less channel at the membrane is the proposed reason the mutant channels pass less calcium and fail to respond to osmotic challenge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced TRPV4 Channel Responsiveness\", \"target\": \"Loss of Articular Cartilage Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors read the arthropathy phenotype as evidence that TRPV4 channel activity is required to maintain articular cartilage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Articular Cartilage Homeostasis\", \"target\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The radiographic sequence across ages was read as a subchondral lesion of the bone ends being the primary event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"target\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical arthropathy is a secondary effect of the subchondral lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"target\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The brachydactyly is likewise a secondary effect of the same subchondral lesion rather than a primary growth-plate dysplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital shortening follows from the joint destruction rather than preceding it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Non-Inflammatory Digital Arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Osteoarthritis of the Small Joints of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Distal Interphalangeal Joint Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Premature Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Digital Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Radial Deviation of the Fingers\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Middle Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Distal Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Middle Phalanx of Toe\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Annual Evaluation for Joint Pain\", \"target\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"p.Gly270Val\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg271Pro\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Phe273Leu\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.809G\u003eT\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Annual Evaluation for Joint Pain\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews recommends annual evaluation for joint pain across the TRPV4 skeletal phenotypes. That item transfers to FDAB directly, since progressive digital joint pain is the presenting problem and the reason supportive care is offered at all. The other surveillance items in the same recommendation do not transfer: scoliosis and odontoid hypoplasia are axial findings in a disease that spares the axial skeleton, and hearing assessment belongs to the neuromuscular and dysplasia phenotypes rather than to this one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the digits, secondary to destruction of the phalangeal bone ends rather than to a primary growth-plate lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Digital Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain in the affected finger and toe joints, accumulating with the deformity into adult life. Pain is a leading reason for presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Distal Interphalangeal Joint Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In the hand the distal joints are involved first, with the middle phalangeal heads as the primary site of radiographic change. This distal preponderance is one of the features separating FDAB from Thiemann disease, which starts at the proximal interphalangeal joints.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006233\"}}, {\"id\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In HEK-293 cells the three FDAB mutant proteins reach the cell surface poorly, so less functional channel is available at the plasma membrane where TRPV4 does its osmo- and mechanosensory work.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein localization to plasma membrane\"]}}, {\"id\": \"Loss of Articular Cartilage Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage of the digital joints fails to maintain itself. This is where FDAB diverges mechanistically from the TRPV4 skeletal dysplasias: those act on growth-plate chondrocytes through calcium-dependent follistatin upregulation and inhibition of endochondral ossification, whereas an FDAB (arthropathy) allele tested in the same chondrocyte assay left follistatin unchanged.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"articular chondrocyte\"], \"biological_processes\": [\"cartilage homeostasis\"], \"locations\": [\"articular cartilage of the digital joints\"]}}, {\"id\": \"Non-Inflammatory Digital Arthropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A non-inflammatory arthropathy of the joints of the hands and feet. The absence of an inflammatory component matters diagnostically, because FDAB is otherwise readily mistaken for juvenile inflammatory arthritis in an adolescent presenting with painful, deformed finger joints.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003040\"}}, {\"id\": \"Osteoarthritis of the Small Joints of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive degenerative change in the small joints of the hand.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004268\"}}, {\"id\": \"Premature Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Degenerative joint disease of the digits beginning in the first decade, decades earlier than idiopathic hand osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggressive, non-inflammatory osteoarthropathy of the joints of the fingers and toes. It is restricted to the hands and feet; the rest of the skeleton is spared, which is what separates FDAB from the other TRPV4 skeletal phenotypes.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"interphalangeal joint of the hand and foot\"]}}, {\"id\": \"Radial Deviation of the Fingers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radial angulation of the fingers. Among the non-inflammatory digital arthropathies compared in the literature this has been described only in FDAB, so it carries discriminating value against Thiemann disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009466\"}}, {\"id\": \"Reduced TRPV4 Channel Responsiveness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Agonist-evoked calcium influx through the FDAB mutant channels is significantly reduced and the channels do not respond to hypotonic stress, so the osmomechanical calcium signal TRPV4 normally supplies is blunted. Cartilage is the tissue that fails because the chondrocyte is where this channel\u0027s osmomechanical signalling matters; note that the functional measurement below was made in a heterologous expression system, and the chondrocyte-level work available for the FDAB alleles specifically is the follistatin experiment, which is a negative result.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"articular chondrocyte\"], \"biological_processes\": [\"calcium ion transmembrane transport\", \"response to osmotic stress\"]}}, {\"id\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of length in the middle and distal phalanges of fingers and toes as the bone ends are destroyed. Because the shortening is secondary to subchondral and epiphyseal destruction rather than to a primary growth-plate lesion, stature and the remainder of the skeleton are normal.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"phalanx of the hand and foot\"]}}, {\"id\": \"Short Distal Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the distal phalanges of the fingers, progressive with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009882\"}}, {\"id\": \"Short Middle Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle phalanges of the fingers, progressive with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005819\"}}, {\"id\": \"Short Middle Phalanx of Toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feet are involved on the same pattern as the hands, with shortening of the middle and distal phalanges of the toes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003795\"}}, {\"id\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive change centred on the subchondral bone of the heads of the phalanges, metacarpals, and metatarsals. In the hand the distal joints are affected first and the middle phalangeal heads are the primary site of change. This is the shared origin of both the joint disease and the digital shortening.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"interphalangeal joint of the hand and foot\", \"phalanx of the hand and foot\"]}}, {\"id\": \"TRPV4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"association\": \"Causative\", \"variant_count\": 4}}, {\"id\": \"TRPV4 Ankyrin Repeat Domain Missense Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FDAB is caused by heterozygous missense substitutions clustered in the intracellular ankyrin-repeat domain of TRPV4 at residues 270-273 (p.Gly270Val, p.Arg271Pro, p.Phe273Leu). This is a different part of the protein from the pore-region and C-terminal residues carrying the recurrent skeletal-dysplasia hotspots, and the restriction of FDAB to the digital joints tracks with that positional difference.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"TRPV4 calcium channel activity\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Graded as loss of function on the strength of the only study that assayed the FDAB alleles themselves, which reported poor cell-surface localization and reduced agonist-evoked calcium influx for all three. This grading is contested: later structure-function work treats pathogenic TRPV4 variants as a class that gains channel function and is cytotoxic. See the discussion disc_fdab_channel_direction.\", \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}]}}}, {\"id\": \"c.809G\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A heterozygous TRPV4 coding variant found in a father and son referred with a diagnosis of Thiemann disease. The reporting authors state the identical variant had previously been reported to cause FDAB; its protein-level identity with one of the three ankyrin-repeat-domain alleles is not asserted here beyond what that report says.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg271Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study. Arg271 is a charged residue, which is relevant to the unresolved question of whether the FDAB alleles gain or lose channel function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Gly270Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Phe273Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRPV4\"], \"gene_terms\": [{\"label\": \"TRPV4\", \"id\": \"hgnc:18083\"}], \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"TRPV4 Ankyrin Repeat Domain Missense Variants\", \"target\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant channel proteins are poorly delivered to the plasma membrane in a heterologous expression system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired TRPV4 Cell-Surface Trafficking\", \"target\": \"Reduced TRPV4 Channel Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less channel at the membrane is the proposed reason the mutant channels pass less calcium and fail to respond to osmotic challenge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced TRPV4 Channel Responsiveness\", \"target\": \"Loss of Articular Cartilage Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors read the arthropathy phenotype as evidence that TRPV4 channel activity is required to maintain articular cartilage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Articular Cartilage Homeostasis\", \"target\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The radiographic sequence across ages was read as a subchondral lesion of the bone ends being the primary event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"target\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical arthropathy is a secondary effect of the subchondral lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads\", \"target\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The brachydactyly is likewise a secondary effect of the same subchondral lesion rather than a primary growth-plate dysplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital shortening follows from the joint destruction rather than preceding it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Non-Inflammatory Digital Arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Osteoarthritis of the Small Joints of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Distal Interphalangeal Joint Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Premature Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Digital Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"target\": \"Radial Deviation of the Fingers\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Middle Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Distal Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Shortening of the Middle and Distal Phalanges\", \"target\": \"Short Middle Phalanx of Toe\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Annual Evaluation for Joint Pain\", \"target\": \"Progressive Destructive Osteoarthropathy of the Digital Joints\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TRPV4\", \"target\": \"TRPV4 Ankyrin Repeat Domain Missense Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Gly270Val\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg271Pro\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Phe273Leu\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.809G\u003eT\", \"target\": \"TRPV4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6786,6 +6837,9 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6886,6 +6940,7 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6907,7 +6962,13 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.</div>
@@ -6970,6 +7031,7 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6991,7 +7053,13 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study. Arg271 is a charged residue, which is relevant to the unresolved question of whether the FDAB alleles gain or lose channel function.</div>
@@ -7054,6 +7122,7 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7075,7 +7144,13 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous missense substitution in the intracellular ankyrin-repeat domain of TRPV4, one of the three FDAB alleles identified in the gene-discovery study.</div>
@@ -7138,6 +7213,7 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7159,7 +7235,13 @@ This variant is in TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A heterozygous TRPV4 coding variant found in a father and son referred with a diagnosis of Thiemann disease. The reporting authors state the identical variant had previously been reported to cause FDAB; its protein-level identity with one of the three ankyrin-repeat-domain alleles is not asserted here beyond what that report says.</div>

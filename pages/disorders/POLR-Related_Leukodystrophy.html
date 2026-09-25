@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5807,6 +5846,7 @@ This subtype is caused by variation in POLR3K (hgnc:14121). hgnc:14121 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-pol-iii-subunit-variant" data-dismech-node="Biallelic Hypomorphic Pol III Subunit Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic Pol III Subunit Variant</div>
 
+
                 <div class="item-desc">The proximal molecular lesion is a pair of hypomorphic (not complete-null) variants in a gene encoding a subunit of RNA polymerase III — POLR3A, POLR3B, POLR1C, or POLR3K. No individual has been reported carrying two nonsense POLR3A alleles, consistent with a requirement for residual Pol III activity. Because Pol III is essential and ubiquitously expressed, disease arises from partial quantitative reduction of enzyme function rather than from its abolition.</div>
 
 
@@ -6084,6 +6124,7 @@ This pathophysiological event involves POLR3K (hgnc:14121). hgnc:14121 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pol-iii-complex-assembly-and-nuclear-import" data-dismech-node="Impaired Pol III Complex Assembly and Nuclear Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Pol III Complex Assembly and Nuclear Import</div>
 
+
                 <div class="item-desc">Leukodystrophy-causing variants interfere with assembly of the multi-subunit Pol III holoenzyme in the cytoplasm and with its subsequent import into the nucleus, so less functional enzyme reaches chromatin. For POLR1C — a subunit shared with RNA polymerase I — this defect is selective for Pol III and spares Pol I, which is why POLR1C leukodystrophy variants do not produce the craniofacial phenotype caused by other POLR1C variants.</div>
 
 
@@ -6232,6 +6273,7 @@ This pathophysiological event involves decreased protein import into nucleus (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-steady-state-pol-iii-subunit-protein-in-cerebral-white-matter" data-dismech-node="Reduced Steady-State Pol III Subunit Protein in Cerebral White Matter" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Steady-State Pol III Subunit Protein in Cerebral White Matter</div>
 
+
                 <div class="item-desc">Hypomorphic alleles reduce the steady-state amount of Pol III subunit protein, and this reduction is not uniform across tissues: immunoblotting of patient fibroblasts and of an autopsied 4H brain showed a significantly greater decrease in cerebral white matter than in cortex. This regional gradient is one of the few direct human observations bearing on why a ubiquitously required enzyme produces a white-matter-predominant disease.</div>
 
 
@@ -6328,6 +6370,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pol-iii-occupancy-at-target-genes" data-dismech-node="Reduced Pol III Occupancy at Target Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Pol III Occupancy at Target Genes</div>
+
 
                 <div class="item-desc">With less assembled nuclear enzyme available, chromatin occupancy at Pol III-transcribed genes falls. ChIP-sequencing of mutant POLR1C showed reduced binding across the classes of Pol III-transcribed genes, including tRNA and 5S rRNA genes, while occupancy at the Pol I-transcribed ribosomal RNA gene was unchanged.</div>
 
@@ -6442,6 +6485,7 @@ This pathophysiological event involves decreased transcription by RNA polymerase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pol-iii-non-coding-transcript-output" data-dismech-node="Reduced Pol III Non-Coding Transcript Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Pol III Non-Coding Transcript Output</div>
+
 
                 <div class="item-desc">Transcription of the Pol III repertoire falls: all nuclear-encoded tRNAs, 5S rRNA (a structural component of the large ribosomal subunit), 7SL RNA (the signal recognition particle RNA) and 7SK RNA. Which transcript classes are most affected varies by causal gene and assay — patient fibroblasts with a POLR3K variant showed 5S rRNA and 7SL RNA most severely reduced, whereas the earliest measurable change in a Polr3a mutant mouse was a global reduction in the mature tRNA pool.</div>
 
@@ -6622,6 +6666,7 @@ This pathophysiological event involves decreased tRNA transcription by RNA polym
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-mislocalization-of-mutant-pol-iii-subunits" data-dismech-node="Lysosomal Mislocalization of Mutant Pol III Subunits" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Mislocalization of Mutant Pol III Subunits</div>
 
+
                 <div class="item-desc">A mechanistically separate, cell-autonomous arm demonstrated in oligodendroglial cell models: severe nonsense alleles of POLR3A (p.Arg140Ter) and POLR3B (p.Arg550Ter) produce protein aggregates that are routed to lysosomes instead of to the nucleus, whereas wild-type subunits are not lysosomal. This is currently supported only by in vitro cell-line data, and uses an allele class not observed biallelically in patients.</div>
 
 
@@ -6778,6 +6823,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-signaling-suppression" data-dismech-node="mTOR Signaling Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">mTOR Signaling Suppression</div>
 
+
                 <div class="item-desc">Expression of lysosomally mislocalized mutant Pol III subunits reduces signaling through the mechanistic target of rapamycin, the lysosome-anchored hub controlling anabolic growth. This is the node the ibuprofen rescue acts on, and the reason that lead is mechanistically framed as mTOR reactivation rather than as an anti-inflammatory effect.</div>
 
 
@@ -6879,6 +6925,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mature-trna-pool" data-dismech-node="Reduced Mature tRNA Pool" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Mature tRNA Pool</div>
 
+
                 <div class="item-desc">The mature tRNA pool shrinks and shifts in composition. In a postnatal whole-body Polr3a mutant mouse, tRNA sequencing early in disease showed a global reduction and altered profile of mature tRNAs at a stage when no other Pol III transcript class had changed and stress programmes were not yet induced, placing this deficit upstream as a disease-initiating event.</div>
 
 
@@ -6954,6 +7001,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constrained-translational-capacity" data-dismech-node="Constrained Translational Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Constrained Translational Capacity</div>
+
 
                 <div class="item-desc">Reduced supply of Pol III products that serve protein synthesis — tRNAs, 5S rRNA as a structural component of the large ribosomal subunit, and 7SL RNA as the signal recognition particle RNA — is proposed to constrain translational capacity. This step is an inference: it is the mechanism the field invokes to connect reduced Pol III output to a myelination defect, but translational output has not been measured directly in patient oligodendrocytes, so both supporting citations are recorded as partial.</div>
 
@@ -7094,6 +7142,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-integrated-stress-and-innate-immune-response-induction" data-dismech-node="Integrated Stress and Innate Immune Response Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Integrated Stress and Innate Immune Response Induction</div>
 
+
                 <div class="item-desc">As disease progresses in a Polr3a mutant mouse, cerebral transcriptomes show induction of innate immune and integrated stress response programmes alongside microglial activation. This is a secondary amplification arm rather than a disease-initiating event, since it is minimally induced at the stage when the tRNA deficit is already present.</div>
 
 
@@ -7169,6 +7218,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-differentiation-arrest" data-dismech-node="Oligodendrocyte Differentiation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendrocyte Differentiation Arrest</div>
+
 
                 <div class="item-desc">Oligodendrocyte precursor cells fail to proliferate and differentiate into mature myelinating oligodendrocytes. Lineage tracing in a conditional Polr3b mouse model identified defective precursor proliferation and differentiation, with failure to generate an adequate number of mature oligodendrocytes during postnatal myelinogenesis, as the mechanism underlying hypomyelination.</div>
 
@@ -7373,6 +7423,7 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-central-nervous-system-myelin-deposition" data-dismech-node="Deficient Central Nervous System Myelin Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Central Nervous System Myelin Deposition</div>
 
+
                 <div class="item-desc">Central myelin is never adequately deposited — a developmental and maturational deficit (hypomyelination), not destruction of previously normal myelin (demyelination). Structures that myelinate earliest in development are relatively spared, giving the characteristic MRI pattern of diffuse hypomyelination with relative T2 hypointensity of the ventrolateral thalamus, globus pallidus, optic radiation, corticospinal tract at the internal capsule, and dentate nucleus.</div>
 
 
@@ -7549,6 +7600,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebellar-atrophy" data-dismech-node="Progressive Cerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebellar Atrophy</div>
 
+
                 <div class="item-desc">Superimposed on the developmental hypomyelination is progressive loss of cerebellar volume, visible on serial imaging alongside thinning of the corpus callosum. The presence of an atrophic component on top of a developmental myelination deficit is what distinguishes the Pol III leukodystrophies from purely demyelinating disorders.</div>
 
 
@@ -7645,6 +7697,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-neurodegeneration" data-dismech-node="Progressive Cerebral Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral Neurodegeneration</div>
+
 
                 <div class="item-desc">A distinct supratentorial degenerative arm, characterized in mouse cerebra as neuron and oligodendrocyte loss with microglial activation and accompanying behavioural deficits. It is separated from the cerebellar node because the two rest on different evidence: the cerebellar claim is human imaging, this one is mouse neuropathology and transcriptomics.</div>
 
@@ -7781,6 +7834,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebellar-motor-dysfunction" data-dismech-node="Progressive Cerebellar Motor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebellar Motor Dysfunction</div>
 
+
                 <div class="item-desc">The clinically dominant motor syndrome: progressive cerebellar dysfunction (ataxia, dysarthria, dysmetria, tremor), with lesser pyramidal (spasticity) and extrapyramidal (dystonia) involvement. Most patients present before age 6 years with gross motor delay or regression.</div>
 
 
@@ -7867,6 +7921,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cognitive-decline" data-dismech-node="Progressive Cognitive Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cognitive Decline</div>
 
+
                 <div class="item-desc">Cognitive dysfunction is part of the neurologic syndrome but is generally later and less prominent than the motor deterioration, except in the late-onset subgroup where academic difficulty or cognitive plateau can be the presenting feature.</div>
 
 
@@ -7952,6 +8007,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-odontogenesis" data-dismech-node="Impaired Odontogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Odontogenesis</div>
+
 
                 <div class="item-desc">Tooth development is disturbed independently of the CNS phenotype, producing delayed dentition, an abnormal order of eruption, abnormally placed or shaped teeth, and hypodontia or oligodontia. A conditional Polr3b mouse model reproduces hypodontia together with craniofacial abnormalities, supporting the dental arm as a direct consequence of reduced Pol III function rather than a secondary effect of neurological disease.</div>
 
@@ -8077,6 +8133,7 @@ This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-pituitary-gonadotropic-insufficiency" data-dismech-node="Hypothalamic-Pituitary Gonadotropic Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic-Pituitary Gonadotropic Insufficiency</div>
 
+
                 <div class="item-desc">Insufficient gonadotropin drive to the gonads produces hypogonadotropic hypogonadism, manifesting as delayed, arrested, or absent puberty. This is the most common endocrine feature and one of the three defining &#34;H&#34;s, though it is not invariably present.</div>
 
 
@@ -8158,6 +8215,7 @@ This pathophysiological event occurs in adenohypophysis (UBERON:0002196). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somatic-growth" data-dismech-node="Impaired Somatic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Somatic Growth</div>
+
 
                 <div class="item-desc">Linear growth is impaired in roughly half of individuals. Growth hormone deficiency is demonstrable in some but not all of them, so the node is stated as the growth outcome rather than as a specific pituitary lesion. This is a separate endocrine axis from the gonadotropic one and is not universally coupled to it.</div>
 
@@ -10179,6 +10237,9 @@ This disease-associated gene is POLR3A (hgnc:30074). hgnc:30074 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10251,6 +10312,9 @@ This disease-associated gene is POLR3B (hgnc:30348). hgnc:30348 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10356,6 +10420,9 @@ This disease-associated gene is POLR1C (hgnc:20194). hgnc:20194 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10428,6 +10495,9 @@ This disease-associated gene is POLR3K (hgnc:14121). hgnc:14121 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
