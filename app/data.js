@@ -92778,6 +92778,87 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Craniometadiaphyseal Osteosclerosis with Hip Dysplasia",
+    "disease_id": "MONDO:0957832",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "creation_date": "2026-09-25T13:56:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Craniometadiaphyseal osteosclerosis with hip dysplasia is an autosomal recessive sclerosing skeletal dysplasia caused by homozygous C-terminally truncating variants in AXIN1, the scaffold of the beta-catenin destruction complex. The founding report described seven individuals from four families with macrocephaly, cranial hyperostosis and sclerosis of the vertebral endplates; hip dysplasia, heart malformations, variable developmental delay and hematological anomalies, including anemia and pancytopenia, were also frequent.\nThe truncating alleles remove the C-terminal DIX domain through which AXIN1 polymerizes. In primary and genome-edited cells carrying them, AXIN1 protein levels were reduced, DIX-mediated polymerization was impaired and basal canonical Wnt/beta-catenin signalling was increased, yet the truncated proteins kept part of their Wnt-inhibitory activity when overexpressed, so the alleles are hypomorphic rather than null. A tankyrase inhibitor attenuated the Wnt overactivity in these cell systems. Patient bone biopsy showed increased osteoblast and reduced osteoclast function at the growth-plate resorption zone, and the authors proposed that AXIN1 coordinates osteoblast and osteoclast activity; in mice, deleting Axin1 in osteoblast precursors reduced osteoclast formation through increased osteoprotegerin. How the extraskeletal features arise is unknown.",
+    "pathophysiology": [
+      "Biallelic C-Terminal AXIN1 Truncation",
+      "Reduced AXIN1 Protein Abundance",
+      "Impaired DIX-Domain-Mediated AXIN1 Polymerization",
+      "Enhanced Basal Canonical Wnt/Beta-Catenin Signaling",
+      "Imbalanced Osteoblast-Osteoclast Coupling"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "AXIN1 polymerization",
+      "canonical Wnt signaling pathway",
+      "bone formation",
+      "osteoclast differentiation"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Cranial Hyperostosis",
+      "Sclerotic Vertebral Endplates",
+      "Hip Dysplasia",
+      "Heart Malformations",
+      "Developmental Delay",
+      "Anemia",
+      "Pancytopenia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Cardiovascular",
+      "Neurological",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0004437",
+      "HP:0004576",
+      "HP:0001385",
+      "HP:0001627",
+      "HP:0001263",
+      "HP:0001903",
+      "HP:0001876"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AXIN1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Craniometadiaphyseal_Osteosclerosis_With_Hip_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Craniometadiaphyseal_Osteosclerosis_with_Hip_Dysplasia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Craniometaphyseal Dysplasia",
     "disease_id": "MONDO:0015465",
     "category": "Mendelian",
@@ -107348,6 +107429,100 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 2B",
+    "disease_id": "MONDO:0013848",
+    "category": "Mendelian",
+    "parents": [
+      "familial isolated dilated cardiomyopathy",
+      "Dilated Cardiomyopathy"
+    ],
+    "creation_date": "2026-09-25T13:56:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 2B (CMD2B) is an autosomal recessive, adult-onset, nonsyndromic dilated cardiomyopathy attributed to a homozygous missense variant, c.304T>C p.(Ser102Pro), in GATAD1, which encodes GATA zinc finger domain-containing protein 1. The entity rests on a single consanguineous family of Norwegian ancestry: two sisters developed dilated cardiomyopathy with heart failure at 50 and 53 years of age and their brother had idiopathic left ventricular enlargement at 57, all three homozygous for the variant, while thirteen heterozygous relatives had normal hearts into old age. The clinical course in that family resembled ordinary adult dilated cardiomyopathy and was chronic rather than fulminant, with the two sisters still in NYHA class II more than two decades after diagnosis on standard heart failure therapy.\nGATAD1 is a ubiquitously expressed protein, found in the nucleus and cytoplasm of cardiomyocytes, that co-purifies with the EMSY/KDM5A/SIN3B chromatin-regulatory complex, which binds H3K4me3-marked promoters, and the discovery paper proposed epigenetic dysregulation as the disease mechanism. How the variant damages the heart is not known. The proband's myocardium showed a disturbed extranuclear GATAD1 staining pattern and abnormally globular cardiomyocyte nuclei; Ser102 is a phosphorylation site whose phosphorylated form binds 14-3-3 proteins, a binding the proline substitution abolishes in vitro; a gatad1 knockout zebrafish develops heart failure-like phenotypes only under added stress; and a cardiomyocyte-specific Gatad1 knockout mouse does not develop cardiomyopathy. ClinGen classifies the GATAD1-dilated cardiomyopathy relationship as Limited.",
+    "pathophysiology": [
+      "Homozygous GATAD1 p.Ser102Pro Variant",
+      "Loss of Phospho-Ser102-Dependent 14-3-3 Binding",
+      "Aberrant GATAD1 Subcellular Distribution in Cardiomyocytes",
+      "Globular Cardiomyocyte Nuclei",
+      "Perturbed GATAD1-Associated Chromatin Regulation",
+      "Left Ventricular Dilation and Remodeling",
+      "Left Ventricular Systolic Dysfunction",
+      "Chronic Systolic Heart Failure"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "nucleus organization",
+      "regulation of DNA-templated transcription",
+      "cardiac muscle hypertrophy",
+      "extracellular matrix organization",
+      "heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Left ventricular dilatation",
+      "Reduced left ventricular ejection fraction",
+      "Congestive heart failure",
+      "Cardiomegaly",
+      "Atrial fibrillation",
+      "Left ventricular thrombus",
+      "Cardiomyocyte hypertrophy",
+      "Interstitial cardiac fibrosis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:4000141",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0001640",
+      "HP:0005110",
+      "HP:0040412",
+      "HP:0031319",
+      "HP:0031329"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GATAD1"
+    ],
+    "treatments": [
+      "Beta-Blocker Therapy",
+      "ACE Inhibitor or Angiotensin Receptor Blocker Therapy",
+      "Mineralocorticoid Receptor Antagonist Therapy",
+      "Loop Diuretic and Digoxin",
+      "Anticoagulation",
+      "Atrioventricular Node Ablation With Pacemaker Implantation",
+      "Permanent Pacemaker Placement",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation",
+      "Genetic Counseling and Cascade Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_2B.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_2B.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dimethylglycine Dehydrogenase Deficiency",
@@ -274534,6 +274709,217 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Roberts Syndrome",
+    "disease_id": "MONDO:0100253",
+    "category": "Mendelian",
+    "parents": [
+      "cohesinopathy",
+      "limb reduction defect",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-25T13:56:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Roberts syndrome, now also called ESCO2 spectrum disorder, is an autosomal recessive cohesinopathy caused by biallelic loss-of-function variants in ESCO2, the acetyltransferase that acetylates the SMC3 subunit of cohesin during S phase so that sister chromatids stay paired until anaphase. The clinical picture is prenatal-onset growth restriction, symmetric limb reduction in which the upper limbs are more often and more severely affected than the lower (from bilateral tetraphocomelia to mesomelic shortening, oligodactyly and thumb aplasia), flexion contractures, and a characteristic face with microcephaly, bilateral cleft lip and palate, micrognathia, widely spaced prominent eyes, malar flattening and underdeveloped nasal alae. Microphthalmia and corneal opacities, intellectual disability, cardiac and renal malformations, and in survivors cerebrovascular disease, are also reported.\nSeverity is a continuum. The severe end (historically Roberts syndrome, OMIM 268300) includes stillbirth and neonatal death; the mild end (historically SC phocomelia, OMIM 269000) has lesser limb reduction and survival into adulthood. Both ends carry the same cytogenetic sign, premature centromere separation (heterochromatin repulsion, or \"railroad track\" chromosomes), and the same class of truncating ESCO2 alleles, so genotype does not predict severity and the two are curated here as one disease.\nThe cellular lesion is failure to establish cohesion at pericentric heterochromatin. In patient cells and in fish and mouse models this is followed by prolonged mitosis, chromosome missegregation and aneuploidy, p53 activation and death or reduced proliferation of rapidly dividing embryonic progenitors, which is the most widely held explanation for the limb and craniofacial reduction. Impaired ribosome biogenesis with mTORC1 repression, cohesin-dependent transcriptional dysregulation, and, in the developing mouse limb, p53-dependent vascular disruption and hemorrhage are documented additional mechanisms whose relative weight is unresolved.",
+    "pathophysiology": [
+      "ESCO2 Biallelic Loss of Function",
+      "Reduced SMC3 Acetylation of Chromatin-Bound Cohesin",
+      "Failed Pericentric Sister Chromatid Cohesion Establishment",
+      "Premature Centromere Separation on Metaphase Spreads",
+      "Prolonged Mitosis and Chromosome Missegregation",
+      "Somatic Aneuploidy and Micronucleus Formation",
+      "Genotoxin Hypersensitivity and Defective DNA Damage Response",
+      "Nucleolar Fragmentation and Impaired Ribosome Biogenesis",
+      "mTORC1 Repression and Reduced Protein Translation",
+      "Cohesin-Dependent Transcriptional Dysregulation",
+      "p53 Pathway Activation",
+      "Apoptosis of Proliferating Embryonic Progenitors",
+      "Reduced Proliferative Capacity of Embryonic Progenitors",
+      "Limb Bud Vascular Disruption and Hemorrhage",
+      "Limb Bud Outgrowth Failure",
+      "Deficient Craniofacial Primordium Growth",
+      "Cortical Progenitor Loss",
+      "Cerebral Small-Vessel Vasculopathy"
+    ],
+    "cell_types": [
+      "mesenchymal cell",
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008019",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "establishment of mitotic sister chromatid cohesion",
+      "centromeric sister chromatid cohesion",
+      "chromosome segregation",
+      "mitotic spindle assembly checkpoint signaling",
+      "double-strand break repair",
+      "response to oxidative stress",
+      "ribosome biogenesis",
+      "TORC1 signaling",
+      "cytoplasmic translation",
+      "p53-mediated intrinsic apoptotic signaling",
+      "apoptotic process",
+      "cell population proliferation",
+      "embryonic limb morphogenesis",
+      "roof of mouth development"
+    ],
+    "phenotypes": [
+      "Tetraphocomelia",
+      "Mesomelic limb shortening",
+      "Absent radius",
+      "Fibular aplasia",
+      "Oligodactyly",
+      "Aplasia/Hypoplasia of the thumb",
+      "Syndactyly",
+      "Clinodactyly of the 5th finger",
+      "Humeroradial synostosis",
+      "Flexion contractures",
+      "Talipes equinovarus",
+      "Intrauterine growth retardation",
+      "Postnatal growth retardation",
+      "Microcephaly",
+      "Intellectual disability",
+      "Cleft lip",
+      "Cleft palate",
+      "Micrognathia",
+      "Hypertelorism",
+      "Proptosis",
+      "Downslanted palpebral fissures",
+      "Malar flattening",
+      "Underdeveloped nasal alae",
+      "Ear malformations",
+      "Craniosynostosis",
+      "Midface capillary hemangioma",
+      "Silver-gray hair",
+      "Hypopigmented skin patches",
+      "Microphthalmia",
+      "Corneal opacity",
+      "Nystagmus",
+      "Glaucoma",
+      "Congenital heart defect",
+      "Renal dysplasia",
+      "Genital anomalies",
+      "Ischemic stroke",
+      "Intracranial aneurysm",
+      "Cerebellar hemorrhage",
+      "Leukoencephalopathy",
+      "Cerebral calcification",
+      "Recurrent infections",
+      "Malignancy",
+      "Perinatal death",
+      "Premature centromere separation"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Musculoskeletal",
+      "Growth",
+      "Neurological",
+      "Craniofacial",
+      "Integument",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Renal",
+      "Genitourinary",
+      "Immunological",
+      "Neoplasm",
+      "Mortality/Aging",
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030721",
+      "HP:0003027",
+      "HP:0003974",
+      "HP:0002990",
+      "HP:0012165",
+      "HP:0009601",
+      "HP:0001159",
+      "HP:0004209",
+      "HP:0003041",
+      "HP:0001371",
+      "HP:0001762",
+      "HP:0001511",
+      "HP:0008897",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0100336",
+      "HP:0000175",
+      "HP:0000347",
+      "HP:0000316",
+      "HP:0000520",
+      "HP:0000494",
+      "HP:0000272",
+      "HP:0000430",
+      "HP:0031703",
+      "HP:0001363",
+      "HP:0007452",
+      "HP:0002218",
+      "HP:0001053",
+      "HP:0000568",
+      "HP:0007957",
+      "HP:0000639",
+      "HP:0000501",
+      "HP:0001627",
+      "HP:0000110",
+      "HP:0000032",
+      "HP:0002140",
+      "HP:0004944",
+      "HP:0011695",
+      "HP:0002352",
+      "HP:0002514",
+      "HP:0002719",
+      "HP:0002664",
+      "HP:0003616"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ESCO2"
+    ],
+    "treatments": [
+      "Multidisciplinary Limb Management",
+      "Occupational Therapy",
+      "Hand and Orthopedic Surgery",
+      "Cleft Lip and Palate Repair",
+      "Craniofacial Surgery for Craniosynostosis and Micrognathia",
+      "Feeding and Nutrition Support",
+      "Speech Therapy and Educational Support",
+      "Multisystem Surveillance",
+      "Genetic Counseling",
+      "L-leucine (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Roberts_Syndrome.yaml",
+    "page_url": "../pages/disorders/Roberts_Syndrome.html",
+    "num_phenotypes": 44,
+    "num_pathophysiology": 18,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "79",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Robinow Syndrome, Autosomal Recessive 2",
     "disease_id": "MONDO:0032800",
     "category": "Mendelian",
@@ -330483,17 +330869,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3134,
+  "total_disorder_pages": 3137,
   "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7164,
-  "total_unique_evidence_sources": 45477,
-  "total_unique_publications": 42733,
+  "total_disorders_and_subtypes": 7167,
+  "total_unique_evidence_sources": 45531,
+  "total_unique_publications": 42786,
   "total_unique_disease_categories": 62,
-  "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3129,
-  "total_unique_pathological_events": 19687,
+  "total_unique_phenotype_categories": 284,
+  "total_pathographs": 3132,
+  "total_unique_pathological_events": 19717,
   "total_modules": 178,
-  "total_research_reports": 3242,
+  "total_research_reports": 3245,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
