@@ -160,6 +160,9 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - 'justfile'
+              # How the smoke test is invoked is an input too: this filter is
+              # the only thing that runs it on a merge-queue build.
+              - '.github/workflows/main.yaml'
             schema_terms:
               - 'src/dismech/schema/**'
               - 'conf/oak_config.yaml'
@@ -753,8 +756,19 @@ jobs:
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
+      #
+      # NOT forced on merge_group, unlike its neighbours, and deliberately
+      # (tests/test_merge_group_ci.py, PATH_DETERMINED_STEPS). `gen-project`
+      # reads nothing but the files in the `schema_generation` filter: the
+      # schema, the generator config, and the locked toolchain. On merge_group
+      # that filter diffs the group's base (the current tip of main) against
+      # its head, so when it is false the group changes none of those inputs
+      # and generation would reproduce, byte for byte, a result main already
+      # holds. The #9538 argument for forcing everything is about checks that
+      # read the KB, whose inputs a path filter cannot bound; this one can.
+      # ~281s of every queue build.
       - name: Run schema generation smoke test
-        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_generation == 'true'
+        if: steps.changes.outputs.schema_generation == 'true'
         run: just test-schema
 
       - name: Run Python code/logic tests
